@@ -1,0 +1,259 @@
+---
+format: html
+---
+
+```{r}
+library(ltm)
+library(tidyverse)
+library(glue)
+library(ggforce)
+library(ggthemes)
+library(GGally)
+
+.font <- "Source Sans Pro"
+theme_set(theme_bw(base_size = 14, base_family = .font))
+theme_update(panel.grid = element_blank(),
+             strip.background = element_blank(),
+             legend.key = element_blank(),
+             panel.border = element_blank(),
+             axis.line = element_line(),
+             strip.text = element_text(face = "bold"))
+```
+
+```{r}
+survey_items <- read_csv("metadata/(2.1) Survey - Questionnaire Details - Caregiver Forms.csv")
+
+items <- survey_items |>
+  select(survey_name, variable_name, response_type, response_options, reverse_coded,
+         form_construct, form_subconstruct, question_type) |>
+  mutate(values_chr = response_options |> str_split("[,-]") |> map(str_trim),
+         values = map(values_chr, as.numeric)) |>
+  select(-response_options)
+
+# items |> filter(!is.na(values_chr), is.na(values))
+# items |> filter(is.na(form_construct)) |> pull(variable_name)
+# items |> count(question_type, form_construct)
+# items |> filter(reverse_coded) ##|> count(response_type)
+```
+
+```{r}
+data_files <- c("data_raw/LEVANTE for Prolific200.json",
+                "data_raw/LEVANTE for Prolific200b.json")
+                # "../v2/data_raw/LEVANTE_Prolific.json")
+
+# get data out of json list into tibble
+json_to_df <- \(json) map(json, \(df) enframe(df) |> pivot_wider()) |> list_rbind()
+
+json_df <- map(data_files, \(f) jsonlite::read_json(f)$Data |> json_to_df()) |> bind_rows()
+```
+
+```{r}
+valid_id <- \(id) !is.null(id) && str_length(id) == 24 # checks if valid prolific ID
+all_one <- \(x) all(map(x, length) <= 1) # checks if all values in vector are length 0 or 1
+
+foot_inches <- 12
+pound_ounces <- 16
+
+# getting into correct value structure
+json_df_tidy <- json_df |>
+  mutate(across(where(all_one), \(col) map(col, \(v) ifelse(is.null(v), NA, v)))) |> # replace NULL with NA
+  mutate(across(where(all_one), unlist)) |> # unlist all length 1 columns
+  select(-HappendAt, -InstanceId) |> # remove junk columns
+  mutate(across(where(negate(all_one)), \(col) map(col, as_tibble))) |> # turn list columns into tibbles
+  unnest(where(negate(all_one)), keep_empty = TRUE) # move nested tibble columns into top-level columns
+
+# processing/filtering Prolific IDs
+json_df_id <- json_df_tidy |>
+  mutate(ProlificID = str_trim(ProlificID)) |> # remove whitespace from ProlificID
+  # filter(map_lgl(ProlificID, negate(valid_id))) |> View()
+  filter(map_lgl(ProlificID, valid_id)) |> # remove rows with missing/invalid ProlificID (from test data)
+  mutate(id = ProlificID |> fct_inorder() |> as.numeric(),
+         .before = everything()) # add index to use instead of ProlificID
+
+# json_df_id |> count(id, ProlificID) |> filter(n > 1)
+# json_df_id |> group_by(id) |> filter(n() > 1) |> View()
+# json_df_id |> filter(id == 18 | id == 88) |> View()
+
+json_df_anon <- json_df_id |> select(-ProlificID) # remove Prolific ID
+
+# processing height/weight
+json_df_units <- json_df_anon |>
+  mutate(across(matches("Feet|Inches|Pounds|Ounces"), \(v) if_else(is.na(v), 0, v))) |>
+  mutate(ChildHeightCurrent = as.numeric(ChildHeightCurrentFeet) +
+           as.numeric(ChildHeightCurrentInches) / foot_inches,
+         ChildWeightCurrent = as.numeric(ChildWeightCurrentPounds) +
+           as.numeric(ChildWeightCurrentOunces) / pound_ounces,
+         ChildWeightBirth = as.numeric(ChildWeightBirthPounds) +
+           as.numeric(ChildWeightBirthOunces) / pound_ounces,
+         .after = ChildAgeYears) |>
+  # filter(is.na(ChildHeightCurrent) | is.na(ChildWeightCurrent) | is.na(ChildWeightBirth))
+  mutate(across(matches("Height|Weight"), \(v) if_else(v == 0, NA, v))) |>
+  # select(id, matches("Feet|Inches|Pounds|Ounces|Height|Weight")) |> View()
+  select(-matches("Feet|Inches|Pounds|Ounces"))
+```
+
+```{r}
+json_df_long <- json_df_units |>
+  pivot_longer(-id, names_to = "variable_name", values_to = "value_chr",
+               values_transform = as.character) # switch to long format
+
+# json_df_long |> filter(is.na(value_chr))
+json_df_dedupe <- json_df_long |>
+  filter(!is.na(value_chr)) |> distinct() |> # uniquefy multiple responses
+  group_by(id, variable_name) |> filter(n() == 1) |> ungroup() # remove questions with multiple different responses
+
+# json_df_dedupe |> group_by(id, variable_name) |> filter(n() > 1) |>
+  # ungroup() |> distinct(id, variable_name) |> count(id)
+  # arrange(id, variable_name) |> View()
+
+# json_df_long |>
+#   distinct(id, variable_name) |>
+#   group_by(id, variable_name) |> filter(n() > 1)
+  # summarise(value_chr = value_chr |> unique())
+  # filter(n() > 1)
+  
+json_df_items <- json_df_dedupe |> left_join(items) # combine with item metadata
+
+# json_df_items |> filter(is.na(form_construct)) |> pull(variable_name) |> unique()
+
+# given a value v and vector of possible values
+# find index of v in values, get value at that index in values reversed
+reverse_value <- \(v, vals) if (any(is.na(vals)) || !(v %in% vals)) NA else rev(vals)[which(vals == v)]
+
+#value = if_else(is.na(value), "0", value), # replace NAs with 0s -- TODO whether this is always right
+
+json_df_vals <- json_df_items |>
+  filter(!is.na(form_construct)) |>
+  mutate(value = as.numeric(value_chr), # convert responses to numeric
+         value = abs(value), .after = value_chr) |> # make negative vals positive
+  # mutate(rev_val = map2_dbl(value, values_numeric, reverse_value))
+  mutate(value = if_else(reverse_coded & response_type == "numeric_scale",
+                         map2_dbl(value, values, reverse_value),
+                         value)) # reverse code values if needed
+
+survey_v2 <- readRDS("../v2/data_processed/survey_tidy.rds") |>
+  mutate(variable_name = if_else(variable_name == "EFQ5", "ChildEFQ5", variable_name),
+         id = id + max(json_df_vals$id))
+
+survey_combined <- bind_rows(json_df_vals, survey_v2)
+
+# saveRDS(survey_combined, "data_processed/survey_tidy.rds")
+
+# setdiff(json_df_vals$variable_name, survey_v2$variable_name)
+# setdiff(survey_v2$variable_name, json_df_vals$variable_name)
+
+# json_df_vals |> filter(value != value_rev)
+# json_df_vals |> filter(value != value_rev, !reverse_coded)
+# json_df_vals |> filter(!is.na(value_chr), is.na(value)) |> pull(value_chr) # check that all numbers were converted to numeric
+# json_df_vals |> count(question_type, form_subconstruct) |> View()
+# json_df_vals |> filter(value < 0)
+
+# json_df_vals |>
+#   group_by(id) |>
+#   summarise(missing = sum(is.na(value)), total = n()) |>
+#   arrange(desc(missing))
+# 
+# json_df_vals |>
+#   group_by(variable_name) |>
+#   summarise(missing = sum(is.na(value)), total = n()) |>
+#   arrange(desc(missing)) |>
+#   filter(missing != 0,
+#          !str_detect(variable_name, "Level|Current|Age|Amount|Puberty|Exp|HomeHOME24"))
+```
+
+```{r}
+survey_combined |>
+  ggplot(aes(x = value, y = variable_name)) +
+    facet_wrap(vars(form_construct), scales = "free", ncol = 4) +
+    geom_sina(size = 0.5) +
+    labs(x = "Response", y = "Item")
+# ggsave("plots/pilot_vals.png", width = 16, height = 9)
+```
+
+```{r}
+item_alphas <- survey_combined |>
+  filter(question_type == "Measurement") |>
+  select(id, variable_name, value, form_construct, form_subconstruct) |>
+  filter(!is.na(form_construct), !is.na(form_subconstruct), !is.na(value)) |>
+  filter(!(variable_name %in% c("ChildAgeYears", "ChildHeight", "ChildWeight"))) |>
+  filter(!(form_subconstruct %in% c("Behavior", "Sex and Gender"))) |>
+  nest(data = -c(form_construct, form_subconstruct)) |>
+  # slice(7) |>
+  mutate(df_vals = map(data, function(df) {
+    df |>
+      pivot_wider(names_from = variable_name, values_from = value) |>
+      select(-id)
+  })) |>
+  mutate(alpha = map(df_vals, \(dfv) cronbach.alpha(dfv, na.rm = TRUE, CI = TRUE) |> unclass() |> as_tibble()))
+
+alphas <- item_alphas |>
+  select(form_construct, form_subconstruct, alpha) |>
+  unnest(alpha) |>
+  # filter(!is.na(alpha)) |>
+  mutate(probs = probs |> as_factor() |> fct_recode(lower = "0.025", upper = "0.975")) |>
+  pivot_wider(names_from = probs, values_from = ci, names_prefix = "ci_") |>
+  mutate(form_construct = fct_inorder(form_construct)) |>
+  arrange(form_construct, desc(alpha)) |>
+  mutate(form_subconstruct = fct_inorder(form_subconstruct))
+
+# saveRDS(alphas, "data_processed/subconstruct_alphas.rds")
+
+ggplot(alphas, aes(x = alpha, y = form_subconstruct)) +
+  facet_col(facets = vars(form_construct), scales = "free_y", space = "free") +
+  geom_vline(xintercept = 0, linetype = "dotted") +
+  geom_vline(xintercept = .7, colour = "lightgrey") +
+  geom_linerange(aes(xmin = ci_lower, xmax = ci_upper), orientation = "y", colour = "grey") +
+  geom_crossbar(aes(xmin = alpha, xmax = alpha), orientation = "y") +
+  geom_text(aes(label = p, x = min(ci_lower) - .05),
+            size = 3, family = .font, hjust = 1) +
+  labs(x = glue("Cronbach's alpha (N = {unique(alphas$n)})"),
+       y = NULL, size = "N items")
+
+# ggsave("plots/pilot_alphas.png", width = 7, height = 11)
+```
+
+```{r}
+subcon_cors <- function(subcons) {
+  fc <- json_df_vals |>
+    filter(form_subconstruct %in% subcons) |>
+    select(id, variable_name, value) |>
+    pivot_wider(names_from = variable_name, values_from = value) |>
+    select(-id)
+  
+  # ggcorr(fc)
+  ggpairs(fc) + labs(title = glue("Subconstructs: {paste(subcons, collapse = ', ')}"))
+}
+
+# subcon_cors(c("Sleep Problems", "Sleep Health"))
+# ggsave("plots/cors_sleep.png", width = 11, height = 11)
+
+# subcon_cors("Technology")
+# ggsave("plots/cors_technology.png", width = 11, height = 11)
+
+# subcon_cors("Discipline")
+# ggsave("plots/cors_discipline.png", width = 20, height = 20)
+
+# subcon_cors("Peer Relationships")
+# ggsave("plots/cors_peer_relationships.png", width = 6, height = 6)
+
+# fc_cors <- cor(fc) |> as_tibble()
+# fc_cors_tidy <- fc_cors |>
+#   mutate(var1 = colnames(fc_cors)) |>
+#   pivot_longer(-var1, names_to = "var2", values_to = "cor")
+# 
+# ggplot(fc_cors_tidy, aes(x = var1, y = var2, fill = cor)) +
+#   geom_tile()
+
+# item_means <- json_df_items |>
+#   # filter(!is.na(form_construct)) |>
+#   group_by(form_construct, variable_name) |>
+#   mutate(value_z = scale(value)[,1]) |>
+#   group_by(form_construct, form_subconstruct, variable_name) |>
+#   summarise(mean = mean(value, na.rm = TRUE),
+#             mean_z = mean(value_z, na.rm = TRUE))
+# 
+# ggplot(item_means, aes(x = mean)) +
+#   facet_wrap(vars(form_construct)) +
+#   geom_dotplot()
+#   geom_histogram()
+```

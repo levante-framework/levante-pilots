@@ -165,16 +165,19 @@ ggplot(alphas, aes(x = alpha, y = form_subconstruct)) +
 ```
 
 ```{r}
-subcon_cors <- function(subcon) {
+subcon_cors <- function(subcons) {
   fc <- json_df_vals |>
-    filter(form_subconstruct == subcon) |>
+    filter(form_subconstruct %in% subcons) |>
     select(id, variable_name, value) |>
     pivot_wider(names_from = variable_name, values_from = value) |>
     select(-id)
   
   # ggcorr(fc)
-  ggpairs(fc) + labs(title = glue("Subconstruct: {subcon}"))
+  ggpairs(fc) + labs(title = glue("Subconstructs: {paste(subcons, collapse = ', ')}"))
 }
+
+subcon_cors(c("Sleep Problems", "Sleep Health"))
+ggsave("plots/cors_sleep.png", width = 11, height = 11)
 
 # subcon_cors("Technology")
 # ggsave("plots/cors_technology.png", width = 11, height = 11)
