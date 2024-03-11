@@ -1,0 +1,151 @@
+---
+format: html
+---
+
+```{r}
+library(ltm)
+library(tidyverse)
+library(glue)
+library(ggforce)
+library(ggthemes)
+library(GGally)
+
+.font <- "Source Sans Pro"
+theme_set(theme_bw(base_size = 14, base_family = .font))
+theme_update(panel.grid = element_blank(),
+             strip.background = element_blank(),
+             legend.key = element_blank(),
+             panel.border = element_blank(),
+             axis.line = element_line(),
+             strip.text = element_text(face = "bold"))
+```
+
+```{r}
+survey_items <- read_csv("metadata/(2.1) Survey - Questionnaire Details - Teacher Forms.csv")
+ 
+items <- survey_items |>
+  select(survey_name, variable_name, response_type, response_options,
+         reverse_coded, form_construct, question_type) |>
+  mutate(values_chr = response_options |> str_split("[,-]") |> map(str_trim),
+         values = map(values_chr, as.numeric)) |>
+  select(-response_options)
+```
+
+```{r}
+data_files <- c("data_raw/LEVANTE Teacher Survey Prolific.json")
+
+# get data out of json list into tibble
+json_to_df <- \(json) map(json, \(df) enframe(df) |> pivot_wider()) |> list_rbind()
+json_df <- map(data_files, \(f) jsonlite::read_json(f)$Data |> json_to_df()) |> bind_rows()
+```
+
+```{r}
+valid_id <- \(id) !is.null(id) && str_length(id) == 24 # checks if valid prolific ID
+all_one <- \(x) all(map(x, length) <= 1) # checks if all values in vector are length 0 or 1
+named <- \(x) is_list(x) && any(map_lgl(x, \(v) !is.null(v) && !is.null(names(v))))
+
+# getting into correct value structure
+json_df_tidy <- json_df |>
+  mutate(across(where(all_one), \(col) map(col, \(v) ifelse(is.null(v), NA, v)))) |> # replace NULL with NA
+  mutate(across(where(all_one), unlist)) |> # unlist all length 1 columns
+  select(-HappendAt, -InstanceId) |> # remove junk columns
+  mutate(across(where(named), \(col) map(col, as_tibble))) |> # turn list columns into tibbles
+  unnest(where(named), keep_empty = TRUE) |> # move nested tibble columns into top-level columns
+  mutate(across(where(is_list), \(col) map(col, unlist)))
+
+# processing/filtering Prolific IDs
+json_df_id <- json_df_tidy |>
+  rename(ProlificID = question1) |>
+  mutate(ProlificID = str_trim(ProlificID)) |> # remove whitespace from ProlificID
+  filter(map_lgl(ProlificID, valid_id)) |> # remove rows with missing/invalid ProlificID (from test data)
+  mutate(id = ProlificID |> fct_inorder() |> as.numeric(),
+         .before = everything()) # add index to use instead of ProlificID
+
+json_df_anon <- json_df_id |> select(-ProlificID) # remove Prolific ID
+```
+
+```{r}
+json_df_long <- json_df_anon |>
+  pivot_longer(-id, names_to = "variable_name", values_to = "value_chr",
+               values_transform = as.character) # switch to long format
+
+json_df_dedupe <- json_df_long |>
+  filter(!is.na(value_chr)) |> distinct() |> # uniquefy multiple responses
+  group_by(id, variable_name) |> filter(n() == 1) |> ungroup() # remove questions with multiple different responses
+
+json_df_items <- json_df_dedupe |> left_join(items) # combine with item metadata
+
+# given a value v and vector of possible values
+# find index of v in values, get value at that index in values reversed
+reverse_value <- \(v, vals) if (any(is.na(vals)) || !(v %in% vals)) NA else rev(vals)[which(vals == v)]
+
+json_df_vals <- json_df_items |>
+  filter(!is.na(form_construct)) |>
+  mutate(value = as.numeric(value_chr), # convert responses to numeric
+         value = abs(value), .after = value_chr) |> # make negative vals positive
+  mutate(value = if_else(reverse_coded & response_type == "numeric_scale",
+                         map2_dbl(value, values, reverse_value),
+                         value)) # reverse code values if needed
+
+# saveRDS(json_df_vals, "data_processed/survey_tidy.rds")
+```
+
+```{r}
+json_df_vals |>
+  ggplot(aes(x = value, y = variable_name)) +
+    facet_wrap(vars(form_construct), scales = "free", ncol = 4) +
+    geom_sina(size = 0.5) +
+    labs(x = "Response", y = "Item")
+# ggsave("plots/teacher_pilot_vals.png", width = 16, height = 9)
+```
+
+```{r}
+item_alphas <- json_df_vals |>
+  filter(question_type == "Measurement") |>
+  select(id, variable_name, value, form_construct) |>
+  filter(!is.na(form_construct), !is.na(value)) |>
+  nest(data = -c(form_construct)) |>
+  mutate(df_vals = map(data, function(df) {
+    df |>
+      pivot_wider(names_from = variable_name, values_from = value) |>
+      select(-id)
+  })) |>
+  mutate(alpha = map(df_vals, \(dfv) cronbach.alpha(dfv, na.rm = TRUE, CI = TRUE) |> unclass() |> as_tibble()))
+
+alphas <- item_alphas |>
+  select(form_construct, alpha) |>
+  unnest(alpha) |>
+  mutate(probs = probs |> as_factor() |> fct_recode(lower = "0.025", upper = "0.975")) |>
+  pivot_wider(names_from = probs, values_from = ci, names_prefix = "ci_") |>
+  arrange(desc(alpha)) |>
+  mutate(form_construct = fct_inorder(form_construct))
+
+# saveRDS(alphas, "data_processed/subconstruct_alphas.rds")
+
+ggplot(alphas, aes(x = alpha, y = form_construct)) +
+  geom_vline(xintercept = 0, linetype = "dotted") +
+  geom_vline(xintercept = .7, colour = "lightgrey") +
+  geom_linerange(aes(xmin = ci_lower, xmax = ci_upper), orientation = "y", colour = "grey") +
+  geom_crossbar(aes(xmin = alpha, xmax = alpha), orientation = "y", width = .7) +
+  geom_text(aes(label = p, x = -.02),
+            size = 3, family = .font, hjust = 1) +
+  labs(x = glue("Cronbach's alpha (N = {unique(alphas$n)})"),
+       y = NULL, size = "N items")
+
+# ggsave("plots/teacher_pilot_alphas.png", width = 6, height = 4)
+```
+
+```{r}
+con_cors <- function(constructs) {
+  fc <- json_df_vals |>
+    filter(form_construct %in% constructs) |>
+    select(id, variable_name, value) |>
+    pivot_wider(names_from = variable_name, values_from = value) |>
+    select(-id)
+
+  # ggcorr(fc)
+  ggpairs(fc) + labs(title = glue("Constructs: {paste(constructs, collapse = ', ')}"))
+}
+
+con_cors("Family Connection")
+```
