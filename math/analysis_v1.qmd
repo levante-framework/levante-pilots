@@ -21,56 +21,28 @@ theme_update(panel.grid = element_blank(),
 ```
 
 ```{r}
-#trials <- read_csv("data_raw/trials.csv")
-#trials <- rjson::fromJSON(file="data_raw/lab_guests_firestore_2024-03-11-16-23-35_trials.json")
-# not all data was parsed (3225281 chars were parsed out of a total of 22751717 chars)
-# had to replace NaN, with "NA",
-
-trials <- jsonlite::fromJSON("data_raw/lab_guests_firestore_2024-03-11-17-44-52_trials.json")
-save(trials, file="data_processed/2024-03-11-pilot.Rdata")
-# items <- trials |>
-#   select(-difficulty, variable_name, response_type, response_options, reverse_coded,
-#          form_construct, form_subconstruct, question_type) |>
-#   mutate(values_chr = response_options |> str_split("[,-]") |> map(str_trim),
-#          values = map(values_chr, as.numeric)) |>
-#   select(-response_options)
-
-mr <- trials |> filter(task_id == "mental-rotation")
+# raw data imported in mental-rotation/analysis_v1.qmd
+load(file="data_processed/2024-03-11-pilot.Rdata")
+item_bank <- read_csv("data_processed/math-item-bank.csv") 
+#  filter(notes!="practice")
 
 math <- trials |> filter(task_id == "egma-math")
-
-complete_mr_subs <- mr |> group_by(user_id) |> 
-  summarise(n = n()) |> filter(n == 236) |> pull(user_id)
 
 complete_math_subs <- math |> group_by(user_id) |> 
   summarise(n = n()) |> filter(n > 180) |> pull(user_id) 
 # should be 188
 
-mr_g <- mr |> filter(is.element(user_id, complete_mr_subs))
-
 math_g <- math |> filter(is.element(user_id, complete_math_subs))
-
-
-# items |> filter(!is.na(values_chr), is.na(values))
-# items |> filter(is.na(form_construct)) |> pull(variable_name)
-# items |> count(question_type, form_construct)
-# items |> filter(reverse_coded) ##|> count(response_type)
 ```
 
 ```{r}
-sort(unique(mr_g$item))
+sort(table(math_g$trial_index))
+mp <- math_g |> mutate(trial_num = )
+```
 
-mr_g <- mr_g |> 
-  mutate(stim_type = ifelse(str_count(item)==5, "2d", "3d"),
-         stim_set = ifelse(startsWith(item, "g"), "ghost",
-                           ifelse(startsWith(item, "r"), "rabbit",
-                                  ifelse(startsWith(item, "t"), "goat", 
-                                         ifelse(str_count(item)==5, "duck", "3d")))))
 
-mr_g <- mr_g |> 
-  mutate(angle = stringr::str_sub(item, start=-3),
-         angle = as.numeric(angle)) 
 
+```{r}
 mr_rt <- mr_g |>
   mutate(angle = ifelse(angle > 180, 360 - angle, angle)) |>
   group_by(user_id, stim_set, angle, is_correct) |>
@@ -93,13 +65,6 @@ mr_acc <- mr_g |>
 ```
 
 
-```{r}
-mr_acc |> filter(angle > 0, is.element(stim_set, c("duck", "goat", "rabbit"))) |>
-  ggplot(aes(x = angle, y = accuracy, group = stim_set, color = stim_set)) +
-  geom_point(position = position_dodge(width = 0.5)) + geom_line() +
-  geom_errorbar(aes(ymin = accuracy - se, ymax = accuracy + se), width = 0.1,
-                position = position_dodge(width = 0.5))
-```
 
 ```{r}
 mr_rt |> filter(angle > 0, is.element(stim_set, c("duck", "goat", "rabbit"))) |>
@@ -115,6 +80,4 @@ mr_rt |> filter(angle > 0, is.element(stim_set, c("duck", "goat", "rabbit")), is
   geom_errorbar(aes(ymin = RT - se, ymax = RT + se), width = 0.1,
                 position = position_dodge(width = 0.5))
 ```
-
-
 
