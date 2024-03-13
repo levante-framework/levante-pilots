@@ -58,6 +58,7 @@ table(mp$task)
 mp |> group_by(trial_index, expected_answer, item) |> summarise(acc = mean(is_correct))
 # last number identification trial: trial_index=65
 
+#subset(mp, response_source=="keyboard") # keyboard rt is NA...
 ```
 
 ## Number line problem analysis

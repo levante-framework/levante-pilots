@@ -65,11 +65,14 @@ mr_g <- mr_g |>
          stim_set = ifelse(startsWith(item, "g"), "ghost",
                            ifelse(startsWith(item, "r"), "rabbit",
                                   ifelse(startsWith(item, "t"), "goat", 
-                                         ifelse(str_count(item)==5, "duck", "3d")))))
+                                         ifelse(str_count(item)==5, "duck", "3d"))))) %>%
+  select(-is_practice, -response_type, -trial_type, -assessment_stage, -difficulty, -run_id, -task_id)
 
 mr_g <- mr_g |> 
   mutate(angle = stringr::str_sub(item, start=-3),
          angle = as.numeric(angle)) 
+
+saveRDS(mr_g, "24-03-11_mental-rotation_pilot.rds")
 
 mr_rt <- mr_g |>
   mutate(angle = ifelse(angle > 180, 360 - angle, angle)) |>
@@ -90,11 +93,18 @@ mr_acc <- mr_g |>
             sd = sd(subj_acc),
             n = n(),
             se = sd / sqrt(n))
+
+# TODO: look at speed (+accuracy?) of button vs keyboard response_source
+# mr_g |> filter(is_correct) |>
+#   group_by(user_id, response_source) |>
+#   summarise(RT = mean(rt, na.rm=T)) |>
+#   group_by(response_source) |>
+#   summarise(RT = mean(RT, na.rm=T)) # keyboard responses have NA rt..
 ```
 
 
 ```{r}
-mr_acc |> filter(angle > 0, is.element(stim_set, c("duck", "goat", "rabbit"))) |>
+mr_acc |> filter(angle > 0) |> # , is.element(stim_set, c("duck", "goat", "rabbit"))
   ggplot(aes(x = angle, y = accuracy, group = stim_set, color = stim_set)) +
   geom_point(position = position_dodge(width = 0.5)) + geom_line() +
   geom_errorbar(aes(ymin = accuracy - se, ymax = accuracy + se), width = 0.1,
@@ -102,19 +112,20 @@ mr_acc |> filter(angle > 0, is.element(stim_set, c("duck", "goat", "rabbit"))) |
 ```
 
 ```{r}
-mr_rt |> filter(angle > 0, is.element(stim_set, c("duck", "goat", "rabbit"))) |>
+mr_rt |> filter(angle > 0) |> # , is.element(stim_set, c("duck", "goat", "rabbit"))
   ggplot(aes(x = angle, y = RT, group = stim_set, color = stim_set)) +
   facet_wrap(. ~ is_correct) +
   geom_point(position = position_dodge(width = 0.5)) + geom_line() +
   geom_errorbar(aes(ymin = RT - se, ymax = RT + se), width = 0.1,
                 position = position_dodge(width = 0.5))
+```
 
-mr_rt |> filter(angle > 0, is.element(stim_set, c("duck", "goat", "rabbit")), is_correct) |>
+```{r}
+mr_rt |> filter(angle > 0, is_correct) |> # , is.element(stim_set, c("duck", "goat", "rabbit"))
   ggplot(aes(x = angle, y = RT, group = stim_set, color = stim_set)) +
   geom_point(position = position_dodge(width = 0.5)) + geom_line() +
   geom_errorbar(aes(ymin = RT - se, ymax = RT + se), width = 0.1,
                 position = position_dodge(width = 0.5))
 ```
-
 
 
