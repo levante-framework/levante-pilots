@@ -1,0 +1,164 @@
+---
+format: html
+---
+
+```{r}
+library(ltm)
+library(tidyverse)
+library(glue)
+library(ggforce)
+library(ggthemes)
+library(GGally)
+library(tidyboot)
+
+.font <- "Source Sans Pro"
+theme_set(theme_bw(base_size = 14, base_family = .font))
+theme_update(panel.grid = element_blank(),
+             strip.background = element_blank(),
+             legend.key = element_blank(),
+             panel.border = element_blank(),
+             axis.line = element_line(),
+             strip.text = element_text(face = "bold"))
+```
+
+```{r}
+# raw data imported in mental-rotation/analysis_v1.qmd
+load(file="data_processed/2024-03-11-pilot.Rdata")
+item_bank <- read_csv("data_processed/math-item-bank.csv") 
+#  filter(notes!="practice")
+
+math <- trials |> filter(task_id == "egma-math")
+
+complete_math_subs <- math |> group_by(user_id) |> 
+  summarise(n = n()) |> filter(n > 180) |> pull(user_id) 
+# should be 188
+
+math_g <- math |> filter(is.element(user_id, complete_math_subs))
+```
+
+```{r}
+mp <- math_g |> filter(trial_index != 5) |>
+  mutate(task = case_when(str_detect(item, "-") ~ "subtraction",
+                          str_detect(item, "_") ~ "sequence",
+                          str_detect(item, "x") ~ "multiplication",
+                          str_detect(item, "\\+") ~ "addition",
+                          str_detect(item, "\\{") ~ "line-to-number", # but 4afc or slider response?
+                          str_count(item, ",")==1 ~ "number comparison",
+                          trial_index<=65 ~ "number identification",
+                          TRUE ~ NA),
+         expected_answer = as.numeric(expected_answer),
+         response = as.numeric(response)) |>
+  mutate(task = ifelse(trial_index>=461, "number-to-line", task)) |>
+  select(-is_practice, -response_type, -trial_type, -assessment_stage, -difficulty, -run_id)
+
+# TODO: look at RTs for response_source = button vs. keyboard
+
+table(mp$task)
+
+mp |> group_by(trial_index, expected_answer, item) |> summarise(acc = mean(is_correct))
+# last number identification trial: trial_index=65
+
+#subset(mp, response_source=="keyboard") # keyboard rt is NA...
+```
+
+## Number line problem analysis
+
+```{r}
+# 5% tolerance?
+num2line <- mp |> filter(task=="number-to-line") |>
+  mutate(response = ifelse(expected_answer < 1, response/100, response),
+         max_value = case_when(expected_answer < 1 ~ 1,
+                               expected_answer < 10 ~ 10,
+                               expected_answer < 100 ~ 100,
+                               expected_answer < 1000 ~ 1000,
+                               TRUE ~ NA),
+         is_correct = ifelse(abs(response-expected_answer)/max_value < .05, TRUE, FALSE)) 
+
+#mp$max_value <- sapply(mp$item, function(x) { return(jsonlite::fromJSON(x)[['1']]) })  
+
+# 4AFC
+line2num <- mp |> filter(task=="line-to-number") |>
+  mutate(response = ifelse(expected_answer < 1, response/100, response),
+         max_value = case_when(expected_answer < 1 ~ 1,
+                               expected_answer < 10 ~ 10,
+                               expected_answer < 100 ~ 100,
+                               expected_answer < 1000 ~ 1000,
+                               TRUE ~ NA)) 
+
+mp <- mp |> filter(task!="line-to-number", task!="number-to-line") |> 
+  bind_rows(num2line |> select(-max_value)) |>
+  bind_rows(line2num |> select(-max_value))
+
+saveRDS(mp, file="24-03-11_math_pilot.rds")
+
+# by problem
+num2line_pr <- num2line |> 
+  group_by(expected_answer) |>
+  summarise(accuracy = mean(is_correct))
+mean(num2line_pr$accuracy) # .75
+
+line2num_pr <- line2num |>
+  group_by(expected_answer) |>
+  summarise(accuracy = mean(is_correct))
+mean(line2num_pr$accuracy) # .76
+
+# n.s. association between per-problem accuracy presented as slider vs. 4AFC
+cor.test(num2line_pr$accuracy, line2num_pr$accuracy) # .14
+cor.test(num2line_pr$accuracy, num2line_pr$expected_answer) # .15
+cor.test(line2num_pr$accuracy, line2num_pr$expected_answer) # -.11
+
+# by participant
+num2line_s <- num2line |> 
+  group_by(user_id) |>
+  summarise(accuracy = mean(is_correct))
+mean(num2line_s$accuracy) # .74
+
+line2num_s <- line2num |>
+  group_by(user_id) |>
+  summarise(accuracy = mean(is_correct))
+mean(line2num_s$accuracy) # .76
+
+# participants more accurate on one format were more accurate on the other
+cor.test(num2line_s$accuracy, line2num_s$accuracy)
+plot(num2line_s$accuracy, line2num_s$accuracy)
+```
+
+## Overall task accuracy
+
+```{r}
+m_acc <- mp |> 
+  group_by(user_id, task) |>
+  summarise(subj_acc = mean(is_correct))
+
+m_rt <- mp |> 
+  group_by(user_id, task, is_correct) |>
+  summarise(RT = median(rt, na.rm=T))
+
+ms <- m_acc |> group_by(task) |>
+  summarise(accuracy = mean(subj_acc),
+            sd = sd(subj_acc),
+            n = n(),
+            se = sd / sqrt(n))
+
+ms |> ggplot(aes(x=reorder(task, -accuracy), y=accuracy)) +
+  geom_pointrange(aes(ymin = accuracy-se, ymax = accuracy+se)) +
+  ylab("mean accuracy") + xlab("task") +
+  coord_flip()
+```
+
+## Overall task RTs
+
+```{r}
+ms_rt <- m_rt |> group_by(task, is_correct) |>
+  summarise(RT = mean(RT, na.rm=T),
+            sd = sd(RT, na.rm=T),
+            n = n(),
+            se = sd / sqrt(n))
+
+ms_rt |> filter(is_correct) |>
+  ggplot(aes(x = reorder(task, -RT), y = RT)) +
+  geom_pointrange(aes(ymin = RT-se, ymax = RT+se)) +
+  ylab("Mean of subjects' median correct RT") + xlab("task") +
+  coord_flip()
+```
+
