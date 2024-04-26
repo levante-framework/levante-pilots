@@ -1,0 +1,176 @@
+---
+format: html
+---
+  
+```{r}
+library(tidyverse)
+library(glue)
+library(ggforce)
+library(ggthemes)
+
+.font <- "Source Sans Pro"
+theme_set(theme_bw(base_size = 12, base_family = .font))
+theme_update(panel.grid = element_blank(),
+             strip.background = element_blank(),
+             legend.key = element_blank(),
+             panel.border = element_blank(),
+             axis.line = element_line(),
+             strip.text = element_text(face = "bold"))
+```
+
+```{r}
+user <- redivis::user("levante")
+dataset <- user$dataset("columbia_pilot:7hfa:v1_0")
+
+runs <- dataset$table("runs")$to_tibble()
+trials <- dataset$table("trials")$to_tibble()
+users <- dataset$table("users")$to_tibble()
+
+ss_corrections <- "1gJiAVp8H7Ohop-1pbJaxRCiFmMFXt5neqCXfUuDd1Uc"
+pid_mappings <- googlesheets4::read_sheet(ss_corrections, "pid_mappings")
+
+ss_subjects <- "11LrCpCoBeu-Ajfu1xuE2nGtn4XA1FimoDvIKCB3KqOE"
+subject_meta <- googlesheets4::read_sheet(ss_subjects, "Sheet1")
+test_ids <- c("colombia-pilot-000")
+```
+
+```{r}
+trials |> count(task_id)
+
+# missing is_practice
+trials |> filter(is.na(is_practice)) |> count(task_id)
+
+# missing expected_answer
+trials |> filter(is.na(expected_answer)) |> count(task_id)
+
+trials_coded <- trials |>
+  filter(!is_practice, !is.na(expected_answer)) |>
+  mutate(correct = response == expected_answer) |>
+  filter(task_id != "hearts-and-flowers") |>
+  # filter(trial_index != 5) |>
+  mutate(subtask = case_when(
+    task_id != "egma-math" ~ NA,
+    str_detect(item, "-") ~ "subtraction",
+    str_detect(item, "_") ~ "sequence",
+    str_detect(item, "x") ~ "multiplication",
+    str_detect(item, "\\+") ~ "addition",
+    str_detect(item, "\\{") ~ "line-to-number", 
+    str_count(item, ",") == 1 ~ "number comparison",
+    trial_index <= 65 ~ "number identification",
+    trial_index >= 461 ~ "number-to-line",
+    TRUE ~ NA)) |>
+  mutate(task = if_else(task_id == "egma-math", glue("egma ({subtask})"), task_id))
+
+user_ids <- users |>
+  select(user_id, assessment_pid) |>
+  left_join(pid_mappings) |>
+  mutate(pid = if_else(str_detect(assessment_pid, "colombia"), assessment_pid, correct_pid)) |>
+  select(-assessment_pid, -correct_pid, -task) |>
+  filter(!is.na(pid), !(pid %in% test_ids)) |>
+  full_join(subject_meta)
+
+trials_ids <- trials_coded |> left_join(user_ids)
+
+subjects <- user_ids |> select(-user_id) |> distinct()
+  
+subject_summary <- trials_ids |>
+  filter(!is.na(pid)) |>
+  # group_by(task_id, pid) |>
+  mutate(task = fct_inorder(task)) |>
+  group_by(task, pid) |>
+  summarise(trials = n(),
+            num_correct = sum(correct, na.rm = TRUE),
+            prop_correct = mean(correct, na.rm = TRUE)) |>
+  ungroup() |>
+  left_join(subjects) |>
+  group_by(task) |>
+  mutate(task_label = glue("{task}\n(n = {n()})"),
+         prop_trials = trials / max(trials)) |>
+  ungroup() |>
+  mutate(task_label = fct_inorder(task_label))
+
+# floor/ceiling effects
+subject_summary |>
+  filter(prop_correct == 0 | prop_correct == 1)
+```
+
+```{r}
+ggplot(subject_summary, aes(x = "", y = prop_correct)) +
+  facet_wrap(vars(task_label), nrow = 2) +
+  geom_sina(aes(colour = task_label), alpha = 0.8) +
+  scale_colour_ptol() +
+  labs(x = "", y = "Subject's proportion of correct responses") +
+  guides(colour = "none") +
+  theme(axis.ticks.x = element_blank())
+ggsave("plots/subject_correct.png", width = 10, height = 5)
+
+ggplot(subject_summary, aes(x = "", y = prop_trials)) +
+  facet_wrap(vars(task_label), nrow = 2) +
+  geom_sina(aes(colour = task_label)) +
+  scale_colour_ptol() +
+  labs(x = "", y = "Subject's proportion of trials completed") +
+  guides(colour = "none") +
+  theme(axis.ticks.x = element_blank())
+ggsave("plots/subject_completed.png", width = 10, height = 5)
+
+ggplot(subject_summary, aes(x = age, y = prop_correct)) +
+  facet_wrap(vars(task_label), nrow = 2) +
+  geom_smooth(method = "lm", colour = "darkgrey") +
+  geom_point(aes(size = trials, colour = task_label), alpha = 0.8) +
+  scale_colour_ptol() +
+  labs(x = "Age (years)", y = "Subject's proportion correct responses",
+       size = "Number of trials completed") +
+  guides(colour = "none") +
+  theme(legend.position = "bottom")
+ggsave("plots/subject_correct_age.png", width = 10, height = 6)
+
+ggplot(subject_summary, aes(x = age, y = prop_trials)) +
+  facet_wrap(vars(task_label), nrow = 2) +
+  geom_smooth(method = "lm", colour = "darkgrey") +
+  geom_point(aes(size = trials, colour = task_label), alpha = 0.8) +
+  scale_colour_ptol() +
+  labs(x = "Age (years)", y = "Subject's proportion trials completed",
+       size = "Number of trials completed") +
+  guides(colour = "none") +
+  theme(legend.position = "bottom")
+ggsave("plots/subject_completed_age.png", width = 10, height = 6)
+```
+
+```{r}
+time_summary <- trials_ids |>
+  filter(!is.na(pid)) |>
+  mutate(task = fct_inorder(task)) |>
+  arrange(task, run_id, user_id, trial_index) |>
+  mutate(server_timestamp = as_datetime(server_timestamp)) |>
+  group_by(task, run_id, user_id, pid) |>
+  summarise(trials = n(),
+            start = min(server_timestamp), end = max(server_timestamp)) |>
+  mutate(diff = difftime(end, start, units = "mins")) |>
+  group_by(task) |>
+  mutate(task_label = glue("{task}\n(n = {n()})")) |>
+  ungroup() |>
+  mutate(task_label = fct_inorder(task_label)) |>
+  left_join(subjects)
+
+time_summary |> count(task, pid) |> filter(n == max(n))
+
+ggplot(time_summary, aes(x = "", y = diff, colour = task_label)) +
+  facet_wrap(vars(task_label), nrow = 2) +
+  geom_sina(aes(colour = task_label)) +
+  scale_colour_ptol() +
+  labs(y = "Duration (minutes)") +
+  guides(colour = "none") +
+  theme(axis.ticks.x = element_blank(),
+        axis.title.x = element_blank())
+ggsave("plots/durations.png", width = 10, height = 5)
+
+ggplot(time_summary, aes(x = age, y = diff)) +
+  facet_wrap(vars(task_label), nrow = 2) +
+  geom_smooth(method = "lm", colour = "darkgrey") +
+  geom_point(aes(colour = task_label), alpha = 0.8) +
+  scale_colour_ptol() +
+  labs(x = "Age (years)", y = "Duration (minutes)") +
+  guides(colour = "none") +
+  theme(legend.position = "bottom")
+ggsave("plots/durations_age.png", width = 10, height = 6)
+```
