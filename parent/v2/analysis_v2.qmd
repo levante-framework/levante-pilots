@@ -84,11 +84,11 @@ reverse_value <- \(v, vals) if (any(is.na(vals)) || !(v %in% vals)) NA else rev(
 #value = if_else(is.na(value), "0", value), # replace NAs with 0s -- TODO whether this is always right
 
 json_df_vals <- json_df_items |>
-  filter(!is.na(form_construct)) |>
+  # filter(!is.na(form_construct)) |>
   mutate(value = as.numeric(value_chr), # convert responses to numeric
          value = abs(value), .after = value_chr) |> # make negative vals positive
   # mutate(rev_val = map2_dbl(value, values_numeric, reverse_value))
-  mutate(value = if_else(reverse_coded & response_type == "numeric_scale",
+  mutate(value = if_else(!is.na(reverse_coded) & reverse_coded & response_type == "numeric_scale",
                          map2_dbl(value, values, reverse_value),
                          value)) # reverse code values if needed
 

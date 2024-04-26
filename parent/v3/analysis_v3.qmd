@@ -127,7 +127,7 @@ json_df_vals <- json_df_items |>
   mutate(value = as.numeric(value_chr), # convert responses to numeric
          value = abs(value), .after = value_chr) |> # make negative vals positive
   # mutate(rev_val = map2_dbl(value, values_numeric, reverse_value))
-  mutate(value = if_else(reverse_coded & response_type == "numeric_scale",
+  mutate(value = if_else(!is.na(reverse_coded) & reverse_coded & response_type == "numeric_scale",
                          map2_dbl(value, values, reverse_value),
                          value)) # reverse code values if needed
 
