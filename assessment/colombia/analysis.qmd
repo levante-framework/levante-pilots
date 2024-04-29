@@ -43,9 +43,14 @@ trials |> filter(is.na(is_practice)) |> count(task_id)
 # missing expected_answer
 trials |> filter(is.na(expected_answer)) |> count(task_id)
 
+convert_math <- function(response) { # TODO
+}
+
 trials_coded <- trials |>
   filter(!is_practice, !is.na(expected_answer)) |>
-  mutate(correct = response == expected_answer) |>
+  # mutate(response = if_else(str_detect(response, "MathML"), convert_math(response)))
+  mutate(correct = response == expected_answer,
+         rt = as.numeric(rt)) |>
   filter(task_id != "hearts-and-flowers") |>
   # filter(trial_index != 5) |>
   mutate(subtask = case_when(
@@ -61,6 +66,13 @@ trials_coded <- trials |>
     TRUE ~ NA)) |>
   mutate(task = if_else(task_id == "egma-math", glue("egma ({subtask})"), task_id))
 
+trials_coded |> filter(correct != is_correct) |>
+  select(task_id, subtask, item, expected_answer, response, is_correct, correct)
+  # slice(2) |> pull(response)
+
+trials_coded |> filter(subtask == "addition") |> distinct(item, expected_answer, response) |> View()
+  # select(task_id, subtask, item, expected_answer, response, is_correct, correct)
+
 user_ids <- users |>
   select(user_id, assessment_pid) |>
   left_join(pid_mappings) |>
@@ -69,12 +81,13 @@ user_ids <- users |>
   filter(!is.na(pid), !(pid %in% test_ids)) |>
   full_join(subject_meta)
 
-trials_ids <- trials_coded |> left_join(user_ids)
+trials_ids <- trials_coded |>
+  left_join(user_ids) |>
+  filter(!is.na(pid))
 
 subjects <- user_ids |> select(-user_id) |> distinct()
   
 subject_summary <- trials_ids |>
-  filter(!is.na(pid)) |>
   # group_by(task_id, pid) |>
   mutate(task = fct_inorder(task)) |>
   group_by(task, pid) |>
@@ -173,4 +186,115 @@ ggplot(time_summary, aes(x = age, y = diff)) +
   guides(colour = "none") +
   theme(legend.position = "bottom")
 ggsave("plots/durations_age.png", width = 10, height = 6)
+```
+
+```{r}
+mr <- trials_ids |>
+  filter(task_id == "mental-rotation") |>
+  select(pid, item, response, correct, rt) |>
+  mutate(stim_type = if_else(str_count(item) == 5, "2d", "3d"),
+         stim_set = str_sub(item, 1, 1) |> fct_recode("ghost" = "g", "rabbit" = "r", "goat" = "t", "duck" = "d"),
+         stim_set = if_else(stim_type == "2d", glue("2d ({stim_set})"), "3d"),
+         angle = item |> str_sub(-3) |> as.numeric(),
+         angle = if_else(angle > 180, 360 - angle, angle),
+         .after = item) |>
+  mutate(rt = rt / 1000)
+
+# mr |> distinct(stim_type, stim_set, angle, item) |> count(stim_type, stim_set, angle)
+
+mr_subject_type <- mr |>
+  group_by(pid, stim_type, angle) |>
+  summarise(items = n_distinct(item),
+            prop_correct = mean(correct, na.rm = TRUE))
+
+mr_type <- mr_subject_type |>
+  group_by(stim_type, angle) |>
+  summarise(accuracy = mean(prop_correct),
+            sd = sd(prop_correct),
+            n = n(),
+            se = sd / sqrt(n))
+
+ggplot(mr_subject_type, aes(x = angle, y = prop_correct, colour = stim_type)) +
+  facet_grid(cols = vars(stim_type), scales = "free_x", space = "free_x") +
+  geom_jitter(alpha = 0.5, size = 0.8) +
+  geom_pointrange(aes(y = accuracy, ymin = accuracy - 1.96 * se, ymax = accuracy + 1.96 * se),
+                  data = mr_type) +
+  geom_line(aes(y = accuracy), data = mr_type) +
+  scale_x_continuous(breaks = unique(mr_subject_type$angle)) +
+  scale_colour_ptol(guide = "none") +
+  labs(x = "Angle", y = "Proportion correct responses", colour = "")
+ggsave("plots/mr_accuracy_type.png", width = 6, height = 3.5)
+
+mr_subject_set <- mr |>
+  group_by(pid, stim_type, stim_set, angle) |>
+  summarise(items = n_distinct(item),
+            prop_correct = mean(correct, na.rm = TRUE))
+
+mr_set <- mr_subject_set |>
+  group_by(stim_type, stim_set, angle) |>
+  summarise(accuracy = mean(prop_correct),
+            sd = sd(prop_correct),
+            n = n(),
+            se = sd / sqrt(n))
+
+ggplot(mr_subject_set, aes(x = angle, y = prop_correct, colour = stim_type)) +
+  facet_grid(cols = vars(stim_set), scales = "free_x", space = "free_x") +
+  geom_jitter(alpha = 0.5, size = 0.8) +
+  geom_pointrange(aes(y = accuracy, ymin = accuracy - 1.96 * se, ymax = accuracy + 1.96 * se),
+                  data = mr_set, position = position_dodge(width = 10)) +
+  geom_line(aes(y = accuracy), data = mr_set) +
+  scale_x_continuous(breaks = unique(mr_subject_set$angle)) +
+  scale_colour_ptol(guide = "none") +
+  labs(x = "Angle", y = "Proportion correct responses", colour = "")
+ggsave("plots/mr_accuracy_set.png", width = 11, height = 3.5)
+```
+
+```{r}
+mr_subject_type_rt <- mr |>
+  group_by(pid, stim_type, angle, correct) |>
+  summarise(items = n_distinct(item),
+            median_rt = median(rt, na.rm = TRUE)) |>
+  mutate(correct = if_else(correct, "corrent", "incorrect"))
+
+mr_type_rt <- mr_subject_type_rt |>
+  group_by(stim_type, angle, correct) |>
+  summarise(rt = mean(median_rt),
+            sd = sd(median_rt),
+            n = n(),
+            se = sd / sqrt(n))
+
+ggplot(mr_subject_type_rt, aes(x = angle, y = median_rt, colour = stim_type)) +
+  facet_grid(cols = vars(stim_type), rows = vars(correct), scales = "free_x", space = "free_x") +
+  geom_jitter(alpha = 0.5, size = 0.8) +
+  geom_pointrange(aes(y = rt, ymin = rt - 1.96 * se, ymax = rt + 1.96 * se),
+                  data = mr_type_rt) +
+  geom_line(aes(y = rt), data = mr_type_rt) +
+  scale_x_continuous(breaks = unique(mr_subject_type$angle)) +
+  scale_colour_ptol(guide = "none") +
+  labs(x = "Angle", y = "Response time (seconds)", colour = "")
+ggsave("plots/mr_rt_type.png", width = 6, height = 5)
+
+mr_subject_set_rt <- mr |>
+  group_by(pid, stim_type, stim_set, angle, correct) |>
+  summarise(items = n_distinct(item),
+            median_rt = median(rt, na.rm = TRUE)) |>
+  mutate(correct = if_else(correct, "corrent", "incorrect"))
+
+mr_set_rt <- mr_subject_set_rt |>
+  group_by(stim_type, stim_set, angle, correct) |>
+  summarise(rt = mean(median_rt),
+            sd = sd(median_rt),
+            n = n(),
+            se = sd / sqrt(n))
+
+ggplot(mr_subject_set_rt, aes(x = angle, y = median_rt, colour = stim_type)) +
+  facet_grid(cols = vars(stim_set), row = vars(correct), scales = "free_x", space = "free_x") +
+  geom_jitter(alpha = 0.5, size = 0.8) +
+  geom_pointrange(aes(y = rt, ymin = rt - 1.96 * se, ymax = rt + 1.96 * se),
+                  data = mr_set_rt) +
+  geom_line(aes(y = rt), data = mr_set_rt) +
+  scale_x_continuous(breaks = unique(mr_subject_set_rt$angle)) +
+  scale_colour_ptol(guide = "none") +
+  labs(x = "Angle", y = "Response time (seconds)", colour = "")
+ggsave("plots/mr_rt_set.png", width = 10, height = 5)
 ```
