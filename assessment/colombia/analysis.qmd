@@ -43,15 +43,15 @@ trials |> filter(is.na(is_practice)) |> count(task_id)
 # missing expected_answer
 trials |> filter(is.na(expected_answer)) |> count(task_id)
 
-convert_math <- function(response) { # TODO
-}
+convert_math <- function(r) { # TODO
+q}
 
 trials_coded <- trials |>
-  filter(!is_practice, !is.na(expected_answer)) |>
-  # mutate(response = if_else(str_detect(response, "MathML"), convert_math(response)))
+  filter(is.na(is_practice) | !is_practice) |> #!is.na(expected_answer)) |>
+  # mutate(response = convert_math(response)) |>
   mutate(correct = response == expected_answer,
          rt = as.numeric(rt)) |>
-  filter(task_id != "hearts-and-flowers") |>
+  filter(!(task_id %in% c("hearts-and-flowers", "memory-game", "pa", "sre", "swr"))) |>
   # filter(trial_index != 5) |>
   mutate(subtask = case_when(
     task_id != "egma-math" ~ NA,
@@ -64,13 +64,15 @@ trials_coded <- trials |>
     trial_index <= 65 ~ "number identification",
     trial_index >= 461 ~ "number-to-line",
     TRUE ~ NA)) |>
-  mutate(task = if_else(task_id == "egma-math", glue("egma ({subtask})"), task_id))
+  mutate(task = if_else(task_id == "egma-math", glue("egma ({subtask})"), task_id),
+         task = if_else(str_detect(task_id, "-es"), glue("roar ({task_id})"), task),
+         task_group = str_replace(task, "^(.*)\\s\\(.*\\)", "\\1"))
 
-trials_coded |> filter(correct != is_correct) |>
-  select(task_id, subtask, item, expected_answer, response, is_correct, correct)
-  # slice(2) |> pull(response)
+# r <- trials_coded |> filter(correct != is_correct) |>
+#   select(task_id, subtask, item, expected_answer, response, is_correct, correct) |>
+#   slice(2) |> pull(response)
 
-trials_coded |> filter(subtask == "addition") |> distinct(item, expected_answer, response) |> View()
+# trials_coded |> filter(subtask == "addition") |> distinct(item, expected_answer, response) |> View()
   # select(task_id, subtask, item, expected_answer, response, is_correct, correct)
 
 user_ids <- users |>
@@ -83,6 +85,8 @@ user_ids <- users |>
 
 trials_ids <- trials_coded |>
   left_join(user_ids) |>
+  # filter(str_detect(task, "roar")) |> select(pid, user_id)
+  mutate(pid = if_else(str_detect(task, "roar"), user_id, pid)) |>
   filter(!is.na(pid))
 
 subjects <- user_ids |> select(-user_id) |> distinct()
@@ -90,10 +94,10 @@ subjects <- user_ids |> select(-user_id) |> distinct()
 subject_summary <- trials_ids |>
   # group_by(task_id, pid) |>
   mutate(task = fct_inorder(task)) |>
-  group_by(task, pid) |>
+  group_by(task_group, task, pid) |>
   summarise(trials = n(),
-            num_correct = sum(correct, na.rm = TRUE),
-            prop_correct = mean(correct, na.rm = TRUE)) |>
+            num_correct = sum(is_correct, na.rm = TRUE),
+            prop_correct = mean(is_correct, na.rm = TRUE)) |>
   ungroup() |>
   left_join(subjects) |>
   group_by(task) |>
@@ -101,6 +105,9 @@ subject_summary <- trials_ids |>
          prop_trials = trials / max(trials)) |>
   ungroup() |>
   mutate(task_label = fct_inorder(task_label))
+
+subject_summary |> count(task)
+subject_summary |> count(task_group)
 
 # floor/ceiling effects
 subject_summary |>
@@ -110,43 +117,49 @@ subject_summary |>
 ```{r}
 ggplot(subject_summary, aes(x = "", y = prop_correct)) +
   facet_wrap(vars(task_label), nrow = 2) +
-  geom_sina(aes(colour = task_label), alpha = 0.8) +
+  geom_sina(aes(colour = task_group), alpha = 0.8) +
   scale_colour_ptol() +
-  labs(x = "", y = "Subject's proportion of correct responses") +
+  labs(y = "Subject's proportion of correct responses") +
   guides(colour = "none") +
-  theme(axis.ticks.x = element_blank())
-ggsave("plots/subject_correct.png", width = 10, height = 5)
+  theme(axis.ticks.x = element_blank(),
+        axis.title.x = element_blank(),
+        strip.text = element_text(size = 8))
+ggsave("plots/subject_correct.png", width = 12, height = 5)
 
 ggplot(subject_summary, aes(x = "", y = prop_trials)) +
   facet_wrap(vars(task_label), nrow = 2) +
-  geom_sina(aes(colour = task_label)) +
+  geom_sina(aes(colour = task_group)) +
   scale_colour_ptol() +
-  labs(x = "", y = "Subject's proportion of trials completed") +
+  labs(y = "Subject's proportion of correct responses") +
   guides(colour = "none") +
-  theme(axis.ticks.x = element_blank())
-ggsave("plots/subject_completed.png", width = 10, height = 5)
+  theme(axis.ticks.x = element_blank(),
+        axis.title.x = element_blank(),
+        strip.text = element_text(size = 8))
+ggsave("plots/subject_completed.png", width = 12, height = 5)
 
 ggplot(subject_summary, aes(x = age, y = prop_correct)) +
   facet_wrap(vars(task_label), nrow = 2) +
   geom_smooth(method = "lm", colour = "darkgrey") +
-  geom_point(aes(size = trials, colour = task_label), alpha = 0.8) +
+  geom_point(aes(size = trials, colour = task_group), alpha = 0.8) +
   scale_colour_ptol() +
   labs(x = "Age (years)", y = "Subject's proportion correct responses",
        size = "Number of trials completed") +
   guides(colour = "none") +
-  theme(legend.position = "bottom")
-ggsave("plots/subject_correct_age.png", width = 10, height = 6)
+  theme(legend.position = "bottom",
+        strip.text = element_text(size = 8))
+ggsave("plots/subject_correct_age.png", width = 12, height = 5.5)
 
 ggplot(subject_summary, aes(x = age, y = prop_trials)) +
   facet_wrap(vars(task_label), nrow = 2) +
   geom_smooth(method = "lm", colour = "darkgrey") +
-  geom_point(aes(size = trials, colour = task_label), alpha = 0.8) +
+  geom_point(aes(size = trials, colour = task_group), alpha = 0.8) +
   scale_colour_ptol() +
   labs(x = "Age (years)", y = "Subject's proportion trials completed",
        size = "Number of trials completed") +
   guides(colour = "none") +
-  theme(legend.position = "bottom")
-ggsave("plots/subject_completed_age.png", width = 10, height = 6)
+  theme(legend.position = "bottom",
+        strip.text = element_text(size = 8))
+ggsave("plots/subject_completed_age.png", width = 12, height = 5.5)
 ```
 
 ```{r}
@@ -155,7 +168,7 @@ time_summary <- trials_ids |>
   mutate(task = fct_inorder(task)) |>
   arrange(task, run_id, user_id, trial_index) |>
   mutate(server_timestamp = as_datetime(server_timestamp)) |>
-  group_by(task, run_id, user_id, pid) |>
+  group_by(task_group, task, run_id, user_id, pid) |>
   summarise(trials = n(),
             start = min(server_timestamp), end = max(server_timestamp)) |>
   mutate(diff = difftime(end, start, units = "mins")) |>
@@ -165,27 +178,30 @@ time_summary <- trials_ids |>
   mutate(task_label = fct_inorder(task_label)) |>
   left_join(subjects)
 
+time_summary |> count(task)
 time_summary |> count(task, pid) |> filter(n == max(n))
 
 ggplot(time_summary, aes(x = "", y = diff, colour = task_label)) +
   facet_wrap(vars(task_label), nrow = 2) +
-  geom_sina(aes(colour = task_label)) +
+  geom_sina(aes(colour = task_group)) +
   scale_colour_ptol() +
   labs(y = "Duration (minutes)") +
   guides(colour = "none") +
   theme(axis.ticks.x = element_blank(),
-        axis.title.x = element_blank())
-ggsave("plots/durations.png", width = 10, height = 5)
+        axis.title.x = element_blank(),
+        strip.text = element_text(size = 8))
+ggsave("plots/durations.png", width = 12, height = 5)
 
 ggplot(time_summary, aes(x = age, y = diff)) +
   facet_wrap(vars(task_label), nrow = 2) +
   geom_smooth(method = "lm", colour = "darkgrey") +
-  geom_point(aes(colour = task_label), alpha = 0.8) +
+  geom_point(aes(colour = task_group), alpha = 0.8) +
   scale_colour_ptol() +
   labs(x = "Age (years)", y = "Duration (minutes)") +
   guides(colour = "none") +
-  theme(legend.position = "bottom")
-ggsave("plots/durations_age.png", width = 10, height = 6)
+  theme(legend.position = "bottom",
+        strip.text = element_text(size = 8))
+ggsave("plots/durations_age.png", width = 12, height = 5.5)
 ```
 
 ```{r}
@@ -297,4 +313,14 @@ ggplot(mr_subject_set_rt, aes(x = angle, y = median_rt, colour = stim_type)) +
   scale_colour_ptol(guide = "none") +
   labs(x = "Angle", y = "Response time (seconds)", colour = "")
 ggsave("plots/mr_rt_set.png", width = 10, height = 5)
+```
+
+```{r}
+matrix <- trials_ids |>
+  filter(task_id == "matrix-reasoning") |>
+  arrange(pid, trial_index) |>
+  select(pid, age, item, correct, rt) |>
+  mutate(pid = pid |> fct_inorder() |> as.numeric())
+
+# write_rds(matrix, "data/colombia-matrix-reasoning.rds")
 ```
