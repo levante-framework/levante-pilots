@@ -1,0 +1,374 @@
+task,item,expected_answer,trials,prop_correct
+egma (addition),6+2,8,21,1
+egma (addition),3+3,6,21,0.9523809523809523
+egma (addition),9+3,12,21,0.9523809523809523
+egma (addition),10+2,12,20,0.95
+egma (number comparison),"11, 24",24,22,1
+egma (number comparison),"39, 23",39,22,0.9545454545454546
+egma (number comparison),"623, 632",632,22,0.9545454545454546
+egma (number comparison),"65, 67",67,22,0.9545454545454546
+egma (number comparison),"7, 5",7,22,0.9545454545454546
+egma (number comparison),"94, 78",94,22,0.9545454545454546
+egma (number identification),108,108,22,1
+egma (number identification),2,2,24,1
+egma (number identification),22,22,24,1
+egma (number identification),39,39,23,1
+egma (number identification),9,9,24,1
+egma (number identification),0,0,24,0.9583333333333334
+egma (number identification),12,12,24,0.9583333333333334
+egma (number identification),23,23,23,0.9565217391304348
+egma (number identification),48,48,23,0.9565217391304348
+egma (number identification),65,65,23,0.9565217391304348
+egma (number-to-line),"{'0': 0, '1': 100}",98,13,1
+egma (subtraction),9-1,8,18,1
+matrix-reasoning,l1rpmR1AllCP5Stimulus,l1rpmR1AllCP5Answer,2,1
+matrix-reasoning,l1rpmR1ClDRCP13Stimulus,l1rpmR1ClDRCP13Answer,1,1
+matrix-reasoning,l1rpmR6ShDClDRCP6Stimulus,l1rpmR6ShDClDRCP6Answer,1,1
+mental-rotation,an2280,an2000,5,1
+mental-rotation,an2320,an2000,5,1
+mental-rotation,an6320,an6000,5,1
+mental-rotation,ap13240,ap13000,5,1
+mental-rotation,ap2240,ap2000,5,1
+mental-rotation,bn14320,bn14000,2,1
+mental-rotation,bn15240,bn15000,2,1
+mental-rotation,bn5320,bn5000,4,1
+mental-rotation,bp1320,bp1000,4,1
+mental-rotation,bp15280,bp15000,2,1
+mental-rotation,bp15320,bp15000,2,1
+mental-rotation,cn10320,cn10000,1,1
+mental-rotation,cn15240,cn15000,1,1
+mental-rotation,cn17280,cn17000,1,1
+mental-rotation,cn5240,cn5000,1,1
+mental-rotation,cn6280,cn6000,1,1
+mental-rotation,cp10280,cp10000,1,1
+mental-rotation,cp14240,cp14000,1,1
+mental-rotation,cp15280,cp15000,1,1
+mental-rotation,cp17240,cp17000,1,1
+mental-rotation,cp5280,cp5000,1,1
+mental-rotation,cp5320,cp5000,1,1
+mental-rotation,cp6320,cp6000,1,1
+mental-rotation,dn020,dn000Silh,10,1
+mental-rotation,dn10280,dn10000,1,1
+mental-rotation,dn10320,dn10000,1,1
+mental-rotation,dn11320,dn11000,1,1
+mental-rotation,dn120,dn000Silh,8,1
+mental-rotation,dn1240,dn1000,1,1
+mental-rotation,dn1320,dn1000,1,1
+mental-rotation,dn15280,dn15000,1,1
+mental-rotation,dn2280,dn2000,1,1
+mental-rotation,dn240,dn000Silh,7,1
+mental-rotation,dn280,dn000Silh,7,1
+mental-rotation,dn320,dn000Silh,7,1
+mental-rotation,dn4320,dn4000,1,1
+mental-rotation,dn8240,dn8000,1,1
+mental-rotation,dn8280,dn8000,1,1
+mental-rotation,dp020,dp000Silh,10,1
+mental-rotation,dp10240,dp10000,1,1
+mental-rotation,dp11280,dp11000,1,1
+mental-rotation,dp15320,dp15000,1,1
+mental-rotation,dp160,dp000Silh,8,1
+mental-rotation,dp2240,dp2000,1,1
+mental-rotation,dp240,dp000Silh,7,1
+mental-rotation,dp280,dp000Silh,7,1
+mental-rotation,dp320,dp000Silh,7,1
+mental-rotation,dp4280,dp4000,1,1
+mental-rotation,dp8320,dp8000,1,1
+mental-rotation,en10320,en10000,1,1
+mental-rotation,en15240,en15000,1,1
+mental-rotation,en17240,en17000,1,1
+mental-rotation,en17280,en17000,1,1
+mental-rotation,en3320,en3000,1,1
+mental-rotation,en5240,en5000,1,1
+mental-rotation,en6280,en6000,1,1
+mental-rotation,ep15280,ep15000,1,1
+mental-rotation,ep3280,ep3000,1,1
+mental-rotation,ep5280,ep5000,1,1
+mental-rotation,ep5320,ep5000,1,1
+mental-rotation,ep6320,ep6000,1,1
+mental-rotation,gn040,gn000Silh,6,1
+mental-rotation,gn240,gn000Silh,5,1
+mental-rotation,gn280,gn000Silh,5,1
+mental-rotation,gn320,gn000Silh,5,1
+mental-rotation,gp040,gp000Silh,6,1
+mental-rotation,gp080,gp000Silh,6,1
+mental-rotation,gp280,gp000Silh,5,1
+mental-rotation,gp320,gp000Silh,5,1
+mental-rotation,rn020,rn000Silh,17,1
+mental-rotation,rn120,rn000Silh,16,1
+mental-rotation,rn280,rn000Silh,10,1
+mental-rotation,rp020,rp000Silh,17,1
+mental-rotation,rp040,rp000Silh,17,1
+mental-rotation,rp280,rp000Silh,10,1
+mental-rotation,rp320,rp000Silh,10,1
+mental-rotation,tn020,tn000Silh,7,1
+mental-rotation,tn040,tn000Silh,7,1
+mental-rotation,tn120,tn000Silh,7,1
+mental-rotation,tn240,tn000Silh,6,1
+mental-rotation,tn320,tn000Silh,6,1
+mental-rotation,tp020,tp000Silh,7,1
+mental-rotation,tp040,tp000Silh,7,1
+mental-rotation,tp080,tp000Silh,7,1
+mental-rotation,tp280,tp000Silh,6,1
+mental-rotation,tp320,tp000Silh,6,1
+roar (sre-es),A las gaviotas les gusta nadar con los tiburones.,NA,2,1
+roar (sre-es),A los niños y niñas les gusta jugar.,NA,3,1
+roar (sre-es),Abril es el primer mes del año.,NA,5,1
+roar (sre-es),Agosto es el último mes del año.,NA,5,1
+roar (sre-es),Algunas personas caminan descalzas sobre la arena.,NA,2,1
+roar (sre-es),Algunas personas comen pescado.,NA,3,1
+roar (sre-es),Algunas personas mayores utilizan bastón.,NA,3,1
+roar (sre-es),Algunas personas toman agua de coco cuando tienen sed.,NA,5,1
+roar (sre-es),Algunos loros construyen nidos en los árboles para criar a sus crías.,NA,1,1
+roar (sre-es),Algunos pájaros se alimentan del néctar de las flores.,NA,1,1
+roar (sre-es),Cuando hace calor algunas personas comen helado.,NA,3,1
+roar (sre-es),Cuando hay mucho viento los conejos pueden volar.,NA,2,1
+roar (sre-es),Cuando llueve mucho los ríos tienen poca agua.,NA,3,1
+roar (sre-es),"Después de llover, puede aparecer un arcoíris.",NA,3,1
+roar (sre-es),Diciembre tiene 100 días.,NA,1,1
+roar (sre-es),El aceite solamente se utiliza para freír naranjas.,NA,1,1
+roar (sre-es),El agua es de color rojo.,NA,5,1
+roar (sre-es),El agua es importante para cultivar vegetales.,NA,1,1
+roar (sre-es),El café es de color azul.,NA,1,1
+roar (sre-es),El café se endulza con sal.,NA,3,1
+roar (sre-es),El fuego es caliente.,NA,3,1
+roar (sre-es),El fútbol se juega con una cuchara.,NA,3,1
+roar (sre-es),El helado es un postre frío.,NA,1,1
+roar (sre-es),El hielo es frío.,NA,3,1
+roar (sre-es),El jaguar camina por la nieve.,NA,1,1
+roar (sre-es),El jugo de naranja se hace con peras.,NA,4,1
+roar (sre-es),El rugido del león se puede oír desde muy lejos.,NA,2,1
+roar (sre-es),El sol brilla durante el día.,NA,4,1
+roar (sre-es),El sol sale por la noche.,NA,5,1
+roar (sre-es),El tren se mueve por el ferrocarril.,NA,3,1
+roar (sre-es),El verano es una estación del año.,NA,4,1
+roar (sre-es),El viento mueve las ramas de los árboles.,NA,5,1
+roar (sre-es),En el mar viven animales de diferentes tamaños.,NA,4,1
+roar (sre-es),En la selva húmeda tropical llueve mucho.,NA,2,1
+roar (sre-es),En muchos lugares los gallos cantan por las mañanas.,NA,2,1
+roar (sre-es),Existen rocas de diferentes formas y tamaños.,NA,2,1
+roar (sre-es),Hay personas que se ponen muy felices cuando bailan.,NA,1,1
+roar (sre-es),La lana de las ovejas sirve para hacer ropa.,NA,3,1
+roar (sre-es),La leche se puede tomar fría o caliente.,NA,3,1
+roar (sre-es),"La letra ""A"" es la primera del alfabeto.",NA,4,1
+roar (sre-es),"La letra ""Q"" es la primera del alfabeto.",NA,7,1
+roar (sre-es),La lluvia cae hacia arriba.,NA,3,1
+roar (sre-es),La lluvia cae únicamente cuando hace mucho calor.,NA,1,1
+roar (sre-es),La luna brilla en la noche.,NA,7,1
+roar (sre-es),La mayoría de celulares sirven para tomar fotos.,NA,2,1
+roar (sre-es),La mayoría de los búhos salen a volar en las noches.,NA,2,1
+roar (sre-es),La mayoría de los murciélagos están despiertos durante el día.,NA,1,1
+roar (sre-es),La mayoría de personas toma bebidas frías cuando hace frío.,NA,2,1
+roar (sre-es),La miel es ácida como el limón.,NA,3,1
+roar (sre-es),La sopa se toma con tenedor.,NA,1,1
+roar (sre-es),Las abejas bailan en primavera.,NA,4,1
+roar (sre-es),Las arañas tejen telarañas intrincadas.,NA,2,1
+roar (sre-es),Las arañas tienen tres patas.,NA,5,1
+roar (sre-es),Las avispas cargan piedras.,NA,4,1
+roar (sre-es),Las ballenas nadan en el océano.,NA,3,1
+roar (sre-es),Las bicicletas pueden tener canastas.,NA,1,1
+roar (sre-es),Las bicicletas tienen alas para volar.,NA,2,1
+roar (sre-es),Las bicicletas tienen dos ruedas.,NA,1,1
+roar (sre-es),Las bolsas pueden llevar objetos.,NA,4,1
+roar (sre-es),Las botellas de plástico contaminan el mar.,NA,3,1
+roar (sre-es),Las burbujas se hacen con arena.,NA,2,1
+roar (sre-es),Las cabras ayudan a resolver misterios en la jungla.,NA,5,1
+roar (sre-es),Las chanclas son unos buenos zapatos para usar en lugares fríos.,NA,2,1
+roar (sre-es),Las cometas vuelan alto.,NA,4,1
+roar (sre-es),Las computadoras tienen patas.,NA,3,1
+roar (sre-es),Las cucarachas son mensajeras secretas que hablan varios idiomas.,NA,1,1
+roar (sre-es),Las escobas sirven para detener el tiempo.,NA,4,1
+roar (sre-es),Las estaciones del año cambian.,NA,3,1
+roar (sre-es),Las flores hablan en susurros.,NA,2,1
+roar (sre-es),Las flores no necesitan agua.,NA,1,1
+roar (sre-es),Las fresas son saladas.,NA,5,1
+roar (sre-es),"Las frutas, como los mangos, ofrecen vitaminas y sabores deliciosos.",NA,1,1
+roar (sre-es),Las gallinas ponen huevos.,NA,1,1
+roar (sre-es),Las guacamayas tienen alas coloridas.,NA,3,1
+roar (sre-es),Las hamburguesas son vegetarianas.,NA,3,1
+roar (sre-es),Las hojas crujen bajo los pies.,NA,4,1
+roar (sre-es),Las hormigas construyen ciudades subterráneas con rascacielos enormes.,NA,1,1
+roar (sre-es),Las hormigas escriben poesía.,NA,3,1
+roar (sre-es),Las hormigas son tan grandes como elefantes.,NA,6,1
+roar (sre-es),Las iguanas son reptiles verdes.,NA,7,1
+roar (sre-es),Las ingenieras pintan con lápices gigantes.,NA,1,1
+roar (sre-es),Las jirafas tienen cuellos cortos.,NA,3,1
+roar (sre-es),Las jirafas tienen manchas de colores verde y rojo.,NA,2,1
+roar (sre-es),Las luciérnagas emiten luz.,NA,2,1
+roar (sre-es),Las maletas tienen vida propia y viajan por el mundo solas.,NA,2,1
+roar (sre-es),Las mandarinas son anaranjadas y jugosas.,NA,2,1
+roar (sre-es),Las mariposas revolotean en el aire.,NA,1,1
+roar (sre-es),Las montañas son planas en la cima.,NA,6,1
+roar (sre-es),Las motocicletas navegan en el mar.,NA,5,1
+roar (sre-es),Las motos sirven para volar.,NA,2,1
+roar (sre-es),Las naranjas son verdes por dentro.,NA,1,1
+roar (sre-es),Las ovejas son bailarinas.,NA,6,1
+roar (sre-es),Las palas sirven para sembrar.,NA,1,1
+roar (sre-es),Las palomas viven bajo el agua.,NA,4,1
+roar (sre-es),Las papas crecen en los árboles.,NA,1,1
+roar (sre-es),Las personas pueden caminar en las nubes.,NA,3,1
+roar (sre-es),Las personas van al aeropuerto para viajar en tren.,NA,3,1
+roar (sre-es),Las piedras flotan en el agua.,NA,1,1
+roar (sre-es),Las piedras son magos.,NA,5,1
+roar (sre-es),Las pintoras usan brochas para pintar cuadros.,NA,1,1
+roar (sre-es),Las ranas navegan por los océanos en botes de papel.,NA,1,1
+roar (sre-es),Las ranas viven en los volcanes.,NA,7,1
+roar (sre-es),Las rocas caminan solas en el desierto.,NA,6,1
+roar (sre-es),Las rocas son siempre suaves al tacto.,NA,4,1
+roar (sre-es),Las serpientes tienen piernas para caminar.,NA,2,1
+roar (sre-es),Las sillas hablan en voz alta.,NA,5,1
+roar (sre-es),Las sirenas son gimnastas.,NA,3,1
+roar (sre-es),Las tijeras cortan el papel.,NA,3,1
+roar (sre-es),Las tormentas de nieve ocurren en el verano.,NA,6,1
+roar (sre-es),Las tortugas corren carreras de velocidad en el mar.,NA,2,1
+roar (sre-es),Las tortugas corren maratones.,NA,2,1
+roar (sre-es),Las tortugas corren tan rápido como los guepardos.,NA,3,1
+roar (sre-es),Las uvas son pequeñas y jugosas.,NA,5,1
+roar (sre-es),Las vacas producen leche.,NA,4,1
+roar (sre-es),Las velas sirven para alumbrar en la noche.,NA,1,1
+roar (sre-es),"Las verduras, como las zanahorias, son saludables y nutritivas.",NA,2,1
+roar (sre-es),Las zanahorias brillan en la oscuridad.,NA,4,1
+roar (sre-es),Las zanahorias son micrófonos que cantan canciones al crecer.,NA,1,1
+roar (sre-es),Leer libros nos ayuda a aprender cosas nuevas.,NA,3,1
+roar (sre-es),Los arcoíris aparecen después de la lluvia.,NA,3,1
+roar (sre-es),Los aviones vuelan en el cielo.,NA,2,1
+roar (sre-es),Los barcos andan por el ferrocarril.,NA,3,1
+roar (sre-es),Los barcos navegan en el agua.,NA,2,1
+roar (sre-es),Los bomberos usan mangueras para apagar incendios en edificios.,NA,1,1
+roar (sre-es),Los bosques están llenos de árboles.,NA,6,1
+roar (sre-es),Los burros vuelan en el cielo.,NA,2,1
+roar (sre-es),Los caballos galopan en los campos.,NA,3,1
+roar (sre-es),Los caballos son astronautas.,NA,2,1
+roar (sre-es),Los caimanes conducen automóviles.,NA,3,1
+roar (sre-es),Los campesinos ordeñan las vacas.,NA,1,1
+roar (sre-es),Los cangrejos caminan de lado.,NA,1,1
+roar (sre-es),Los caracoles conducen coches.,NA,4,1
+roar (sre-es),Los caracoles son artistas que pintan paisajes en la hierba.,NA,3,1
+roar (sre-es),Los caramelos crecen en árboles.,NA,5,1
+roar (sre-es),Los carros van por la autopista.,NA,3,1
+roar (sre-es),Los cerdos siempre caminan en dos patas.,NA,2,1
+roar (sre-es),Los chefs cocinan con gorros de baño.,NA,3,1
+roar (sre-es),Los chefs preparan deliciosos platos utilizando ingredientes frescos y sabrosos.,NA,3,1
+roar (sre-es),Los ciclistas pedalean en bicicletas.,NA,3,1
+roar (sre-es),Los científicos estudian el comportamiento de los unicornios.,NA,2,1
+roar (sre-es),Los científicos estudian la naturaleza y descubren nuevos conocimientos.,NA,1,1
+roar (sre-es),Los científicos hacen experimentos.,NA,3,1
+roar (sre-es),Los coches son submarinos.,NA,1,1
+roar (sre-es),Los conejos les cantan canciones infantiles para dormir a los tigres.,NA,2,1
+roar (sre-es),Los conejos saltan en la hierba.,NA,4,1
+roar (sre-es),Los conejos son un tipo de pájaro.,NA,6,1
+roar (sre-es),Los cuadernos tienen alas para volar.,NA,5,1
+roar (sre-es),Los delfines son inteligentes.,NA,1,1
+roar (sre-es),Los desiertos son océanos de arena con olas suaves.,NA,4,1
+roar (sre-es),Los dientes se pueden limpiar con una zanahoria.,NA,2,1
+roar (sre-es),Los dragones vuelan en bicicleta.,NA,2,1
+roar (sre-es),Los elefantes escalan las montañas.,NA,2,1
+roar (sre-es),Los elefantes tocan la trompeta.,NA,2,1
+roar (sre-es),Los exploradores descubren nuevos lugares en emocionantes aventuras.,NA,1,1
+roar (sre-es),Los gatos cazan ratones.,NA,3,1
+roar (sre-es),Los gatos ladran como los perros.,NA,3,1
+roar (sre-es),Los gatos tienen bigotes.,NA,2,1
+roar (sre-es),Los gorilas tienen tres ojos.,NA,3,1
+roar (sre-es),Los gusanos viven en la tierra.,NA,3,1
+roar (sre-es),Los helados son postres fríos y deliciosos que todos disfrutan.,NA,2,1
+roar (sre-es),Los huracanes son fuertes tormentas.,NA,1,1
+roar (sre-es),Los jardineros juegan al fútbol con flores.,NA,1,1
+roar (sre-es),Los juguetes de peluche son exploradores que escalan montañas.,NA,2,1
+roar (sre-es),Los koalas son expertos en karate.,NA,2,1
+roar (sre-es),Los lectores disfrutan de los libros.,NA,2,1
+roar (sre-es),Los leones comen pizza en la selva.,NA,3,1
+roar (sre-es),Los leones rugen en la selva.,NA,3,1
+roar (sre-es),Los leones son animales acuáticos.,NA,2,1
+roar (sre-es),Los leones son vegetarianos y aman las ensaladas verdes.,NA,5,1
+roar (sre-es),Los libros contienen conocimiento y cuentan historias cautivadoras.,NA,3,1
+roar (sre-es),Los libros crecen en los árboles.,NA,4,1
+roar (sre-es),Los libros se guardan en la nevera.,NA,1,1
+roar (sre-es),Los libros son invisibles.,NA,4,1
+roar (sre-es),Los libros tienen letras y palabras.,NA,3,1
+roar (sre-es),Los lápices tienen superpoderes para escribir solos en papel.,NA,1,1
+roar (sre-es),Los maestros enseñan a los pájaros a cantar.,NA,6,1
+roar (sre-es),Los monos saltan entre las ramas.,NA,3,1
+roar (sre-es),Los médicos usan estetoscopios para escuchar el corazón.,NA,2,1
+roar (sre-es),Los nadadores practican en la piscina para mejorar sus habilidades.,NA,4,1
+roar (sre-es),Los niños disfrutan jugando en los parques al aire libre.,NA,2,1
+roar (sre-es),Los niños juegan con juguetes.,NA,4,1
+roar (sre-es),Los osos polares viven en el hielo.,NA,3,1
+roar (sre-es),Los pandas comen bambú.,NA,3,1
+roar (sre-es),Los patos construyen sus casas en la cima de los árboles.,NA,2,1
+roar (sre-es),Los patos usan zapatos.,NA,4,1
+roar (sre-es),Los peces viven fuera del agua.,NA,3,1
+roar (sre-es),Los perros son leales y algunas personas los tienen como mascotas.,NA,2,1
+roar (sre-es),Los perros tienen cuatro patas.,NA,2,1
+roar (sre-es),Los pescadores pescan ovejas en el mar.,NA,1,1
+roar (sre-es),Los pescadores trabajan en la panadería.,NA,4,1
+roar (sre-es),Los pescadores usan anzuelos.,NA,2,1
+roar (sre-es),Los profesores enseñan a los estudiantes en el colegio.,NA,2,1
+roar (sre-es),Los pulpos pueden hablar.,NA,4,1
+roar (sre-es),Los pájaros tocan la guitarra.,NA,5,1
+roar (sre-es),Los ratones tienen colas largas.,NA,3,1
+roar (sre-es),Los relojes marcan la hora del día.,NA,4,1
+roar (sre-es),Los relojes miden la temperatura.,NA,2,1
+roar (sre-es),Los teléfonos tienen ruedas para moverse.,NA,9,1
+roar (sre-es),Los tigres son animales marinos.,NA,2,1
+roar (sre-es),Los tigres son expertos en cocina y preparan banquetes exquisitos.,NA,4,1
+roar (sre-es),Los tigres tienen rayas.,NA,5,1
+roar (sre-es),Los tigres usan sombreros.,NA,4,1
+roar (sre-es),Los tornados son suaves brisas de verano.,NA,4,1
+roar (sre-es),Los toros caminan hacia atrás.,NA,2,1
+roar (sre-es),Los trenes viajan al pasado y al futuro en segundos.,NA,4,1
+roar (sre-es),Los tucanes construyen cuevas en los árboles.,NA,2,1
+roar (sre-es),Los árboles tienen piernas.,NA,1,1
+roar (sre-es),Los árboles tienen ramas.,NA,5,1
+roar (sre-es),Los árboles tienen raíces que se extienden hasta el espacio.,NA,4,1
+roar (sre-es),Los árboles tocan música.,NA,3,1
+roar (sre-es),Octubre tiene 31 días.,NA,3,1
+roar (sre-es),Se necesita fuerza para cargar un costal de piedras.,NA,4,1
+roar (sre-es),Se puede hacer fuego con hielo.,NA,5,1
+roar (sre-es),Todos los artistas pintan con plátanos.,NA,3,1
+roar (sre-es),Todos los lagos son completamente cuadrados.,NA,1,1
+roar (sre-es),Todos los pájaros tienen el mismo tamaño de pico.,NA,1,1
+roar (sre-es),Un bombero apaga fuegos con agua.,NA,3,1
+roar (sre-es),Un cuadrado tiene cinco lados.,NA,3,1
+roar (sre-es),Un martillo sirve para cocinar.,NA,5,1
+roar (sre-es),Un panadero puede volar en su bicicleta.,NA,2,1
+roar (sre-es),Un submarino viaja por las nubes.,NA,4,1
+roar (sre-es),Un tendor sive para cortar tela.,NA,4,1
+roar (sre-es),Un vaso con leche se puede beber con tenedor.,NA,4,1
+roar (sre-es),Una guitarra sirve para tocar una canción.,NA,3,1
+roar (sre-es),Los sombreros se ponen en el pie.,NA,31,0.967741935483871
+trog,apple,4-apple,20,1
+trog,bird,2-bird,20,1
+trog,black,12-black-horse,20,1
+trog,comb,3-comb,20,1
+trog,long,9-long,20,1
+trog,not only the bird but also the flower is blue,65-bird-blue-flower-blue,16,1
+trog,not only the girl but also the cat is sitting,67-girl-cat-sitting,16,1
+trog,the big cup,14-big-cup,20,1
+trog,the box but not the chair is red,57-green-chair-red-box,17,1
+trog,the box is bigger than the cup,42-box-bigger-cup,19,1
+trog,the box is not only big but also blue,66-big-blue-box,16,1
+trog,the boy has neither hat nor shoes,76-no-hat-no-shoes,16,1
+trog,the boy is chasing the sheep,30-boy-chases-sheep,20,1
+trog,the boy is running,13-boy-running,20,1
+trog,the boy is sitting but not eating,60-sitting-boy,17,1
+trog,the cup is in the box,49-cup-in-box,18,1
+trog,the dog is sitting,15-dog-sitting,20,1
+trog,the girl has not only food but also a drink,68-banana-and-juice,16,1
+trog,the girl is pushing the horse,29-girl-pushes-horse,20,1
+trog,the horse is taller than the wall,44-horse-small-wall,19,1
+trog,the lady is carrying the bag,24-woman-carry-bag,20,1
+trog,the man is chasing the dog,31-man-chases-dog,20,1
+trog,the man is eating the apple,23-man-eat-apple,20,1
+trog,the red ball,16-red-ball,20,1
+trog,they are sitting on the table,25-2-girls-on-table,20,1
+trog,eating,5-eating,20,0.95
+trog,red,11-red,20,0.95
+trog,she is sitting on the chair,33-woman-in-chair,20,0.95
+trog,shoe,1-shoe,20,0.95
+trog,the boy is jumping over the box,21-boy-jump-box,20,0.95
+trog,the boy is not running,17-boy-sitting,20,0.95
+trog,the cow is pushing the lady,32-cow-pushes-woman,20,0.95
+trog,the dog is not drinking,18-dog-not-drinking,20,0.95
+trog,the dog is not sitting,20-dog-standing,20,0.95
+trog,the elephant is carrying them,28-elephant-carries-them,20,0.95
+trog,the girl is not jumping,19-girl-not-jumping,20,0.95
+trog,the girl is sitting on the table,22-girl-on-table,20,0.95
