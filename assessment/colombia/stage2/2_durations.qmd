@@ -1,0 +1,213 @@
+---
+format: html
+---
+  
+```{r setup}
+source("_setup.R")
+
+trials_coded <- read_rds("data_processed/trials_coded.rds")
+participants <- read_rds("data_processed/participants.rds")
+```
+
+```{r}
+# prop_trials <- participant_summary |> select(task, user_id, prop_trials)
+
+# get_time_summary <- function(trial_data) {
+  # trial_data |>
+    # filter(!is.na(pid)) |>
+    # mutate(task = fct_inorder(task)) |>
+time_summary <- trials_coded |>
+  mutate(server_timestamp = as_datetime(server_timestamp)) |>
+  arrange(user_id, run_id, server_timestamp) |>
+  
+  group_by(task_group, task, run_id, user_id) |>
+  summarise(trials = n(),
+            start = min(server_timestamp), end = max(server_timestamp)) |>
+  mutate(diff = difftime(end, start, units = "mins")) |>
+  group_by(task) |>
+  mutate(task_label = glue("{task}\n(n = {n()})")) |>
+  ungroup() |>
+  mutate(task_label = fct_inorder(task_label)) |>
+  # left_join(prop_trials) |>
+  left_join(participants)
+# }
+# time_summary <- get_time_summary(trials_coded)
+
+# time_summary |> count(task)
+# time_summary |> count(task, pid) |> filter(n == max(n))
+
+ggplot(time_summary, aes(x = "", y = diff, colour = task_label)) +
+  facet_wrap(vars(task_label), nrow = 3) +
+  geom_sina(aes(colour = task_group)) +
+  scale_colour_ptol() +
+  labs(y = "Duration (minutes)") +
+  guides(colour = "none") +
+  theme(axis.ticks.x = element_blank(),
+        axis.title.x = element_blank(),
+        strip.text = element_text(size = 8))
+ggsave("plots/times/durations.png", width = 14, height = 8)
+
+ggplot(time_summary, aes(x = age, y = diff)) +
+  facet_wrap(vars(task_label), nrow = 3) +
+  geom_smooth(method = "lm", colour = "darkgrey") +
+  geom_point(aes(colour = task_group), alpha = 0.8) +
+  scale_colour_ptol() +
+  labs(x = "Age (years)", y = "Duration (minutes)") +
+  guides(colour = "none") +
+  theme(legend.position = "bottom",
+        strip.text = element_text(size = 8))
+ggsave("plots/times/durations_age.png", width = 9, height = 8)
+
+ggplot(time_summary, aes(x = prop_trials, y = diff)) +
+  facet_wrap(vars(task_label), nrow = 2) +
+  # geom_smooth(method = "lm", colour = "darkgrey") +
+  geom_point(aes(colour = task_group), alpha = 0.8) +
+  scale_colour_ptol() +
+  labs(x = "Proportion trials completed", y = "Duration (minutes)") +
+  guides(colour = "none") +
+  theme(legend.position = "bottom",
+        strip.text = element_text(size = 8))
+ggsave("plots/durations_completed.png", width = 12, height = 5.5)
+```
+
+```{r}
+item_summary <- trials_ids |>
+  filter(!is.na(item)) |>
+  group_by(task_group, task, subtask, item_id, item, expected_answer) |>
+  summarise(subjects = n_distinct(pid),
+            trials = n(),
+            num_correct = sum(correct, na.rm = TRUE),
+            prop_correct = num_correct / trials) |>
+  ungroup()
+
+item_summary |> count(task)
+item_summary |> filter(trials != subjects)
+
+high_correct <- item_summary |>
+  filter(prop_correct >= 0.95) |>
+  select(task, item_id, item, expected_answer, trials, prop_correct) |>
+  arrange(task, desc(prop_correct))
+
+high_correct |> count(task, sort = TRUE)
+write_csv(high_correct, "data/high_correct_items.csv")
+```
+
+```{r}
+trial_times <- trials_ids |>
+  filter(!is.na(pid)) |>
+  # mutate(task = fct_inorder(task)) |>
+  # arrange(user_id, run_id, task, trial_index) |>
+  mutate(server_timestamp = as_datetime(server_timestamp)) |>
+  arrange(user_id, run_id, server_timestamp) |>
+  group_by(user_id, run_id) |>
+  mutate(server_timestamp = as_datetime(server_timestamp),
+         trial_time = server_timestamp - lag(server_timestamp),
+         trial_time_alt = (time_elapsed - lag(time_elapsed)) / 1000) |>
+  ungroup() |>
+  select(pid, user_id, run_id, task_group, task, item, trial_index, trial_time, trial_time_alt)
+
+trial_times |> filter(trial_time < 0)
+trial_times |> group_by(user_id, run_id) |> filter(trial_index < lag(trial_index))
+
+trial_times |>
+  group_by(task_group, task, item, trial_index) |>
+  summarise(trial_time = median(trial_time, na.rm = TRUE)) |>
+  group_by(task_group, task) |>
+  summarise(trial_time = median(trial_time, na.rm = TRUE)) |>
+  ungroup() |>
+  mutate(tt = round(trial_time))
+
+get_durations <- function(times) {
+  times |>
+    group_by(pid, task_group, task) |>
+    summarise(trial_time_total = sum(trial_time, na.rm = TRUE),
+              n_items = n_distinct(item)) |>
+              # trial_time_alt_total = sum(trial_time_alt, na.rm = TRUE)) |>
+    group_by(task_group, task) |>
+    summarise(duration_median = median(trial_time_total),
+              duration_sd = sd(trial_time_total),
+              n_items_mean = mean(n_items))
+}
+
+# trial_times |>
+#   group_by(pid, task_group, task) |>
+#   summarise(trial_time_total = sum(trial_time, na.rm = TRUE),
+#             n_items = n_distinct(item_id)) |>
+#             # trial_time_alt_total = sum(trial_time_alt, na.rm = TRUE)) |>
+#   group_by(task_group, task) |>
+#   summarise(duration_median = median(trial_time_total) |> as.numeric(),
+#             duration_median = duration_median / 60,
+#             n_items_mean = mean(n_items))
+
+# trial_times |> filter(task == "egma (subtraction)")
+
+task_durations <- trial_times |> get_durations() # > mutate(batch = "original")
+
+# task_durations_rev <- trial_times |>
+#   filter(!(item_id %in% high_correct$item_id)) |>
+#   get_durations() |> mutate(batch = "revised")
+
+sum(task_durations$duration_median)
+# sum(task_durations_rev$duration_mean)
+
+# durations_compare <- bind_rows(task_durations, task_durations_rev) |>
+#   ungroup() |>
+#   mutate(minutes = as.numeric(duration_median) / 60)
+
+# durations_compare |>
+#   select(task_group, task, batch, minutes) |>
+#   pivot_wider(names_from = batch, values_from = minutes)
+
+ggplot(durations_compare, aes(x = batch, y = duration_mean, fill = task_group)) +
+  geom_col(aes(group = task)) +
+  scale_fill_ptol() +
+  geom_text(aes(label = task_group))
+
+ggplot(durations_compare, aes(x = batch, node = task_group, fill = task_group, value = minutes)) +
+  ggsankey::geom_sankey_bump(space = .5, type = "alluvial") +
+  # geom_text(aes(label = task_group, y = minutes)) +
+  scale_fill_ptol() +
+  scale_x_discrete(expand = expansion(0, .1)) +
+  labs(x = "Item bank", y = "Duration (minutes)", fill = "Task")
+ggsave("plots/duration_sankey.png", width = 6, height = 4)
+```
+
+```{r}
+# task_times <- read_csv("../../LEVANTE task times.csv")
+task_times <- googlesheets4::read_sheet("1OnMKVtxHos8lsKDzF0moeghmRAFSTsD1-OpPF7wArCU", sheet = 2)
+
+adaptive_times <- task_times |>
+  mutate(time_starting = if_else(is.na(time_actual), time_original, time_actual),
+         time_reduced = if_else(is.na(time_reduced), time_original, time_reduced)) |>
+  filter(!is.na(time_starting)) |>
+  mutate(time_aspirational = map2_dbl(time_reduced, time_adaptive_empirical, partial(min, na.rm = TRUE))) |>
+  select(task_group, task, original = time_starting, revised = time_reduced, adaptive = time_aspirational) |>
+  pivot_longer(cols = -c("task_group", "task"), names_to = "batch", values_to = "minutes") |>
+  group_by(batch, task_group) |>
+  summarise(minutes = sum(minutes)) |>
+  ungroup() |>
+  mutate(batch = batch |> fct_relevel("original", "revised", "adaptive")) |>
+  arrange(desc(batch), minutes) |>
+  mutate(task_group = fct_inorder(task_group))
+  # group_by(batch) |>
+  # mutate(cum_time = cumsum(minutes))
+  # arrange(desc(batch))
+
+# dashed line at 60 mins
+ggplot(adaptive_times, aes(x = batch, node = task_group, fill = task_group, value = minutes)) +
+  ggsankey::geom_sankey_bump(space = .5, type = "alluvial") +
+  geom_hline(yintercept = 60, linetype = "dashed") +
+  # geom_text(aes(label = task_group, y = cum_time)) +
+  scale_fill_ptol() +
+  scale_x_discrete(expand = expansion(0, .05)) +
+  # scale_x_discrete(expand = expansion(0, c(.05, .2))) +
+  guides(fill = guide_legend(reverse = TRUE)) +
+  labs(y = "Duration (minutes)") +
+  theme(axis.title.x = element_blank(),
+        legend.title = element_blank())
+        # legend.position = c(1.07, 0.28),
+        # plot.margin = unit(c(6, 100, 6, 6), "pt"))
+  # labs(x = "Item bank", y = "Duration (minutes)", fill = "Task")
+
+ggsave("plots/duration_sankey_adaptive.png", width = 8, height = 4)
+```

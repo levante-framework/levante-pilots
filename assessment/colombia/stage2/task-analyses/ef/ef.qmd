@@ -1,0 +1,189 @@
+---
+format: html
+---
+  
+```{r setup}
+source("setup.R")
+
+trials_coded <- read_rds("data_processed/trials_coded.rds")
+participants <- read_rds("data_processed/participants.rds")
+```
+
+H&F
+
+accuracy
++ accuracy (% correct)
++ non-responses -> incorrect
++ responses within 200 ms of stimulus presentation -> incorrect
+- many same responses in a row -> missing
+- min number of non-missing responses to calculate composites (5?)
+
+? If participants stop responding to many trials in a row, we count those as missing. (Not sure if you want to implement this.)
+
+RT
++ average RT only on the correct trials
+- exclude first trial in block
+
+For memory, we recommend using the number of correct trials. It has more variability than memory span (longest sequence with a correct response), but memory span will be more meaningful to some researchers.
+
+```{r hf}
+#, "memory-game", "same-different-selection"
+# streak_n <- 2
+
+hf <- trials_coded |>
+  filter(task_id %in% c("hearts-and-flowers")) |>
+  select(task, subtask, trial_id, user_id, run_id, age, item, expected_answer, server_timestamp,
+         response, is_correct, rt) |>
+  arrange(user_id, server_timestamp) |>
+  mutate(rt = as.numeric(rt), response_fast = rt < 200, response_slow = rt > 2000) |>
+         # l1 = lag(response, 1), l2 = lag(response, 2),
+         # s = list(l1, l2),
+         # streak = n_distinct(c(response, lag(response, 1), lag(response, 2))))
+  mutate(correct = !is.na(is_correct) & is_correct & !response_fast & !response_slow)
+
+hf |> count(response_fast, response_slow)
+hf |> count(is_correct, correct)
+# accuracy_mod <- glmer(correct ~ age + subtask + (1 | user_id), data = hf, family = "binomial")
+
+hf_accuracy <- hf |>
+  group_by(user_id, run_id, age, subtask) |>
+  summarise(trials_accuracy = n(), prop_correct = mean(correct)) |>
+  ungroup()
+
+hf_rt <- hf |>
+  group_by(user_id, run_id, age, subtask) |>
+  # mutate(cgr = cur_group_rows()) |>
+  # mutate(rt = c(NA, rt[2:n()])) |>
+  filter(correct) |>
+  summarise(trials_rt = n(), mean_rt = mean(rt, na.rm = TRUE),
+            median_rt = median(rt, na.rm = TRUE)) |>
+  ungroup()
+
+hf_summary <- hf_accuracy |> left_join(hf_rt)
+
+hf_summary |>
+  select(subtask, age, prop_correct, mean_rt) |>
+  GGally::ggpairs(aes(color = subtask))
+ggsave("plots/hf_ggpairs.png", width = 12, height = 10)
+```
+
+
+```{r sds}
+sds <- trials_coded |>
+  filter(task_id %in% c("same-different-selection")) |>
+  select(task, subtask, corpus_trial_type, trial_id, run_id, user_id, age, item, expected_answer, server_timestamp,
+         response, is_correct) |>
+  arrange(user_id, server_timestamp) |>
+  mutate(corpus_trial_type = fct_inorder(corpus_trial_type))
+  # arrange(user_id, server_timestamp)
+  # mutate(rt = as.numeric(rt)) #, response_fast = rt < 200, response_slow = rt > 2000) |>
+         # l1 = lag(response, 1), l2 = lag(response, 2),
+         # s = list(l1, l2),
+         # streak = n_distinct(c(response, lag(response, 1), lag(response, 2))))
+  # mutate(correct = !is.na(is_correct) & is_correct & !response_fast & !response_slow)
+
+sds_summary <- sds |>
+  group_by(user_id, run_id, age, corpus_trial_type) |>
+  summarise(trials_accuracy = n(), prop_correct = mean(is_correct)) |>
+  ungroup()
+
+# sds_summary |>
+#   group_by(corpus_trial_type) |>
+#   filter(!is.na(age)) |>
+#   summarise(n = n(),
+#             correct_age_cor = cor(age, prop_correct,use = "complete.obs"))
+
+ggplot(sds_summary, aes(x = age, y = prop_correct)) +
+  facet_wrap(vars(corpus_trial_type), nrow = 1) +
+  geom_smooth(method = "lm") +
+  geom_point(aes(size = trials_accuracy)) +
+  scale_size_continuous(range = c(0.2, 3)) +
+  ylim(c(0, 1)) +
+  labs(x = "Age (years)", y = "Subject's proportion correct responses",
+       size = "Number of trials completed") +
+  theme(legend.position = "bottom")
+ggsave("plots/sds_subtasks.png", width = 12, height = 3.5)
+
+sds_trial_min <- 10
+sds_composite <- sds |>
+  filter(corpus_trial_type != "test-dimensions") |>
+  group_by(user_id, run_id, age) |>
+  summarise(trials_accuracy = n(), prop_correct = mean(is_correct)) |>
+  ungroup() |>
+  filter(trials_accuracy > sds_trial_min)
+
+ggplot(sds_composite, aes(x = age, y = prop_correct)) +
+  geom_smooth(method = "lm") +
+  geom_point(aes(size = trials_accuracy)) +
+  scale_size_continuous(range = c(0.2, 3)) +
+  ylim(c(0, 1)) +
+  labs(x = "Age (years)", y = "Subject's proportion correct responses",
+       size = "Number of trials completed") +
+  theme(legend.position = "bottom")
+ggsave("plots/sds_composite.png", width = 6, height = 5)
+```
+
+```{r mg}
+mg <- trials_coded |>
+  filter(task_id %in% c("memory-game")) |>
+  select(task, trial_id, run_id, user_id, age, server_timestamp, response, rt, is_correct) |>
+  arrange(user_id, server_timestamp) |>
+  mutate(len = str_count(response, ":"))
+
+mg_span <- mg |>
+  filter(is_correct) |>
+  group_by(user_id, run_id, age) |>
+  summarise(trials_span = n(), longest = max(len))
+
+mg_accuracy <- mg |>
+  group_by(user_id, run_id, age) |>
+  summarise(trials_accuracy = n(), prop_correct = mean(is_correct))
+
+mg_summary <- mg_accuracy |> left_join(mg_span) |> ungroup()
+
+ggplot(mg_summary, aes(x = age, y = longest)) +
+  geom_smooth(method = "lm") +
+  geom_point() +
+  # geom_point(aes(size = trials)) +
+  # scale_size_continuous(range = c(0.2, 3)) +
+  # ylim(c(0, 1)) +
+  labs(x = "Age (years)", y = "Subject's longest correct sequence",
+       size = "Number of correct trials")
+  # theme(legend.position = "bottom")
+ggsave("plots/mg_span.png", width = 6, height = 5)
+
+ggplot(mg_summary, aes(x = age, y = prop_correct)) +
+  geom_smooth(method = "lm") +
+  # geom_point() +
+  geom_point(aes(size = trials_accuracy)) +
+  scale_size_continuous(range = c(0.2, 3)) +
+  ylim(c(0, 1)) +
+  labs(x = "Age (years)", y = "Subject's proportion correct responses",
+       size = "Number of correct trials") +
+  theme(legend.position = "bottom")
+ggsave("plots/mg_accuracy.png", width = 6, height = 5)
+```
+
+```{r ef}
+hf_join <- hf_summary |>
+  filter(subtask == "hearts and flowers") |>
+  group_by(user_id) |> filter(n() == 1) |> ungroup() |>
+  filter(trials_accuracy >= 5) |>
+  select(user_id, age, hf_prop_correct = prop_correct, hf_median_rt = median_rt)
+  # mutate(hf = "HF")
+
+sds_join <- sds_composite |>
+  group_by(user_id) |> filter(n() == 1) |>
+  select(user_id, age, sds_trials = trials_accuracy, sds_prop_correct = prop_correct)
+  # mutate(sds = "SDS")
+
+mg_join <- mg_summary |>
+  group_by(user_id) |> filter(n() == 1) |>
+  select(user_id, age, mg_trials = trials_accuracy, mg_prop_correct = prop_correct, mg_span = longest)
+  # mutate(mg = "MG")
+
+ef <- hf_join |> full_join(sds_join) |> full_join(mg_join) # unite("task", c(hf, sds, mg), na.rm = TRUE)
+
+ef |> select(-user_id) |> GGally::ggpairs()
+ggsave("plots/ef_pairs.png", width = 11, height = 11)
+```
