@@ -18,20 +18,6 @@ theme_update(panel.grid = element_blank(),
              strip.text = element_text(face = "bold"))
 ```
 
-```{r, load-mefs-data}
-mefs1 <- read_csv("data/MEFS/LEVANTE_20240608_1210.csv") %>% # long format data
-  filter(`Child ID` != "1234") # remove test
-mefs2 <- read_csv("data/MEFS/LEVANTE_20240608_1225.csv") %>% # N=122; wide format data
-  filter(`Child ID` != "1234")
-
-# standardized by age, looks like
-cor.test(mefs2$`A1_Standard Score`, mefs2$`A1_Age (Months)`) 
-cor.test(mefs2$`A1_Percentile (National)`, mefs2$`A1_Age (Months)`) 
-
-cor.test(mefs2$`A1_Total Score`, mefs2$`A1_Age (Months)`) # r=.56
-```
-
-
 ```{r}
 org <- redivis::organization("levante")
 dataset_names <- c("columbia_pilot_0523_0529:f068:v2_1",
