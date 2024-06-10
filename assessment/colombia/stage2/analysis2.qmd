@@ -21,52 +21,57 @@ theme_update(panel.grid = element_blank(),
 ```{r}
 org <- redivis::organization("levante")
 dataset_names <- c("columbia_pilot_0523_0529:f068:v2_1",
-                   "columbia_pilot_0523_0530_users_collection:fa9g:v2_1")
+                   "columbia_pilot_0523_0530_users_collection:fa9g:v2_1",
+                   "columbia_pilot_0604_0605:9g4c:v1_2")
 datasets <- dataset_names |> set_names() |> map(\(dn) org$dataset(dn))
 
-get_dataset_tables <- \(ds) ds$list_tables() |> set_names() |> map(\(t) ds$table(t$name)$to_tibble())
+get_dataset_tables <- \(ds) ds$list_tables() |> map(\(t) t$name) |> set_names() |> map(\(tn) ds$table(tn)$to_tibble())
 dataset_tables <- map(datasets, get_dataset_tables)
 
-collect_tables <- \(table_name) datasets |> map(\(d) d$table(table_name)$to_tibble())
-run <- collect_tables("runs")
-trial <- collect_tables("trials")
-user <- collect_tables("users")
+fix_table_types <- function(table_data) {
+  table_data |>
+    mutate(across(where(is_character),
+                  \(x) x |> na_if("null") |> na_if("None"))) |>
+    mutate(across(matches("birth_"), as.integer),
+           across(matches("difficulty"), as.double),
+           across(matches("email_verified|is_reliable|is_bestrun"), as.logical))
+}
 
-runs <- run |> list_rbind()
-
-users <- user |>
-  map(\(u) u |>
-        mutate(across(where(is_character), \(x) na_if(x, "null"))) |>
-        mutate(across(c(birth_year, birth_month), as.integer),
-               email_verified = email_verified |> as.logical())) |>
-  list_rbind()
-
-trials <- trial |>
-  map(\(u) u |>
-        mutate(across(where(is_character), \(x) na_if(x, "null"))) |>
-        mutate(difficulty = difficulty |> as.double())) |>
-  list_rbind()
+all_table_names <- map(dataset_tables, names) |> unlist() |> unique()
+dataset_data <- dataset_tables |>
+  map(\(ds) ds |> map(\(t) fix_table_types(t))) |>
+  list_transpose(template = all_table_names) |>
+  map(list_rbind)
 ```
 
 ```{r}
-trials |> count(task_id)
+users <- distinct(dataset_data$users) |>
+  left_join(distinct(dataset_data$user_groups), by = "user_id", relationship = "many-to-many") |>
+  left_join(distinct(dataset_data$groups), by = "group_id", suffix = c("_user", "_group"))
 
-# missing is_practice
-trials |> filter(is.na(is_practice)) |> count(task_id)
-trials |> filter(is.na(is_practice)) |> count(task_id, assessment_stage)
-
-# missing expected_answer
-trials |> filter(!is.na(is_practice), is.na(expected_answer)) |> count(task_id)
-
-user_ids <- users |>
+participants <- users |>
   filter(user_type %in% c("guest", "student")) |>
-  select(user_id, assessment_pid, birth_month, birth_year, created_at) |>
-  semi_join(trials) |>
+  filter(is.na(name) | str_detect(name, "PilotoColombia|PilotoCOLOMBIA")) |>
+  select(user_id, assessment_pid, birth_month, birth_year, group_name = name) |>
+  distinct() |>
   mutate(dob = ym(paste(birth_year, birth_month, sep = "-")),
-         age = as.numeric(difftime(today(), dob, units = "days")) / 365.25) |>
-  filter(age < 16)
+         age = as.numeric(difftime(today(), dob, units = "days")) / 365.25)
+```
 
-trials_ids <- trials |> left_join(user_ids)
+```{r}
+trials <- dataset_data$trials
+
+# trials |> count(task_id)
+# 
+# # missing is_practice
+# trials |> filter(is.na(is_practice)) |> count(task_id)
+# trials |> filter(is.na(is_practice)) |> count(task_id, assessment_stage)
+# 
+# # missing expected_answer
+# trials |> filter(!is.na(is_practice), is.na(expected_answer)) |> count(task_id)
+
+
+trials_ids <- trials |> inner_join(participants)
 
 trials_filtered <- trials_ids |>
   mutate(practice = !is.na(is_practice) & is_practice | assessment_stage == "practice_response") |>
@@ -86,7 +91,7 @@ trials_coded <- trials_filtered |>
     TRUE ~ task_id
   )) |>
   mutate(corpus_trial_type = if_else(task_group == "EGMA" & !is.na(item) & is.na(corpus_trial_type),
-                                     "Number Line", corpus_trial_type),
+                                     "number line?", corpus_trial_type),
          corpus_trial_type = str_to_lower(corpus_trial_type)) |>
   mutate(subtask = case_when(
     task_group %in% c("EGMA", "mental-rotation") ~ corpus_trial_type,
@@ -94,21 +99,25 @@ trials_coded <- trials_filtered |>
     str_detect(task_id, "hearts|theory") ~ str_remove_all(assessment_stage, " stimulus"))) |>
   mutate(task = if_else(is.na(subtask), task_id, glue("{task_group} ({subtask})"))) |>
   filter(!is.na(item) | !is.na(expected_answer) | !is.na(response)) |>
-  mutate(is_correct = is_correct | str_detect(task, "hostile") & !str_detect(response, "accident"))
+  mutate(is_correct = is_correct | str_detect(task, "hostile") & !str_detect(response, "accident")) |>
+  add_count(user_id, run_id, name = "run_trials") |>
+  arrange(desc(run_trials), server_timestamp) |>
+  mutate(task_group = fct_inorder(task_group),
+         task = fct_inorder(task))
 
 trials_coded |> count(task_group, task)
 
 subject_summary <- trials_coded |>
-  add_count(user_id, run_id, name = "run_trials") |>
-  arrange(desc(run_trials), server_timestamp) |>
-  mutate(task_group = fct_inorder(task_group),
-         task = fct_inorder(task)) |> #pull(task) |> levels()
+  # add_count(user_id, run_id, name = "run_trials") |>
+  # arrange(desc(run_trials), server_timestamp) |>
+  # mutate(task_group = fct_inorder(task_group),
+  #        task = fct_inorder(task)) |>
   group_by(task_group, task, user_id, run_id) |>
   summarise(trials = n(),
             num_correct = sum(is_correct, na.rm = TRUE),
             prop_correct = num_correct / trials) |>
   ungroup() |>
-  left_join(user_ids) |>
+  left_join(participants) |>
   group_by(task) |>
   mutate(n = n(),
          n_age = length(discard(age, is.na)),
@@ -193,7 +202,7 @@ For memory, we recommend using the number of correct trials. It has more variabi
 
 ```{r}
 #, "memory-game", "same-different-selection"
-streak_n <- 2
+# streak_n <- 2
 
 hf <- trials_coded |>
   filter(task_id %in% c("hearts-and-flowers")) |>
@@ -206,6 +215,8 @@ hf <- trials_coded |>
          # streak = n_distinct(c(response, lag(response, 1), lag(response, 2))))
   mutate(correct = !is.na(is_correct) & is_correct & !response_fast & !response_slow)
 
+hf |> count(response_fast, response_slow)
+hf |> count(is_correct, correct)
 # accuracy_mod <- glmer(correct ~ age + subtask + (1 | user_id), data = hf, family = "binomial")
 
 hf_accuracy <- hf |>
@@ -227,39 +238,7 @@ hf_summary <- hf_accuracy |> left_join(hf_rt)
 hf_summary |>
   select(subtask, age, prop_correct, mean_rt) |>
   GGally::ggpairs(aes(color = subtask))
-ggsave("plots/hf_ggpairs.png", width = 12, height = 10)
-
-# ggplot(hf_summary, aes(x = age, y = median_rt)) +
-#   facet_wrap(vars(subtask)) +
-#   geom_point()
-# 
-# ggplot(hf_accuracy, aes(x = subtask, y = prop_correct)) +
-#   # facet_wrap(vars(task_label), nrow = 3) +
-#   geom_sina(aes(colour = subtask, size = trials), alpha = 0.8) +
-#   scale_colour_ptol() +
-#   scale_size_binned(range = c(0.05, 2.5)) +
-#   # labs(y = "Subject's proportion of correct responses",
-#   #      size = "Proportion of trials completed") +
-#   guides(colour = "none") +
-#   theme(axis.ticks.x = element_blank(),
-#         axis.title.x = element_blank(),
-#         strip.text = element_text(size = 8),
-#         legend.position = "bottom",
-#         legend.key.width = unit(2, "lines"))
-# 
-# ggplot(subject_summary |> filter(!is.na(age)), aes(x = age, y = prop_correct)) +
-#   facet_wrap(vars(task_label_age), nrow = 3) +
-#   geom_smooth(method = "lm", colour = "darkgrey") +
-#   geom_point(aes(colour = task_group, size = prop_trials), alpha = 0.8) +
-#   scale_y_continuous(limits = c(0, 1)) +
-#   scale_colour_ptol() +
-#   scale_size_binned(range = c(0.05, 2.5)) +
-#   labs(x = "Age (years)", y = "Subject's proportion correct responses",
-#        size = "Proportion of trials completed") +
-#   guides(colour = "none") +
-#   theme(legend.position = "bottom",
-#         legend.key.width = unit(2, "lines"),
-#         strip.text = element_text(size = 8))
+ggsave("plots/ef/hf_ggpairs.png", width = 12, height = 10)
 ```
 
 
@@ -297,7 +276,7 @@ ggplot(sds_summary, aes(x = age, y = prop_correct)) +
   labs(x = "Age (years)", y = "Subject's proportion correct responses",
        size = "Number of trials completed") +
   theme(legend.position = "bottom")
-ggsave("plots/sds_subtasks.png", width = 12, height = 3.5)
+ggsave("plots/ef/sds_subtasks.png", width = 12, height = 3.5)
 
 sds_trial_min <- 10
 sds_composite <- sds |>
@@ -315,7 +294,7 @@ ggplot(sds_composite, aes(x = age, y = prop_correct)) +
   labs(x = "Age (years)", y = "Subject's proportion correct responses",
        size = "Number of trials completed") +
   theme(legend.position = "bottom")
-ggsave("plots/sds_composite.png", width = 6, height = 5)
+ggsave("plots/ef/sds_composite.png", width = 6, height = 5)
 ```
 
 ```{r}
@@ -345,7 +324,7 @@ ggplot(mg_summary, aes(x = age, y = longest)) +
   labs(x = "Age (years)", y = "Subject's longest correct sequence",
        size = "Number of correct trials")
   # theme(legend.position = "bottom")
-ggsave("plots/mg_span.png", width = 6, height = 5)
+ggsave("plots/ef/mg_span.png", width = 6, height = 5)
 
 ggplot(mg_summary, aes(x = age, y = prop_correct)) +
   geom_smooth(method = "lm") +
@@ -356,7 +335,7 @@ ggplot(mg_summary, aes(x = age, y = prop_correct)) +
   labs(x = "Age (years)", y = "Subject's proportion correct responses",
        size = "Number of correct trials") +
   theme(legend.position = "bottom")
-ggsave("plots/mg_accuracy.png", width = 6, height = 5)
+ggsave("plots/ef/mg_accuracy.png", width = 6, height = 5)
 ```
 
 ```{r}
@@ -380,37 +359,38 @@ mg_join <- mg_summary |>
 ef <- hf_join |> full_join(sds_join) |> full_join(mg_join) # unite("task", c(hf, sds, mg), na.rm = TRUE)
 
 ef |> select(-user_id) |> GGally::ggpairs()
-ggsave("plots/ef_pairs.png", width = 11, height = 11)
+ggsave("plots/ef/ef_pairs.png", width = 11, height = 11)
 ```
 
-
 ```{r}
-prop_trials <- subject_summary |> select(task, pid, prop_trials)
+# prop_trials <- subject_summary |> select(task, user_id, prop_trials)
 
-get_time_summary <- function(trial_data) {
-  trial_data |>
-    filter(!is.na(pid)) |>
-    mutate(task = fct_inorder(task)) |>
-    arrange(task, run_id, user_id, trial_index) |>
-    mutate(server_timestamp = as_datetime(server_timestamp)) |>
-    group_by(task_group, task, run_id, user_id, pid) |>
-    summarise(trials = n(),
-              start = min(server_timestamp), end = max(server_timestamp)) |>
-    mutate(diff = difftime(end, start, units = "mins")) |>
-    group_by(task) |>
-    mutate(task_label = glue("{task}\n(n = {n()})")) |>
-    ungroup() |>
-    mutate(task_label = fct_inorder(task_label)) |>
-    left_join(prop_trials) |>
-    left_join(subjects)
-}
-time_summary <- get_time_summary(trials_ids)
+# get_time_summary <- function(trial_data) {
+  # trial_data |>
+    # filter(!is.na(pid)) |>
+    # mutate(task = fct_inorder(task)) |>
+time_summary <- trials_coded |>
+  mutate(server_timestamp = as_datetime(server_timestamp)) |>
+  arrange(user_id, run_id, server_timestamp) |>
+  
+  group_by(task_group, task, run_id, user_id) |>
+  summarise(trials = n(),
+            start = min(server_timestamp), end = max(server_timestamp)) |>
+  mutate(diff = difftime(end, start, units = "mins")) |>
+  group_by(task) |>
+  mutate(task_label = glue("{task}\n(n = {n()})")) |>
+  ungroup() |>
+  mutate(task_label = fct_inorder(task_label)) |>
+  # left_join(prop_trials) |>
+  left_join(participants)
+# }
+# time_summary <- get_time_summary(trials_coded)
 
-time_summary |> count(task)
-time_summary |> count(task, pid) |> filter(n == max(n))
+# time_summary |> count(task)
+# time_summary |> count(task, pid) |> filter(n == max(n))
 
 ggplot(time_summary, aes(x = "", y = diff, colour = task_label)) +
-  facet_wrap(vars(task_label), nrow = 2) +
+  facet_wrap(vars(task_label), nrow = 3) +
   geom_sina(aes(colour = task_group)) +
   scale_colour_ptol() +
   labs(y = "Duration (minutes)") +
@@ -418,10 +398,10 @@ ggplot(time_summary, aes(x = "", y = diff, colour = task_label)) +
   theme(axis.ticks.x = element_blank(),
         axis.title.x = element_blank(),
         strip.text = element_text(size = 8))
-ggsave("plots/durations.png", width = 12, height = 5)
+ggsave("plots/times/durations.png", width = 14, height = 8)
 
 ggplot(time_summary, aes(x = age, y = diff)) +
-  facet_wrap(vars(task_label), nrow = 2) +
+  facet_wrap(vars(task_label), nrow = 3) +
   geom_smooth(method = "lm", colour = "darkgrey") +
   geom_point(aes(colour = task_group), alpha = 0.8) +
   scale_colour_ptol() +
@@ -429,7 +409,7 @@ ggplot(time_summary, aes(x = age, y = diff)) +
   guides(colour = "none") +
   theme(legend.position = "bottom",
         strip.text = element_text(size = 8))
-ggsave("plots/durations_age.png", width = 12, height = 5.5)
+ggsave("plots/times/durations_age.png", width = 9, height = 8)
 
 ggplot(time_summary, aes(x = prop_trials, y = diff)) +
   facet_wrap(vars(task_label), nrow = 2) +
