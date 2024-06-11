@@ -1,15 +1,15 @@
 ---
 format: html
 ---
-  
-```{r setup}
-source("setup.R")
 
-trials_coded <- read_rds("data_processed/trials_coded.rds")
-participants <- read_rds("data_processed/participants.rds")
+```{r setup}
+source(here::here("assessment","colombia","stage2","_setup.R"))
+
+trials_coded <- read_rds(here("assessment", "colombia", "stage2", "data_processed", "trials_coded.rds"))
+participants <- read_rds(here("assessment", "colombia", "stage2", "data_processed", "participants.rds"))
 ```
 
-H&F
+# H&F
 
 accuracy
 + accuracy (% correct)
@@ -36,9 +36,9 @@ hf <- trials_coded |>
          response, is_correct, rt) |>
   arrange(user_id, server_timestamp) |>
   mutate(rt = as.numeric(rt), response_fast = rt < 200, response_slow = rt > 2000) |>
-         # l1 = lag(response, 1), l2 = lag(response, 2),
-         # s = list(l1, l2),
-         # streak = n_distinct(c(response, lag(response, 1), lag(response, 2))))
+  # l1 = lag(response, 1), l2 = lag(response, 2),
+  # s = list(l1, l2),
+  # streak = n_distinct(c(response, lag(response, 1), lag(response, 2))))
   mutate(correct = !is.na(is_correct) & is_correct & !response_fast & !response_slow)
 
 hf |> count(response_fast, response_slow)
@@ -60,13 +60,23 @@ hf_rt <- hf |>
   ungroup()
 
 hf_summary <- hf_accuracy |> left_join(hf_rt)
+```
 
+```{r}
 hf_summary |>
   select(subtask, age, prop_correct, mean_rt) |>
   GGally::ggpairs(aes(color = subtask))
-ggsave("plots/hf_ggpairs.png", width = 12, height = 10)
+# ggsave("plots/hf_ggpairs.png", width = 12, height = 10)
 ```
 
+```{r}
+ggplot(filter(hf_summary, subtask == "hearts and flowers"),
+       aes(x = age, y = prop_correct)) +
+  geom_point() + 
+  geom_smooth() 
+```
+
+# Same Different Selection
 
 ```{r sds}
 sds <- trials_coded |>
@@ -75,26 +85,34 @@ sds <- trials_coded |>
          response, is_correct) |>
   arrange(user_id, server_timestamp) |>
   mutate(corpus_trial_type = fct_inorder(corpus_trial_type))
-  # arrange(user_id, server_timestamp)
-  # mutate(rt = as.numeric(rt)) #, response_fast = rt < 200, response_slow = rt > 2000) |>
-         # l1 = lag(response, 1), l2 = lag(response, 2),
-         # s = list(l1, l2),
-         # streak = n_distinct(c(response, lag(response, 1), lag(response, 2))))
-  # mutate(correct = !is.na(is_correct) & is_correct & !response_fast & !response_slow)
+# arrange(user_id, server_timestamp)
+# mutate(rt = as.numeric(rt)) #, response_fast = rt < 200, response_slow = rt > 2000) |>
+# l1 = lag(response, 1), l2 = lag(response, 2),
+# s = list(l1, l2),
+# streak = n_distinct(c(response, lag(response, 1), lag(response, 2))))
+# mutate(correct = !is.na(is_correct) & is_correct & !response_fast & !response_slow)
+```
 
+Remove second administrations because our uniquification hack needs this.
+
+```{r}
+first_runs_sds <- sds |>
+  group_by(user_id) |>
+  summarise(run_id = run_id[server_timestamp == min(server_timestamp)]) 
+
+sds <- inner_join(sds, first_runs_sds)
+```
+
+```{r}
 sds_summary <- sds |>
   group_by(user_id, run_id, age, corpus_trial_type) |>
   summarise(trials_accuracy = n(), prop_correct = mean(is_correct)) |>
   ungroup()
+```
 
-# sds_summary |>
-#   group_by(corpus_trial_type) |>
-#   filter(!is.na(age)) |>
-#   summarise(n = n(),
-#             correct_age_cor = cor(age, prop_correct,use = "complete.obs"))
-
+```{r}
 ggplot(sds_summary, aes(x = age, y = prop_correct)) +
-  facet_wrap(vars(corpus_trial_type), nrow = 1) +
+  facet_wrap(vars(corpus_trial_type)) +
   geom_smooth(method = "lm") +
   geom_point(aes(size = trials_accuracy)) +
   scale_size_continuous(range = c(0.2, 3)) +
@@ -102,15 +120,19 @@ ggplot(sds_summary, aes(x = age, y = prop_correct)) +
   labs(x = "Age (years)", y = "Subject's proportion correct responses",
        size = "Number of trials completed") +
   theme(legend.position = "bottom")
-ggsave("plots/sds_subtasks.png", width = 12, height = 3.5)
+#ggsave("plots/sds_subtasks.png", width = 12, height = 3.5)
+```
 
-sds_trial_min <- 10
+```{r}
+# sds_trial_min <- 10
 sds_composite <- sds |>
   filter(corpus_trial_type != "test-dimensions") |>
   group_by(user_id, run_id, age) |>
-  summarise(trials_accuracy = n(), prop_correct = mean(is_correct)) |>
-  ungroup() |>
-  filter(trials_accuracy > sds_trial_min)
+  summarise(trials_accuracy = n(), prop_correct = mean(is_correct)) 
+
+# |>
+#   ungroup() |>
+#   filter(trials_accuracy > sds_trial_min)
 
 ggplot(sds_composite, aes(x = age, y = prop_correct)) +
   geom_smooth(method = "lm") +
@@ -120,37 +142,169 @@ ggplot(sds_composite, aes(x = age, y = prop_correct)) +
   labs(x = "Age (years)", y = "Subject's proportion correct responses",
        size = "Number of trials completed") +
   theme(legend.position = "bottom")
-ggsave("plots/sds_composite.png", width = 6, height = 5)
+# ggsave("plots/sds_composite.png", width = 6, height = 5)
 ```
 
+## IRT models
+
+We make a hack to create unique items. 
+
+```{r}
+
+sds_mirt <- sds |>
+  arrange(user_id, run_id, server_timestamp) |>
+  group_by(user_id) |>
+  mutate(idx = 1:n()) |>
+  ungroup() |>
+  mutate(is_correct = as.numeric(is_correct), 
+         item_unique = str_c(as.character(idx), "-", corpus_trial_type, "-", item))
+
+sds_wide <- sds_mirt |>
+  group_by(user_id, item_unique) |>
+  select(user_id, item_unique, is_correct) |>
+  pivot_wider(names_from = "item_unique", 
+              values_from = "is_correct") |>
+  ungroup()
+
+sds_mat <- as.matrix(select(sds_wide, -user_id))
+names(sds_mat) <- sds_wide$user_id
+
+# remove columns with no variance
+sds_cols <- colMeans(sds_mat, na.rm=TRUE) 
+sds_mat <- sds_mat[ , sds_cols > 0 & sds_cols < 1]
+```
+
+Fit models. 
+
+```{r}
+set.seed(1234)
+
+sds_mod_1pl <- mirt(sds_mat, 1, itemtype = "Rasch", 
+                verbose = TRUE, 
+                technical = list(NCYCLES = 1000))
+
+sds_coefs_1pl <- as_tibble(coef(sds_mod_1pl, 
+                                simplify = TRUE)$items) %>%
+  mutate(item = rownames(coef(sds_mod_1pl, 
+                              simplify = TRUE)$items))
+sds_fscores_1pl <- tibble(data_id = rownames(sds_mat),
+                      ability = fscores(sds_mod_1pl, 
+                                        method = "MAP")[,1])
+
+save(file = here("assessment", "colombia", "stage2", "task-analyses", 
+                 "ef", "sds_mod_1pl.rds"), 
+     "sds_mod_1pl", "sds_fscores_1pl", "sds_coefs_1pl")
+
+
+```
+
+```{r}
+sds_mod_2pl <- mirt(sds_mat, 1, itemtype='2PL', verbose=TRUE, 
+                technical = list(NCYCLES = 1000))
+
+sds_coefs_2pl <- as_tibble(coef(mod_2pl, simplify = TRUE)$items) %>%
+  mutate(item = rownames(coef(mod_2pl, simplify = TRUE)$items))
+sds_fscores_2pl <- tibble(data_id = rownames(sds_mat),
+                      ability = fscores(sds_mod_2pl, 
+                                        method = "MAP")[,1])
+
+save(file = here("assessment", "colombia", "stage2", "task-analyses", 
+                 "mental_rotation", "sds_mod_2pl.rds"), 
+     "sds_mod_2pl", "sds_fscores_2pl", "sds_coefs_2pl")
+```
+
+```{r}
+sds_mod_3pl <- mirt(sds_mat, 1, itemtype='3PL', verbose=TRUE, 
+                technical = list(NCYCLES = 1000))
+
+sds_coefs_3pl <- as_tibble(coef(sds_mod_3pl, 
+                                simplify = TRUE)$items) %>%
+  mutate(item = rownames(coef(sds_mod_3pl, 
+                              simplify = TRUE)$items))
+sds_fscores_3pl <- tibble(data_id = rownames(sds_mat),
+                      ability = fscores(sds_mod_3pl, 
+                                        method = "MAP")[,1])
+
+save(file = here("assessment", "colombia", "stage2", "task-analyses", 
+                 "mental_rotation", "sds_mod_3pl.rds"), 
+     "sds_mod_3pl", "sds_fscores_3pl", "sds_coefs_3pl")
+```
+Rasch model wins. 
+
+```{r}
+anova(mod_1pl, mod_2pl)
+anova(mod_2pl, mod_3pl)
+```
+
+Coefficients. 
+
+```{r}
+sds_coefs <- sds_coefs_1pl |>
+  rename(item_unique = item) |>
+  left_join(select(sds_mirt, item, item_unique, 
+                   corpus_trial_type, idx) |> distinct()) 
+
+
+sds_coefs$different_way <- str_detect(sds_coefs$item, 
+                                      "in a different way.")
+
+ggplot(sds_coefs, 
+       aes(x = idx, y = d, col = corpus_trial_type, 
+           shape = different_way)) + 
+  geom_jitter(alpha = .5, width = .5) + 
+  geom_smooth(method = "lm")
+```
+
+# Memory Game
+
 ```{r mg}
-mg <- trials_coded |>
+mg_trials <- trials_coded |>
   filter(task_id %in% c("memory-game")) |>
   select(task, user_id, run_id, trial_id, sub_trial_id, age,
-         server_timestamp, response, rt, is_correct, expected_answer)
+         server_timestamp, corpus_trial_type, response, rt, 
+         is_correct, expected_answer)
 
-mg_coded <- mg |>
-  mutate(len = if_else(is.na(sub_trial_id), str_count(response, ":"), NA)) |>
+mg_first_runs <- mg_trials |>
+  group_by(user_id) |>
+  summarise(run_id = run_id[server_timestamp == min(server_timestamp)]) |>
+  distinct()
+
+
+mg <- mg_trials |>
+  inner_join(mg_first_runs) |>
+  mutate(len = if_else(is.na(sub_trial_id), 
+                       str_count(response, ":"), NA)) |>
   group_by(user_id, run_id, trial_id, age) |>
   nest() |>
   mutate(n_trials = map_int(data, nrow),
          is_correct = map_lgl(data, \(d) unique(d$is_correct)),
          len = map_int(data, \(d) unique(d$len)),
-         span = if_else(is.na(len), n_trials, len))
+         span = if_else(is.na(len), n_trials, len), 
+         corpus_trial_type = data[[1]]$corpus_trial_type[1], 
+         server_timestamp = map_chr(data, \(d) d$server_timestamp[1]))
          # span = map2_int(n_trials, len, \(n, l) discard(c(n, l), is.na)))
 
-mg_span <- mg_coded |>
+# heuristically recover forward/backward tag
+mg |>
+  group_by(user_id) |>
+  arrange(user_id, server_timestamp) |>
+  mutate(span_change = c(0, diff(span))) |>
+  View()
+
+mg_span <- mg |>
   filter(is_correct) |>
   group_by(user_id, run_id, age) |>
   summarise(trials_span = n(), longest = max(span)) |>
   ungroup()
 
-mg_accuracy <- mg_coded |>
+mg_accuracy <- mg |>
   group_by(user_id, run_id, age) |>
   summarise(trials_accuracy = n(), prop_correct = mean(is_correct))
 
 mg_summary <- mg_accuracy |> left_join(mg_span) |> ungroup()
+```
 
+```{r}
 ggplot(mg_summary, aes(x = age, y = longest)) +
   geom_smooth(method = "lm") +
   geom_point() +
@@ -159,9 +313,12 @@ ggplot(mg_summary, aes(x = age, y = longest)) +
   # ylim(c(0, 1)) +
   labs(x = "Age (years)", y = "Subject's longest correct sequence",
        size = "Number of correct trials")
-  # theme(legend.position = "bottom")
-ggsave("plots/mg_span.png", width = 6, height = 5)
+# theme(legend.position = "bottom")
+# ggsave("plots/mg_span.png", width = 6, height = 5)
+```
 
+
+```{r}
 ggplot(mg_summary, aes(x = age, y = prop_correct)) +
   geom_smooth(method = "lm") +
   # geom_point() +
@@ -171,29 +328,166 @@ ggplot(mg_summary, aes(x = age, y = prop_correct)) +
   labs(x = "Age (years)", y = "Subject's proportion correct responses",
        size = "Number of correct trials") +
   theme(legend.position = "bottom")
-ggsave("plots/mg_accuracy.png", width = 6, height = 5)
+# ggsave("plots/mg_accuracy.png", width = 6, height = 5)
 ```
 
-```{r ef}
-hf_join <- hf_summary |>
-  filter(subtask == "hearts and flowers") |>
-  group_by(user_id) |> filter(n() == 1) |> ungroup() |>
-  filter(trials_accuracy >= 5) |>
-  select(user_id, age, hf_prop_correct = prop_correct, hf_median_rt = median_rt)
-  # mutate(hf = "HF")
+```{r}
+ggplot(mg, aes(x = span, y = as.numeric(is_correct))) + 
+  geom_jitter(alpha = .1, height = .1, width = .1) +
+  stat_summary(fun.data = "mean_cl_boot", 
+               col = "red") 
+```
 
-sds_join <- sds_composite |>
-  group_by(user_id) |> filter(n() == 1) |>
-  select(user_id, age, sds_trials = trials_accuracy, sds_prop_correct = prop_correct)
-  # mutate(sds = "SDS")
 
-mg_join <- mg_summary |>
-  group_by(user_id) |> filter(n() == 1) |>
-  select(user_id, age, mg_trials = trials_accuracy, mg_prop_correct = prop_correct, mg_span = longest)
-  # mutate(mg = "MG")
+## IRT models
 
-ef <- hf_join |> full_join(sds_join) |> full_join(mg_join) # unite("task", c(hf, sds, mg), na.rm = TRUE)
+```{r}
+mg_mirt <- mg |>
+  filter(span > 1) |>
+  arrange(user_id, span) |>
+  group_by(user_id,span) |>
+  mutate(idx = 1:n()) |>
+  ungroup() |>
+  mutate(is_correct = as.numeric(is_correct), 
+         item_unique = str_c(as.character(span), "-", idx))
 
-ef |> select(-user_id) |> GGally::ggpairs()
-ggsave("plots/ef_pairs.png", width = 11, height = 11)
+mg_wide <- mg_mirt |>
+  select(user_id, item_unique, is_correct) |>
+  pivot_wider(names_from = "item_unique", 
+              values_from = "is_correct") |>
+  ungroup()
+
+mg_mat <- as.matrix(select(mg_wide, -user_id))
+names(mg_mat) <- mg_wide$user_id
+
+# remove columns with no variance
+mg_cols <- colMeans(mg_mat, na.rm=TRUE) 
+mg_mat <- mg_mat[ , mg_cols > 0 & mg_cols < 1]
+```
+
+Fit models. 
+
+```{r}
+set.seed(1234)
+
+mg_mod_1pl <- mirt(mg_mat, 1, itemtype = "Rasch", 
+                verbose = TRUE, 
+                technical = list(NCYCLES = 1000))
+
+mg_coefs_1pl <- as_tibble(coef(mg_mod_1pl, simplify = TRUE)$items) %>%
+  mutate(item = rownames(coef(mg_mod_1pl, simplify = TRUE)$items))
+mg_fscores_1pl <- tibble(data_id = rownames(mg_mat),
+                      ability = fscores(mg_mod_1pl, 
+                                        method = "MAP")[,1])
+
+save(file = here("assessment", "colombia", "stage2", "task-analyses", 
+                 "ef", "mg_mod_1pl.rds"), 
+     "mg_mod_1pl", "mg_fscores_1pl", "mg_coefs_1pl")
+
+
+```
+
+```{r}
+mg_mod_2pl <- mirt(mg_mat, 1, itemtype='2PL', verbose=TRUE, 
+                technical = list(NCYCLES = 1000))
+
+mg_coefs_2pl <- as_tibble(coef(mg_mod_2pl, simplify = TRUE)$items) %>%
+  mutate(item = rownames(coef(mg_mod_2pl, simplify = TRUE)$items))
+mg_fscores_2pl <- tibble(data_id = rownames(mg_mat),
+                      ability = fscores(mg_mod_2pl, 
+                                        method = "MAP")[,1])
+
+save(file = here("assessment", "colombia", "stage2", "task-analyses", 
+                 "mental_rotation", "sds_mod_2pl.rds"), 
+     "mod_2pl", "fscores_2pl", "coefs_2pl")
+```
+
+```{r}
+mg_mod_3pl <- mirt(sds_mat, 1, itemtype='3PL', verbose=TRUE, 
+                technical = list(NCYCLES = 1000))
+
+mg_coefs_3pl <- as_tibble(coef(mg_mod_3pl, simplify = TRUE)$items) %>%
+  mutate(item = rownames(coef(mg_mod_3pl, simplify = TRUE)$items))
+mg_fscores_3pl <- tibble(data_id = rownames(mg_mat),
+                      ability = fscores(mg_mod_3pl, 
+                                        method = "MAP")[,1])
+
+save(file = here("assessment", "colombia", "stage2", "task-analyses", 
+                 "mental_rotation", "mg_mod_3pl.rds"), 
+     "mg_mod_3pl", "mg_fscores_3pl", "mg_coefs_3pl")
+```
+
+```{r}
+anova(mg_mod_1pl, mg_mod_2pl)
+anova(mg_mod_2pl, mg_mod_3pl)
+```
+
+Coefficients. 
+
+```{r}
+ggplot(mg_coefs_1pl, 
+       aes(x = item, y = d)) + 
+  geom_jitter(alpha = .5, width = .5) + 
+  geom_smooth(method = "lm") + 
+  coord_flip()
+```
+
+
+# Across EF
+
+```{r}
+ef_summary <- filter(hf_summary, subtask == "hearts and flowers") |>
+  select(user_id, prop_correct, age) |>
+  rename(hearts_and_flowers_sumscore = prop_correct)
+
+sds_fscores <- sds_fscores_1pl |>
+  mutate(user_id = sds_wide$user_id) |>
+  rename(sds_theta = ability)
+
+mg_fscores <- mg_fscores_1pl |>
+  mutate(user_id = mg_wide$user_id) |>
+  rename(mg_theta = ability)
+
+ef_summary <- left_join(ef_summary, 
+                        sds_fscores) |>
+  left_join(mg_fscores) |>
+  left_join(sds_composite |>
+              ungroup() |>
+              inner_join(first_runs) |>
+              select(user_id, prop_correct) |>
+              rename(sds_sumscore = prop_correct)) |>
+  left_join(mg_summary|>
+              select(user_id, longest, prop_correct) |>
+              rename(memory_game_sumscore = prop_correct, 
+                     memory_game_max = longest)) 
+
+
+```
+```{r}
+mefs1 <- read_csv(here("assessment","colombia","stage2",
+                       "task-analyses","mefs","data",
+                       "LEVANTE_20240608_1210.csv")) %>% # long format data
+  filter(`Child ID` != "1234") # remove test
+mefs2 <- read_csv(here("assessment","colombia","stage2",
+                       "task-analyses","mefs","data",
+                       "LEVANTE_20240608_1225.csv")) %>% # N=122; wide format data
+  filter(`Child ID` != "1234")
+
+# standardized by age, looks like
+cor.test(mefs2$`A1_Standard Score`, mefs2$`A1_Age (Months)`) 
+cor.test(mefs2$`A1_Percentile (National)`, mefs2$`A1_Age (Months)`) 
+
+cor.test(mefs2$`A1_Total Score`, mefs2$`A1_Age (Months)`) # r=.56
+```
+
+```{r}
+mefs_ef <- mefs2 |>
+  rename_with(\(nm) nm |> str_to_lower() |> str_replace_all(" ", "_") |> str_remove_all("[\\(\\)]")) |>
+  select(user_id =child_id, mefs_score = a1_total_score)
+  
+ef_summary <- left_join(ef_summary, mefs_ef)
+```
+
+```{r}
+GGally::ggpairs(ungroup(ef_summary) |> select(-user_id))
 ```

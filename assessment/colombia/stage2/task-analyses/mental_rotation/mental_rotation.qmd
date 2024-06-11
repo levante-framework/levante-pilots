@@ -1,4 +1,5 @@
 ---
+title: "Mental Rotation analysis"
 format: html
 ---
 
@@ -6,8 +7,9 @@ todo:
 - check coding
 - check RT tablet computer
 - item info for 3Ds
-- ability by age 
-- write out scores
+- deal with repeated measures in IRT
+X ability by age 
+X write out scores
 
 ```{r setup}
 source(here::here("assessment","colombia","stage2","_setup.R"))
@@ -251,7 +253,7 @@ save(file = here("assessment", "colombia", "stage2", "task-analyses",
 Rasch model wins. 
 
 
-```{r, anovas, include=F}
+```{r}
 anova(mod_1pl, mod_2pl)
 ```
 
@@ -281,4 +283,15 @@ ggplot(mr_ntrials, aes(x = prop_correct, y = ability)) +
 ```
 
 
+# Write out parameters
+
+```{r}
+mr_params <- select(mr_ntrials, user_id, ability) |>
+  rename(mental_rotation_theta = ability) |>
+  mutate(mental_rotation_model = "rasch")
+
+save(file = here::here("assessment","colombia","stage2",
+                       "data_processed", "mr_params.Rds"), 
+     mr_params)
+```
 
