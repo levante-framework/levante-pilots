@@ -126,16 +126,26 @@ ggsave("plots/sds_composite.png", width = 6, height = 5)
 ```{r mg}
 mg <- trials_coded |>
   filter(task_id %in% c("memory-game")) |>
-  select(task, trial_id, run_id, user_id, age, server_timestamp, response, rt, is_correct) |>
-  arrange(user_id, server_timestamp) |>
-  mutate(len = str_count(response, ":"))
+  select(task, user_id, run_id, trial_id, sub_trial_id, age,
+         server_timestamp, response, rt, is_correct, expected_answer)
 
-mg_span <- mg |>
+mg_coded <- mg |>
+  mutate(len = if_else(is.na(sub_trial_id), str_count(response, ":"), NA)) |>
+  group_by(user_id, run_id, trial_id, age) |>
+  nest() |>
+  mutate(n_trials = map_int(data, nrow),
+         is_correct = map_lgl(data, \(d) unique(d$is_correct)),
+         len = map_int(data, \(d) unique(d$len)),
+         span = if_else(is.na(len), n_trials, len))
+         # span = map2_int(n_trials, len, \(n, l) discard(c(n, l), is.na)))
+
+mg_span <- mg_coded |>
   filter(is_correct) |>
   group_by(user_id, run_id, age) |>
-  summarise(trials_span = n(), longest = max(len))
+  summarise(trials_span = n(), longest = max(span)) |>
+  ungroup()
 
-mg_accuracy <- mg |>
+mg_accuracy <- mg_coded |>
   group_by(user_id, run_id, age) |>
   summarise(trials_accuracy = n(), prop_correct = mean(is_correct))
 

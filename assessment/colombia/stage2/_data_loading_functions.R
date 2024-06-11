@@ -2,7 +2,7 @@ fix_table_types <- function(table_data) {
   table_data |>
     mutate(across(where(is_character),
                   \(x) x |> na_if("null") |> na_if("None"))) |>
-    mutate(across(matches("birth_"), as.integer),
+    mutate(across(matches("birth_|rt"), as.integer),
            across(matches("difficulty"), as.double),
            across(matches("email_verified|is_reliable|is_bestrun"), as.logical))
 }
