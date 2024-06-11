@@ -10,7 +10,7 @@ source("_data_loading_functions.R")
 ```{r datasets}
 dataset_names <- c("columbia_pilot_0523_0529:f068:v2_1",
                    "columbia_pilot_0523_0530_users_collection:fa9g:v2_1",
-                   "columbia_pilot_0604_0605:9g4c:v1_2")
+                   "columbia_pilot_0604_0607:bvmr:v3_0")
 
 dataset_tables <- get_datasets(dataset_names)
 dataset_data <- combine_datasets(dataset_tables)
