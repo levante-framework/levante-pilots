@@ -2,6 +2,13 @@
 format: html
 ---
 
+todo:
+- check coding
+- check RT tablet computer
+- item info for 3Ds
+- ability by age 
+- write out scores
+
 ```{r setup}
 source(here::here("assessment","colombia","stage2","_setup.R"))
 
@@ -14,7 +21,7 @@ Munge data.
 ```{r}
 mr <- trials_coded |>
   filter(task_id == "mental-rotation") |>
-  select(user_id, item, response, is_correct, rt) |>
+  select(user_id, item, response, is_correct, rt, age) |>
   mutate(rt = as.numeric(rt),
          stim_type = if_else(str_count(item) == 5, "2d", "3d"),
          stim_set = str_sub(item, 1, 1) |> fct_recode("rabbit" = "r", "duck" = "d"),
@@ -34,7 +41,7 @@ mr |> distinct(stim_type, stim_set, angle, item) |> count(stim_type, stim_set, a
 
 ```{r}
 mr_ntrials <- mr |> 
-  group_by(user_id) |>
+  group_by(user_id, age) |>
   summarise(prop_correct =  mean(is_correct), 
             n = n())
 ```
@@ -207,7 +214,7 @@ mr_mat <- mr_mat[,mr_cols > 0 & mr_cols < 1]
 
 Fit models. 
 
-```{r psycho-models_1pl, echo=F, eval = FALSE}
+```{r psycho-models_1pl, echo=F, eval = TRUE}
 set.seed(1234)
 
 mod_1pl <- mirt(mr_mat, 1, itemtype = "Rasch", 
@@ -227,10 +234,10 @@ save(file = here("assessment", "colombia", "stage2", "task-analyses",
 
 ```
 
-```{r psycho-2pl_coefs, echo=F, eval = FALSE}
+```{r psycho-2pl_coefs, echo=F, eval = TRUE}
 mod_2pl <- mirt(mr_mat, 1, itemtype='2PL', verbose=TRUE, 
                 guess = .5, 
-                technical = list(NCYCLES = 10000))
+                technical = list(NCYCLES = 1000))
 
 coefs_2pl <- as_tibble(coef(mod_2pl, simplify = TRUE)$items) %>%
  mutate(item = rownames(coef(mod_2pl, simplify = TRUE)$items))
@@ -264,7 +271,7 @@ ggplot(coefs_1pl,
 ```{r}
 # yolo
 mr_ntrials$ability <- fscores_1pl$ability
-GGally::ggpairs(select(mr_ntrials, -user_id))
+GGally::ggpairs(ungroup(mr_ntrials) |> select(-user_id))
 ```
 
 ```{r}
