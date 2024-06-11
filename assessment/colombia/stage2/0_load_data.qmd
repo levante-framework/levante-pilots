@@ -53,9 +53,10 @@ trials_tasks <- trials_filtered |>
     task_id == "theory-of-mind" ~ "ToM",
     TRUE ~ task_id
   )) |>
-  mutate(corpus_trial_type = if_else(task_group == "EGMA" & !is.na(item) &
-                                       is.na(corpus_trial_type),
-                                     "number line?", corpus_trial_type),
+  mutate(corpus_trial_type = if_else(
+    task_group == "EGMA" & is.na(corpus_trial_type) & !is.na(item),
+    if_else(is.na(distract_options) | distract_options == "{}", "number line slider", "number line 4afc"),
+    corpus_trial_type),
          corpus_trial_type = str_to_lower(corpus_trial_type)) |>
   mutate(subtask = case_when(
     task_group %in% c("EGMA", "mental-rotation") ~ corpus_trial_type,
