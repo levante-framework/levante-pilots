@@ -3,16 +3,18 @@ format: html
 ---
 
 ```{r setup}
-source("_setup.R")
+source(here::here("assessment","colombia","stage2","_setup.R"))
 
-trials_coded <- read_rds("data_processed/trials_coded.rds")
-participants <- read_rds("data_processed/participants.rds")
+trials_coded <- read_rds(here("assessment", "colombia", "stage2", "data_processed", "trials_coded.rds"))
+participants <- read_rds(here("assessment", "colombia", "stage2", "data_processed", "participants.rds"))
 ```
+
+Munge data.
 
 ```{r}
 mr <- trials_coded |>
   filter(task_id == "mental-rotation") |>
-  select(assessment_pid, item, response, is_correct, rt) |>
+  select(user_id, item, response, is_correct, rt) |>
   mutate(rt = as.numeric(rt),
          stim_type = if_else(str_count(item) == 5, "2d", "3d"),
          stim_set = str_sub(item, 1, 1) |> fct_recode("rabbit" = "r", "duck" = "d"),
@@ -21,11 +23,44 @@ mr <- trials_coded |>
          angle = if_else(angle > 180, 360 - angle, angle),
          .after = item) |>
   mutate(rt = rt / 1000)
+```
 
-# mr |> distinct(stim_type, stim_set, angle, item) |> count(stim_type, stim_set, angle)
+```{r}
+mr |> distinct(stim_type, stim_set, angle, item) |> count(stim_type, stim_set, angle)
+
+```
+
+# N trials
+
+```{r}
+mr_ntrials <- mr |> 
+  group_by(user_id) |>
+  summarise(prop_correct =  mean(is_correct), 
+            n = n())
+```
+
+```{r}
+ggplot(mr_ntrials, aes(x = n)) + 
+  geom_histogram(bins = 10)
+```
+
+Classic confounding of sum score and n trials.
+
+```{r}
+ggplot(mr_ntrials, aes(x = n, y = prop_correct)) + 
+  geom_point() + 
+  geom_smooth(method = "lm")
+```
+
+
+
+# Accuracy
+
+```{r}
+
 
 mr_subject_type <- mr |>
-  group_by(assessment_pid, stim_type, angle) |>
+  group_by(user_id, stim_type, angle) |>
   summarise(items = n_distinct(item),
             prop_correct = mean(is_correct, na.rm = TRUE))
 
@@ -35,20 +70,27 @@ mr_type <- mr_subject_type |>
             sd = sd(prop_correct),
             n = n(),
             se = sd / sqrt(n))
+```
 
+```{r}
 ggplot(mr_subject_type, aes(x = angle, y = prop_correct, colour = stim_type)) +
   facet_grid(cols = vars(stim_type), scales = "free_x", space = "free_x") +
   geom_jitter(alpha = 0.5, size = 0.8) +
   geom_pointrange(aes(y = accuracy, ymin = accuracy - 1.96 * se, ymax = accuracy + 1.96 * se),
                   data = mr_type) +
   geom_line(aes(y = accuracy), data = mr_type) +
+  geom_hline(yintercept = .5, lty = 2) + 
   scale_x_continuous(breaks = unique(mr_subject_type$angle)) +
   scale_colour_ptol(guide = "none") +
   labs(x = "Angle", y = "Proportion correct responses", colour = "")
-ggsave("plots/mr_accuracy_type.png", width = 6, height = 3.5)
 
+#ggsave("plots/mr_accuracy_type.png", width = 6, height = 3.5)
+```
+
+
+```{r}
 mr_subject_set <- mr |>
-  group_by(assessment_pid, stim_type, stim_set, angle) |>
+  group_by(user_id, stim_type, stim_set, angle) |>
   summarise(items = n_distinct(item),
             prop_correct = mean(is_correct, na.rm = TRUE))
 
@@ -58,7 +100,9 @@ mr_set <- mr_subject_set |>
             sd = sd(prop_correct),
             n = n(),
             se = sd / sqrt(n))
+```
 
+```{r}
 ggplot(mr_subject_set, aes(x = angle, y = prop_correct, colour = stim_type)) +
   facet_grid(cols = vars(stim_set), scales = "free_x", space = "free_x") +
   geom_jitter(alpha = 0.5, size = 0.8) +
@@ -68,12 +112,14 @@ ggplot(mr_subject_set, aes(x = angle, y = prop_correct, colour = stim_type)) +
   scale_x_continuous(breaks = unique(mr_subject_set$angle)) +
   scale_colour_ptol(guide = "none") +
   labs(x = "Angle", y = "Proportion correct responses", colour = "")
-ggsave("plots/mr_accuracy_set.png", width = 11, height = 3.5)
+# ggsave("plots/mr_accuracy_set.png", width = 11, height = 3.5)
 ```
+
+# RTs
 
 ```{r}
 mr_subject_type_rt <- mr |>
-  group_by(assessment_pid, stim_type, angle, is_correct) |>
+  group_by(user_id, stim_type, angle, is_correct) |>
   summarise(items = n_distinct(item),
             median_rt = median(rt, na.rm = TRUE)) |>
   mutate(correct = if_else(is_correct, "corrent", "incorrect"))
@@ -84,7 +130,9 @@ mr_type_rt <- mr_subject_type_rt |>
             sd = sd(median_rt),
             n = n(),
             se = sd / sqrt(n))
+```
 
+```{r}
 ggplot(mr_subject_type_rt, aes(x = angle, y = median_rt, colour = stim_type)) +
   facet_grid(cols = vars(stim_type), rows = vars(correct), scales = "free_x", space = "free_x") +
   geom_jitter(alpha = 0.5, size = 0.8) +
@@ -93,11 +141,14 @@ ggplot(mr_subject_type_rt, aes(x = angle, y = median_rt, colour = stim_type)) +
   geom_line(aes(y = rt), data = mr_type_rt) +
   scale_x_continuous(breaks = unique(mr_subject_type$angle)) +
   scale_colour_ptol(guide = "none") +
+  scale_y_log10() + 
   labs(x = "Angle", y = "Response time (seconds)", colour = "")
-ggsave("plots/mr_rt_type.png", width = 6, height = 5)
+# ggsave("plots/mr_rt_type.png", width = 6, height = 5)
+```
 
+```{r}
 mr_subject_set_rt <- mr |>
-  group_by(assessment_pid, stim_type, stim_set, angle, is_correct) |>
+  group_by(user_id, stim_type, stim_set, angle, is_correct) |>
   summarise(items = n_distinct(item),
             median_rt = median(rt, na.rm = TRUE)) |>
   mutate(correct = if_else(is_correct, "corrent", "incorrect"))
@@ -108,7 +159,9 @@ mr_set_rt <- mr_subject_set_rt |>
             sd = sd(median_rt),
             n = n(),
             se = sd / sqrt(n))
+```
 
+```{r}
 ggplot(mr_subject_set_rt, aes(x = angle, y = median_rt, colour = stim_type)) +
   facet_grid(cols = vars(stim_set), row = vars(correct), scales = "free_x", space = "free_x") +
   geom_jitter(alpha = 0.5, size = 0.8) +
@@ -117,6 +170,108 @@ ggplot(mr_subject_set_rt, aes(x = angle, y = median_rt, colour = stim_type)) +
   geom_line(aes(y = rt), data = mr_set_rt) +
   scale_x_continuous(breaks = unique(mr_subject_set_rt$angle)) +
   scale_colour_ptol(guide = "none") +
+  scale_y_log10() + 
   labs(x = "Angle", y = "Response time (seconds)", colour = "")
-ggsave("plots/mr_rt_set.png", width = 10, height = 5)
+# ggsave("plots/mr_rt_set.png", width = 10, height = 5)
 ```
+
+# IRT models
+
+```{r}
+library(mirt)
+```
+
+Prepare data. 
+
+Terrible dropping of repeated measure. 
+
+```{r}
+
+mr_wide <- mr |>
+  mutate(is_correct = as.numeric(is_correct)) |>
+  group_by(user_id, item) |>
+  slice(1) |>
+  select(user_id, item, is_correct) |>
+  pivot_wider(names_from = "item", values_from = "is_correct") |>
+  ungroup()
+
+mr_mat <- as.matrix(select(mr_wide, -user_id))
+names(mr_mat) <- mr_wide$user_id
+
+# remove columns with no variance
+mr_cols <- colMeans(mr_mat, na.rm=TRUE) 
+
+mr_mat <- mr_mat[,mr_cols > 0 & mr_cols < 1]
+
+```
+
+Fit models. 
+
+```{r psycho-models_1pl, echo=F, eval = FALSE}
+set.seed(1234)
+
+mod_1pl <- mirt(mr_mat, 1, itemtype = "Rasch", 
+                verbose = TRUE, 
+                guess = .5,
+                technical = list(NCYCLES = 1000))
+
+coefs_1pl <- as_tibble(coef(mod_1pl, simplify = TRUE)$items) %>%
+ mutate(item = rownames(coef(mod_1pl, simplify = TRUE)$items))
+fscores_1pl <- tibble(data_id = rownames(mr_mat),
+ ability = fscores(mod_1pl, method = "MAP")[,1])
+
+save(file = here("assessment", "colombia", "stage2", "task-analyses", 
+                 "mental_rotation", "mod_1pl.rds"), 
+"mod_1pl", "fscores_1pl", "coefs_1pl")
+
+
+```
+
+```{r psycho-2pl_coefs, echo=F, eval = FALSE}
+mod_2pl <- mirt(mr_mat, 1, itemtype='2PL', verbose=TRUE, 
+                guess = .5, 
+                technical = list(NCYCLES = 10000))
+
+coefs_2pl <- as_tibble(coef(mod_2pl, simplify = TRUE)$items) %>%
+ mutate(item = rownames(coef(mod_2pl, simplify = TRUE)$items))
+fscores_2pl <- tibble(data_id = rownames(mr_mat),
+ ability = fscores(mod_2pl, method = "MAP")[,1])
+
+save(file = here("assessment", "colombia", "stage2", "task-analyses", 
+                 "mental_rotation", "mod_2pl.rds"), 
+"mod_2pl", "fscores_2pl", "coefs_2pl")
+```
+Rasch model wins. 
+
+
+```{r, anovas, include=F}
+anova(mod_1pl, mod_2pl)
+```
+
+Coefficients. 
+
+```{r}
+coefs_1pl <- coefs_1pl |>
+  left_join(select(mr, item, angle, stim_type, stim_set) |> distinct()) 
+
+ggplot(coefs_1pl, 
+       aes(x = angle, y = d, col = stim_set)) + 
+  geom_jitter(alpha = .5, width = .5) + 
+  geom_smooth(method = "lm")+ 
+  facet_wrap(~stim_type, scales= "free_y")
+```
+
+```{r}
+# yolo
+mr_ntrials$ability <- fscores_1pl$ability
+GGally::ggpairs(select(mr_ntrials, -user_id))
+```
+
+```{r}
+ggplot(mr_ntrials, aes(x = prop_correct, y = ability)) + 
+  geom_point(aes(size = n), alpha = .5) + 
+  geom_smooth(method = "lm")
+```
+
+
+

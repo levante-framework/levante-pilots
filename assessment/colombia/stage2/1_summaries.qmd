@@ -29,8 +29,9 @@ participant_summary <- trials_coded |>
          task_label_age = fct_inorder(task_label_age))
 ```
 
+Plot correctness distribution by task
+
 ```{r}
-# plot correctness distribution by task
 ggplot(participant_summary, aes(x = "", y = prop_correct)) +
   facet_wrap(vars(task_label), nrow = 3) +
   geom_sina(aes(colour = task_group, size = prop_trials), alpha = 0.8) +
@@ -44,9 +45,40 @@ ggplot(participant_summary, aes(x = "", y = prop_correct)) +
         strip.text = element_text(size = 8),
         legend.position = "bottom",
         legend.key.width = unit(2, "lines"))
-ggsave("plots/subject_correct.png", width = 14, height = 9)
+# ggsave("plots/subject_correct.png", width = 14, height = 9)
+```
 
-# plot completeness distribution by task
+```{r}
+
+participant_summary$is_zero <- participant_summary$prop_correct == 0
+
+ggplot(participant_summary, 
+       aes(x = prop_correct, fill = is_zero)) +
+  facet_wrap(vars(task_label), nrow = 3) +
+  geom_histogram(aes(y = ..density..), color = 1) + 
+  labs(x = "Subject's proportion of correct responses", 
+       y = "Density") +
+ geom_density() + 
+  theme(axis.ticks.x = element_blank(),
+        axis.title.x = element_blank(),
+        strip.text = element_text(size = 8),
+        legend.position = "bottom",
+        legend.key.width = unit(2, "lines"))
+ 
+# 
+# +
+#   guides(colour = "none") +
+#   theme(axis.ticks.x = element_blank(),
+#         axis.title.x = element_blank(),
+#         strip.text = element_text(size = 8),
+#         legend.position = "bottom",
+#         legend.key.width = unit(2, "lines"))
+# ggsave("plots/subject_correct.png", width = 14, height = 9)
+```
+
+plot completeness distribution by task
+
+```{r}
 ggplot(participant_summary, aes(x = "", y = prop_trials)) +
   facet_wrap(vars(task_label), nrow = 3) +
   geom_sina(aes(colour = task_group)) +
@@ -56,9 +88,12 @@ ggplot(participant_summary, aes(x = "", y = prop_trials)) +
   theme(axis.ticks.x = element_blank(),
         axis.title.x = element_blank(),
         strip.text = element_text(size = 8))
-ggsave("plots/subject_completed.png", width = 14, height = 8)
+# ggsave("plots/subject_completed.png", width = 14, height = 8)
+```
 
-# plot correctness over age by task
+plot correctness over age by task
+
+```{r}
 ggplot(participant_summary |> filter(!is.na(age)), aes(x = age, y = prop_correct)) +
   facet_wrap(vars(task_label_age), nrow = 3) +
   geom_smooth(method = "lm", colour = "darkgrey") +
@@ -74,7 +109,11 @@ ggplot(participant_summary |> filter(!is.na(age)), aes(x = age, y = prop_correct
         strip.text = element_text(size = 8))
 ggsave("plots/subject_correct_age.png", width = 14, height = 9)
 
-# plot completeness over age by task
+```
+
+plot completeness over age by task
+
+```{r}
 ggplot(participant_summary |> filter(!is.na(age)), aes(x = age, y = prop_trials)) +
   facet_wrap(vars(task_label_age), nrow = 3) +
   geom_smooth(method = "lm", colour = "darkgrey") +
