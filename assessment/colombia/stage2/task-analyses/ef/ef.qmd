@@ -159,12 +159,15 @@ sds_mirt <- sds |>
   mutate(is_correct = as.numeric(is_correct), 
          item_unique = str_c(as.character(idx), "-", corpus_trial_type, "-", item))
 
-sds_wide <- sds_mirt |>
-  group_by(user_id, item_unique) |>
-  select(user_id, item_unique, is_correct) |>
-  pivot_wider(names_from = "item_unique", 
-              values_from = "is_correct") |>
-  ungroup()
+sds_wide <- sds |>
+    mutate(is_correct = as.numeric(is_correct)) |>
+    filter(!is.na(item)) |> 
+    group_by(user_id, item) |>
+    mutate(instance = seq_along(item),
+           item_inst = glue("{item}_{instance}")) |> 
+    ungroup() |> 
+    select(user_id, item_inst, is_correct) |>
+    pivot_wider(names_from = "item_inst", values_from = "is_correct")
 
 sds_mat <- as.matrix(select(sds_wide, -user_id))
 names(sds_mat) <- sds_wide$user_id
@@ -172,6 +175,18 @@ names(sds_mat) <- sds_wide$user_id
 # remove columns with no variance
 sds_cols <- colMeans(sds_mat, na.rm=TRUE) 
 sds_mat <- sds_mat[ , sds_cols > 0 & sds_cols < 1]
+
+items <- sds$item |> unique()  |> na.omit()
+
+constraints <- lapply(items, \(i) {
+    matched <- which(str_detect(colnames(sds_mat), glue("^{i}_")))
+    if (length(matched) > 1) {
+        glue("({paste(matched, collapse=',')},a1), ({paste(matched, collapse=',')},d)")
+    }
+}) |> keep( ~ !is.null(.)) |> paste(collapse = ", ")
+
+mod_str <- glue("F = 1-{ncol(sds_mat)}
+                 CONSTRAIN = {constraints}")
 ```
 
 Fit models. 
@@ -179,7 +194,7 @@ Fit models.
 ```{r}
 set.seed(1234)
 
-sds_mod_1pl <- mirt(sds_mat, 1, itemtype = "Rasch", 
+sds_mod_1pl <- mirt(sds_mat, mod_str, itemtype = "Rasch", 
                 verbose = TRUE, 
                 technical = list(NCYCLES = 1000))
 
