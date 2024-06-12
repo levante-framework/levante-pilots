@@ -45,7 +45,7 @@ ggplot(participant_summary, aes(x = "", y = prop_correct)) +
         strip.text = element_text(size = 8),
         legend.position = "bottom",
         legend.key.width = unit(2, "lines"))
-# ggsave("plots/subject_correct.png", width = 14, height = 9)
+ggsave("plots/subject_correct.png", width = 14, height = 9)
 ```
 
 ```{r}
@@ -73,7 +73,7 @@ ggplot(participant_summary,
 #         strip.text = element_text(size = 8),
 #         legend.position = "bottom",
 #         legend.key.width = unit(2, "lines"))
-# ggsave("plots/subject_correct.png", width = 14, height = 9)
+ggsave("plots/subject_correct.png", width = 14, height = 9)
 ```
 
 plot completeness distribution by task
@@ -88,7 +88,7 @@ ggplot(participant_summary, aes(x = "", y = prop_trials)) +
   theme(axis.ticks.x = element_blank(),
         axis.title.x = element_blank(),
         strip.text = element_text(size = 8))
-# ggsave("plots/subject_completed.png", width = 14, height = 8)
+ggsave("plots/subject_completed.png", width = 14, height = 8)
 ```
 
 plot correctness over age by task
@@ -108,7 +108,6 @@ ggplot(participant_summary |> filter(!is.na(age)), aes(x = age, y = prop_correct
         legend.key.width = unit(2, "lines"),
         strip.text = element_text(size = 8))
 ggsave("plots/subject_correct_age.png", width = 14, height = 9)
-
 ```
 
 plot completeness over age by task

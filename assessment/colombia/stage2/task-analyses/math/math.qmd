@@ -5,6 +5,8 @@ editor: visual
 ---
 
 ```{r, load-data}
+library(mirt)
+
 source(here::here("assessment","colombia","stage2","_setup.R"))
 
 trials_coded <- read_rds(here("assessment", "colombia", "stage2", "data_processed", "trials_coded.rds"))
@@ -25,8 +27,9 @@ mp <- trials_coded |> filter(task_id == "egma-math") |>
 
 
 
-
 ```
+
+## Subtask Accuracy
 
 ```{r}
 math_ntr <- mp |> group_by(user_id, run_id, age) |>
@@ -40,34 +43,9 @@ mp |> group_by(user_id, run_id, age, subtask) |>
   geom_smooth(method = "lm")
 ```
 
-## Subtask Accuracy
-
-```{r}
-trials_numberline <- trials_coded |>
-  mutate(is_correct = score_ntl(item, expected_answer, response, threshold=.1)) |>
-  filter(!is.na(item), str_detect(task, "line")) |>
-  mutate(expected_answer = as.numeric(expected_answer),
-         response = as.numeric(response)) |>
-  select(subtask, item, expected_answer, user_id, response) |>
-  mutate(subtask = fct_recode(subtask, "ntl" = "number line slider", "ltn" = "number line 4afc")) |>
-  pivot_wider(names_from = subtask, values_from = response) |>
-  mutate(correct_ltn = expected_answer == ltn,
-         correct_ntl_10 = score_ntl(item, expected_answer, ntl, 0.1)) |>
-  select(-ltn, -ntl) |>
-  pivot_longer(cols = contains("correct"), names_to = "metric", values_to = "correct")
-
-```
-
 ## IRT Models
 
 ```{r}
-# slider trials??
-# item=="{'0': 0, '1': 10}" / "{'0': 0, '1': 100}" / "{'0': 0, '1': 1000}" / {'0': 0, '1': 1}
-#subset(mp, item=="{'0': 0, '1': 10}") # 604
-#View(subset(mp, item=="{'0': 0, '1': 100}")) # 346
-
-library(mirt)
-
 math_wide <- mp |>
   mutate(is_correct = as.numeric(is_correct),
          item_id = paste(subtask, item, sep='-')) |>
@@ -137,23 +115,16 @@ coefs_2pl <- coefs_2pl |>
   left_join(mp |> select(item, subtask, expected_answer) |> distinct()) 
 
 ggplot(coefs_2pl, 
-       aes(x = expected_answer, y = d, col = subtask)) + 
+       aes(x = a1, y = d, col = subtask)) + # labels = expected_answer
   geom_jitter(alpha = .5, width = .5) + 
   geom_smooth(method = "lm")+ 
-  facet_wrap(~subtask, scales= "free_y")
-```
-
-```{r}
-ggplot(coefs_2pl, 
-       aes(x = expected_answer, y = a1, col = subtask)) + 
-  geom_jitter(alpha = .5, width = .5) + 
-  geom_smooth(method = "lm")+ 
-  facet_wrap(~subtask, scales= "free_y")
+  facet_wrap(~subtask, scales="free")
 ```
 
 ```{r}
 math_ntr <- math_ntr |> left_join(fscores_2pl, by=c("user_id"="data_id"))
-GGally::ggpairs(ungroup(math_ntr) |> select(-user_id, -run_id))
+GGally::ggpairs(ungroup(math_ntr) |> select(-user_id, -run_id), mapping=aes(alpha=.3))
+# ggsave("plots/age_n_acc_ability.png", width=9, height=9)
 ```
 
 Save parameters
@@ -171,6 +142,19 @@ save(file = here::here("assessment","colombia","stage2",
 ## Number line comparison
 
 ```{r, eval=F}
+trials_numberline <- trials_coded |>
+  mutate(is_correct = score_ntl(item, expected_answer, response, threshold=.1)) |>
+  filter(!is.na(item), str_detect(task, "line")) |>
+  mutate(expected_answer = as.numeric(expected_answer),
+         response = as.numeric(response)) |>
+  select(subtask, item, expected_answer, user_id, response) |>
+  mutate(subtask = fct_recode(subtask, "ntl" = "number line slider", "ltn" = "number line 4afc")) |>
+  pivot_wider(names_from = subtask, values_from = response) |>
+  mutate(correct_ltn = expected_answer == ltn,
+         correct_ntl_10 = score_ntl(item, expected_answer, ntl, 0.1)) |>
+  select(-ltn, -ntl) |>
+  pivot_longer(cols = contains("correct"), names_to = "metric", values_to = "correct")
+
 line_summary <- trials_numberline |>
   mutate(metric = metric |>
            fct_recode("line-to-number" = "correct_ltn",

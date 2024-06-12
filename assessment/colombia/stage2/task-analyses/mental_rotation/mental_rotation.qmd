@@ -66,8 +66,6 @@ ggplot(mr_ntrials, aes(x = n, y = prop_correct)) +
 # Accuracy
 
 ```{r}
-
-
 mr_subject_type <- mr |>
   group_by(user_id, stim_type, angle) |>
   summarise(items = n_distinct(item),
@@ -121,7 +119,7 @@ ggplot(mr_subject_set, aes(x = angle, y = prop_correct, colour = stim_type)) +
   scale_x_continuous(breaks = unique(mr_subject_set$angle)) +
   scale_colour_ptol(guide = "none") +
   labs(x = "Angle", y = "Proportion correct responses", colour = "")
-# ggsave("plots/mr_accuracy_set.png", width = 11, height = 3.5)
+#ggsave("plots/mr_accuracy_set.png", width = 11, height = 3.5)
 ```
 
 # RTs
@@ -131,7 +129,7 @@ mr_subject_type_rt <- mr |>
   group_by(user_id, stim_type, angle, is_correct) |>
   summarise(items = n_distinct(item),
             median_rt = median(rt, na.rm = TRUE)) |>
-  mutate(correct = if_else(is_correct, "corrent", "incorrect"))
+  mutate(correct = if_else(is_correct, "correct", "incorrect"))
 
 mr_type_rt <- mr_subject_type_rt |>
   group_by(stim_type, angle, correct) |>
@@ -152,7 +150,7 @@ ggplot(mr_subject_type_rt, aes(x = angle, y = median_rt, colour = stim_type)) +
   scale_colour_ptol(guide = "none") +
   scale_y_log10() + 
   labs(x = "Angle", y = "Response time (seconds)", colour = "")
-# ggsave("plots/mr_rt_type.png", width = 6, height = 5)
+#ggsave("plots/mr_rt_type.png", width = 6, height = 5)
 ```
 
 ```{r}
@@ -160,7 +158,7 @@ mr_subject_set_rt <- mr |>
   group_by(user_id, stim_type, stim_set, angle, is_correct) |>
   summarise(items = n_distinct(item),
             median_rt = median(rt, na.rm = TRUE)) |>
-  mutate(correct = if_else(is_correct, "corrent", "incorrect"))
+  mutate(correct = if_else(is_correct, "correct", "incorrect"))
 
 mr_set_rt <- mr_subject_set_rt |>
   group_by(stim_type, stim_set, angle, correct) |>
@@ -181,7 +179,7 @@ ggplot(mr_subject_set_rt, aes(x = angle, y = median_rt, colour = stim_type)) +
   scale_colour_ptol(guide = "none") +
   scale_y_log10() + 
   labs(x = "Angle", y = "Response time (seconds)", colour = "")
-# ggsave("plots/mr_rt_set.png", width = 10, height = 5)
+#ggsave("plots/mr_rt_set.png", width = 10, height = 5)
 ```
 
 # IRT models
@@ -195,7 +193,6 @@ Prepare data.
 Terrible dropping of repeated measure. 
 
 ```{r}
-
 mr_wide <- mr |>
   mutate(is_correct = as.numeric(is_correct)) |>
   group_by(user_id, item) |>
@@ -211,7 +208,6 @@ rownames(mr_mat) <- mr_wide$user_id
 mr_cols <- colMeans(mr_mat, na.rm=TRUE) 
 
 mr_mat <- mr_mat[,mr_cols > 0 & mr_cols < 1]
-
 ```
 
 Fit models. 
@@ -239,7 +235,7 @@ save(file = here("assessment", "colombia", "stage2", "task-analyses",
 ```{r psycho-2pl_coefs, echo=F, eval = TRUE}
 mod_2pl <- mirt(mr_mat, 1, itemtype='2PL', verbose=TRUE, 
                 guess = .5, 
-                technical = list(NCYCLES = 1000))
+                technical = list(NCYCLES = 2000))
 
 coefs_2pl <- as_tibble(coef(mod_2pl, simplify = TRUE)$items) %>%
  mutate(item = rownames(coef(mod_2pl, simplify = TRUE)$items))
