@@ -190,16 +190,18 @@ library(mirt)
 
 Prepare data. 
 
-Terrible dropping of repeated measure. 
+Repeated measures have constrained parameters (both difficulty and discrimination). 
 
 ```{r}
 mr_wide <- mr |>
   mutate(is_correct = as.numeric(is_correct)) |>
+  select(user_id, item, is_correct) |> 
   group_by(user_id, item) |>
-  slice(1) |>
-  select(user_id, item, is_correct) |>
-  pivot_wider(names_from = "item", values_from = "is_correct") |>
-  ungroup()
+  mutate(instance = seq_along(item),
+         item_inst = glue("{item}_{instance}")) |> 
+  ungroup() |> 
+  select(-item, -instance) |> 
+  pivot_wider(names_from = "item_inst", values_from = "is_correct")
 
 mr_mat <- as.matrix(select(mr_wide, -user_id))
 rownames(mr_mat) <- mr_wide$user_id
@@ -215,7 +217,19 @@ Fit models.
 ```{r psycho-models_1pl, echo=F, eval = TRUE}
 set.seed(1234)
 
-mod_1pl <- mirt(mr_mat, 1, itemtype = "Rasch", 
+items <- mr$item |> unique()
+
+constraints <- lapply(items, \(i) {
+  matched <- which(str_detect(colnames(mr_mat), glue("^{i}_")))
+  if (length(matched) > 1) {
+    glue("({paste(matched, collapse=',')},a1), ({paste(matched, collapse=',')},d)")
+  }
+}) |> keep( ~ !is.null(.)) |> paste(collapse = ", ")
+
+mod_str <- glue("F = 1-{ncol(mr_mat)}
+                 CONSTRAIN = {constraints}")
+
+mod_1pl <- mirt(mr_mat, mod_str, itemtype = "Rasch", 
                 verbose = TRUE, 
                 guess = .5,
                 technical = list(NCYCLES = 1000))
