@@ -1,0 +1,133 @@
+---
+title: "Matrix Reasoning"
+format: html
+editor: visual
+---
+
+```{r load-data}
+library(mirt)
+
+source(here::here("assessment","colombia","stage2","_setup.R"))
+
+trials_coded <- read_rds(here("assessment", "colombia", "stage2", "data_processed", "trials_coded.rds"))
+participants <- read_rds(here("assessment", "colombia", "stage2", "data_processed", "participants.rds"))
+```
+
+```{r}
+mr <- trials_coded |>
+  filter(task_id == "matrix-reasoning") |>
+  select(user_id, item, response, is_correct, rt, age) |>
+  mutate(rt = as.numeric(rt))
+```
+
+```{r}
+mr_ntrials <- mr |> 
+  group_by(user_id, age) |>
+  summarise(prop_correct =  mean(is_correct), 
+            n = n())
+```
+
+```{r}
+ggplot(mr_ntrials, aes(x = n)) + 
+  geom_histogram(bins = 10)
+```
+
+Classic confounding of sum score and n trials.
+
+```{r}
+ggplot(mr_ntrials, aes(x = n, y = prop_correct)) +   
+  geom_point() + geom_smooth(method = "lm")
+```
+
+## IRT Models
+
+```{r}
+mr_wide <- mr |>
+  mutate(is_correct = as.numeric(is_correct)) |>
+  group_by(user_id, item) |>
+  slice(1) |> # duplicates??
+  select(user_id, item, is_correct) |>
+  pivot_wider(names_from = "item", values_from = "is_correct") |>
+  ungroup()
+
+mr_mat <- as.matrix(select(mr_wide, -user_id))
+rownames(mr_mat) <- mr_wide$user_id
+
+# remove columns with no variance
+mr_cols <- colMeans(mr_mat, na.rm=TRUE) 
+
+mr_mat <- mr_mat[,mr_cols > 0 & mr_cols < 1]
+```
+
+### Fit models
+
+```{r fit-rasch-model}
+set.seed(1234)
+
+mod_1pl <- mirt(mr_mat, 1, itemtype = "Rasch", 
+                verbose = TRUE, 
+                guess = .25,
+                technical = list(NCYCLES = 1000))
+
+coefs_1pl <- as_tibble(coef(mod_1pl, simplify = TRUE)$items) |>
+  mutate(item = rownames(coef(mod_1pl, simplify = TRUE)$items))
+fscores_1pl <- tibble(data_id = rownames(mr_mat),
+                      ability = fscores(mod_1pl, method = "MAP")[,1])
+
+save(file = here("assessment", "colombia", "stage2", "task-analyses", 
+                 "matrix_reasoning", "mod_1pl.rds"), 
+     "mod_1pl", "fscores_1pl", "coefs_1pl")
+```
+
+```{r fit-2pl}
+mod_2pl <- mirt(mr_mat, 1, itemtype='2PL', verbose=TRUE, 
+                guess = .25, 
+                technical = list(NCYCLES = 1000))
+
+coefs_2pl <- as_tibble(coef(mod_2pl, simplify = TRUE)$items) %>%
+ mutate(item = rownames(coef(mod_2pl, simplify = TRUE)$items))
+fscores_2pl <- tibble(data_id = rownames(mr_mat),
+ ability = fscores(mod_2pl, method = "MAP")[,1])
+
+save(file = here("assessment", "colombia", "stage2", "task-analyses", 
+                 "matrix_reasoning", "mod_2pl.rds"), 
+     "mod_2pl", "fscores_2pl", "coefs_2pl")
+```
+
+Rasch model wins.
+
+```{r}
+anova(mod_1pl, mod_2pl)
+```
+
+### Coefficients
+
+```{r}
+ggplot(coefs_1pl, 
+       aes(x = item, y = d)) + 
+  geom_jitter(alpha = .5, width = .5) + 
+  geom_smooth(method = "lm")
+```
+
+```{r}
+mr_ntrials$ability <- fscores_1pl$ability
+GGally::ggpairs(ungroup(mr_ntrials) |> select(-user_id))
+```
+
+```{r}
+ggplot(mr_ntrials, aes(x = prop_correct, y = ability)) + 
+  geom_point(aes(size = n), alpha = .5) + 
+  geom_smooth(method = "lm")
+```
+
+Write out parameters
+
+```{r}
+mr_params <- select(mr_ntrials, user_id, ability) |>
+  rename(matrix_reasoning_theta = ability) |>
+  mutate(matrix_reasoning_model = "rasch")
+
+save(file = here::here("assessment","colombia","stage2",
+                       "data_processed", "matrix_params.Rds"), 
+     mr_params)
+```

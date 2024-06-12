@@ -106,7 +106,18 @@ load(here("assessment", "colombia", "stage2", "task-analyses",
 anova(mod_1pl, mod_2pl)
 ```
 
-2PL wins
+2PL wins - what about multidimensionality?
+
+```{r}
+mod2 <- mirt(data = math_mat, model = 2, verbose=TRUE,
+             guess = .25, technical = list(NCYCLES = 2000)) # itemtype='2PL',
+
+mod3 <- mirt(data = math_mat, model = 3, verbose=TRUE,
+             guess = .25, technical = list(NCYCLES = 2000))
+
+anova(mod_2pl, mod2) # 2d preferred by AIC, but not BIC
+anova(mod2, mod3) # 3d preferred by AIC, but not BIC
+```
 
 ## Plot Coefficients
 
