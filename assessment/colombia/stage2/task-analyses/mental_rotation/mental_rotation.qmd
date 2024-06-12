@@ -247,7 +247,7 @@ save(file = here("assessment", "colombia", "stage2", "task-analyses",
 ```
 
 ```{r psycho-2pl_coefs, echo=F, eval = TRUE}
-mod_2pl <- mirt(mr_mat, 1, itemtype='2PL', verbose=TRUE, 
+mod_2pl <- mirt(mr_mat, mod_str, itemtype='2PL', verbose=TRUE, 
                 guess = .5, 
                 technical = list(NCYCLES = 2000))
 
