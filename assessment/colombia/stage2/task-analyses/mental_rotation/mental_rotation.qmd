@@ -200,7 +200,7 @@ mr_wide <- mr |>
   mutate(instance = seq_along(item),
          item_inst = glue("{item}_{instance}")) |> 
   ungroup() |> 
-  select(-item, -instance) |> 
+  select(user_id, item_inst, is_correct) |>
   pivot_wider(names_from = "item_inst", values_from = "is_correct")
 
 mr_mat <- as.matrix(select(mr_wide, -user_id))
