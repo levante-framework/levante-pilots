@@ -205,7 +205,7 @@ mr_wide <- mr |>
   ungroup()
 
 mr_mat <- as.matrix(select(mr_wide, -user_id))
-names(mr_mat) <- mr_wide$user_id
+rownames(mr_mat) <- mr_wide$user_id
 
 # remove columns with no variance
 mr_cols <- colMeans(mr_mat, na.rm=TRUE) 

@@ -1,0 +1,219 @@
+---
+title: "math"
+format: html
+editor: visual
+---
+
+```{r, load-data}
+source(here::here("assessment","colombia","stage2","_setup.R"))
+
+trials_coded <- read_rds(here("assessment", "colombia", "stage2", "data_processed", "trials_coded.rds"))
+participants <- read_rds(here("assessment", "colombia", "stage2", "data_processed", "participants.rds"))
+```
+
+Data munging
+
+```{r}
+# subtask=="number line?"
+score_ntl <- function(item, answer, response, threshold = 0.05) {
+  max_value <- as.numeric(str_extract(item, "\\d+(?=\\})"))
+  abs(as.numeric(response) - as.numeric(answer)) / max_value < threshold
+}
+
+mp <- trials_coded |> filter(task_id == "egma-math") |>
+  filter(subtask!="number line slider") # sort these out later
+
+
+
+
+```
+
+```{r}
+math_ntr <- mp |> group_by(user_id, run_id, age) |>
+  summarise(prop_correct = mean(is_correct), n = n()) 
+
+mp |> group_by(user_id, run_id, age, subtask) |>
+  summarise(prop_correct = mean(is_correct), n = n()) |>
+  ggplot(aes(x=age, y=prop_correct)) +
+    facet_wrap(. ~ subtask) + 
+    geom_point(aes(size=n), alpha=.5) + 
+  geom_smooth(method = "lm")
+```
+
+## Subtask Accuracy
+
+```{r}
+trials_numberline <- trials_coded |>
+  mutate(is_correct = score_ntl(item, expected_answer, response, threshold=.1)) |>
+  filter(!is.na(item), str_detect(task, "line")) |>
+  mutate(expected_answer = as.numeric(expected_answer),
+         response = as.numeric(response)) |>
+  select(subtask, item, expected_answer, user_id, response) |>
+  mutate(subtask = fct_recode(subtask, "ntl" = "number line slider", "ltn" = "number line 4afc")) |>
+  pivot_wider(names_from = subtask, values_from = response) |>
+  mutate(correct_ltn = expected_answer == ltn,
+         correct_ntl_10 = score_ntl(item, expected_answer, ntl, 0.1)) |>
+  select(-ltn, -ntl) |>
+  pivot_longer(cols = contains("correct"), names_to = "metric", values_to = "correct")
+
+```
+
+## IRT Models
+
+```{r}
+# slider trials??
+# item=="{'0': 0, '1': 10}" / "{'0': 0, '1': 100}" / "{'0': 0, '1': 1000}" / {'0': 0, '1': 1}
+#subset(mp, item=="{'0': 0, '1': 10}") # 604
+#View(subset(mp, item=="{'0': 0, '1': 100}")) # 346
+
+library(mirt)
+
+math_wide <- mp |>
+  mutate(is_correct = as.numeric(is_correct),
+         item_id = paste(subtask, item, sep='-')) |>
+  group_by(user_id, item) |>
+  slice(1) |> # some kids have >1 admin??
+  select(user_id, item, is_correct) |>
+  pivot_wider(names_from = "item", values_from = "is_correct") |>
+  ungroup()
+
+math_mat <- as.matrix(select(math_wide, -user_id))
+rownames(math_mat) <- math_wide$user_id
+
+# remove columns with no variance
+math_cols <- colMeans(math_mat, na.rm=TRUE) 
+math_mat <- math_mat[,math_cols > 0 & math_cols < 1]
+
+```
+
+Fit 1PL.
+
+```{r 1pl}
+set.seed(1234)
+
+mod_1pl <- mirt(math_mat, 1, itemtype = "Rasch", 
+                verbose = TRUE, guess = .25,
+                technical = list(NCYCLES = 1000))
+
+coefs_1pl <- as_tibble(coef(mod_1pl, simplify = TRUE)$items) |>
+  mutate(item = rownames(coef(mod_1pl, simplify = TRUE)$items))
+fscores_1pl <- tibble(data_id = rownames(math_mat),
+                      ability = fscores(mod_1pl, method = "MAP")[,1])
+
+save(file = here("assessment", "colombia", "stage2", "task-analyses", 
+                 "math", "mod_1pl.rds"), 
+     "mod_1pl", "fscores_1pl", "coefs_1pl")
+```
+
+Fit 2PL.
+
+```{r 2pl}
+mod_2pl <- mirt(math_mat, 1, itemtype='2PL', verbose=TRUE, 
+                guess = .25, technical = list(NCYCLES = 5000))
+
+coefs_2pl <- as_tibble(coef(mod_2pl, simplify = TRUE)$items) %>%
+ mutate(item = rownames(coef(mod_2pl, simplify = TRUE)$items))
+fscores_2pl <- tibble(data_id = rownames(math_mat),
+ ability = fscores(mod_2pl, method = "MAP")[,1])
+
+save(file = here("assessment", "colombia", "stage2", "task-analyses", 
+                 "math", "mod_2pl.rds"), 
+     "mod_2pl", "fscores_2pl", "coefs_2pl")
+```
+
+```{r}
+load(here("assessment", "colombia", "stage2", "task-analyses", 
+                 "math", "mod_2pl.rds"))
+
+anova(mod_1pl, mod_2pl)
+```
+
+2PL wins
+
+## Plot Coefficients
+
+```{r}
+coefs_2pl <- coefs_2pl |>
+  left_join(mp |> select(item, subtask, expected_answer) |> distinct()) 
+
+ggplot(coefs_2pl, 
+       aes(x = expected_answer, y = d, col = subtask)) + 
+  geom_jitter(alpha = .5, width = .5) + 
+  geom_smooth(method = "lm")+ 
+  facet_wrap(~subtask, scales= "free_y")
+```
+
+```{r}
+ggplot(coefs_2pl, 
+       aes(x = expected_answer, y = a1, col = subtask)) + 
+  geom_jitter(alpha = .5, width = .5) + 
+  geom_smooth(method = "lm")+ 
+  facet_wrap(~subtask, scales= "free_y")
+```
+
+```{r}
+math_ntr <- math_ntr |> left_join(fscores_2pl, by=c("user_id"="data_id"))
+GGally::ggpairs(ungroup(math_ntr) |> select(-user_id, -run_id))
+```
+
+Save parameters
+
+```{r}
+math_params <- select(math_ntr, user_id, ability) |>
+  rename(math_theta = ability) |>
+  mutate(math_model = "2pl")
+
+save(file = here::here("assessment","colombia","stage2",
+                       "data_processed", "math_params.Rds"), 
+     math_params)
+```
+
+## Number line comparison
+
+```{r, eval=F}
+line_summary <- trials_numberline |>
+  mutate(metric = metric |>
+           fct_recode("line-to-number" = "correct_ltn",
+                      "number-to-line (5%)" = "correct_ntl_5",
+                      "number-to-line (10%)" = "correct_ntl_10",
+                      "number-to-line (15%)" = "correct_ntl_15") |>
+           fct_inorder()) |>
+  group_by(item, expected_answer, metric) |>
+  summarise(subjects = n_distinct(pid),
+            trials = n(),
+            num_correct = sum(correct, na.rm = TRUE),
+            prop_correct = num_correct / trials) |>
+  ungroup() |>
+  arrange(metric, prop_correct) |>
+  mutate(item_label = paste(str_replace(item, "'0': (\\d+), '1': (\\d+)", "\\1-\\2"), expected_answer),
+         item_label = fct_inorder(item_label),
+         item_index = factor(row_number()))
+         # item_index = paste(metric, item_label) |> fct_inorder())
+
+ggplot(line_summary, aes(x = prop_correct, y = item_index)) +
+  facet_wrap(vars(metric), scales = "free_y", nrow = 1) +
+  # geom_hline(aes(yintercept = item_label), color = "lightgrey") +
+  geom_point() +
+  # scale_x_continuous(breaks = round(unique(ltn$prop_correct), 2)) +
+  scale_y_discrete(breaks = line_summary$item_index, labels = line_summary$item_label) +
+  labs(x = "Proportion correct responses", y = "Item") +
+  theme(panel.grid.major.y = element_line(colour = "lightgrey", linewidth = 0.2))
+ggsave("plots/line_items.png", width = 12, height = 5)
+
+line_summary |>
+  select(item_label, metric, prop_correct) |>
+  pivot_wider(names_from = metric, values_from = prop_correct) |>
+  pivot_longer(contains("number-"), names_to = "metric", values_to = "correct") |>
+  mutate(metric = paste("Percent correct in", metric) |> fct_inorder()) |>
+  ggplot(aes(x = `line-to-number`, y = correct)) +
+    facet_wrap(vars(metric), switch = TRUE) +
+    geom_point() +
+    geom_smooth(method = "lm") +
+    labs(x = "Percent correct in line-to-number") +
+    theme(strip.placement = "outside",
+          axis.title.y = element_blank())
+ggsave("plots/line_items_corrs.png", width = 10, height = 4)
+
+# mutate(task = ifelse(trial_index>=461, "number-to-line", task)) |>
+
+```
