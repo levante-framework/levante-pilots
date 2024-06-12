@@ -270,10 +270,13 @@ anova(mod_1pl, mod_2pl)
 Coefficients. 
 
 ```{r}
-coefs_1pl <- coefs_1pl |>
+coefs_1pl_info <- coefs_1pl |>
+  separate_wider_delim(item, names = c("item", "instance"), delim = "_") |> 
+  select(-instance) |> 
+  distinct() |> 
   left_join(select(mr, item, angle, stim_type, stim_set) |> distinct()) 
 
-ggplot(coefs_1pl, 
+ggplot(coefs_1pl_info, 
        aes(x = angle, y = d, col = stim_set)) + 
   geom_jitter(alpha = .5, width = .5) + 
   geom_smooth(method = "lm")+ 
