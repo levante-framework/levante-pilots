@@ -10,7 +10,7 @@ participants <- read_rds("data_processed/participants.rds")
 ```
 
 ```{r}
-# prop_trials <- participant_summary |> select(task, user_id, prop_trials)
+# prop_trials <- participants |> select(task_id, user_id, prop_trials)
 
 # get_time_summary <- function(trial_data) {
   # trial_data |>

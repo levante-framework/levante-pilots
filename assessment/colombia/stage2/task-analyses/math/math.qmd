@@ -23,9 +23,7 @@ score_ntl <- function(item, answer, response, threshold = 0.05) {
 }
 
 mp <- trials_coded |> filter(task_id == "egma-math") |>
-  filter(subtask!="number line slider") # sort these out later
-
-
+  filter(subtask!="number line slider") 
 
 ```
 
@@ -153,9 +151,25 @@ save(file = here::here("assessment","colombia","stage2",
 ## Number line comparison
 
 ```{r, eval=F}
-trials_numberline <- trials_coded |>
+# 38 unique values in distract_options, but 2 of them are {} and NA 
+# should be 36 number line problems
+# distract_options defined for 4AFC; slider trials are {} or NA (only on/before May 24)
+# note: rt is NA on the 4AFC trials, but saved on slider trials
+nl <- trials_coded |> filter(task_id == "egma-math") |>
+  filter(subtask=="number line slider" | subtask=="number line 4afc")
+
+
+# 4afc and slider trials are correctly categorized; we have so many more slider trials because there was no way to fail out (since is_correct wasn't coded) -- so a lot of kids did fail out of 4afc early on, but had to do all slider trials
+
+# has 72 number line slider trials..
+user_id=="6rEqftuHBnhlGRZ7dKIlDqjnM6a2"
+
+trials_nl <- trials_coded |>
+  filter(str_detect(subtask, "line")) |>
+  group_by(user_id, time_elapsed) |> # item-level data are duplicated (for all users?)
+  slice(1) |> 
+  ungroup() |>
   mutate(is_correct = score_ntl(item, expected_answer, response, threshold=.1)) |>
-  filter(!is.na(item), str_detect(task, "line")) |>
   mutate(expected_answer = as.numeric(expected_answer),
          response = as.numeric(response)) |>
   select(subtask, item, expected_answer, user_id, response) |>
@@ -166,12 +180,12 @@ trials_numberline <- trials_coded |>
   select(-ltn, -ntl) |>
   pivot_longer(cols = contains("correct"), names_to = "metric", values_to = "correct")
 
-line_summary <- trials_numberline |>
+table(trials_nl$user_id, trials_nl$subtask)
+
+line_summary <- trials_nl |>
   mutate(metric = metric |>
            fct_recode("line-to-number" = "correct_ltn",
-                      "number-to-line (5%)" = "correct_ntl_5",
-                      "number-to-line (10%)" = "correct_ntl_10",
-                      "number-to-line (15%)" = "correct_ntl_15") |>
+                      "number-to-line" = "correct_ntl_10") |>
            fct_inorder()) |>
   group_by(item, expected_answer, metric) |>
   summarise(subjects = n_distinct(pid),

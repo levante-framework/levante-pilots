@@ -149,5 +149,5 @@ high_correct <- item_summary |>
   arrange(task, desc(prop_correct))
 
 high_correct |> count(task, sort = TRUE)
-# write_csv(high_correct, "data/high_correct_items.csv")
+write_csv(high_correct, "data/high_correct_items.csv")
 ```

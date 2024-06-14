@@ -1,0 +1,228 @@
+task,item_id,item,expected_answer,trials,prop_correct
+EGMA (number identification),4,2,2,665,0.9624060150375939
+EGMA (number identification),2,108,108,554,0.9530685920577617
+EGMA (number comparison),24,"39, 23",39,575,0.9582608695652174
+EGMA (addition),49,3+3,6,439,0.9863325740318907
+EGMA (addition),42,10+2,12,296,0.9628378378378378
+EGMA (addition),59,8+1,9,436,0.9587155963302753
+EGMA (subtraction),69,12-2,10,144,0.9652777777777778
+EGMA (subtraction),89,9-1,8,301,0.9568106312292359
+EGMA (number line 4afc),96,"{'0': 0, '1': 1000}",5,34,1
+EGMA (number line 4afc),102,"{'0': 0, '1': 1000}",941,28,1
+EGMA (number line 4afc),114,"{'0': 0, '1': 100}",98,66,1
+EGMA (number line 4afc),120,"{'0': 0, '1': 10}",8,86,0.9651162790697675
+EGMA (multiplication),130,219x20,4380,5,1
+EGMA (multiplication),135,346x10,3460,8,1
+EGMA (multiplication),136,351x4,1404,8,1
+EGMA (multiplication),144,6x100,600,11,1
+EGMA (fraction),189,1/3+2/5,11/15,2,1
+EGMA (fraction),198,5/12+1/6,7/12,2,1
+EGMA (fraction),200,7/10-2/5,3/10,2,1
+ROAR (vocab),204,ant,ant,39,1
+ROAR (vocab),206,applaud,applaud,30,1
+ROAR (vocab),217,bear,bear,39,1
+ROAR (vocab),226,camp,camp,30,1
+ROAR (vocab),229,carrot,carrot,66,1
+ROAR (vocab),235,clothespin,clothespin,58,1
+ROAR (vocab),244,couturier,couturier,30,1
+ROAR (vocab),252,duck,duck,39,1
+ROAR (vocab),258,fan,fan,53,1
+ROAR (vocab),262,footbath,footbath,53,1
+ROAR (vocab),263,fork,fork,39,1
+ROAR (vocab),264,fruitcake,fruitcake,53,1
+ROAR (vocab),267,gourmet,gourmet,17,1
+ROAR (vocab),276,juggling,juggling,39,1
+ROAR (vocab),279,kitten,kitten,39,1
+ROAR (vocab),280,knee,knee,39,1
+ROAR (vocab),283,locker,locker,51,1
+ROAR (vocab),284,lollipop,lollipop,51,1
+ROAR (vocab),286,map,map,50,1
+ROAR (vocab),287,marshmallow,marshmallow,50,1
+ROAR (vocab),289,milkshake,milkshake,39,1
+ROAR (vocab),290,net,net,49,1
+ROAR (vocab),298,pie,pie,49,1
+ROAR (vocab),302,potato,potato,49,1
+ROAR (vocab),306,pump,pump,49,1
+ROAR (vocab),307,rice,rice,49,1
+ROAR (vocab),317,shower,shower,49,1
+ROAR (vocab),318,silverware,silverware,49,1
+ROAR (vocab),324,snail,snail,49,1
+ROAR (vocab),329,squirrel,squirrel,47,1
+ROAR (vocab),333,sunflower,sunflower,45,1
+ROAR (vocab),337,telescope,telescope,43,1
+ROAR (vocab),343,tumble,tumble,30,1
+ROAR (vocab),344,tunnel,tunnel,37,1
+ROAR (vocab),350,wall,wall,39,1
+ROAR (vocab),351,watermelon,watermelon,39,1
+ROAR (vocab),354,wheel,wheel,39,1
+ROAR (vocab),213,ball,ball,39,0.9743589743589743
+ROAR (vocab),256,envelope,envelope,37,0.972972972972973
+ROAR (vocab),214,bamboo,bamboo,71,0.971830985915493
+ROAR (vocab),281,knight,knight,35,0.9714285714285714
+ROAR (vocab),224,cake,cake,66,0.9696969696969697
+ROAR (vocab),240,cork,cork,58,0.9655172413793104
+ROAR (vocab),271,hedgehog,hedgehog,53,0.9622641509433962
+ROAR (vocab),305,puddle,puddle,49,0.9591836734693877
+ROAR (vocab),311,saddle,saddle,49,0.9591836734693877
+ROAR (vocab),312,sandbag,sandbag,49,0.9591836734693877
+ROAR (vocab),314,scoop,scoop,49,0.9591836734693877
+ROAR (vocab),320,ski,ski,49,0.9591836734693877
+ROAR (vocab),323,sloth,sloth,49,0.9591836734693877
+ROAR (vocab),219,blender,blender,69,0.9565217391304348
+ROAR (vocab),221,bouquet,bouquet,69,0.9565217391304348
+ROAR (vocab),223,bulldozer,bulldozer,66,0.9545454545454546
+ROAR (vocab),340,treasure,treasure,43,0.9534883720930233
+ROAR (vocab),341,trumpet,trumpet,43,0.9534883720930233
+same-different-selection,381,Touch the picture with a small shape.,sm-green-circle,268,0.996268656716418
+same-different-selection,380,Touch the picture with a red shape.,med-red-triangle,271,0.981549815498155
+same-different-selection,378,Touch the picture with a large shape.,lg-red-square,268,0.9813432835820896
+same-different-selection,375,Touch the picture with a blue shape.,med-blue-circle,270,0.9777777777777777
+same-different-selection,385,Touch three pictures that are the same in only one way.,NA,35,0.9714285714285714
+same-different-selection,376,Touch the picture with a circle.,med-red-circle,271,0.9704797047970479
+same-different-selection,373,Touch another three pictures that are the same in only one way.,No answer provided,33,0.9696969696969697
+same-different-selection,377,Touch the picture with a green shape.,med-green-square,271,0.955719557195572
+same-different-selection,383,Touch the picture with a triangle.,med-green-triangle,271,0.9520295202952029
+trog,393,He found his keys under the couch with the pillows.,84-keys-under-couch-pillows,1,1
+trog,394,"He likes swimming, however, he chose to play soccer with his friends.",90-they-play-soccer,1,1
+trog,397,She is the gardener who wears the hat that has a flower.,85-gardener-flower-hat-on,1,1
+trog,399,The duck following the turtle is walking across the bridge,89-duck-on-bridge-follows-turtle,1,1
+trog,401,The horse drank water by the barn and the sheep ate grass by the fence.,81-horse-water-barn-sheep-grass,1,1
+trog,403,We will dance together if someone is playing music.,88-play-guitar-dance,1,1
+trog,405,We will have a picnic in the park if it is sunny.,83-picnic-sunny-park,1,1
+trog,467,the horse drank water by the barn and the sheep ate grass by the fence,81-horse-water-barn-sheep-grass,84,0.9880952380952381
+trog,408,black,12-black-horse,239,0.9832635983263598
+trog,406,apple,4-apple,261,0.9808429118773946
+trog,434,the boy is running,13-boy-running,237,0.9789029535864979
+trog,478,the red ball,16-red-ball,239,0.9707112970711297
+trog,428,the box is not only big but also blue,66-big-blue-box,144,0.9583333333333334
+trog,472,the man is eating the apple,23-man-eat-apple,233,0.9570815450643777
+trog,418,red,11-red,241,0.9543568464730291
+trog,435,the boy is sitting but not eating,60-sitting-boy,147,0.9523809523809523
+trog,483,the student opened the notebook and drew a tree,82-notebook-tree,84,0.9523809523809523
+ROAR (sre-es),487,A las gaviotas les gusta nadar con los tiburones.,NA,26,1
+ROAR (sre-es),488,A los niños y niñas les gusta jugar.,NA,26,1
+ROAR (sre-es),489,Abril es el primer mes del año.,NA,19,1
+ROAR (sre-es),507,Diciembre tiene 100 días.,NA,31,1
+ROAR (sre-es),514,El fútbol se juega con una cuchara.,NA,20,1
+ROAR (sre-es),515,El helado es un postre frío.,NA,20,1
+ROAR (sre-es),520,El pan es un alimento que se puede comer a diferentes horas del día.,NA,23,1
+ROAR (sre-es),522,El sol brilla durante el día.,NA,22,1
+ROAR (sre-es),528,El verano es una estación del año.,NA,29,1
+ROAR (sre-es),529,El viento mueve las ramas de los árboles.,NA,28,1
+ROAR (sre-es),538,Existen rocas de diferentes formas y tamaños.,NA,14,1
+ROAR (sre-es),540,Hay personas que se bañan con agua fría.,NA,22,1
+ROAR (sre-es),543,"La ""Z"" es la última letra del alfabeto.",NA,28,1
+ROAR (sre-es),545,La escritura utiliza letras y palabras para comunicar pensamientos y ideas.,NA,13,1
+ROAR (sre-es),550,La lluvia cae del cielo regando la tierra y nutriendo las plantas.,NA,29,1
+ROAR (sre-es),551,La lluvia cae hacia arriba.,NA,22,1
+ROAR (sre-es),559,La miel es ácida como el limón.,NA,29,1
+ROAR (sre-es),561,La ropa se limpia con barro.,NA,24,1
+ROAR (sre-es),571,Las avispas cargan piedras.,NA,25,1
+ROAR (sre-es),572,Las ballenas nadan en el océano.,NA,20,1
+ROAR (sre-es),576,Las bicicletas tienen alas para volar.,NA,23,1
+ROAR (sre-es),578,Las bicicletas tienen pedales para avanzar.,NA,30,1
+ROAR (sre-es),579,Las bolsas pueden llevar objetos.,NA,29,1
+ROAR (sre-es),582,Las cabras ayudan a resolver misterios en la jungla.,NA,19,1
+ROAR (sre-es),587,Las cometas vuelan alto.,NA,25,1
+ROAR (sre-es),590,Las cucarachas son mensajeras secretas que hablan varios idiomas.,NA,17,1
+ROAR (sre-es),602,Las galletas son naves espaciales que exploran la galaxia.,NA,33,1
+ROAR (sre-es),603,Las gallinas ponen huevos.,NA,23,1
+ROAR (sre-es),606,Las hamburguesas son vegetarianas.,NA,17,1
+ROAR (sre-es),608,Las hojas son saltamontes disfrazados.,NA,23,1
+ROAR (sre-es),611,Las hormigas son tan grandes como elefantes.,NA,45,1
+ROAR (sre-es),613,Las iguanas son reptiles verdes.,NA,15,1
+ROAR (sre-es),614,Las ingenieras pintan con lápices gigantes.,NA,38,1
+ROAR (sre-es),616,Las jirafas tienen manchas de colores verde y rojo.,NA,21,1
+ROAR (sre-es),618,Las letras bailan en el teclado.,NA,18,1
+ROAR (sre-es),619,Las lombrices tienen plumas.,NA,33,1
+ROAR (sre-es),620,Las luces iluminan la habitación.,NA,20,1
+ROAR (sre-es),621,Las luciérnagas emiten luz.,NA,17,1
+ROAR (sre-es),628,Las morsas construyen iglús en la playa para vivir.,NA,35,1
+ROAR (sre-es),633,Las naranjas son verdes por dentro.,NA,28,1
+ROAR (sre-es),643,Las palomas viven bajo el agua.,NA,26,1
+ROAR (sre-es),646,Las peras son una fruta.,NA,33,1
+ROAR (sre-es),649,Las personas sudan cuando hace mucho calor.,NA,22,1
+ROAR (sre-es),650,Las personas van al aeropuerto para viajar en tren.,NA,16,1
+ROAR (sre-es),656,Las ranas navegan por los océanos en botes de papel.,NA,16,1
+ROAR (sre-es),658,Las ranas viven en los volcanes.,NA,17,1
+ROAR (sre-es),659,Las rocas caminan solas en el desierto.,NA,15,1
+ROAR (sre-es),663,Las sillas hablan en voz alta.,NA,26,1
+ROAR (sre-es),669,Las tormentas eléctricas traen relámpagos y truenos durante la lluvia.,NA,22,1
+ROAR (sre-es),671,Las tortugas corren maratones.,NA,25,1
+ROAR (sre-es),675,Las vacaciones escolares duran todo el año.,NA,26,1
+ROAR (sre-es),678,Las velas sirven para alumbrar en la noche.,NA,21,1
+ROAR (sre-es),679,"Las verduras, como las zanahorias, son saludables y nutritivas.",NA,28,1
+ROAR (sre-es),680,Las zanahorias brillan en la oscuridad.,NA,22,1
+ROAR (sre-es),681,Las zanahorias son micrófonos que cantan canciones al crecer.,NA,20,1
+ROAR (sre-es),683,Leer libros nos ayuda a aprender cosas nuevas.,NA,25,1
+ROAR (sre-es),688,Los autobuses transportan personas.,NA,22,1
+ROAR (sre-es),693,Los barcos navegan en el agua.,NA,16,1
+ROAR (sre-es),694,Los bomberos apagan incendios con paraguas.,NA,14,1
+ROAR (sre-es),695,Los bomberos usan mangueras para apagar incendios en edificios.,NA,26,1
+ROAR (sre-es),696,Los bosques están llenos de árboles.,NA,23,1
+ROAR (sre-es),697,Los burros vuelan en el cielo.,NA,25,1
+ROAR (sre-es),700,Los caballos son astronautas.,NA,23,1
+ROAR (sre-es),702,Los caimanes conducen automóviles.,NA,27,1
+ROAR (sre-es),704,Los camellos nadan en el mar.,NA,33,1
+ROAR (sre-es),706,Los campesinos ordeñan las vacas.,NA,24,1
+ROAR (sre-es),711,Los caracoles conducen coches.,NA,21,1
+ROAR (sre-es),718,Los ciclistas pedalean en bicicletas.,NA,12,1
+ROAR (sre-es),721,Los científicos hacen experimentos.,NA,31,1
+ROAR (sre-es),735,Los dragones vuelan en bicicleta.,NA,27,1
+ROAR (sre-es),736,Los elefantes escalan las montañas.,NA,29,1
+ROAR (sre-es),739,Los exploradores descubren nuevos lugares en emocionantes aventuras.,NA,25,1
+ROAR (sre-es),741,Los gatos ladran como los perros.,NA,22,1
+ROAR (sre-es),742,Los gatos lamen sus patas para limpiarse.,NA,18,1
+ROAR (sre-es),748,Los gusanos viven en la tierra.,NA,22,1
+ROAR (sre-es),753,Los jugadores de fútbol juegan con pelotas de algodón.,NA,29,1
+ROAR (sre-es),754,Los jugadores de fútbol patean el balón.,NA,14,1
+ROAR (sre-es),755,Los juguetes de peluche son exploradores que escalan montañas.,NA,23,1
+ROAR (sre-es),760,Los leones son animales acuáticos.,NA,25,1
+ROAR (sre-es),763,Los libros crecen en los árboles.,NA,19,1
+ROAR (sre-es),764,Los libros pueden hablar.,NA,25,1
+ROAR (sre-es),769,Los lápices son herramientas de cocina.,NA,16,1
+ROAR (sre-es),773,Los monos saltan entre las ramas.,NA,30,1
+ROAR (sre-es),777,Los músicos crean hermosas melodías con instrumentos diversos.,NA,16,1
+ROAR (sre-es),778,Los músicos tocan instrumentos con las orejas.,NA,24,1
+ROAR (sre-es),781,Los nadadores se sumergen en el agua.,NA,15,1
+ROAR (sre-es),783,Los niños juegan con juguetes.,NA,20,1
+ROAR (sre-es),784,Los niños juegan en el parque.,NA,25,1
+ROAR (sre-es),789,Los pandas comen bambú.,NA,21,1
+ROAR (sre-es),792,Los patos van al colegio montados en jirafas.,NA,18,1
+ROAR (sre-es),798,Los perros son leales y algunas personas los tienen como mascotas.,NA,29,1
+ROAR (sre-es),804,Los profesores enseñan a los estudiantes en el colegio.,NA,26,1
+ROAR (sre-es),805,Los pulpos pueden hablar.,NA,23,1
+ROAR (sre-es),807,Los pájaros tocan la guitarra.,NA,21,1
+ROAR (sre-es),808,Los ratones tienen colas largas.,NA,24,1
+ROAR (sre-es),816,Los tiburones viven en el desierto.,NA,25,1
+ROAR (sre-es),818,Los tigres son expertos en cocina y preparan banquetes exquisitos.,NA,43,1
+ROAR (sre-es),822,Los toros caminan hacia atrás.,NA,26,1
+ROAR (sre-es),824,Los trenes viajan al pasado y al futuro en segundos.,NA,26,1
+ROAR (sre-es),828,Los volcanes pueden entrar en erupción.,NA,18,1
+ROAR (sre-es),831,Los árboles dan sombra.,NA,21,1
+ROAR (sre-es),833,Los árboles tienen piernas.,NA,20,1
+ROAR (sre-es),836,Los árboles tocan música.,NA,17,1
+ROAR (sre-es),838,Puedo oler una fruta con mis ojos.,NA,24,1
+ROAR (sre-es),839,Se necesita de un equipo especial para escalar algunas montañas.,NA,36,1
+ROAR (sre-es),854,Un lápiz sirve para tomarse una bebida.,NA,11,1
+ROAR (sre-es),857,Un submarino viaja por las nubes.,NA,28,1
+ROAR (sre-es),861,Una guitarra sirve para tocar una canción.,NA,33,1
+ROAR (sre-es),862,Una moto tiene dos ruedas.,NA,22,1
+ROAR (sre-es),492,Algunas personas caminan descalzas sobre la arena.,NA,37,0.972972972972973
+ROAR (sre-es),698,Los caballos galopan en los campos.,NA,29,0.9655172413793104
+ROAR (sre-es),546,La lana de las ovejas sirve para hacer ropa.,NA,28,0.9642857142857143
+ROAR (sre-es),581,Las burbujas se hacen con arena.,NA,28,0.9642857142857143
+ROAR (sre-es),728,Los conejos son un tipo de pájaro.,NA,28,0.9642857142857143
+ROAR (sre-es),730,Los delfines son inteligentes.,NA,27,0.9629629629629629
+ROAR (sre-es),774,Los murciélagos buscan comida de noche.,NA,25,0.96
+ROAR (sre-es),849,Un carpintero cocina deliciosos pasteles.,NA,24,0.9583333333333334
+ROAR (sre-es),771,Los lápices tienen superpoderes para escribir solos en papel.,NA,23,0.9565217391304348
+ROAR (sre-es),573,Las ballenas son pájaros.,NA,43,0.9534883720930233
+ROAR (sre-es),494,Algunas personas mayores utilizan bastón.,NA,21,0.9523809523809523
+ROAR (sre-es),580,Las botellas de plástico contaminan el mar.,NA,21,0.9523809523809523
+ROAR (sre-es),725,Los conejos les cantan canciones infantiles para dormir a los tigres.,NA,21,0.9523809523809523
+ROAR (sre-es),511,El café es de color azul.,NA,20,0.95
+mental-rotation (3d),928,bp15320,bp15000,10,1
+ToM (hostile-attribution),963,hostile-attribution-3c,hostile-attribution-scene3-q2-ans1,82,1
+ToM (hostile-attribution),957,hostile-attribution-1b,hostile-attribution-scene1-q2-ans3,120,0.9833333333333333
+ToM (hostile-attribution),960,hostile-attribution-2b,hostile-attribution-scene2-q2-ans2,108,0.9629629629629629

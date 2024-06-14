@@ -104,9 +104,11 @@ anova(mod_1pl, mod_2pl)
 
 ```{r}
 ggplot(coefs_1pl, 
-       aes(x = item, y = d)) + 
+       aes(x = reorder(item, -d), y = d)) + 
   geom_jitter(alpha = .5, width = .5) + 
-  geom_smooth(method = "lm")
+  geom_smooth(method = "lm") + theme_bw() +
+  theme(axis.text.x = element_text(angle = 45, vjust = 0.5, hjust=1)) + 
+  coord_flip()
 ```
 
 ```{r}
