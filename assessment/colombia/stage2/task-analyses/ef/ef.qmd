@@ -202,8 +202,8 @@ save(file = here("assessment", "colombia", "stage2", "task-analyses",
 sds_mod_2pl <- mirt(sds_mat, 1, itemtype='2PL', verbose=TRUE, 
                 technical = list(NCYCLES = 1000))
 
-sds_coefs_2pl <- as_tibble(coef(mod_2pl, simplify = TRUE)$items) %>%
-  mutate(item = rownames(coef(mod_2pl, simplify = TRUE)$items))
+sds_coefs_2pl <- as_tibble(coef(sds_mod_2pl, simplify = TRUE)$items) %>%
+  mutate(item = rownames(coef(sds_mod_2pl, simplify = TRUE)$items))
 sds_fscores_2pl <- tibble(data_id = rownames(sds_mat),
                       ability = fscores(sds_mod_2pl, 
                                         method = "MAP")[,1])
@@ -232,8 +232,9 @@ save(file = here("assessment", "colombia", "stage2", "task-analyses",
 Rasch model wins. 
 
 ```{r}
-anova(mod_1pl, mod_2pl)
-anova(mod_2pl, mod_3pl)
+ano12 <- anova(sds_mod_1pl, sds_mod_2pl)
+ano23 <- anova(sds_mod_2pl, sds_mod_3pl)
+rbind(ano12, ano23[2,])
 ```
 
 Coefficients. 

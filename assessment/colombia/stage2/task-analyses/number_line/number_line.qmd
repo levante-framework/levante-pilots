@@ -3,10 +3,12 @@ format: html
 ---
 
 ```{r setup}
-source("_setup.R")
+library(mirt)
 
-trials_coded <- read_rds("data_processed/trials_coded.rds")
-participants <- read_rds("data_processed/participants.rds")
+source(here::here("assessment","colombia","stage2","_setup.R"))
+
+trials_coded <- read_rds(here("assessment", "colombia", "stage2", "data_processed", "trials_coded.rds"))
+participants <- read_rds(here("assessment", "colombia", "stage2", "data_processed", "participants.rds"))
 ```
 
 ```{r}
