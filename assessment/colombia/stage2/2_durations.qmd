@@ -10,7 +10,7 @@ participants <- read_rds("data_processed/participants.rds")
 ```
 
 ```{r}
-# prop_trials <- participants |> select(task_id, user_id, prop_trials)
+prop_trials <- participant_summary |> select(task, user_id, prop_trials)
 
 # get_time_summary <- function(trial_data) {
   # trial_data |>
@@ -70,27 +70,6 @@ ggplot(time_summary, aes(x = prop_trials, y = diff)) +
 ggsave("plots/durations_completed.png", width = 12, height = 5.5)
 ```
 
-```{r}
-item_summary <- trials_ids |>
-  filter(!is.na(item)) |>
-  group_by(task_group, task, subtask, item_id, item, expected_answer) |>
-  summarise(subjects = n_distinct(pid),
-            trials = n(),
-            num_correct = sum(correct, na.rm = TRUE),
-            prop_correct = num_correct / trials) |>
-  ungroup()
-
-item_summary |> count(task)
-item_summary |> filter(trials != subjects)
-
-high_correct <- item_summary |>
-  filter(prop_correct >= 0.95) |>
-  select(task, item_id, item, expected_answer, trials, prop_correct) |>
-  arrange(task, desc(prop_correct))
-
-high_correct |> count(task, sort = TRUE)
-write_csv(high_correct, "data/high_correct_items.csv")
-```
 
 ```{r}
 trial_times <- trials_ids |>

@@ -11,10 +11,31 @@ source("_data_loading_functions.R")
 dataset_names <- c("columbia_pilot_0523_0529:f068:v2_1",
                    "columbia_pilot_0523_0530_users_collection:fa9g:v2_1",
                    "columbia_pilot_0604_0607:bvmr:v3_0",
-                   "columbia-pilot-Bund-ColA-ColD-V2-ColB")
+                   "columbia-pilot-Bund-ColA-ColC-ColD-V2-ColB") 
 
 dataset_tables <- get_datasets(dataset_names)
+# duplicates across datasets..should uniquify
+intersect(dataset_tables[[2]]$users$user_id, 
+          dataset_tables[[4]]$users$user_id) # 254
+intersect(dataset_tables[[3]]$users$user_id, 
+          dataset_tables[[4]]$users$user_id) # 570
+
+
 dataset_data <- combine_datasets(dataset_tables)
+# sort(unique(dataset_data$users$birth_year))
+invalid_birth_years = c(1, 1933, 1934, 2104, 2024, 10000) # CO plans to get the correct years later
+dataset_data$users <- dataset_data$users |> 
+  mutate(birth_year = ifelse(is.element(birth_year, invalid_birth_years), NA, birth_year))
+
+quality_control <- function() {
+  length(unique(dataset_data$users$user_id)) # 12171 rows, 11340 unique user_ids
+  unique(dataset_data$users$assessment_pid) # 134, e.g. colombia-101 - colombia-170
+  dataset_data$users |> 
+    filter(is.element(birth_year, invalid_birth_years)) |>
+    select(user_id, assessment_pid, parent_id, teacher_id, birth_month, birth_year) |>
+    # left_join(dataset_data$user_groups) |> # many-to-many, but may be hard to look up without group
+  write_csv(here("CO_birth_dates_to_update.csv"))
+}
 ```
 
 ```{r participants}
@@ -28,6 +49,9 @@ participants <- users |>
   distinct() |>
   mutate(dob = ym(paste(birth_year, birth_month, sep = "-")),
          age = as.numeric(difftime(today(), dob, units = "days")) / 365.25)
+
+# Age distribution:
+table(round(participants$age))[1:9] # 2080 (!)
 ```
 
 ```{r trials}

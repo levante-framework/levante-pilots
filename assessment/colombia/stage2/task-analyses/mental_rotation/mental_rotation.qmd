@@ -119,7 +119,7 @@ ggplot(mr_subject_set, aes(x = angle, y = prop_correct, colour = stim_type)) +
   scale_x_continuous(breaks = unique(mr_subject_set$angle)) +
   scale_colour_ptol(guide = "none") +
   labs(x = "Angle", y = "Proportion correct responses", colour = "")
-#ggsave("plots/mr_accuracy_set.png", width = 11, height = 3.5)
+ggsave("plots/mr_accuracy_set.png", width = 11, height = 3.5)
 ```
 
 # RTs
@@ -150,7 +150,7 @@ ggplot(mr_subject_type_rt, aes(x = angle, y = median_rt, colour = stim_type)) +
   scale_colour_ptol(guide = "none") +
   scale_y_log10() + 
   labs(x = "Angle", y = "Response time (seconds)", colour = "")
-#ggsave("plots/mr_rt_type.png", width = 6, height = 5)
+ggsave("plots/mr_rt_type.png", width = 6, height = 5)
 ```
 
 ```{r}
@@ -179,7 +179,7 @@ ggplot(mr_subject_set_rt, aes(x = angle, y = median_rt, colour = stim_type)) +
   scale_colour_ptol(guide = "none") +
   scale_y_log10() + 
   labs(x = "Angle", y = "Response time (seconds)", colour = "")
-#ggsave("plots/mr_rt_set.png", width = 10, height = 5)
+ggsave("plots/mr_rt_set.png", width = 10, height = 5)
 ```
 
 # IRT models

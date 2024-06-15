@@ -114,6 +114,12 @@ ggplot(coefs_1pl,
   coord_flip()
 ```
 
+## Item fits
+
+```{r}
+#itfit <- itemfit(mod_1pl, fit_stats = c("PV_Q1*"), return.tables=F) # "PV_Q1*"
+```
+
 ```{r}
 ntr <- ntr |> left_join(fscores_1pl, by = c("user_id" = "data_id"))
 GGally::ggpairs(ungroup(ntr) |> select(-user_id, -run_id, -meanRT))
