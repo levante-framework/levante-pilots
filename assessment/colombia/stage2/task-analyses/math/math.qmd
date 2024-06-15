@@ -158,17 +158,19 @@ save(file = here::here("assessment","colombia","stage2",
 nl <- trials_coded |> filter(task_id == "egma-math") |>
   filter(subtask=="number line slider" | subtask=="number line 4afc")
 
+table(nl$user_id, nl$subtask)
 
 # 4afc and slider trials are correctly categorized; we have so many more slider trials because there was no way to fail out (since is_correct wasn't coded) -- so a lot of kids did fail out of 4afc early on, but had to do all slider trials
 
 # has 72 number line slider trials..
 user_id=="6rEqftuHBnhlGRZ7dKIlDqjnM6a2"
+#filter(user_id!="6rEqftuHBnhlGRZ7dKIlDqjnM6a2" & user_id!="7IoWgqOQzdhiQBkbCn4OAqLnc4G3") |>
 
 trials_nl <- trials_coded |>
-  filter(str_detect(subtask, "line")) |>
-  group_by(user_id, time_elapsed) |> # item-level data are duplicated (for all users?)
-  slice(1) |> 
-  ungroup() |>
+  filter(str_detect(subtask, "line")) |> # 18398
+  distinct(user_id, subtask, item, expected_answer, response, time_elapsed) |> # item-level data are duplicated (for all users?)
+  #slice(1) |> 
+  #ungroup() |> # 13344
   mutate(is_correct = score_ntl(item, expected_answer, response, threshold=.1)) |>
   mutate(expected_answer = as.numeric(expected_answer),
          response = as.numeric(response)) |>
