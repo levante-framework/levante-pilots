@@ -2,8 +2,9 @@ fix_table_types <- function(table_data) {
   table_data |>
     mutate(across(where(is_character),
                   \(x) x |> na_if("null") |> na_if("None"))) |>
-    mutate(across(matches("birth_|rt"), as.integer),
+    mutate(across(matches("birth_"), as.integer),
            across(matches("difficulty"), as.double),
+           across(matches("rt"), as.character),
            across(matches("email_verified|is_reliable|is_bestrun"), as.logical))
 }
 
@@ -21,6 +22,7 @@ combine_datasets <- function(dataset_tables) {
     map(\(ds) ds |> map(\(t) fix_table_types(t))) |>
     list_transpose(template = all_table_names) |>
     map(list_rbind)
+    # map(\(dt) list_rbind(dt, names_to = "dataset_name"))
 }
 
 collect_users <- function(dataset_data) {
