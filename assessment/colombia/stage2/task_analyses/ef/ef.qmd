@@ -3,7 +3,7 @@ format: html
 ---
 
 ```{r setup}
-source(here::here("assessment/colombia/stage2"))
+source(here::here("assessment/colombia/stage2/_setup.R"))
 
 trials_coded <- read_rds(here("assessment/colombia/stage2/data_processed/trials_coded.rds"))
 participants <- read_rds(here("assessment/colombia/stage2/data_processed/participants.rds"))
@@ -181,7 +181,7 @@ Fit models.
 ```{r}
 set.seed(1234)
 
-fit_mirt <- function(data_mat, item_type) {
+fit_mirt_ef <- function(data_mat, item_type) {
   mod <- mirt(data_mat, 1, itemtype = item_type, verbose = TRUE,
               technical = list(NCYCLES = 1000))
   
@@ -195,30 +195,31 @@ fit_mirt <- function(data_mat, item_type) {
 ```
 
 ```{r}
-sds_1pl <- fit_mirt(sds_mat, "Rasch")
+sds_1pl <- fit_mirt_ef(sds_mat, "Rasch")
 write_rds(sds_1pl, here("assessment/colombia/stage2/task_analyses/ef/fits/sds_1pl.rds"))
 
-sds_2pl <- fit_mirt(sds_mat, "2PL")
+sds_2pl <- fit_mirt_ef(sds_mat, "2PL")
 write_rds(sds_2pl, here("assessment/colombia/stage2/task_analyses/ef/fits/sds_2pl.rds"))
 
-sds_3pl <- fit_mirt(sds_mat, "3PL")
+sds_3pl <- fit_mirt_ef(sds_mat, "3PL")
 write_rds(sds_3pl, here("assessment/colombia/stage2/task_analyses/ef/fits/sds_3pl.rds"))
 ```
 
-Rasch model wins. 
+2PL model wins. 
 
 ```{r}
 anova(sds_1pl$model, sds_2pl$model, sds_3pl$model)
+sds_best <- sds_2pl
 ```
 
 Coefficients. 
 
 ```{r}
-sds_coefs <- sds_1pl$coefs |>
+sds_coefs <- sds_best$coefs |>
   rename(item_unique = item) |>
   left_join(select(sds_mirt, item, item_unique, 
                    corpus_trial_type, idx) |> distinct()) |>
-  mutate(different_way = str_detect(sds_coefs$item, "in a different way"))
+  mutate(different_way = str_detect(item, "in a different way"))
 
 ggplot(sds_coefs,
        aes(x = idx, y = d, col = corpus_trial_type, shape = different_way)) + 
@@ -321,25 +322,26 @@ mg_mat <- mg_mat[ , mg_cols > 0 & mg_cols < 1]
 Fit models. 
 
 ```{r}
-mg_1pl <- fit_mirt(mg_mat, "Rasch")
+mg_1pl <- fit_mirt_ef(mg_mat, "Rasch")
 write_rds(sds_1pl, here("assessment/colombia/stage2/task_analyses/ef/fits/mg_1pl.rds"))
 
-mg_2pl <- fit_mirt(mg_mat, "2PL")
+mg_2pl <- fit_mirt_ef(mg_mat, "2PL")
 write_rds(mg_2pl, here("assessment/colombia/stage2/task_analyses/ef/fits/mg_2pl.rds"))
 
-mg_3pl <- fit_mirt(mg_mat, "3PL")
+mg_3pl <- fit_mirt_ef(mg_mat, "3PL")
 write_rds(mg_3pl, here("assessment/colombia/stage2/task_analyses/ef/fits/mg_3pl.rds"))
 ```
 
 2PL wins
 ```{r}
 anova(mg_1pl$model, mg_2pl$model, mg_3pl$model)
+mg_best <- mg_2pl
 ```
 
 Coefficients. 
 
 ```{r}
-ggplot(mg_1pl$coefs, 
+ggplot(mg_best$coefs, 
        aes(x = item, y = d)) + 
   geom_jitter(alpha = .5, width = .5) + 
   geom_smooth(method = "lm") + 
@@ -348,33 +350,6 @@ ggplot(mg_1pl$coefs,
 
 # Across EF
 
-```{r}
-ef_summary <- filter(hf_summary, subtask == "hearts and flowers") |>
-  select(user_id, prop_correct, age) |>
-  rename(hearts_and_flowers_sumscore = prop_correct)
-
-sds_fscores <- sds_fscores_1pl |>
-  mutate(user_id = sds_wide$user_id) |>
-  rename(sds_theta = ability)
-
-mg_fscores <- mg_fscores_1pl |>
-  mutate(user_id = mg_wide$user_id) |>
-  rename(mg_theta = ability)
-
-ef_summary <- left_join(ef_summary, 
-                        sds_fscores) |>
-  left_join(mg_fscores) |>
-  left_join(sds_composite |>
-              ungroup() |>
-              inner_join(first_runs) |>
-              select(user_id, prop_correct) |>
-              rename(sds_sumscore = prop_correct)) |>
-  left_join(mg_summary|>
-              select(user_id, longest, prop_correct) |>
-              rename(memory_game_sumscore = prop_correct, 
-                     memory_game_max = longest))
-```
-
 Combined model fits
 ```{r}
 hf_scores <- hf_accuracy |>
@@ -382,19 +357,19 @@ hf_scores <- hf_accuracy |>
   select(user_id, score = prop_correct) |>
   mutate(task = "hearts and flowers", score_type = "proportion correct")
 
-sds_scores <- sds_1pl$fscores |>
+sds_scores <- sds_best$fscores |>
   rename(score = ability) |>
   mutate(task = "same-different-selection", score_type = "IRT (1PL)")
 
-mg_scores <- mg_2pl$fscores |>
+mg_scores <- mg_best$fscores |>
   rename(score = ability) |>
   mutate(task = "memory-game", score_type = "IRT (1PL)")
 
-ef_scores <- bind_rows(hf_scores, sds_scores, mg_scores) |>
-  mutate(category = "executive function")
+ef_scores <- bind_rows(hf_scores, sds_scores, mg_scores)
 
 write_rds(ef_scores, here("assessment/colombia/stage2/scores/ef_scores.rds"))
 ```
+
 
 ```{r}
 mefs1 <- read_csv(here("assessment","colombia","stage2",

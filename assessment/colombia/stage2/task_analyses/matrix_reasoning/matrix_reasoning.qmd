@@ -1,48 +1,49 @@
----
-title: "Matrix Reasoning"
-format: html
-editor: visual
----
-
 ```{r load-data}
-library(mirt)
+source(here::here("assessment/colombia/stage2/_setup.R"))
 
-source(here::here("assessment","colombia","stage2","_setup.R"))
-
-trials_coded <- read_rds(here("assessment", "colombia", "stage2", "data_processed", "trials_coded.rds"))
-participants <- read_rds(here("assessment", "colombia", "stage2", "data_processed", "participants.rds"))
+trials_coded <- read_rds(here("assessment/colombia/stage2/data_processed/trials_coded.rds"))
+participants <- read_rds(here("assessment/colombia/stage2/data_processed/participants.rds"))
 ```
 
 ```{r}
-mr <- trials_coded |>
+mxr <- trials_coded |>
   filter(task_id == "matrix-reasoning") |>
-  select(user_id, item, response, is_correct, rt, age) |>
+  select(user_id, run_id, item, response, is_correct, rt, age, server_timestamp) |>
   mutate(rt = as.numeric(rt))
 ```
 
 ```{r}
-mr_ntrials <- mr |> 
+mxr_summary <- mxr |> 
   group_by(user_id, age) |>
   summarise(prop_correct =  mean(is_correct), 
-            n = n())
+            n = n()) |>
+  ungroup()
 ```
 
 ```{r}
-ggplot(mr_ntrials, aes(x = n)) + 
+ggplot(mxr_summary, aes(x = n)) + 
   geom_histogram(bins = 10)
 ```
 
 Classic confounding of sum score and n trials.
 
 ```{r}
-ggplot(mr_ntrials, aes(x = n, y = prop_correct)) +   
+ggplot(mxr_summary, aes(x = n, y = prop_correct)) +   
   geom_point() + geom_smooth(method = "lm")
 ```
 
 ## IRT Models
 
 ```{r}
-mr_wide <- mr |>
+mxr_first_runs <- mxr |>
+  group_by(user_id) |>
+  filter(server_timestamp == min(server_timestamp)) |>
+  select(user_id, run_id)
+
+matr |> count(user_id, item) |> filter(n > 1)
+
+mxr_wide <- mxr |>
+  inner_join(mxr_first_runs) |>
   mutate(is_correct = as.numeric(is_correct)) |>
   group_by(user_id, item) |>
   slice(1) |> # duplicates??
@@ -50,13 +51,13 @@ mr_wide <- mr |>
   pivot_wider(names_from = "item", values_from = "is_correct") |>
   ungroup()
 
-mr_mat <- as.matrix(select(mr_wide, -user_id))
-rownames(mr_mat) <- mr_wide$user_id
+mxr_mat <- as.matrix(select(mxr_wide, -user_id))
+rownames(mxr_mat) <- mxr_wide$user_id
 
 # remove columns with no variance
-mr_cols <- colMeans(mr_mat, na.rm=TRUE) 
+mxr_cols <- colMeans(mxr_mat, na.rm=TRUE) 
 
-mr_mat <- mr_mat[,mr_cols > 0 & mr_cols < 1]
+mxr_mat <- mxr_mat[,mxr_cols > 0 & mxr_cols < 1]
 ```
 
 ### Fit models
@@ -64,46 +65,36 @@ mr_mat <- mr_mat[,mr_cols > 0 & mr_cols < 1]
 ```{r fit-rasch-model}
 set.seed(1234)
 
-mod_1pl <- mirt(mr_mat, 1, itemtype = "Rasch", 
-                verbose = TRUE, 
-                guess = .25,
-                technical = list(NCYCLES = 1000))
+fit_mirt_mxr <- function(data_mat, item_type) {
+  mod <- mirt(data_mat, itemtype = item_type, verbose = TRUE, guess = .25,
+              technical = list(NCYCLES = 1000))
+  
+  mod_coefs <- coef(mod, simplify = TRUE)$items |> as_tibble(rownames = "item")
+  
+  scores <- fscores(mod, method = "MAP", verbose = FALSE)
+  mod_fscores <- tibble(user_id = rownames(data_mat), ability = scores[,1])
+  
+  list(model = mod, coefs = mod_coefs, fscores = mod_fscores)
+}
 
-coefs_1pl <- as_tibble(coef(mod_1pl, simplify = TRUE)$items) |>
-  mutate(item = rownames(coef(mod_1pl, simplify = TRUE)$items))
-fscores_1pl <- tibble(data_id = rownames(mr_mat),
-                      ability = fscores(mod_1pl, method = "MAP")[,1])
+mxr_1pl <- fit_mirt_mxr(mxr_mat, "Rasch")
+write_rds(mxr_1pl, here("assessment/colombia/stage2/task_analyses/matrix_reasoning/fits/mxr_1pl.rds"))
 
-save(file = here("assessment", "colombia", "stage2", "task-analyses", 
-                 "matrix_reasoning", "mod_1pl.rds"), 
-     "mod_1pl", "fscores_1pl", "coefs_1pl")
+mxr_2pl <- fit_mirt_mxr(mxr_mat, "2PL")
+write_rds(mxr_2pl, here("assessment/colombia/stage2/task_analyses/matrix_reasoning/fits/mxr_2pl.rds"))
 ```
 
-```{r fit-2pl}
-mod_2pl <- mirt(mr_mat, 1, itemtype='2PL', verbose=TRUE, 
-                guess = .25, 
-                technical = list(NCYCLES = 1000))
-
-coefs_2pl <- as_tibble(coef(mod_2pl, simplify = TRUE)$items) %>%
- mutate(item = rownames(coef(mod_2pl, simplify = TRUE)$items))
-fscores_2pl <- tibble(data_id = rownames(mr_mat),
- ability = fscores(mod_2pl, method = "MAP")[,1])
-
-save(file = here("assessment", "colombia", "stage2", "task-analyses", 
-                 "matrix_reasoning", "mod_2pl.rds"), 
-     "mod_2pl", "fscores_2pl", "coefs_2pl")
-```
-
-Rasch model wins.
+2PL model wins.
 
 ```{r}
-anova(mod_1pl, mod_2pl)
+anova(mxr_1pl$model, mxr_2pl$model)
+mxr_best <- mxr_2pl
 ```
 
 ### Coefficients
 
 ```{r}
-ggplot(coefs_1pl, 
+ggplot(mxr_best$coefs, 
        aes(x = reorder(item, -d), y = d)) + 
   geom_jitter(alpha = .5, width = .5) + 
   geom_smooth(method = "lm") + theme_bw() +
@@ -112,12 +103,12 @@ ggplot(coefs_1pl,
 ```
 
 ```{r}
-mr_ntrials$ability <- fscores_1pl$ability
-GGally::ggpairs(ungroup(mr_ntrials) |> select(-user_id))
+mxr_summary <- mxr_summary |> left_join(mxr_best$fscores)
+GGally::ggpairs(mxr_summary |> select(-user_id))
 ```
 
 ```{r}
-ggplot(mr_ntrials, aes(x = prop_correct, y = ability)) + 
+ggplot(mxr_summary, aes(x = prop_correct, y = ability)) + 
   geom_point(aes(size = n), alpha = .5) + 
   geom_smooth(method = "lm")
 ```
@@ -125,11 +116,9 @@ ggplot(mr_ntrials, aes(x = prop_correct, y = ability)) +
 Write out parameters
 
 ```{r}
-mr_params <- select(mr_ntrials, user_id, ability) |>
-  rename(matrix_reasoning_theta = ability) |>
-  mutate(matrix_reasoning_model = "rasch")
+mxr_scores <- mxr_best$fscores |>
+  rename(score = ability) |>
+  mutate(task = "matrix-reasoning", score_type = "IRT (2PL)")
 
-save(file = here::here("assessment","colombia","stage2",
-                       "data_processed", "matrix_params.Rds"), 
-     mr_params)
+write_rds(mxr_scores, here("assessment/colombia/stage2/scores/mxr_scores.rds"))
 ```

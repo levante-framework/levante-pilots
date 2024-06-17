@@ -1,8 +1,3 @@
----
-title: "Mental Rotation analysis"
-format: html
----
-
 todo:
 - check coding
 - check RT tablet computer
@@ -12,10 +7,10 @@ X ability by age
 X write out scores
 
 ```{r setup}
-source(here::here("assessment","colombia","stage2","_setup.R"))
+source(here::here("assessment/colombia/stage2/_setup.R"))
 
-trials_coded <- read_rds(here("assessment", "colombia", "stage2", "data_processed", "trials_coded.rds"))
-participants <- read_rds(here("assessment", "colombia", "stage2", "data_processed", "participants.rds"))
+trials_coded <- read_rds(here("assessment/colombia/stage2/data_processed/trials_coded.rds"))
+participants <- read_rds(here("assessment/colombia/stage2/data_processed/participants.rds"))
 ```
 
 Munge data.
@@ -23,7 +18,7 @@ Munge data.
 ```{r}
 mr <- trials_coded |>
   filter(task_id == "mental-rotation") |>
-  select(user_id, item, response, is_correct, rt, age) |>
+  select(user_id, run_id, item, response, is_correct, rt, age, server_timestamp) |>
   mutate(rt = as.numeric(rt),
          stim_type = if_else(str_count(item) == 5, "2d", "3d"),
          stim_set = str_sub(item, 1, 1) |> fct_recode("rabbit" = "r", "duck" = "d"),
@@ -36,27 +31,27 @@ mr <- trials_coded |>
 
 ```{r}
 mr |> distinct(stim_type, stim_set, angle, item) |> count(stim_type, stim_set, angle)
-
 ```
 
 # N trials
 
 ```{r}
-mr_ntrials <- mr |> 
+mr_summary <- mr |> 
   group_by(user_id, age) |>
   summarise(prop_correct =  mean(is_correct), 
-            n = n())
+            n = n()) |>
+  ungroup()
 ```
 
 ```{r}
-ggplot(mr_ntrials, aes(x = n)) + 
+ggplot(mr_summary, aes(x = n)) + 
   geom_histogram(bins = 10)
 ```
 
 Classic confounding of sum score and n trials.
 
 ```{r}
-ggplot(mr_ntrials, aes(x = n, y = prop_correct)) + 
+ggplot(mr_summary, aes(x = n, y = prop_correct)) + 
   geom_point() + 
   geom_smooth(method = "lm")
 ```
@@ -184,16 +179,18 @@ ggsave("plots/mr_rt_set.png", width = 10, height = 5)
 
 # IRT models
 
-```{r}
-library(mirt)
-```
-
 Prepare data. 
 
 Repeated measures have constrained parameters (both difficulty and discrimination). 
 
 ```{r}
+mr_first_runs <- mr |>
+  group_by(user_id) |>
+  filter(server_timestamp == min(server_timestamp)) |>
+  select(user_id, run_id)
+
 mr_wide <- mr |>
+  inner_join(mr_first_runs) |>
   mutate(is_correct = as.numeric(is_correct)) |>
   select(user_id, item, is_correct) |> 
   group_by(user_id, item) |>
@@ -229,82 +226,65 @@ constraints <- lapply(items, \(i) {
 mod_str <- glue("F = 1-{ncol(mr_mat)}
                  CONSTRAIN = {constraints}")
 
-mod_1pl <- mirt(mr_mat, mod_str, itemtype = "Rasch", 
-                verbose = TRUE, 
-                guess = .5,
-                technical = list(NCYCLES = 1000))
+fit_mirt_mr <- function(data_mat, item_type) {
+  mod <- mirt(data_mat, mod_str, itemtype = item_type, verbose = TRUE, guess = .5,
+              technical = list(NCYCLES = 1000))
+  
+  mod_coefs <- coef(mod, simplify = TRUE)$items |> as_tibble(rownames = "item")
+  
+  scores <- fscores(mod, method = "MAP", verbose = FALSE)
+  mod_fscores <- tibble(user_id = rownames(data_mat), ability = scores[,1])
+  
+  list(model = mod, coefs = mod_coefs, fscores = mod_fscores)
+}
 
-coefs_1pl <- as_tibble(coef(mod_1pl, simplify = TRUE)$items) %>%
- mutate(item = rownames(coef(mod_1pl, simplify = TRUE)$items))
-fscores_1pl <- tibble(data_id = rownames(mr_mat),
- ability = fscores(mod_1pl, method = "MAP")[,1])
+mr_1pl <- fit_mirt_mr(mr_mat, "Rasch")
+write_rds(mr_1pl, here("assessment/colombia/stage2/task_analyses/mental_rotation/fits/mr_1pl.rds"))
 
-save(file = here("assessment", "colombia", "stage2", "task-analyses", 
-                 "mental_rotation", "mod_1pl.rds"), 
-"mod_1pl", "fscores_1pl", "coefs_1pl")
-
-
+mr_2pl <- fit_mirt_mr(mr_mat, "2PL")
+write_rds(mr_2pl, here("assessment/colombia/stage2/task_analyses/mental_rotation/fits/mr_2pl.rds"))
 ```
 
-```{r psycho-2pl_coefs, echo=F, eval = TRUE}
-mod_2pl <- mirt(mr_mat, mod_str, itemtype='2PL', verbose=TRUE, 
-                guess = .5, 
-                technical = list(NCYCLES = 2000))
-
-coefs_2pl <- as_tibble(coef(mod_2pl, simplify = TRUE)$items) %>%
- mutate(item = rownames(coef(mod_2pl, simplify = TRUE)$items))
-fscores_2pl <- tibble(data_id = rownames(mr_mat),
- ability = fscores(mod_2pl, method = "MAP")[,1])
-
-save(file = here("assessment", "colombia", "stage2", "task-analyses", 
-                 "mental_rotation", "mod_2pl.rds"), 
-"mod_2pl", "fscores_2pl", "coefs_2pl")
-```
-Rasch model wins. 
-
+Rasch model wins.
 
 ```{r}
-anova(mod_1pl, mod_2pl)
+anova(mr_1pl$model, mr_2pl$model)
+mr_best <- mr_1pl
 ```
 
 Coefficients. 
 
 ```{r}
-coefs_1pl_info <- coefs_1pl |>
+coefs_1pl_info <- mr_best$coefs |>
   separate_wider_delim(item, names = c("item", "instance"), delim = "_") |> 
   select(-instance) |> 
   distinct() |> 
   left_join(select(mr, item, angle, stim_type, stim_set) |> distinct()) 
 
-ggplot(coefs_1pl_info, 
+ggplot(mr_best, 
        aes(x = angle, y = d, col = stim_set)) + 
   geom_jitter(alpha = .5, width = .5) + 
-  geom_smooth(method = "lm")+ 
-  facet_wrap(~stim_type, scales= "free_y")
+  geom_smooth(method = "lm") + 
+  facet_wrap(~stim_type, scales = "free_y")
 ```
 
 ```{r}
-# yolo
-mr_ntrials$ability <- fscores_1pl$ability
-GGally::ggpairs(ungroup(mr_ntrials) |> select(-user_id))
+mr_summary <- mr_summary |> left_join(mr_best$fscores)
+GGally::ggpairs(mr_summary |> select(-user_id))
 ```
 
 ```{r}
-ggplot(mr_ntrials, aes(x = prop_correct, y = ability)) + 
+ggplot(mr_summary, aes(x = prop_correct, y = ability)) + 
   geom_point(aes(size = n), alpha = .5) + 
   geom_smooth(method = "lm")
 ```
 
-
 # Write out parameters
 
 ```{r}
-mr_params <- select(mr_ntrials, user_id, ability) |>
-  rename(mental_rotation_theta = ability) |>
-  mutate(mental_rotation_model = "rasch")
+mr_scores <- mr_best$fscores |>
+  rename(score = ability) |>
+  mutate(task = "mental-rotation", score_type = "IRT (1PL)")
 
-save(file = here::here("assessment","colombia","stage2",
-                       "data_processed", "mr_params.Rds"), 
-     mr_params)
+write_rds(mr_scores, here("assessment/colombia/stage2/scores/mr_scores.rds"))
 ```
-

@@ -1,5 +1,5 @@
 ```{r load-data}
-source(here::here("assessment/colombia/stage2"))
+source(here::here("assessment/colombia/stage2/_setup.R"))
 
 trials_coded <- read_rds(here("assessment/colombia/stage2/data_processed/trials_coded.rds"))
 participants <- read_rds(here("assessment/colombia/stage2/data_processed/participants.rds"))
@@ -63,7 +63,7 @@ trog_mat <- trog_mat[,trog_cols > 0 & trog_cols < 1] # 7/97 removed due to all c
 ```{r fit-models}
 set.seed(1234)
 
-fit_mirt <- function(data_mat, item_type, guess) {
+fit_mirt_trog <- function(data_mat, item_type) {
   mod <- mirt(data_mat, 1, itemtype = item_type, verbose = TRUE, guess = .25,
               technical = list(NCYCLES = 1000))
   
@@ -75,10 +75,10 @@ fit_mirt <- function(data_mat, item_type, guess) {
   list(model = mod, coefs = mod_coefs, fscores = mod_fscores)
 }
 
-trog_1pl <- fit_mirt(trog_mat, "Rasch", 0.25)
+trog_1pl <- fit_mirt_trog(trog_mat, "Rasch")
 write_rds(trog_1pl, here("assessment/colombia/stage2/task_analyses/trog/fits/trog_1pl.rds"))
 
-trog_2pl <- fit_mirt(trog_mat, "2PL", 0.25)
+trog_2pl <- fit_mirt_trog(trog_mat, "2PL")
 write_rds(trog_2pl, here("assessment/colombia/stage2/task_analyses/trog/fits/trog_2pl.rds"))
 ```
 
@@ -122,7 +122,7 @@ Write out parameters
 ```{r}
 trog_scores <- trog_2pl$fscores |>
   rename(score = ability) |>
-  mutate(task = "trog", score_type = "IRT (2PL)", category = "language")
+  mutate(task = "trog", score_type = "IRT (2PL)")
 
 write_rds(trog_scores, here("assessment/colombia/stage2/scores/trog_scores.rds"))
 ```
