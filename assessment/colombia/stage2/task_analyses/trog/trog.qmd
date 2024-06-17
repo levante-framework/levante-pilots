@@ -1,112 +1,97 @@
----
-title: "Syntax (TROG)"
-format: html
-editor: visual
----
-
 ```{r load-data}
-library(mirt)
-require(tidyverse)
+source(here::here("assessment/colombia/stage2"))
 
-source(here::here("assessment","colombia","stage2","_setup.R"))
-
-trials_coded <- read_rds(here("assessment", "colombia", "stage2", "data_processed", "trials_coded.rds"))
-participants <- read_rds(here("assessment", "colombia", "stage2", "data_processed", "participants.rds"))
+trials_coded <- read_rds(here("assessment/colombia/stage2/data_processed/trials_coded.rds"))
+participants <- read_rds(here("assessment/colombia/stage2/data_processed/participants.rds"))
 ```
 
 ```{r}
-mr <- trials_coded |> filter(task_id == "trog") |>
-  distinct(user_id, run_id, age, item, rt, is_correct)
+trog <- trials_coded |> filter(task_id == "trog")
 ```
 
 ```{r}
-ntr <- mr |> 
+trog_summary <- trog |>
+  mutate(rt = as.numeric(rt)) |>
   group_by(user_id, run_id, age) |>
   summarise(prop_correct =  mean(is_correct), 
             n = n(),
-            meanRT = mean(rt))
+            mean_rt = mean(rt)) |>
+  ungroup()
 
-task_duration = summary(with(ntr, n * meanRT) / 1000 / 60) # ~5-7mins
+task_duration <- summary(with(trog_summary, n * mean_rt) / 1000 / 60) # ~5-7mins
 ```
 
 ```{r}
-ggplot(ntr, aes(x = n)) + 
+ggplot(trog_summary, aes(x = n)) + 
   geom_histogram(bins = 10)
 ```
 
 ```{r}
-ntr |> 
+trog_summary |> 
   ggplot(aes(x = n, y = prop_correct)) +   
-  geom_point() + geom_smooth(method = "lm") + theme_bw()
+  geom_smooth(method = "lm") +
+  geom_point()
 ```
 
 ## IRT Models
 
-Items removed due to 100% accuracy:
-
 ```{r}
-mr_wide <- mr |>
-  mutate(is_correct = as.numeric(is_correct)) |>
-  group_by(user_id, item) |>
-  slice(1) |> # duplicates??
+trog_first_runs <- trog |>
+  group_by(user_id) |>
+  filter(server_timestamp == min(server_timestamp)) |>
+  select(user_id, run_id)
+
+trog_wide <- trog |>
+  inner_join(trog_first_runs) |>
   select(user_id, item, is_correct) |>
+  mutate(is_correct = as.numeric(is_correct)) |>
   pivot_wider(names_from = "item", values_from = "is_correct") |>
   ungroup()
 
-mr_mat <- as.matrix(select(mr_wide, -user_id))
-rownames(mr_mat) <- mr_wide$user_id
+trog_mat <- as.matrix(select(trog_wide, -user_id))
+rownames(trog_mat) <- trog_wide$user_id
 
 # remove columns with no variance
-mr_cols <- colMeans(mr_mat, na.rm=TRUE) 
+trog_cols <- colMeans(trog_mat, na.rm=TRUE) 
 
-mr_mat <- mr_mat[,mr_cols > 0 & mr_cols < 1] # 7/97 removed due to all correct
-
-names(mr_cols)[which(mr_cols==1)]
+trog_mat <- trog_mat[,trog_cols > 0 & trog_cols < 1] # 7/97 removed due to all correct
+# names(trog_cols)[which(trog_cols==1)]
 ```
 
 ### Fit models
 
-```{r fit-rasch-model}
+```{r fit-models}
 set.seed(1234)
 
-mod_1pl <- mirt(mr_mat, 1, itemtype = "Rasch", 
-                verbose = TRUE, 
-                guess = .25,
-                technical = list(NCYCLES = 1000))
+fit_mirt <- function(data_mat, item_type, guess) {
+  mod <- mirt(data_mat, 1, itemtype = item_type, verbose = TRUE, guess = .25,
+              technical = list(NCYCLES = 1000))
+  
+  mod_coefs <- coef(mod, simplify = TRUE)$items |> as_tibble(rownames = "item")
+  
+  scores <- fscores(mod, method = "MAP", verbose = FALSE)
+  mod_fscores <- tibble(user_id = rownames(data_mat), ability = scores[,1])
+  
+  list(model = mod, coefs = mod_coefs, fscores = mod_fscores)
+}
 
-coefs_1pl <- as_tibble(coef(mod_1pl, simplify = TRUE)$items) |>
-  mutate(item = rownames(coef(mod_1pl, simplify = TRUE)$items))
-fscores_1pl <- tibble(data_id = rownames(mr_mat),
-                      ability = fscores(mod_1pl, method = "MAP")[,1])
+trog_1pl <- fit_mirt(trog_mat, "Rasch", 0.25)
+write_rds(trog_1pl, here("assessment/colombia/stage2/task_analyses/trog/fits/trog_1pl.rds"))
 
-save(file="mod_1pl.rds", 
-     "mod_1pl", "fscores_1pl", "coefs_1pl")
+trog_2pl <- fit_mirt(trog_mat, "2PL", 0.25)
+write_rds(trog_2pl, here("assessment/colombia/stage2/task_analyses/trog/fits/trog_2pl.rds"))
 ```
 
-```{r fit-2pl}
-mod_2pl <- mirt(mr_mat, 1, itemtype='2PL', verbose=TRUE, 
-                guess = .25, 
-                technical = list(NCYCLES = 1000))
-
-coefs_2pl <- as_tibble(coef(mod_2pl, simplify = TRUE)$items) %>%
- mutate(item = rownames(coef(mod_2pl, simplify = TRUE)$items))
-fscores_2pl <- tibble(data_id = rownames(mr_mat),
- ability = fscores(mod_2pl, method = "MAP")[,1])
-
-save(file="mod_2pl.rds", 
-     "mod_2pl", "fscores_2pl", "coefs_2pl")
-```
-
-Rasch wins.
+2PL wins?
 
 ```{r}
-anova(mod_1pl, mod_2pl)
+anova(trog_1pl$model, trog_2pl$model)
 ```
 
 ### Coefficients
 
 ```{r, fig.height=12}
-ggplot(coefs_1pl, 
+ggplot(trog_2pl$coefs, 
        aes(x = reorder(item, -d), y = d)) + 
   geom_jitter(alpha = .5, width = .5) + 
   geom_smooth(method = "lm") + theme_bw() +
@@ -121,27 +106,23 @@ ggplot(coefs_1pl,
 ```
 
 ```{r}
-ntr <- ntr |> left_join(fscores_1pl, by = c("user_id" = "data_id"))
-GGally::ggpairs(ungroup(ntr) |> select(-user_id, -run_id, -meanRT))
+trog_summary <- trog_summary |> left_join(trog_2pl$fscores)
+GGally::ggpairs(trog_summary |> select(-user_id, -run_id, -mean_rt))
 ```
 
 ```{r}
-ntr |> 
-  ggplot(aes(x = prop_correct, y = ability, color=age)) + 
+trog_summary |> 
+  ggplot(aes(x = prop_correct, y = ability, color = age)) + 
     geom_point(aes(size = n), alpha = .4) +
-  geom_smooth(method = "lm") + theme_bw()
+    geom_smooth(method = "lm")
 ```
 
 Write out parameters
 
 ```{r}
-syntax_params <- ntr |>
-  select(user_id, ability, age) |>
-  rename(syntax_theta = ability) |>
-  mutate(syntax_model = "rasch")
+trog_scores <- trog_2pl$fscores |>
+  rename(score = ability) |>
+  mutate(task = "trog", score_type = "IRT (2PL)", category = "language")
 
-save(file = here::here("assessment","colombia","stage2",
-                       "data_processed", "math_params.Rds"), 
-     syntax_params)
-
+write_rds(trog_scores, here("assessment/colombia/stage2/scores/trog_scores.rds"))
 ```

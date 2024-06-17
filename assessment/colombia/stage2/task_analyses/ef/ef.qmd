@@ -3,10 +3,10 @@ format: html
 ---
 
 ```{r setup}
-source(here::here("assessment","colombia","stage2","_setup.R"))
+source(here::here("assessment/colombia/stage2"))
 
-trials_coded <- read_rds(here("assessment", "colombia", "stage2", "data_processed", "trials_coded.rds"))
-participants <- read_rds(here("assessment", "colombia", "stage2", "data_processed", "participants.rds"))
+trials_coded <- read_rds(here("assessment/colombia/stage2/data_processed/trials_coded.rds"))
+participants <- read_rds(here("assessment/colombia/stage2/data_processed/participants.rds"))
 ```
 
 # H&F
@@ -96,9 +96,12 @@ sds <- trials_coded |>
 Remove second administrations because our uniquification hack needs this.
 
 ```{r}
+sds |> distinct(user_id, run_id) |> count(user_id) |> filter(n > 1)
+
 first_runs_sds <- sds |>
   group_by(user_id) |>
-  summarise(run_id = run_id[server_timestamp == min(server_timestamp)]) 
+  filter(server_timestamp == min(server_timestamp)) |>
+  select(user_id, run_id)
 
 sds <- inner_join(sds, first_runs_sds)
 ```
@@ -390,7 +393,7 @@ mg_scores <- mg_2pl$fscores |>
 ef_scores <- bind_rows(hf_scores, sds_scores, mg_scores) |>
   mutate(category = "executive function")
 
-write_rds(ef_scores, here("assessment/colombia/stage2/scores/ef.rds"))
+write_rds(ef_scores, here("assessment/colombia/stage2/scores/ef_scores.rds"))
 ```
 
 ```{r}
