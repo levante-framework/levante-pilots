@@ -150,7 +150,6 @@ ggplot(sds_composite, aes(x = age, y = prop_correct)) +
 We make a hack to create unique items. 
 
 ```{r}
-
 sds_mirt <- sds |>
   arrange(user_id, run_id, server_timestamp) |>
   group_by(user_id) |>
@@ -167,7 +166,7 @@ sds_wide <- sds_mirt |>
   ungroup()
 
 sds_mat <- as.matrix(select(sds_wide, -user_id))
-names(sds_mat) <- sds_wide$user_id
+rownames(sds_mat) <- sds_wide$user_id
 
 # remove columns with no variance
 sds_cols <- colMeans(sds_mat, na.rm=TRUE) 
@@ -179,79 +178,47 @@ Fit models.
 ```{r}
 set.seed(1234)
 
-sds_mod_1pl <- mirt(sds_mat, 1, itemtype = "Rasch", 
-                verbose = TRUE, 
-                technical = list(NCYCLES = 1000))
-
-sds_coefs_1pl <- as_tibble(coef(sds_mod_1pl, 
-                                simplify = TRUE)$items) %>%
-  mutate(item = rownames(coef(sds_mod_1pl, 
-                              simplify = TRUE)$items))
-sds_fscores_1pl <- tibble(data_id = rownames(sds_mat),
-                      ability = fscores(sds_mod_1pl, 
-                                        method = "MAP")[,1])
-
-save(file = here("assessment", "colombia", "stage2", "task-analyses", 
-                 "ef", "sds_mod_1pl.rds"), 
-     "sds_mod_1pl", "sds_fscores_1pl", "sds_coefs_1pl")
-
-
+fit_mirt <- function(data_mat, item_type) {
+  mod <- mirt(data_mat, 1, itemtype = item_type, verbose = TRUE,
+              technical = list(NCYCLES = 1000))
+  
+  mod_coefs <- coef(mod, simplify = TRUE)$items |> as_tibble(rownames = "item")
+  
+  scores <- fscores(mod, method = "MAP", verbose = FALSE)
+  mod_fscores <- tibble(user_id = rownames(data_mat), ability = scores[,1])
+  
+  list(model = mod, coefs = mod_coefs, fscores = mod_fscores)
+}
 ```
 
 ```{r}
-sds_mod_2pl <- mirt(sds_mat, 1, itemtype='2PL', verbose=TRUE, 
-                technical = list(NCYCLES = 1000))
+sds_1pl <- fit_mirt(sds_mat, "Rasch")
+write_rds(sds_1pl, here("assessment/colombia/stage2/task_analyses/ef/fits/sds_1pl.rds"))
 
-sds_coefs_2pl <- as_tibble(coef(sds_mod_2pl, simplify = TRUE)$items) %>%
-  mutate(item = rownames(coef(sds_mod_2pl, simplify = TRUE)$items))
-sds_fscores_2pl <- tibble(data_id = rownames(sds_mat),
-                      ability = fscores(sds_mod_2pl, 
-                                        method = "MAP")[,1])
+sds_2pl <- fit_mirt(sds_mat, "2PL")
+write_rds(sds_2pl, here("assessment/colombia/stage2/task_analyses/ef/fits/sds_2pl.rds"))
 
-save(file = here("assessment", "colombia", "stage2", "task-analyses", 
-                 "mental_rotation", "sds_mod_2pl.rds"), 
-     "sds_mod_2pl", "sds_fscores_2pl", "sds_coefs_2pl")
+sds_3pl <- fit_mirt(sds_mat, "3PL")
+write_rds(sds_3pl, here("assessment/colombia/stage2/task_analyses/ef/fits/sds_3pl.rds"))
 ```
 
-```{r}
-sds_mod_3pl <- mirt(sds_mat, 1, itemtype='3PL', verbose=TRUE, 
-                technical = list(NCYCLES = 1000))
-
-sds_coefs_3pl <- as_tibble(coef(sds_mod_3pl, 
-                                simplify = TRUE)$items) %>%
-  mutate(item = rownames(coef(sds_mod_3pl, 
-                              simplify = TRUE)$items))
-sds_fscores_3pl <- tibble(data_id = rownames(sds_mat),
-                      ability = fscores(sds_mod_3pl, 
-                                        method = "MAP")[,1])
-
-save(file = here("assessment", "colombia", "stage2", "task-analyses", 
-                 "mental_rotation", "sds_mod_3pl.rds"), 
-     "sds_mod_3pl", "sds_fscores_3pl", "sds_coefs_3pl")
-```
 Rasch model wins. 
 
 ```{r}
-ano12 <- anova(sds_mod_1pl, sds_mod_2pl)
-ano23 <- anova(sds_mod_2pl, sds_mod_3pl)
-rbind(ano12, ano23[2,])
+anova(sds_1pl$model, sds_2pl$model, sds_3pl$model)
 ```
 
 Coefficients. 
 
 ```{r}
-sds_coefs <- sds_coefs_1pl |>
+sds_coefs <- sds_1pl$coefs |>
   rename(item_unique = item) |>
   left_join(select(sds_mirt, item, item_unique, 
-                   corpus_trial_type, idx) |> distinct()) 
+                   corpus_trial_type, idx) |> distinct()) |>
+  mutate(different_way = str_detect(sds_coefs$item, "in a different way"))
 
-
-sds_coefs$different_way <- str_detect(sds_coefs$item, 
-                                      "in a different way.")
-
-ggplot(sds_coefs, 
-       aes(x = idx, y = d, col = corpus_trial_type, 
-           shape = different_way)) + 
+ggplot(sds_coefs,
+       aes(x = idx, y = d, col = corpus_trial_type, shape = different_way)) + 
   geom_jitter(alpha = .5, width = .5) + 
   geom_smooth(method = "lm")
 ```
@@ -261,36 +228,18 @@ ggplot(sds_coefs,
 ```{r mg}
 mg_trials <- trials_coded |>
   filter(task_id %in% c("memory-game")) |>
-  select(task, user_id, run_id, trial_id, sub_trial_id, age,
-         server_timestamp, corpus_trial_type, response, rt, 
-         is_correct, expected_answer)
+  select(task, user_id, run_id, trial_id, age, server_timestamp,
+         corpus_trial_type, response, rt, is_correct, expected_answer)
 
 mg_first_runs <- mg_trials |>
   group_by(user_id) |>
-  summarise(run_id = run_id[server_timestamp == min(server_timestamp)]) |>
-  distinct()
-
+  filter(server_timestamp == min(server_timestamp)) |>
+  ungroup() |>
+  select(user_id, run_id)
 
 mg <- mg_trials |>
   inner_join(mg_first_runs) |>
-  mutate(len = if_else(is.na(sub_trial_id), 
-                       str_count(response, ":"), NA)) |>
-  group_by(user_id, run_id, trial_id, age) |>
-  nest() |>
-  mutate(n_trials = map_int(data, nrow),
-         is_correct = map_lgl(data, \(d) unique(d$is_correct)),
-         len = map_int(data, \(d) unique(d$len)),
-         span = if_else(is.na(len), n_trials, len), 
-         corpus_trial_type = data[[1]]$corpus_trial_type[1], 
-         server_timestamp = map_chr(data, \(d) d$server_timestamp[1]))
-         # span = map2_int(n_trials, len, \(n, l) discard(c(n, l), is.na)))
-
-# heuristically recover forward/backward tag
-mg |>
-  group_by(user_id) |>
-  arrange(user_id, server_timestamp) |>
-  mutate(span_change = c(0, diff(span))) |>
-  View()
+  mutate(span = str_count(response, ":"))
 
 mg_span <- mg |>
   filter(is_correct) |>
@@ -359,7 +308,7 @@ mg_wide <- mg_mirt |>
   ungroup()
 
 mg_mat <- as.matrix(select(mg_wide, -user_id))
-names(mg_mat) <- mg_wide$user_id
+rownames(mg_mat) <- mg_wide$user_id
 
 # remove columns with no variance
 mg_cols <- colMeans(mg_mat, na.rm=TRUE) 
@@ -369,70 +318,30 @@ mg_mat <- mg_mat[ , mg_cols > 0 & mg_cols < 1]
 Fit models. 
 
 ```{r}
-set.seed(1234)
+mg_1pl <- fit_mirt(mg_mat, "Rasch")
+write_rds(sds_1pl, here("assessment/colombia/stage2/task_analyses/ef/fits/mg_1pl.rds"))
 
-mg_mod_1pl <- mirt(mg_mat, 1, itemtype = "Rasch", 
-                verbose = TRUE, 
-                technical = list(NCYCLES = 1000))
+mg_2pl <- fit_mirt(mg_mat, "2PL")
+write_rds(mg_2pl, here("assessment/colombia/stage2/task_analyses/ef/fits/mg_2pl.rds"))
 
-mg_coefs_1pl <- as_tibble(coef(mg_mod_1pl, simplify = TRUE)$items) %>%
-  mutate(item = rownames(coef(mg_mod_1pl, simplify = TRUE)$items))
-mg_fscores_1pl <- tibble(data_id = rownames(mg_mat),
-                      ability = fscores(mg_mod_1pl, 
-                                        method = "MAP")[,1])
-
-save(file = here("assessment", "colombia", "stage2", "task-analyses", 
-                 "ef", "mg_mod_1pl.rds"), 
-     "mg_mod_1pl", "mg_fscores_1pl", "mg_coefs_1pl")
-
-
+mg_3pl <- fit_mirt(mg_mat, "3PL")
+write_rds(mg_3pl, here("assessment/colombia/stage2/task_analyses/ef/fits/mg_3pl.rds"))
 ```
 
+2PL wins
 ```{r}
-mg_mod_2pl <- mirt(mg_mat, 1, itemtype='2PL', verbose=TRUE, 
-                technical = list(NCYCLES = 1000))
-
-mg_coefs_2pl <- as_tibble(coef(mg_mod_2pl, simplify = TRUE)$items) %>%
-  mutate(item = rownames(coef(mg_mod_2pl, simplify = TRUE)$items))
-mg_fscores_2pl <- tibble(data_id = rownames(mg_mat),
-                      ability = fscores(mg_mod_2pl, 
-                                        method = "MAP")[,1])
-
-save(file = here("assessment", "colombia", "stage2", "task-analyses", 
-                 "mental_rotation", "sds_mod_2pl.rds"), 
-     "mod_2pl", "fscores_2pl", "coefs_2pl")
-```
-
-```{r}
-mg_mod_3pl <- mirt(sds_mat, 1, itemtype='3PL', verbose=TRUE, 
-                technical = list(NCYCLES = 1000))
-
-mg_coefs_3pl <- as_tibble(coef(mg_mod_3pl, simplify = TRUE)$items) %>%
-  mutate(item = rownames(coef(mg_mod_3pl, simplify = TRUE)$items))
-mg_fscores_3pl <- tibble(data_id = rownames(mg_mat),
-                      ability = fscores(mg_mod_3pl, 
-                                        method = "MAP")[,1])
-
-save(file = here("assessment", "colombia", "stage2", "task-analyses", 
-                 "mental_rotation", "mg_mod_3pl.rds"), 
-     "mg_mod_3pl", "mg_fscores_3pl", "mg_coefs_3pl")
-```
-
-```{r}
-anova(mg_mod_1pl, mg_mod_2pl)
-anova(mg_mod_2pl, mg_mod_3pl)
+anova(mg_1pl$model, mg_2pl$model, mg_3pl$model)
 ```
 
 Coefficients. 
 
 ```{r}
-ggplot(mg_coefs_1pl, 
+ggplot(mg_1pl$coefs, 
        aes(x = item, y = d)) + 
   geom_jitter(alpha = .5, width = .5) + 
   geom_smooth(method = "lm") + 
   coord_flip()
 ```
-
 
 # Across EF
 
@@ -460,18 +369,38 @@ ef_summary <- left_join(ef_summary,
   left_join(mg_summary|>
               select(user_id, longest, prop_correct) |>
               rename(memory_game_sumscore = prop_correct, 
-                     memory_game_max = longest)) 
-
-
+                     memory_game_max = longest))
 ```
+
+Combined model fits
+```{r}
+hf_scores <- hf_accuracy |>
+  filter(subtask == "hearts and flowers") |>
+  select(user_id, score = prop_correct) |>
+  mutate(task = "hearts and flowers", score_type = "proportion correct")
+
+sds_scores <- sds_1pl$fscores |>
+  rename(score = ability) |>
+  mutate(task = "same-different-selection", score_type = "IRT (1PL)")
+
+mg_scores <- mg_2pl$fscores |>
+  rename(score = ability) |>
+  mutate(task = "memory-game", score_type = "IRT (1PL)")
+
+ef_scores <- bind_rows(hf_scores, sds_scores, mg_scores) |>
+  mutate(category = "executive function")
+
+write_rds(ef_scores, here("assessment/colombia/stage2/scores/ef.rds"))
+```
+
 ```{r}
 mefs1 <- read_csv(here("assessment","colombia","stage2",
                        "task-analyses","mefs","data",
-                       "LEVANTE_20240608_1210.csv")) %>% # long format data
+                       "LEVANTE_20240608_1210.csv")) |> # long format data
   filter(`Child ID` != "1234") # remove test
 mefs2 <- read_csv(here("assessment","colombia","stage2",
                        "task-analyses","mefs","data",
-                       "LEVANTE_20240608_1225.csv")) %>% # N=122; wide format data
+                       "LEVANTE_20240608_1225.csv")) |> # N=122; wide format data
   filter(`Child ID` != "1234")
 
 # standardized by age, looks like

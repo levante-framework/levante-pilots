@@ -48,7 +48,8 @@ trials_ids |> count(user_id, run_id, trial_id) |> filter(n > 1)
 # code and remove practice trials
 trials_filtered <- trials_ids |>
   mutate(practice = !is.na(is_practice) & is_practice |
-           assessment_stage == "practice_response") |>
+           assessment_stage == "practice_response" |
+           str_detect(corpus_trial_type, "training")) |>
   filter(!practice) |>
   select(-practice, -is_practice)
 
