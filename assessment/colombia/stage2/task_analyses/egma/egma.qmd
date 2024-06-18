@@ -1,16 +1,8 @@
----
-title: "math"
-format: html
-editor: visual
----
+```{r load-data}
+source(here::here("assessment/colombia/stage2/_setup.R"))
 
-```{r, load-data}
-library(mirt)
-
-source(here::here("assessment","colombia","stage2","_setup.R"))
-
-trials_coded <- read_rds(here("assessment", "colombia", "stage2", "data_processed", "trials_coded.rds"))
-participants <- read_rds(here("assessment", "colombia", "stage2", "data_processed", "participants.rds"))
+trials_coded <- read_rds(here("assessment/colombia/stage2/data_processed/trials_coded.rds"))
+participants <- read_rds(here("assessment/colombia/stage2/data_processed/participants.rds"))
 ```
 
 Data munging
@@ -59,49 +51,33 @@ rownames(math_mat) <- math_wide$user_id
 # remove columns with no variance
 math_cols <- colMeans(math_mat, na.rm=TRUE) 
 math_mat <- math_mat[,math_cols > 0 & math_cols < 1]
-
 ```
 
-Fit 1PL.
-
-```{r 1pl}
+```{r fit-rasch-model}
 set.seed(1234)
 
-mod_1pl <- mirt(math_mat, 1, itemtype = "Rasch", 
-                verbose = TRUE, guess = .25,
-                technical = list(NCYCLES = 1000))
+fit_mirt_math <- function(data_mat, item_type) {
+  mod <- mirt(data_mat, itemtype = item_type, verbose = TRUE, guess = .25,
+              technical = list(NCYCLES = 1000))
+  
+  mod_coefs <- coef(mod, simplify = TRUE)$items |> as_tibble(rownames = "item")
+  
+  scores <- fscores(mod, method = "MAP", verbose = FALSE)
+  mod_fscores <- tibble(user_id = rownames(data_mat), ability = scores[,1])
+  
+  list(model = mod, coefs = mod_coefs, fscores = mod_fscores)
+}
 
-coefs_1pl <- as_tibble(coef(mod_1pl, simplify = TRUE)$items) |>
-  mutate(item = rownames(coef(mod_1pl, simplify = TRUE)$items))
-fscores_1pl <- tibble(data_id = rownames(math_mat),
-                      ability = fscores(mod_1pl, method = "MAP")[,1])
+math_1pl <- fit_mirt_math(math_mat, "Rasch")
+write_rds(math_1pl, here("assessment/colombia/stage2/task_analyses/egma/fits/math_1pl.rds"))
 
-save(file = here("assessment", "colombia", "stage2", "task-analyses", 
-                 "math", "mod_1pl.rds"), 
-     "mod_1pl", "fscores_1pl", "coefs_1pl")
-```
-
-Fit 2PL.
-
-```{r 2pl}
-mod_2pl <- mirt(math_mat, 1, itemtype='2PL', verbose=TRUE, 
-                guess = .25, technical = list(NCYCLES = 5000))
-
-coefs_2pl <- as_tibble(coef(mod_2pl, simplify = TRUE)$items) %>%
- mutate(item = rownames(coef(mod_2pl, simplify = TRUE)$items))
-fscores_2pl <- tibble(data_id = rownames(math_mat),
- ability = fscores(mod_2pl, method = "MAP")[,1])
-
-save(file = here("assessment", "colombia", "stage2", "task-analyses", 
-                 "math", "mod_2pl.rds"), 
-     "mod_2pl", "fscores_2pl", "coefs_2pl")
+math_2pl <- fit_mirt_math(math_mat, "2PL")
+write_rds(math_2pl, here("assessment/colombia/stage2/task_analyses/egma/fits/math_2pl.rds"))
 ```
 
 ```{r}
-load(here("assessment", "colombia", "stage2", "task-analyses", 
-                 "math", "mod_2pl.rds"))
-
-anova(mod_1pl, mod_2pl)
+anova(math_1pl$model, math_2pl$model)
+math_best <- math_2pl
 ```
 
 2PL wins - what about multidimensionality?
@@ -113,14 +89,14 @@ mod2 <- mirt(data = math_mat, model = 2, verbose=TRUE,
 mod3 <- mirt(data = math_mat, model = 3, verbose=TRUE,
              guess = .25, technical = list(NCYCLES = 2000))
 
-anova(mod_2pl, mod2) # 2d preferred by AIC, but not BIC
+anova(math_best$model, mod2) # 2d preferred by AIC, but not BIC
 anova(mod2, mod3) # 3d preferred by AIC, but not BIC
 ```
 
 ## Plot Coefficients
 
 ```{r}
-coefs_2pl <- coefs_2pl |>
+coefs_2pl <- math_best$coefs |>
   left_join(mp |> select(item, subtask, expected_answer) |> distinct()) 
 
 ggplot(coefs_2pl, 
@@ -131,7 +107,8 @@ ggplot(coefs_2pl,
 ```
 
 ```{r}
-math_ntr <- math_ntr |> left_join(fscores_2pl, by=c("user_id"="data_id"))
+math_ntr <- math_ntr |>
+  left_join(math_best$fscores)
 GGally::ggpairs(ungroup(math_ntr) |> select(-user_id, -run_id), mapping=aes(alpha=.3))
 # ggsave("plots/age_n_acc_ability.png", width=9, height=9)
 ```
@@ -139,13 +116,11 @@ GGally::ggpairs(ungroup(math_ntr) |> select(-user_id, -run_id), mapping=aes(alph
 Save parameters
 
 ```{r}
-math_params <- select(math_ntr, user_id, ability) |>
-  rename(math_theta = ability) |>
-  mutate(math_model = "2pl")
+math_scores <- math_best$fscores |>
+  rename(score = ability) |>
+  mutate(task = "egma-math", score_type = "ability (2PL)")
 
-save(file = here::here("assessment","colombia","stage2",
-                       "data_processed", "math_params.Rds"), 
-     math_params)
+write_rds(math_scores, here("assessment/colombia/stage2/scores/math_scores.rds"))
 ```
 
 ## Number line comparison

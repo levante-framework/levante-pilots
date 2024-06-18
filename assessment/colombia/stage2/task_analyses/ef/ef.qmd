@@ -26,14 +26,31 @@ RT
 
 For memory, we recommend using the number of correct trials. It has more variability than memory span (longest sequence with a correct response), but memory span will be more meaningful to some researchers.
 
+```{r}
+ef_data <- trials_coded |>
+  filter(task_id %in%
+           c("hearts-and-flowers", "same-different-selection", "memory-game")) |>
+  select(task_id, user_id, run_id, trial_id, age, subtask, corpus_trial_type,
+         item, response, is_correct, rt, server_timestamp)
+
+# remove second administrations
+ef_first_runs <- ef_data |>
+  group_by(task_id, user_id) |>
+  filter(server_timestamp == min(server_timestamp)) |>
+  ungroup() |>
+  select(user_id, run_id)
+
+ef_data <- inner_join(ef_data, ef_first_runs)
+```
+
 ```{r hf}
 #, "memory-game", "same-different-selection"
 # streak_n <- 2
 
-hf <- trials_coded |>
+hf <- ef_data |>
   filter(task_id %in% c("hearts-and-flowers")) |>
-  select(task, subtask, trial_id, user_id, run_id, age, item, expected_answer, server_timestamp,
-         response, is_correct, rt) |>
+  # select(task, subtask, trial_id, user_id, run_id, age, item, expected_answer, server_timestamp,
+         # response, is_correct, rt) |>
   arrange(user_id, server_timestamp) |>
   mutate(rt = as.numeric(rt), response_fast = rt < 200, response_slow = rt > 2000) |>
   # l1 = lag(response, 1), l2 = lag(response, 2),
@@ -79,10 +96,11 @@ ggplot(filter(hf_summary, subtask == "hearts and flowers"),
 # Same Different Selection
 
 ```{r sds}
-sds <- trials_coded |>
+sds <- ef_data |>
   filter(task_id %in% c("same-different-selection")) |>
-  select(task, subtask, corpus_trial_type, trial_id, run_id, user_id, age, item, expected_answer, server_timestamp,
-         response, is_correct) |>
+  # select(task, subtask, corpus_trial_type, trial_id, run_id, user_id, age, item, expected_answer, server_timestamp,
+         # response, is_correct) |>
+  # filter(!is.na(corpus_trial_type)) |>
   arrange(user_id, server_timestamp) |>
   mutate(corpus_trial_type = fct_inorder(corpus_trial_type))
 # arrange(user_id, server_timestamp)
@@ -91,19 +109,6 @@ sds <- trials_coded |>
 # s = list(l1, l2),
 # streak = n_distinct(c(response, lag(response, 1), lag(response, 2))))
 # mutate(correct = !is.na(is_correct) & is_correct & !response_fast & !response_slow)
-```
-
-Remove second administrations because our uniquification hack needs this.
-
-```{r}
-sds |> distinct(user_id, run_id) |> count(user_id) |> filter(n > 1)
-
-first_runs_sds <- sds |>
-  group_by(user_id) |>
-  filter(server_timestamp == min(server_timestamp)) |>
-  select(user_id, run_id)
-
-sds <- inner_join(sds, first_runs_sds)
 ```
 
 ```{r}
@@ -227,23 +232,33 @@ ggplot(sds_coefs,
   geom_smooth(method = "lm")
 ```
 
+```{r}
+sds_score_compare <- sds_1pl$fscores |> rename(ability_1pl = ability) |>
+  left_join(sds_2pl$fscores |> rename(ability_2pl = ability)) |>
+  left_join(sds_3pl$fscores |> rename(ability_3pl = ability)) |>
+  left_join(participants |> select(user_id, age))
+
+sds_score_compare |> select(-user_id) |> GGally::ggpairs()
+```
+
 # Memory Game
 
 ```{r mg}
-mg_trials <- trials_coded |>
+mg <- ef_data |>
   filter(task_id %in% c("memory-game")) |>
-  select(task, user_id, run_id, trial_id, age, server_timestamp,
-         corpus_trial_type, response, rt, is_correct, expected_answer)
-
-mg_first_runs <- mg_trials |>
-  group_by(user_id) |>
-  filter(server_timestamp == min(server_timestamp)) |>
-  ungroup() |>
-  select(user_id, run_id)
-
-mg <- mg_trials |>
-  inner_join(mg_first_runs) |>
   mutate(span = str_count(response, ":"))
+  # select(task, user_id, run_id, trial_id, age, server_timestamp,
+  #        corpus_trial_type, response, rt, is_correct, expected_answer)
+
+# mg_first_runs <- mg_trials |>
+#   group_by(user_id) |>
+#   filter(server_timestamp == min(server_timestamp)) |>
+#   ungroup() |>
+#   select(user_id, run_id)
+
+# mg <- mg_trials |>
+#   inner_join(mg_first_runs) |>
+  # mutate(span = str_count(response, ":"))
 
 mg_span <- mg |>
   filter(is_correct) |>
@@ -298,8 +313,8 @@ ggplot(mg, aes(x = span, y = as.numeric(is_correct))) +
 ```{r}
 mg_mirt <- mg |>
   filter(span > 1) |>
-  arrange(user_id, span) |>
-  group_by(user_id,span) |>
+  arrange(user_id, span, server_timestamp) |>
+  group_by(user_id, span) |>
   mutate(idx = 1:n()) |>
   ungroup() |>
   mutate(is_correct = as.numeric(is_correct), 
@@ -348,6 +363,15 @@ ggplot(mg_best$coefs,
   coord_flip()
 ```
 
+```{r}
+mg_score_compare <- mg_1pl$fscores |> rename(ability_1pl = ability) |>
+  left_join(mg_2pl$fscores |> rename(ability_2pl = ability)) |>
+  left_join(mg_3pl$fscores |> rename(ability_3pl = ability)) |>
+  left_join(participants |> select(user_id, age))
+
+mg_score_compare |> select(-user_id) |> GGally::ggpairs()
+```
+
 # Across EF
 
 Combined model fits
@@ -355,17 +379,28 @@ Combined model fits
 hf_scores <- hf_accuracy |>
   filter(subtask == "hearts and flowers") |>
   select(user_id, score = prop_correct) |>
-  mutate(task = "hearts and flowers", score_type = "proportion correct")
+  mutate(task = "hearts-and-flowers", score_type = "proportion correct")
 
 sds_scores <- sds_best$fscores |>
   rename(score = ability) |>
-  mutate(task = "same-different-selection", score_type = "IRT (1PL)")
+  mutate(task = "same-different-selection", score_type = "ability (1PL)")
 
-mg_scores <- mg_best$fscores |>
-  rename(score = ability) |>
-  mutate(task = "memory-game", score_type = "IRT (1PL)")
+# mg_scores <- mg_best$fscores |>
+#   rename(score = ability) |>
+#   mutate(task = "memory-game", score_type = "ability (1PL)")
+
+mg_scores <- mg_span |>
+  select(user_id, score = longest) |>
+  mutate(task = "memory-game", score_type = "longest span")
 
 ef_scores <- bind_rows(hf_scores, sds_scores, mg_scores)
+
+ef_scores |>
+  select(-score_type) |>
+  pivot_wider(names_from = task, values_from = score) |>
+  left_join(participants |> select(user_id, age)) |>
+  select(-user_id) |>
+  GGally::ggpairs()
 
 write_rds(ef_scores, here("assessment/colombia/stage2/scores/ef_scores.rds"))
 ```

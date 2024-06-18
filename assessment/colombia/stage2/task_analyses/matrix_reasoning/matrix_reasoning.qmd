@@ -40,7 +40,7 @@ mxr_first_runs <- mxr |>
   filter(server_timestamp == min(server_timestamp)) |>
   select(user_id, run_id)
 
-matr |> count(user_id, item) |> filter(n > 1)
+mxr |> count(user_id, item) |> filter(n > 1)
 
 mxr_wide <- mxr |>
   inner_join(mxr_first_runs) |>
@@ -118,7 +118,7 @@ Write out parameters
 ```{r}
 mxr_scores <- mxr_best$fscores |>
   rename(score = ability) |>
-  mutate(task = "matrix-reasoning", score_type = "IRT (2PL)")
+  mutate(task = "matrix-reasoning", score_type = "ability (2PL)")
 
 write_rds(mxr_scores, here("assessment/colombia/stage2/scores/mxr_scores.rds"))
 ```

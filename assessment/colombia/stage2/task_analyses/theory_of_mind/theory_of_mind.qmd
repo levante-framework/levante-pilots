@@ -1,0 +1,127 @@
+```{r load-data}
+source(here::here("assessment/colombia/stage2/_setup.R"))
+
+trials_coded <- read_rds(here("assessment/colombia/stage2/data_processed/trials_coded.rds"))
+participants <- read_rds(here("assessment/colombia/stage2/data_processed/participants.rds"))
+```
+
+```{r}
+tom <- trials_coded |>
+  filter(task_id == "theory-of-mind") |>
+  select(subtask, user_id, run_id, item, response, is_correct, age, server_timestamp)
+```
+
+```{r}
+tom_summary <- tom |> 
+  group_by(subtask, user_id, age) |>
+  summarise(prop_correct =  mean(is_correct), 
+            n = n()) |>
+  ungroup()
+```
+
+```{r}
+ggplot(tom_summary, aes(x = n)) +
+  facet_wrap(vars(subtask)) +
+  geom_histogram(bins = 10)
+```
+
+Classic confounding of sum score and n trials.
+
+```{r}
+ggplot(tom_summary, aes(x = n, y = prop_correct)) +
+  facet_wrap(vars(subtask)) +
+  geom_point() + geom_smooth(method = "lm")
+
+ggplot(tom_summary, aes(x = age, y = prop_correct)) +
+  facet_wrap(vars(subtask)) +
+  geom_point() + geom_smooth(method = "lm")
+```
+
+## IRT Models
+
+```{r}
+# tom_first_runs <- tom |>
+#   group_by(user_id) |>
+#   filter(server_timestamp == min(server_timestamp)) |>
+#   select(user_id, run_id)
+# 
+# tom |> count(user_id, item) |> filter(n > 1)
+
+trials_to_matrix <- function(trials) {
+  trials_wide <- trials |>
+    # inner_join(tom_first_runs) |>
+    mutate(is_correct = as.numeric(is_correct)) |>
+    group_by(user_id, item) |>
+    slice(1) |> # duplicates??
+    select(user_id, item, is_correct) |>
+    pivot_wider(names_from = "item", values_from = "is_correct") |>
+    ungroup()
+  
+  trials_mat <- as.matrix(select(trials_wide, -user_id))
+  rownames(trials_mat) <- trials_wide$user_id
+  
+  # remove columns with no variance
+  trials_cols <- colMeans(trials_mat, na.rm=TRUE) 
+  
+  trials_mat <- trials_mat[,trials_cols > 0 & trials_cols < 1]
+}
+
+set.seed(1234)
+
+fit_mirt <- function(data_mat, item_type) {
+  mirt(data_mat, itemtype = item_type, verbose = TRUE, #guess = .25,
+       technical = list(NCYCLES = 1000))
+}
+
+mirt_coefs <- function(mod) {
+  coef(mod, simplify = TRUE)$items |> as_tibble(rownames = "item")
+}
+
+mirt_scores <- function(mod, mat) {
+  scores <- fscores(mod, method = "MAP", verbose = FALSE)
+  tibble(user_id = rownames(mat), ability = scores[,1])
+}
+
+mirt_aic <- function(mod) mod@Fit$AIC
+
+tom_types <- c("Rasch", "2PL")
+tom_fits <- tom |>
+  nest(subtask_data = -subtask) |>
+  mutate(mat = map(subtask_data, trials_to_matrix)) |>
+  expand_grid(item_type = tom_types) |>
+  mutate(mod = map2(mat, item_type, fit_mirt),
+         coefs = map(mod, mirt_coefs),
+         scores = map2(mod, mat, mirt_scores),
+         aic = map_dbl(mod, mirt_aic))
+
+tom_best <- tom_fits |>
+  group_by(subtask) |>
+  filter(aic == min(aic)) |>
+  select(subtask, item_type, coefs, scores) |>
+  ungroup()
+
+tom_scores <- tom_best |>
+  select(subtask, item_type, scores) |>
+  unnest(scores) |>
+  mutate(item_type = fct_recode(item_type, "1PL" = "Rasch"),
+         score_type = glue("ability ({item_type})")) |>
+  select(task = subtask, user_id, score_type, score = ability)
+```
+
+```{r}
+tom_summary |> rename(task = subtask) |> left_join(tom_scores) |>
+  select(task, age, prop_correct, score) |>
+  GGally::ggpairs(aes(color = task))
+```
+
+```{r}
+ggplot(tom_summary, aes(x = prop_correct, y = ability)) + 
+  geom_point(aes(size = n), alpha = .5) + 
+  geom_smooth(method = "lm")
+```
+
+Write out parameters
+
+```{r}
+write_rds(tom_scores, here("assessment/colombia/stage2/scores/tom_scores.rds"))
+```

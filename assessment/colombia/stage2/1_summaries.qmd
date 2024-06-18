@@ -141,3 +141,59 @@ high_correct <- item_summary |>
 high_correct |> count(task, sort = TRUE)
 # write_csv(high_correct, "data/high_correct_items.csv")
 ```
+
+```{r}
+score_list <- map(list.files("scores", full.names = TRUE), read_rds)
+exclude_tasks <- c("hostile-attribution", "pa-es")
+
+task_categories <- tribble(
+  ~task, ~task_category,
+  "hearts-and-flowers", "executive function",
+  "same-different-selection", "executive function",
+  "memory-game", "executive function",
+  "egma-math", "math",
+  "trog", "language",
+  "vocab", "language",
+  "pa-es", "reading",
+  "sre-es", "reading",
+  "swr-es", "reading",
+  "matrix-reasoning", "reasoning",
+  "mental-rotation", "spatial cognition",
+  "theory-of-mind", "social cognition",
+  "hostile-attribution", "social cognition"
+) |> mutate(task_category = task_category |> str_to_sentence() |> fct_inorder())
+
+scores <- score_list |>
+  bind_rows() |>
+  filter(!(task %in% exclude_tasks)) |>
+  left_join(participants |> select(user_id, age)) |>
+  group_by(task) |>
+  mutate(n = n(), task_label = glue("{task}\n(n = {n})")) |>
+  ungroup() |>
+  left_join(task_categories) |>
+  mutate(score_type = score_type |> str_remove(" \\(.*\\)"))
+  
+# scores |> count(task_id)
+
+ggplot(scores |> filter(!is.na(age)), aes(x = age, y = score)) +
+  ggh4x::facet_nested_wrap(vars(task_category, task_label), nrow = 3,
+                      nest_line = element_line(), solo_line = TRUE,
+                      axes = "x",
+                      scales = "free_y") +
+  geom_point(aes(colour = task_category), alpha = 0.5) +
+  geom_smooth(method = "gam", colour = "darkgrey") +
+  # geom_text(aes(label = score_type), x = Inf, y = 0.05, hjust = 1, vjust = 0,
+  #           family = .font) +
+  # scale_y_continuous() +
+  scale_x_continuous(breaks = seq(6, 14, 2)) +
+  scale_colour_ptol() +
+  # scale_shape_manual(values = c(19, 1), guide = "none") +
+  # scale_size_binned(range = c(0.05, 2.5)) +
+  labs(x = "Age (years)", y = "Score") +
+  guides(colour = "none") +
+  theme(legend.position = "bottom",
+        legend.key.width = unit(2, "lines"),
+        strip.text = element_text(size = 8))
+ggsave("plots/all_scores.png", width = 10, height = 8)
+```
+

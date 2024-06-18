@@ -261,7 +261,7 @@ coefs_1pl_info <- mr_best$coefs |>
   distinct() |> 
   left_join(select(mr, item, angle, stim_type, stim_set) |> distinct()) 
 
-ggplot(mr_best, 
+ggplot(coefs_1pl_info, 
        aes(x = angle, y = d, col = stim_set)) + 
   geom_jitter(alpha = .5, width = .5) + 
   geom_smooth(method = "lm") + 
@@ -284,7 +284,7 @@ ggplot(mr_summary, aes(x = prop_correct, y = ability)) +
 ```{r}
 mr_scores <- mr_best$fscores |>
   rename(score = ability) |>
-  mutate(task = "mental-rotation", score_type = "IRT (1PL)")
+  mutate(task = "mental-rotation", score_type = "ability (1PL)")
 
 write_rds(mr_scores, here("assessment/colombia/stage2/scores/mr_scores.rds"))
 ```

@@ -36,13 +36,17 @@ invalid_users <- participants |>
 write_csv(invalid_users, here("CO_birth_dates_to_update.csv"))
 ```
 
+```{r runs}
+runs <- dataset_data$runs
+```
+
 ```{r trials}
 trials <- dataset_data$trials
 
 # add participant info to trials
 trials_ids <- trials |> inner_join(participants)
 
-# check that user + run + trial uniquely idenfies each row
+# check that user + run + trial uniquely identifies each row
 trials_ids |> count(user_id, run_id, trial_id) |> filter(n > 1)
 
 # code and remove practice trials
@@ -81,12 +85,17 @@ trials_tasks_ordered <- trials_tasks |>
   mutate(task_group = fct_inorder(task_group),
          task = fct_inorder(task))
 
-# filter out trials missing both item and response
-# recode correctness for some tasks
+# filter out trials missing item but only for tasks that have some items
 trials_coded <- trials_tasks_ordered |>
-  filter(!is.na(item) | !is.na(expected_answer) | !is.na(response)) |>
-  mutate(is_correct = is_correct |
-           str_detect(task, "hostile") & !str_detect(response, "accident"))
+  group_by(task) |>
+  filter(all(is.na(item)) | !is.na(item)) |>
+  ungroup() |>
+  mutate(server_timestamp = as_datetime(server_timestamp))
+  # filter(!is.na(item) | !is.na(expected_answer) | !is.na(is_correct)) |>
+
+# recode correctness for some tasks
+  # mutate(is_correct = is_correct |
+  #          str_detect(task, "hostile") & !str_detect(response, "accident"))
 
 write_rds(trials_coded, "data_processed/trials_coded.rds")
 write_rds(participants, "data_processed/participants.rds")

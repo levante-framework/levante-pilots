@@ -122,7 +122,7 @@ Write out parameters
 ```{r}
 trog_scores <- trog_2pl$fscores |>
   rename(score = ability) |>
-  mutate(task = "trog", score_type = "IRT (2PL)")
+  mutate(task = "trog", score_type = "ability (2PL)")
 
 write_rds(trog_scores, here("assessment/colombia/stage2/scores/trog_scores.rds"))
 ```
