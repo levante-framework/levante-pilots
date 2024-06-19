@@ -176,6 +176,9 @@ scores <- score_list |>
   left_join(task_categories) |>
   mutate(score_type = score_type |> str_remove(" \\(.*\\)"))
 
+task_categories <- levels(scores$task_category)
+task_pal <- ptol_pal()(length(task_categories)) |> set_names(task_categories)
+
 ggplot(scores |> filter(!is.na(age)), aes(x = age, y = score)) +
   ggh4x::facet_nested_wrap(vars(task_category, task_label), nrow = 2,
                       nest_line = element_line(), solo_line = TRUE,
@@ -187,7 +190,8 @@ ggplot(scores |> filter(!is.na(age)), aes(x = age, y = score)) +
   #           family = .font) +
   # scale_y_continuous() +
   scale_x_continuous(breaks = seq(6, 14, 2)) +
-  scale_colour_ptol() +
+  scale_colour_manual(values = task_pal) +
+  # scale_colour_ptol() +
   # scale_shape_manual(values = c(19, 1), guide = "none") +
   # scale_size_binned(range = c(0.05, 2.5)) +
   labs(x = "Age (years)", y = "Score") +
@@ -197,6 +201,32 @@ ggplot(scores |> filter(!is.na(age)), aes(x = age, y = score)) +
         # strip.text = element_text(size = 8))
 
 ggsave("plots/all_scores.png", width = 14, height = 6)
+```
+
+```{r}
+task_plot <- function(tsk) {
+  ggplot(scores |> filter(!is.na(age), task == tsk),
+         aes(x = age, y = score)) +
+    ggh4x::facet_nested_wrap(vars(task_category, task_label), nrow = 2,
+                             nest_line = element_line(), solo_line = TRUE,
+                             axes = "x",
+                             scales = "free_y") +
+    geom_point(aes(colour = task_category), alpha = 0.5) +
+    geom_smooth(method = "gam", colour = "darkgrey") +
+    scale_x_continuous(breaks = seq(6, 14, 2)) +
+    scale_colour_manual(values = task_pal) +
+    labs(x = "Age (years)", y = "Score") +
+    guides(colour = "none") +
+    theme(legend.position = "bottom",
+          legend.key.width = unit(2, "lines"))
+}
+
+task_plot("mental-rotation")
+ggsave("plots/mr.png", width = 4, height = 4)
+
+task_plot("theory-of-mind")
+ggsave("plots/tom.png", width = 4, height = 4)
+
 ```
 
 Table of median task times
@@ -220,3 +250,21 @@ task_time_summary <- time_summary |>
 
 task_time_summary
 ```
+
+```{r}
+lang_scores <- scores |>
+  filter(task_category %in% c("Language", "Reading")) |>
+  select(user_id, task, score) |>
+  group_by(task, user_id) |>
+  filter(n() == 1) |> 
+  ungroup() |>
+  pivot_wider(names_from = task, values_from = score)
+  # select(-user_id)
+
+lang_scores |> select(`sre-es`, trog, vocab) |> GGally::ggpairs()
+ggsave("plots/lang_cors_sre.png", width = 6, height = 5)
+
+lang_scores |> select(`swr-es`, trog) |> GGally::ggpairs()
+ggsave("plots/lang_cors_swr.png", width = 4, height = 3)
+```
+
