@@ -152,13 +152,13 @@ task_categories <- tribble(
   "same-different-selection", "executive function",
   "memory-game", "executive function",
   "egma-math", "math",
+  "matrix-reasoning", "reasoning",
+  "mental-rotation", "spatial cognition",
   "trog", "language",
   "vocab", "language",
   "pa-es", "reading",
   "sre-es", "reading",
   "swr-es", "reading",
-  "matrix-reasoning", "reasoning",
-  "mental-rotation", "spatial cognition",
   "theory-of-mind", "social cognition",
   "hostile-attribution", "social cognition"
 ) |> mutate(task_category = task_category |> str_to_sentence() |> fct_inorder())
@@ -167,8 +167,9 @@ scores <- score_list |>
   bind_rows() |>
   filter(!(task %in% exclude_tasks)) |>
   left_join(participants |> select(user_id, age)) |>
+  filter(!is.na(age), age >= 5, age <= 12) |>
   group_by(task) |>
-  mutate(n = n(), task_label = glue("{task}\n(n = {n})")) |>
+  mutate(n = n_distinct(user_id), task_label = glue("{task}\n(n = {n})")) |>
   ungroup() |>
   left_join(task_categories) |>
   mutate(score_type = score_type |> str_remove(" \\(.*\\)"))
@@ -176,7 +177,7 @@ scores <- score_list |>
 # scores |> count(task_id)
 
 ggplot(scores |> filter(!is.na(age)), aes(x = age, y = score)) +
-  ggh4x::facet_nested_wrap(vars(task_category, task_label), nrow = 3,
+  ggh4x::facet_nested_wrap(vars(task_category, task_label), nrow = 2,
                       nest_line = element_line(), solo_line = TRUE,
                       axes = "x",
                       scales = "free_y") +
@@ -192,8 +193,9 @@ ggplot(scores |> filter(!is.na(age)), aes(x = age, y = score)) +
   labs(x = "Age (years)", y = "Score") +
   guides(colour = "none") +
   theme(legend.position = "bottom",
-        legend.key.width = unit(2, "lines"),
-        strip.text = element_text(size = 8))
-ggsave("plots/all_scores.png", width = 10, height = 8)
+        legend.key.width = unit(2, "lines"))
+        # strip.text = element_text(size = 8))
+
+ggsave("plots/all_scores.png", width = 14, height = 6)
 ```
 
