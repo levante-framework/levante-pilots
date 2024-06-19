@@ -20,7 +20,7 @@ score_ntl <- function(item, answer, response, threshold = 0.05) {
 
 trials_numberline <- trials_coded |>
   filter(!is.na(item), str_detect(task, "line 4afc|line slider")) |>
-  select(subtask, item, expected_answer, assessment_pid, response) |>
+  select(subtask, item, expected_answer, user_id, run_id, response) |> # assessment_pid had some NAs
   mutate(subtask = fct_recode(subtask, "ntl" = "number line slider", "ltn" = "number line 4afc")) |>
   pivot_wider(names_from = subtask, values_from = response) |>
   mutate(correct_ltn = expected_answer == ltn,
@@ -38,7 +38,7 @@ line_summary <- trials_numberline |>
                       "number-to-line (15%)" = "correct_ntl_15") |>
            fct_inorder()) |>
   group_by(item, expected_answer, metric) |>
-  summarise(subjects = n_distinct(assessment_pid),
+  summarise(subjects = n_distinct(run_id), # assessment_pid
             trials = n(),
             num_correct = sum(correct, na.rm = TRUE),
             prop_correct = num_correct / trials) |>
@@ -94,5 +94,12 @@ ggsave("plots/line_items_corrs.png", width = 10, height = 4)
 #   # scale_x_continuous(breaks = round(unique(ltn$prop_correct), 2)) +
 #   labs(x = "Proportion correct responses", y = "Item") +
 #   theme(panel.grid.major.y = element_line(colour = "lightgrey", linewidth = 0.2))
+
+cor.test(line_summary |> filter(metric=="line-to-number") |> pull(prop_correct),
+         line_summary |> filter(metric=="number-to-line (5%)") |> pull(prop_correct)) # .95
+cor.test(line_summary |> filter(metric=="line-to-number") |> pull(prop_correct),
+         line_summary |> filter(metric=="number-to-line (10%)") |> pull(prop_correct)) # .89
+cor.test(line_summary |> filter(metric=="line-to-number") |> pull(prop_correct),
+         line_summary |> filter(metric=="number-to-line (15%)") |> pull(prop_correct)) # .83
 ```
 
