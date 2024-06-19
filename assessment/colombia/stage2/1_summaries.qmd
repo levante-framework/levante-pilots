@@ -142,6 +142,8 @@ high_correct |> count(task, sort = TRUE)
 # write_csv(high_correct, "data/high_correct_items.csv")
 ```
 
+Combine all task scores into one plot!
+
 ```{r}
 score_list <- map(list.files("scores", full.names = TRUE), read_rds)
 exclude_tasks <- c("hostile-attribution", "pa-es")
@@ -173,8 +175,6 @@ scores <- score_list |>
   ungroup() |>
   left_join(task_categories) |>
   mutate(score_type = score_type |> str_remove(" \\(.*\\)"))
-  
-# scores |> count(task_id)
 
 ggplot(scores |> filter(!is.na(age)), aes(x = age, y = score)) +
   ggh4x::facet_nested_wrap(vars(task_category, task_label), nrow = 2,
@@ -199,3 +199,24 @@ ggplot(scores |> filter(!is.na(age)), aes(x = age, y = score)) +
 ggsave("plots/all_scores.png", width = 14, height = 6)
 ```
 
+Table of median task times
+
+```{r}
+time_summary <- trials_coded |>
+  mutate(server_timestamp = as_datetime(server_timestamp)) |>
+  arrange(user_id, run_id, server_timestamp) |>
+  group_by(task_id, run_id, user_id) |>
+  summarise(trials = n(),
+            start = min(server_timestamp), end = max(server_timestamp)) |>
+  ungroup() |>
+  mutate(diff = difftime(end, start, units = "mins")) |>
+  left_join(participants) |>
+  left_join(task_categories, by = c("task_id" = "task"))
+
+task_time_summary <- time_summary |>
+  group_by(task_category, task_id) |>
+  summarise(median_diff = median(diff) |> round(2)) |>
+  ungroup()
+
+task_time_summary
+```
