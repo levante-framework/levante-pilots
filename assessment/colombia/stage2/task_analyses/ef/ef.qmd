@@ -448,12 +448,12 @@ ggsave(here("assessment/colombia/stage2/task_analyses/ef/plots/ef_cors.png"),
        width = 8.5, height = 6.5)
 
 ef_compare |>
-  select(user_id, task, .fitted) |>
-  pivot_wider(names_from = task, values_from = .fitted) |>
+  select(user_id, task, .resid) |>
+  pivot_wider(names_from = task, values_from = .resid) |>
   select(-user_id) |>
   rename(`same-different` = `same-different-selection`) |>
   GGally::ggpairs()
 
 ggsave(here("assessment/colombia/stage2/task_analyses/ef/plots/ef_cors_resid.png"),
-       width = 9, height = 9)
+       width = 8.5, height = 6.5)
 ```
