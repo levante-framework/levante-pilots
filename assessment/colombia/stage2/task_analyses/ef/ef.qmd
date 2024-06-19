@@ -395,25 +395,21 @@ mg_scores <- mg_span |>
 
 ef_scores <- bind_rows(hf_scores, sds_scores, mg_scores)
 
-ef_scores |>
-  select(-score_type) |>
-  pivot_wider(names_from = task, values_from = score) |>
-  left_join(participants |> select(user_id, age)) |>
-  select(-user_id) |>
-  GGally::ggpairs()
-
 write_rds(ef_scores, here("assessment/colombia/stage2/scores/ef_scores.rds"))
 ```
 
 
 ```{r}
-mefs1 <- read_csv(here("assessment","colombia","stage2",
-                       "task-analyses","mefs","data",
-                       "LEVANTE_20240608_1210.csv")) |> # long format data
-  filter(`Child ID` != "1234") # remove test
-mefs2 <- read_csv(here("assessment","colombia","stage2",
-                       "task-analyses","mefs","data",
-                       "LEVANTE_20240608_1225.csv")) |> # N=122; wide format data
+# mefs1 <- read_csv(here("assessment","colombia","stage2",
+#                        "task-analyses","mefs","data",
+#                        "LEVANTE_20240608_1210.csv")) |> # long format data
+#   filter(`Child ID` != "1234") # remove test
+# mefs2 <- read_csv(here("assessment/colombia/stage2/task_analyses/mefs/data",
+#                        "LEVANTE_20240608_1225.csv")) |> # N=122; wide format data
+#   filter(`Child ID` != "1234")
+
+mefs <- read_csv(here("assessment/colombia/stage2/task_analyses/mefs/data",
+                       "LEVANTE_20240617_0804.csv")) |>
   filter(`Child ID` != "1234")
 
 # standardized by age, looks like
@@ -424,13 +420,40 @@ cor.test(mefs2$`A1_Total Score`, mefs2$`A1_Age (Months)`) # r=.56
 ```
 
 ```{r}
-mefs_ef <- mefs2 |>
+mefs_ef <- mefs |>
   rename_with(\(nm) nm |> str_to_lower() |> str_replace_all(" ", "_") |> str_remove_all("[\\(\\)]")) |>
-  select(user_id =child_id, mefs_score = a1_total_score)
+  select(user_id = child_id, score = a1_total_score) |>
+  group_by(user_id) |>
+  summarise(score = mean(score)) |> # some children have multiple admins
+  mutate(task = "mefs")
   
-ef_summary <- left_join(ef_summary, mefs_ef)
-```
+ef_compare <- ef_scores |>
+  select(-score_type) |>
+  rbind(mefs_ef) |>
+  left_join(participants |> select(user_id, age)) |>
+  nest(data = -task) |>
+  mutate(fits = map(data, \(d) lm(score ~ age, data = d) |>
+                      broom::augment(newdata = d))) |>
+  select(-data) |>
+  unnest(fits)
 
-```{r}
-GGally::ggpairs(ungroup(ef_summary) |> select(-user_id))
+ef_compare |>
+  select(user_id, task, score) |>
+  pivot_wider(names_from = task, values_from = score) |>
+  select(-user_id) |>
+  rename(`same-different` = `same-different-selection`) |>
+  GGally::ggpairs()
+
+ggsave(here("assessment/colombia/stage2/task_analyses/ef/plots/ef_cors.png"),
+       width = 8.5, height = 6.5)
+
+ef_compare |>
+  select(user_id, task, .fitted) |>
+  pivot_wider(names_from = task, values_from = .fitted) |>
+  select(-user_id) |>
+  rename(`same-different` = `same-different-selection`) |>
+  GGally::ggpairs()
+
+ggsave(here("assessment/colombia/stage2/task_analyses/ef/plots/ef_cors_resid.png"),
+       width = 9, height = 9)
 ```
