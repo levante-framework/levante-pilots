@@ -8,15 +8,29 @@ source("_data_loading_functions.R")
 ```
 
 ```{r datasets}
-dataset_names <- c("columbia_pilot_0523_0529:f068:v2_1",
-                   "columbia_pilot_bund_cola_colc_cold_v2_colb:80wb:v1_0") 
+dataset_names <- c("columbia_pilot_0523_0529:f068:v2_1", # 612 users, user_type="guest", assessment_uid non-null; only 209 with trials
+                   "columbia-pilot-0528-0618") # 4847 users
 
 dataset_tables <- get_datasets(dataset_names)
 dataset_data <- combine_datasets(dataset_tables)
 ```
 
 ```{r participants}
+get_colombia_missing_demo_data <- function() {
+  ugg <- dataset_data$user_groups |> 
+    left_join(dataset_data$groups |> select(-tags)) # 7665, 4843 unique user_id
+  users_ugg <- dataset_data$users |> # 5459
+    left_join(ugg |> select(-created_at)) # remove name=="german_test" and "german-test"
+  # 8281
+  subj_n <- dataset_data$trials |> group_by(user_id) |>
+    summarise(n_trials_completed = n()) 
+  users_w_trials <- users_ugg |> filter(is.element(user_id, subj_n$user_id)) |>
+    distinct(user_id, assessment_pid, user_type, assessment_uid, created_at, last_updated, birth_year, birth_month, parent_id, teacher_id, name)
+  write.csv(users_w_trials |> left_join(subj_n), file="CO_birth_dates_to_update.csv")
+}
+
 users <- collect_users(dataset_data)
+
 
 # calculate participant ages
 participants <- users |>
@@ -29,11 +43,10 @@ participants <- users |>
          birth_year_original, valid_birth_year) |>
   distinct() |>
   mutate(dob = ym(paste(birth_year, birth_month, sep = "-")),
-         age = as.numeric(difftime(today(), dob, units = "days")) / 365.25)
+         age = as.numeric(difftime(today(), dob, units = "days")) / 365.25) # TODO: age should be based on admin date (last_modified)
 
 invalid_users <- participants |>
   filter(!is.na(birth_year_original), !valid_birth_year)
-write_csv(invalid_users, here("CO_birth_dates_to_update.csv"))
 ```
 
 ```{r runs}

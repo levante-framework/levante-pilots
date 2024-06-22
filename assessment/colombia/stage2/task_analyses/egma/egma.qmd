@@ -21,16 +21,31 @@ mp <- trials_coded |> filter(task_id == "egma-math") |>
 
 ## Subtask Accuracy
 
-```{r}
+```{r, fig.width=7, fig.height=5}
 math_ntr <- mp |> group_by(user_id, run_id, age) |>
   summarise(prop_correct = mean(is_correct), n = n()) 
 
-mp |> group_by(user_id, run_id, age, subtask) |>
+summary(math_ntr$n)
+
+
+mp |> mutate(subtask = fct_reorder(subtask, trial_index)) |>
+  group_by(user_id, run_id, age, subtask) |>
   summarise(prop_correct = mean(is_correct), n = n()) |>
+  filter(age<13) |>
   ggplot(aes(x=age, y=prop_correct)) +
     facet_wrap(. ~ subtask) + 
-    geom_point(aes(size=n), alpha=.5) + 
-  geom_smooth(method = "lm")
+    geom_point(alpha=.3) + 
+  geom_smooth() + ylab("Proportion Correct")
+
+
+mp |> mutate(subtask = fct_reorder(subtask, trial_index)) |>
+  group_by(user_id, run_id, age, subtask) |>
+  summarise(prop_correct = mean(is_correct), n = n()) |>
+  filter(age<13) |>
+  ggplot(aes(x=age, y=n)) +
+    facet_wrap(. ~ subtask) + 
+    geom_point(alpha=.3) + 
+  geom_smooth() + ylab("Number of Trials Completed")
 ```
 
 ## IRT Models
@@ -95,16 +110,27 @@ anova(mod2, mod3) # 3d preferred by AIC, but not BIC
 
 ## Plot Coefficients
 
-```{r}
+```{r, fig.width=10}
 coefs_2pl <- math_best$coefs |>
   left_join(mp |> select(item, subtask, expected_answer) |> distinct()) 
 
 ggplot(coefs_2pl, 
-       aes(x = a1, y = d, col = subtask)) + # labels = expected_answer
+       aes(x = a1, y = d, col = subtask)) + 
   geom_jitter(alpha = .5, width = .5) + 
-  geom_smooth(method = "lm")+ 
+  #geom_label(aes(label=item)) + 
+  geom_smooth() + 
   facet_wrap(~subtask, scales="free")
 ```
+
+```{r, fig.height=10, fig.width=5}
+coefs_2pl |> ggplot(aes(x = reorder(item, -d), y = d, col = subtask)) + # labels = expected_answer
+  geom_point(alpha = .5, width = .5) + xlab("Item") + ylab("difficulty") +
+  coord_flip() + facet_wrap(~subtask, scales="free")
+ggsave(file="plots/math-item-difficulty.png")
+```
+
+
+
 
 ```{r}
 math_ntr <- math_ntr |>
@@ -112,6 +138,25 @@ math_ntr <- math_ntr |>
 GGally::ggpairs(ungroup(math_ntr) |> select(-user_id, -run_id), mapping=aes(alpha=.3))
 # ggsave("plots/age_n_acc_ability.png", width=9, height=9)
 ```
+
+```{r, fig.width=4, fig.height=4}
+math_ntr |> filter(age<=12) |>
+  ggplot(aes(x=age, y=ability)) +
+  geom_point(alpha=.3) +
+  geom_smooth() + ylab("Score") + xlab("Age (years)") 
+```
+```{r}
+mp |> group_by(user_id, run_id, age, subtask) |>
+  #filter(subtask!="fraction") |> # reorder subtask by difficulty?
+  summarise(prop_correct = mean(is_correct), n = n()) |>
+  filter(n>1) |>
+  ggplot(aes(x=age, y=prop_correct)) +
+    facet_wrap(. ~ subtask) + 
+    geom_point(alpha=.3) + 
+  geom_smooth()
+```
+
+
 
 Save parameters
 
@@ -125,81 +170,4 @@ write_rds(math_scores, here("assessment/colombia/stage2/scores/math_scores.rds")
 
 ## Number line comparison
 
-```{r, eval=F}
-# 38 unique values in distract_options, but 2 of them are {} and NA 
-# should be 36 number line problems
-# distract_options defined for 4AFC; slider trials are {} or NA (only on/before May 24)
-# note: rt is NA on the 4AFC trials, but saved on slider trials
-nl <- trials_coded |> filter(task_id == "egma-math") |>
-  filter(subtask=="number line slider" | subtask=="number line 4afc")
-
-table(nl$user_id, nl$subtask)
-
-# 4afc and slider trials are correctly categorized; we have so many more slider trials because there was no way to fail out (since is_correct wasn't coded) -- so a lot of kids did fail out of 4afc early on, but had to do all slider trials
-
-# has 72 number line slider trials..
-user_id=="6rEqftuHBnhlGRZ7dKIlDqjnM6a2"
-#filter(user_id!="6rEqftuHBnhlGRZ7dKIlDqjnM6a2" & user_id!="7IoWgqOQzdhiQBkbCn4OAqLnc4G3") |>
-
-trials_nl <- trials_coded |>
-  filter(str_detect(subtask, "line")) |> # 18398
-  distinct(user_id, subtask, item, expected_answer, response, time_elapsed) |> # item-level data are duplicated (for all users?)
-  #slice(1) |> 
-  #ungroup() |> # 13344
-  mutate(is_correct = score_ntl(item, expected_answer, response, threshold=.1)) |>
-  mutate(expected_answer = as.numeric(expected_answer),
-         response = as.numeric(response)) |>
-  select(subtask, item, expected_answer, user_id, response) |>
-  mutate(subtask = fct_recode(subtask, "ntl" = "number line slider", "ltn" = "number line 4afc")) |>
-  pivot_wider(names_from = subtask, values_from = response) |>
-  mutate(correct_ltn = expected_answer == ltn,
-         correct_ntl_10 = score_ntl(item, expected_answer, ntl, 0.1)) |>
-  select(-ltn, -ntl) |>
-  pivot_longer(cols = contains("correct"), names_to = "metric", values_to = "correct")
-
-table(trials_nl$user_id, trials_nl$subtask)
-
-line_summary <- trials_nl |>
-  mutate(metric = metric |>
-           fct_recode("line-to-number" = "correct_ltn",
-                      "number-to-line" = "correct_ntl_10") |>
-           fct_inorder()) |>
-  group_by(item, expected_answer, metric) |>
-  summarise(subjects = n_distinct(pid),
-            trials = n(),
-            num_correct = sum(correct, na.rm = TRUE),
-            prop_correct = num_correct / trials) |>
-  ungroup() |>
-  arrange(metric, prop_correct) |>
-  mutate(item_label = paste(str_replace(item, "'0': (\\d+), '1': (\\d+)", "\\1-\\2"), expected_answer),
-         item_label = fct_inorder(item_label),
-         item_index = factor(row_number()))
-         # item_index = paste(metric, item_label) |> fct_inorder())
-
-ggplot(line_summary, aes(x = prop_correct, y = item_index)) +
-  facet_wrap(vars(metric), scales = "free_y", nrow = 1) +
-  # geom_hline(aes(yintercept = item_label), color = "lightgrey") +
-  geom_point() +
-  # scale_x_continuous(breaks = round(unique(ltn$prop_correct), 2)) +
-  scale_y_discrete(breaks = line_summary$item_index, labels = line_summary$item_label) +
-  labs(x = "Proportion correct responses", y = "Item") +
-  theme(panel.grid.major.y = element_line(colour = "lightgrey", linewidth = 0.2))
-ggsave("plots/line_items.png", width = 12, height = 5)
-
-line_summary |>
-  select(item_label, metric, prop_correct) |>
-  pivot_wider(names_from = metric, values_from = prop_correct) |>
-  pivot_longer(contains("number-"), names_to = "metric", values_to = "correct") |>
-  mutate(metric = paste("Percent correct in", metric) |> fct_inorder()) |>
-  ggplot(aes(x = `line-to-number`, y = correct)) +
-    facet_wrap(vars(metric), switch = TRUE) +
-    geom_point() +
-    geom_smooth(method = "lm") +
-    labs(x = "Percent correct in line-to-number") +
-    theme(strip.placement = "outside",
-          axis.title.y = element_blank())
-ggsave("plots/line_items_corrs.png", width = 10, height = 4)
-
-# mutate(task = ifelse(trial_index>=461, "number-to-line", task)) |>
-
-```
+See `number_line.qmd`

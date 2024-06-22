@@ -20,22 +20,47 @@ score_ntl <- function(item, answer, response, threshold = 0.05) {
 
 trials_numberline <- trials_coded |>
   filter(!is.na(item), str_detect(task, "line 4afc|line slider")) |>
-  select(subtask, item, expected_answer, user_id, run_id, response) |> # assessment_pid had some NAs
-  mutate(subtask = fct_recode(subtask, "ntl" = "number line slider", "ltn" = "number line 4afc")) |>
-  pivot_wider(names_from = subtask, values_from = response) |>
-  mutate(correct_ltn = expected_answer == ltn,
-         correct_ntl_5 = score_ntl(item, expected_answer, ntl, 0.05),
-         correct_ntl_10 = score_ntl(item, expected_answer, ntl, 0.1),
-         correct_ntl_15 = score_ntl(item, expected_answer, ntl, 0.15)) |>
-  select(-ltn, -ntl) |>
-  pivot_longer(cols = contains("correct"), names_to = "metric", values_to = "correct")
+  select(subtask, item, expected_answer, user_id, run_id, response, is_correct) |> # assessment_pid had some NAs
+  mutate(subtask = fct_recode(subtask, "ntl" = "number line slider", "ltn" = "number line 4afc")) 
 
+# some ltn are NA, but have is_correct..
+summary(trials_numberline)
+
+trials_numberline <- trials_numberline |>
+  pivot_wider(names_from = subtask, values_from = response) |>
+  mutate(correct_ltn = expected_answer == ltn, # should just use is_correct ?
+         #correct_ntl_5 = score_ntl(item, expected_answer, ntl, 0.05)#,
+         correct_ntl_10 = score_ntl(item, expected_answer, ntl, 0.1)#,
+         #correct_ntl_15 = score_ntl(item, expected_answer, ntl, 0.15)
+         ) |>
+  select(-ltn, -ntl) |>
+  pivot_longer(cols = contains("correct_"), names_to = "metric", values_to = "correct")
+```
+
+```{r}
+by_it <- trials_numberline |>
+  mutate(item_label = paste(str_replace(item, "'0': (\\d+), '1': (\\d+)", "\\1-\\2"), expected_answer)) |>
+  group_by(item_label, metric) |>
+  summarise(n = n(), prop_correct = mean(correct, na.rm=T))
+
+by_it |> pivot_wider(id_cols = c(item_label, n), names_from=metric, values_from=prop_correct) |>
+  ggplot(aes(x=correct_ltn, y=correct_ntl_10, size=n)) +
+  geom_point(alpha=.7) + 
+  ylab("Proportion Correct (Number-to-Line)") +
+  xlab("Proportion Correct (Line-to-Number)") + 
+  geom_vline(aes(xintercept=.25), linetype="dashed") + ylim(0,1) + xlim(0,1)
+
+```
+
+
+```{r}
 line_summary <- trials_numberline |>
   mutate(metric = metric |>
            fct_recode("line-to-number" = "correct_ltn",
-                      "number-to-line (5%)" = "correct_ntl_5",
-                      "number-to-line (10%)" = "correct_ntl_10",
-                      "number-to-line (15%)" = "correct_ntl_15") |>
+                      "number-to-line (5%)" = "correct_ntl_5"#,
+                      #"number-to-line (10%)" = "correct_ntl_10",
+                      #"number-to-line (15%)" = "correct_ntl_15"
+                      ) |>
            fct_inorder()) |>
   group_by(item, expected_answer, metric) |>
   summarise(subjects = n_distinct(run_id), # assessment_pid
@@ -58,6 +83,12 @@ ggplot(line_summary, aes(x = prop_correct, y = item_index)) +
   labs(x = "Proportion correct responses", y = "Item") +
   theme(panel.grid.major.y = element_line(colour = "lightgrey", linewidth = 0.2))
 ggsave("plots/line_items.png", width = 12, height = 5)
+
+
+
+line_summary |> ggplot(aes(y=item_label, x=prop_correct)) +
+  facet_wrap(vars(metric), nrow=1) + geom_point()
+  
 
 line_summary |>
   select(item_label, metric, prop_correct) |>
@@ -94,12 +125,22 @@ ggsave("plots/line_items_corrs.png", width = 10, height = 4)
 #   # scale_x_continuous(breaks = round(unique(ltn$prop_correct), 2)) +
 #   labs(x = "Proportion correct responses", y = "Item") +
 #   theme(panel.grid.major.y = element_line(colour = "lightgrey", linewidth = 0.2))
+```
 
+
+```{r}
 cor.test(line_summary |> filter(metric=="line-to-number") |> pull(prop_correct),
          line_summary |> filter(metric=="number-to-line (5%)") |> pull(prop_correct)) # .95
 cor.test(line_summary |> filter(metric=="line-to-number") |> pull(prop_correct),
          line_summary |> filter(metric=="number-to-line (10%)") |> pull(prop_correct)) # .89
 cor.test(line_summary |> filter(metric=="line-to-number") |> pull(prop_correct),
          line_summary |> filter(metric=="number-to-line (15%)") |> pull(prop_correct)) # .83
+
+# why so many NAs in correct?
+trials_numberline |> filter(is.na(correct)) # 12000 trials..many fraction expected_answer, but not all
+
+acc_s <- trials_numberline |> group_by(run_id, metric) |>
+  summarize(accuracy = mean(correct),
+            n = n())
 ```
 
