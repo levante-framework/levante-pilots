@@ -288,3 +288,20 @@ mr_scores <- mr_best$fscores |>
 
 write_rds(mr_scores, here("assessment/colombia/stage2/scores/mr_scores.rds"))
 ```
+
+## Add item parameters to item-bank
+```{r}
+mr_1pl <- read_rds(here("assessment/colombia/stage2/task_analyses/mental_rotation/fits/mr_1pl.rds")) 
+mr_item_bank <- read_csv(here("item-banks/mental-rotation-item-bank.csv")) |>
+  mutate(item_id = item |> str_to_lower() |> str_replace('-', ''))
+
+itpars <- mr_1pl$coefs |> 
+  mutate(item_id = item |> str_remove("_1$") |> str_remove("_2$"),
+         difficulty = -d) |>
+  select(-item, -d) |> distinct() 
+  
+
+mr_item_bank <- mr_item_bank |> left_join(itpars) |> rename(a = a1)
+write_csv(mr_item_bank, here("item-banks/mental-rotation-item-bank_item-params.csv"))
+```
+
