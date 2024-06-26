@@ -8,11 +8,14 @@ fix_table_types <- function(table_data) {
            across(matches("email_verified|is_reliable|is_bestrun"), as.logical))
 }
 
-get_datasets <- function(dataset_names, org_name = "levante") {
+get_datasets <- function(dataset_names, org_name = "levante", tables = NULL) {
   org <- redivis::organization(org_name)
   datasets <- dataset_names |> set_names() |> map(\(dn) org$dataset(dn))
   
-  get_dataset_tables <- \(ds) ds$list_tables() |> map(\(t) t$name) |> set_names() |> map(\(tn) ds$table(tn)$to_tibble())
+  get_table_names <- \(ds) if (!is.null(tables)) tables else ds$list_tables() |> map(\(t) t$name)
+  
+  # get_dataset_tables <- \(ds) ds$list_tables() |> map(\(t) t$name) |> set_names() |> map(\(tn) ds$table(tn)$to_tibble())
+  get_dataset_tables <- \(ds) ds |> get_table_names() |> set_names() |> map(\(tn) ds$table(tn)$to_tibble())
   map(datasets, get_dataset_tables)
 }
 
