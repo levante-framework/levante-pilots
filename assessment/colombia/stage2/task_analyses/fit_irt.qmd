@@ -1,0 +1,243 @@
+```{r load-data}
+source(here::here("assessment/colombia/stage2/_setup.R"))
+
+trials_coded <- read_rds(here("assessment/colombia/stage2/data_processed/trials_coded.rds"))
+participants <- read_rds(here("assessment/colombia/stage2/data_processed/participants.rds"))
+```
+
+```{r}
+# tasks to include in these analyses
+irt_tasks <- c("egma-math",
+               "matrix-reasoning",
+               "mental-rotation",
+               "same-different-selection",
+               "theory-of-mind",
+               "trog")
+
+# excluded tasks
+# setdiff(trials_coded$task_id, irt_tasks)
+
+task_data <- trials_coded |>
+  filter(task_id %in% irt_tasks, !is.na(item)) |>
+  arrange(user_id, run_id, server_timestamp) |>
+  # curly braces in items cause regex problems
+  mutate(item = item |> str_remove_all("[\\{\\}]")) |>
+  # compute number of distractors + chance level
+  mutate(distractors = distract_options |> str_count(":") |> na_if(0),
+         chance = 1 / (distractors + 1))
+
+# same-different-selection needs special processing to identify items
+sds <- task_data |>
+  filter(task_id == "same-different-selection") |>
+  arrange(server_timestamp) |>
+  mutate(different = str_extract(item, "different")) |>
+  group_by(user_id, run_id, corpus_trial_type) |>
+  mutate(trial_i = consecutive_id(different),
+         trial_i = if_else(is.na(different), trial_i, trial_i - 1)) |>
+  group_by(user_id, run_id, corpus_trial_type, trial_i, different) |>
+  mutate(i = 1:n()) |>
+  ungroup() |>
+  mutate(item_id = case_when(
+    !is.na(different) ~ paste(corpus_trial_type, different, i),
+    str_detect(corpus_trial_type, "^\\d-") ~ paste(corpus_trial_type, "same"),
+    TRUE ~ corpus_trial_type)) |>
+  select(-different, -trial_i, -i)
+
+# sds |>
+#   group_by(item_id) |>
+#   summarise(n = n(), n_users = n_distinct(user_id))
+
+# egma needs special processing to identify items
+egma <- task_data |>
+  filter(task_id == "egma-math") |>
+  mutate(corpus_trial_type = corpus_trial_type |> fct_recode(
+    num_id = "number identification",
+    num_comp = "number comparison",
+    miss_num = "missing number",
+    add = "addition",
+    sub = "subtraction",
+    line_4afc = "number line 4afc",
+    mult = "multiplication",
+    line_slid = "number line slider",
+    frac = "fraction"
+  )) |>
+  mutate(item_id = paste(corpus_trial_type, item))
+# TODO: port number line coding here
+
+# theory of mind is separated by assessment_stage
+# and needs special processing to identify items
+tom <- task_data |>
+  filter(task_id == "theory-of-mind") |>
+  mutate(task_id = assessment_stage) |>
+  group_by(user_id, run_id, task_id, item, corpus_trial_type) |>
+  mutate(i = 1:n(), n = n()) |>
+  ungroup() |>
+  mutate(item_id = paste(item, str_remove(corpus_trial_type, "_question")),
+         item_id = if_else(n == 1, item_id, paste(item_id, i))) |>
+  select(-i, -n)
+
+task_data_coded <- task_data |>
+  # replace broken out data
+  filter(!task_id %in% c("egma-math", "same-different-selection", "theory-of-mind")) |>
+  bind_rows(sds) |> bind_rows(egma) |> bind_rows(tom) |>
+  # id other items
+  mutate(item_id = if_else(!is.na(item_id), item_id, item)) |>
+  select(task_id, user_id, run_id, age, item_id, chance,
+         is_correct, server_timestamp, rt)
+
+# task_data_coded |> distinct(task_id)
+# task_data_coded |> distinct(task_id, item_id) |> View()
+# task_data_coded |> distinct(task_id, item_id) |> count(task_id)
+
+# TODO: check min/max values
+min_rt <- 0.5
+max_rt <- 50
+task_data_rt <- task_data_coded |>
+  mutate(rt = as.numeric(rt) / 1000, rt_fast = rt < min_rt, rt_slow = rt > max_rt) |>
+  filter(rt > 0)
+
+ggplot(task_data_rt, aes(x = rt)) +
+  facet_wrap(vars(task_id)) +
+  geom_density() +
+  geom_vline(xintercept = c(min_rt, max_rt), color = "red", linetype = "dashed") +
+  scale_x_log10(labels = scales::comma, breaks = 10 ^ seq(-2, 2)) +
+  labs(x = "Response time (seconds)")
+
+task_data_rt |> filter(rt_fast) |> count(task_id)
+task_data_rt |> filter(rt_slow) |> count(task_id)
+
+task_data_nested <- task_data_rt |>
+  filter(!rt_fast, !rt_slow) |>
+  select(-starts_with("rt")) |>
+  nest(data = everything(), .by = task_id)
+```
+
+```{r}
+# filter to each users earliest run
+filter_repeat_runs <- function(df) {
+  df |>
+    group_by(user_id) |>
+    filter(server_timestamp == min(server_timestamp)) |>
+    ungroup() |>
+    select(user_id, run_id) |>
+    inner_join(df)
+}
+
+# add identifiers for each instance of each item
+item_sep <- "_"
+dedupe_items <- function(df) {
+  df |>
+    group_by(user_id, item_id) |>
+    mutate(instance = seq_along(item_id),
+           item_inst = glue("{item_id}{item_sep}{instance}")) |> 
+    ungroup()
+}
+
+# remove items with no variance
+remove_no_var_items <- function(df) {
+  df |>
+    group_by(item_inst) |>
+    mutate(item_mean = mean(is_correct, na.rm = TRUE)) |>
+    ungroup() |>
+    filter(item_mean > 0, item_mean < 1)
+}
+
+# make values numeric, pivot to wide, move user_id to rownames
+to_mirt_shape <- function(df) {
+  df |>
+    mutate(is_correct = as.numeric(is_correct)) |>
+    select(user_id, item_inst, is_correct) |>
+    pivot_wider(names_from = "item_inst", values_from = "is_correct") |>
+    column_to_rownames("user_id")
+}
+
+# combine all above steps
+# prep_for_mirt <- function(df) {
+#   df |> filter_repeat_runs() |> dedupe_items() |> remove_no_var_items() |>
+#     to_mirt_shape()
+# }
+
+# transform each task's data for modeling
+task_data_prepped <- task_data_nested |>
+  mutate(data_filtered = map(data, \(df) df |> filter_repeat_runs() |>
+                               dedupe_items() |> remove_no_var_items()),
+         data_prepped = map(data_filtered, to_mirt_shape))
+
+# generate constraints for repeated items
+paste_c <- partial(paste, collapse = ",")
+generate_item_constraints <- function(df, df_prepped, params = c("a1", "d")) {
+  constraints <- df |> pull(item_id) |> unique() |> map(\(item_id) {
+    # matched <- df_prepped |> colnames() |> str_detect(glue("^{item}{item_sep}")) |> which()
+    matched <- df_prepped |> colnames() |> keep(\(col) str_detect(col, glue("^{item_id}{item_sep}")))
+    if (length(matched) > 1) {
+      map_chr(params, \(p) glue("({paste_c(matched)}, {p})")) |> paste_c()
+    }
+  }) |> compact() |> paste_c()
+  
+  mod_str <- glue("F = 1-{ncol(df_prepped)}\nCONSTRAIN = {constraints}") |> as.character()
+  if (str_length(constraints) > 1) mod_str else "1"
+}
+
+# check for what tasks/items have multiple responses
+task_data_coded |>
+  group_by(user_id, run_id, task_id, item_id) |>
+  filter(n() > 1) |>
+  ungroup() |>
+  distinct(task_id, item_id)
+
+task_data_models <- task_data_prepped |>
+  mutate(model_str = map2_chr(data, data_prepped, generate_item_constraints)) |>
+  mutate(guess = map(data_filtered, \(df) df |> distinct(item_inst, chance) |> pull(chance))) # TODO: check that this gives correct order
+```
+
+### Fit models
+
+```{r fit-rasch-model}
+set.seed(1234)
+
+model_types <- c("Rasch", "2PL") #, "3PL")
+
+fit_mirt <- function(df, item_type, task_id, guess = 0) {
+  message(glue("fitting {item_type} model for {task_id}"))
+  mirt(df, itemtype = item_type, verbose = TRUE, guess = guess,
+       technical = list(NCYCLES = 2000))
+}
+
+mirt_coefs <- function(mod) {
+  coef(mod, simplify = TRUE)$items |> as_tibble(rownames = "item")
+}
+
+mirt_scores <- function(mod, df, df_prepped) {
+  scores <- fscores(mod, method = "MAP", verbose = FALSE)
+  user_scores <- tibble(user_id = rownames(df_prepped),
+                        ability = scores[,1]) # TODO: check this gives correct order
+  df |> left_join(user_scores) |> select(-task_id)
+}
+
+mirt_aic <- function(mod) mod@Fit$AIC
+
+task_fits <- task_data_models |>
+  filter(task_id != "same-different-selection") |> # TODO: model having problems
+  expand_grid(item_type = model_types) |>
+  mutate(mod = pmap(list(data_prepped, item_type, task_id, guess), fit_mirt))
+
+task_results <- task_fits |>
+  mutate(coefs = map(mod, mirt_coefs),
+         scores = pmap(list(mod, data_filtered, data_prepped), mirt_scores),
+         aic = map_dbl(mod, mirt_aic))
+
+task_best <- task_results |>
+  group_by(task_id) |>
+  filter(aic == min(aic)) |>
+  ungroup() |>
+  select(task_id, item_type, coefs, scores)
+
+task_scores <- task_best |>
+  select(task_id, item_type, scores) |>
+  unnest(scores) |>
+  mutate(item_type = fct_recode(item_type, "1PL" = "Rasch"),
+         score_type = glue("ability ({item_type})")) |>
+  select(task = task_id, user_id, age, score_type, score = ability)
+
+write_rds(task_scores, here("assessment/colombia/stage2/scores/combined_scores.rds"))
+```

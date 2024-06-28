@@ -20,13 +20,13 @@ participant_summary <- trials_coded |>
   left_join(participants) |>
   group_by(task) |>
   mutate(n = n(),
-         n_age = length(discard(age, is.na)),
+         # n_age = length(discard(age, is.na)),
          task_label = glue("{task}\n(n = {n})"),
-         task_label_age = glue("{task}\n(n = {n_age})"),
+         # task_label_age = glue("{task}\n(n = {n_age})"),
          prop_trials = trials / max(trials)) |>
   ungroup() |>
   mutate(task_label = fct_inorder(task_label),
-         task_label_age = fct_inorder(task_label_age),
+         # task_label_age = fct_inorder(task_label_age),
          is_zero = prop_correct == 0)
 ```
 
@@ -145,8 +145,10 @@ high_correct |> count(task, sort = TRUE)
 Combine all task scores into one plot!
 
 ```{r}
+# TODO: add age computations to non-IRT tasks
 score_list <- map(list.files("scores", full.names = TRUE), read_rds)
-exclude_tasks <- c("hostile-attribution", "pa-es")
+# exclude_tasks <- c("hostile-attribution", "pa-es")
+# score_list <- read_rds("scores/combined_scores.rds")
 
 task_categories <- tribble(
   ~task, ~task_category,
@@ -167,8 +169,9 @@ task_categories <- tribble(
 
 scores <- score_list |>
   bind_rows() |>
-  filter(!(task %in% exclude_tasks)) |>
-  left_join(participants |> select(user_id, age)) |>
+  # filter(!(task %in% exclude_tasks)) |>
+  # left_join(participants |> select(user_id, age)) |>
+  left_join(participants) |>
   filter(!is.na(age), age >= 5, age <= 12) |>
   group_by(task) |>
   mutate(n = n_distinct(user_id), task_label = glue("{task}\n(n = {n})")) |>
