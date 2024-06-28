@@ -6,8 +6,8 @@ format: html
 library(ltm)
 library(googlesheets4)
 
-source("_setup.R")
-source("_data_loading_functions.R")
+source(here::here("assessment/colombia/stage2/_setup.R"))
+source(here::here("assessment/colombia/stage2/_data_loading_functions.R"))
 ```
 
 ```{r datasets}
@@ -78,7 +78,7 @@ survey_data <- survey_vars |>
   select(-reverse_coded, -values) |>
   filter(!is.na(value))
 
-survey_data |> count(value)
+# write_rds(survey_data, "data/child_survey_data.rds")
 
 ggplot(survey_data, aes(x = value, y = variable)) +
   facet_wrap(vars(form_construct), scales = "free") +
