@@ -1,7 +1,10 @@
+library(tidyverse)
+source("MinBlur.R")
+
 # list of each variable's marginal distribution over its values, has structure:
-vars_dist <- list(
-  var = list(vals = c(), prob = c()),
-)
+# vars_dist <- list(
+#   var = list(vals = c(), prob = c()),
+# )
 
 # marginal distributions list for paper example "case 2"
 vars_case2 <- list(
@@ -34,7 +37,7 @@ minblur_sim <- \(vars_dist, n_pop, n_samp, k) {
 }
 
 # get an idea of empirical distributions of birth month/year
-participants <- read_rds("data_processed/participants.rds")
+participants <- read_rds("../assessment/colombia/stage2/data_processed/participants.rds")
 months <- participants |> filter(!is.na(birth_year), !is.na(birth_month)) |> pull(birth_month) |> table()
 years <- participants |> filter(!is.na(birth_year), !is.na(birth_month)) |> pull(birth_year) |> table()
 
@@ -55,3 +58,4 @@ vars_dist_co <- list(
 
 vars_sample(vars_dist_co, 100)
 minblur_co <- minblur_sim(vars_dist_co, n_pop = 1000000, n_samp = 1000, k = 3)
+as_tibble(minblur_co$K_Anon)
