@@ -8,8 +8,10 @@ source("_data_loading_functions.R")
 ```
 
 ```{r datasets}
-dataset_names <- c("columbia_pilot_0523_0529:f068:v2_1", # 612 users, user_type="guest", assessment_uid non-null; only 209 with trials
-                   "columbia-pilot-0528-0618") # 4847 users
+#dataset_names <- c("columbia_pilot_0523_0529:f068:v2_1", # 612 users, user_type="guest", assessment_uid non-null; only 209 with trials
+#                   "columbia-pilot-0528-0618") # 4847 users
+
+dataset_names <- c("CO-pilot-plus-Guest")
 
 dataset_tables <- get_datasets(dataset_names)
 dataset_data <- combine_datasets(dataset_tables)
@@ -38,15 +40,23 @@ participants <- users |>
          birth_year = as.numeric(birth_year),
          birth_year_original = birth_year,
          valid_birth_year = !is.na(birth_year) & birth_year > 2005 & birth_year < 2023,
-         birth_year = if_else(valid_birth_year, birth_year, NA)) |>
-  select(user_id, assessment_pid, group_name = name, birth_month, birth_year,
-         birth_year_original, valid_birth_year) |>
+         birth_year = if_else(valid_birth_year, birth_year, NA),
+         date_last_updated = ymd_hms(last_updated)) |>
+  select(user_id, assessment_pid, group_name = name, birth_month, birth_year, # what about assessment_uid ?
+         date_last_updated, birth_year_original, valid_birth_year, grade) |>
   distinct() |>
   mutate(dob = ym(paste(birth_year, birth_month, sep = "-")),
-         age = as.numeric(difftime(today(), dob, units = "days")) / 365.25) # TODO: age should be based on admin date (last_modified)
+         age = as.numeric(difftime(date_last_updated, dob, units = "days")) / 365.25)
+
+table(participants$valid_birth_year) # 894 with birthdays; 1200 without
+table(participants$grade) # 502 participants
+#   0   1   2   3   4   5   6 
+#  56  68 112  85  59  53  69 
 
 invalid_users <- participants |>
   filter(!is.na(birth_year_original), !valid_birth_year)
+table(invalid_users$grade)
+# 25 of these have grade..could keep
 ```
 
 ```{r runs}
@@ -64,10 +74,10 @@ trials_ids |> count(user_id, run_id, trial_id) |> filter(n > 1)
 
 # code and remove practice trials
 trials_filtered <- trials_ids |>
-  mutate(practice = is_practice | assessment_stage == "practice_response" |
+  mutate(practice = is_practice_trial | assessment_stage == "practice_response" |
            str_detect(corpus_trial_type, "training")) |>
   filter(is.na(practice) | !practice) |>
-  select(-practice, -is_practice)
+  select(-practice, -is_practice_trial)
 
 # code info on tasks, subtasks, task groups
 roar_tasks <- c("letter", "pa", "pa-es", "sre", "sre-es", "swr", "swr-es", "vocab")
@@ -82,7 +92,7 @@ trials_tasks <- trials_filtered |>
   )) |>
   mutate(corpus_trial_type = if_else(
     task_group == "EGMA" & is.na(corpus_trial_type) & !is.na(item),
-    if_else(is.na(distract_options) | distract_options == "{}", "number line slider", "number line 4afc"),
+    if_else(is.na(distractors) | distractors == "{}", "number line slider", "number line 4afc"),
     corpus_trial_type),
          corpus_trial_type = str_to_lower(corpus_trial_type)) |>
   mutate(subtask = case_when(
