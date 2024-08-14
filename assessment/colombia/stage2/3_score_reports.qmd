@@ -11,7 +11,7 @@ participants <- read_rds("data_processed/participants.rds") |>
   mutate(school = group_name |> gsub(pattern="Coleg", replacement="Col") |> str_extract("Col.") |> substring(4))
 
 # Number of participants missing group name
-nrow(participants |> filter(is.na(group_name))) # 1400
+nrow(participants |> filter(is.na(group_name))) # 367 (down from 1400)
 ```
 
 # Load all scores

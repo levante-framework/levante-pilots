@@ -18,19 +18,19 @@ irt_tasks <- c("egma-math",
 # setdiff(trials_coded$task_id, irt_tasks)
 
 task_data <- trials_coded |>
-  # only relevant tasks + not missing item + has response or is_correct
+  # only relevant tasks + not missing item + has response or correct
   filter(task_id %in% irt_tasks,
          !is.na(item),
-         !is.na(response) | !is.na(is_correct)) |>
+         !is.na(response) | !is.na(correct)) |>
   # chronological order
   arrange(user_id, run_id, server_timestamp) |>
   # curly braces in items cause regex problems
   mutate(item = item |> str_remove_all("[\\{\\}]")) |>
   # compute number of distractors + chance level
-  mutate(distractors = distract_options |> str_count(":") |> na_if(0),
+  mutate(distractors = distractors |> str_count(":") |> na_if(0),
          chance = 1 / (distractors + 1)) |>
   select(matches("_id"), age, corpus_trial_type, assessment_stage, item,
-         expected_answer, chance, response, is_correct, rt, server_timestamp)
+         answer, chance, response, correct, rt, server_timestamp)
 
 # same-different-selection needs special processing to identify items
 sds <- task_data |>
@@ -99,13 +99,13 @@ egma <- task_data |>
                         str_extract(item, "\\d+$"),
                         item)) |>
   # item_id = "[subtask] [item] [answer]"
-  mutate(item_id = paste(corpus_trial_type, item, expected_answer))
+  mutate(item_id = paste(corpus_trial_type, item, answer))
 
 # score just number line trials
 threshold <- 0.15
 numberline <- egma |>
   filter(corpus_trial_type == "line_slid") |>
-  mutate(is_correct = pmap_lgl(list(item, expected_answer, response), \(item, answer, response) {
+  mutate(correct = pmap_lgl(list(item, answer, response), \(item, answer, response) {
     # get slider max from item ("{'0': 0, '1': [max_value]}")
     max_value <- as.numeric(str_extract(item, "\\d+$"))
     # get distance b/w response & answer, scale to max, compare to threshold
@@ -134,9 +134,9 @@ tom <- task_data |>
          # item_id = if_else(n == 1, item_id, paste(item_id, i))) |>
   select(-i, -n) |>
   left_join(hostile_values) |>
-  mutate(is_correct = if_else(task_id == "hostile-attribution",
+  mutate(correct = if_else(task_id == "hostile-attribution",
                               value %in% c("purpose", "hostile"),
-                              is_correct)) |>
+                              correct)) |>
   select(-value)
 
 task_data_coded <- task_data |>
@@ -147,7 +147,7 @@ task_data_coded <- task_data |>
   mutate(item_id = if_else(!is.na(item_id), item_id, item)) |>
   # hyphens in item names mess up mirt constraints (yes really)
   mutate(item_id = item_id |> str_replace_all("-", "_")) |>
-  select(matches("id"), age, corpus_trial_type, item_id, chance, is_correct, rt, server_timestamp)
+  select(matches("id"), age, corpus_trial_type, item_id, chance, correct, rt, server_timestamp)
 
 # identify too slow/fast RTs
 # TODO: check min/max values + why are some RTs NA
@@ -200,7 +200,7 @@ dedupe_items <- function(df) {
 remove_no_var_items <- function(df) {
   df |>
     group_by(item_inst) |>
-    mutate(item_mean = mean(is_correct, na.rm = TRUE)) |> # item means
+    mutate(item_mean = mean(correct, na.rm = TRUE)) |> # item means
     ungroup() |>
     filter(item_mean > 0, item_mean < 1) # need to be between 0 and 1
 }
@@ -208,9 +208,9 @@ remove_no_var_items <- function(df) {
 # format data for mirt
 to_mirt_shape <- function(df) {
   df |>
-    mutate(is_correct = as.numeric(is_correct)) |> # values to numeric
-    select(user_id, item_inst, is_correct) |>
-    pivot_wider(names_from = "item_inst", values_from = "is_correct") |> # column for each item
+    mutate(correct = as.numeric(correct)) |> # values to numeric
+    select(user_id, item_inst, correct) |>
+    pivot_wider(names_from = "item_inst", values_from = "correct") |> # column for each item
     column_to_rownames("user_id") # user_id to rownames
 }
 
@@ -295,19 +295,23 @@ mirt_scores <- function(mod, df, df_prepped) {
 mirt_aic <- function(mod) mod@Fit$AIC
 
 # some manual debugging stuff
-# eg <- task_data_prepped |> filter(task_id == "egma-math") |> pull(data_filtered) |> pluck(1)
-# ggplot(eg, aes(x = item_mean)) +
-#   facet_wrap(vars(corpus_trial_type), scales = "free") +
-#   geom_density()
+eg <- task_data_prepped |> filter(task_id == "egma-math") |> pull(data_filtered) |> pluck(1)
+ggplot(eg, aes(x = item_mean)) +
+  facet_wrap(vars(corpus_trial_type), scales = "free") +
+  geom_density()
 # tdp <- task_data_args |> slice(9)
-# # tdp <- task_data_args |> filter(task_id == "egma-math")
-# dp <- tdp$data_prepped[[1]]
-# fm <- fit_mirt(dp, tdp$item_type[[1]], tdp$model_str[[1]],  tdp$model_type[[1]], tdp$task_id[[1]], tdp$guess[[1]])
+tdp <- task_data_args |> filter(task_id == "egma-math")
+dp <- tdp$data_prepped[[1]]
+fm <- fit_mirt(dp, tdp$item_type[[1]], tdp$model_str[[1]],  tdp$model_type[[1]], tdp$task_id[[1]], tdp$guess[[1]])
 
 # fit all the models!
 task_models <- task_data_args |>
   mutate(mod = pmap(list(data_prepped, item_type, model_str, model_type,
                          task_id, guess), fit_mirt))
+# error fitting Rasch for egma-math:
+# Error in `mutate()`: In argument: `mod = pmap(...)`.
+# Caused by error in `pmap()`: In index: 17.
+# Caused by error: ! Number of items selected not equal to number of parameter names
 
 # get each model's coefs, scores, AIC
 task_results <- task_models |>
