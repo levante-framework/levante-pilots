@@ -28,7 +28,6 @@ time_summary <- trials_coded |>
   mutate(task_label = glue("{task}\n(n = {n()})")) |>
   ungroup() |>
   mutate(task_label = fct_inorder(task_label)) |>
-  # left_join(prop_trials) |>
   left_join(participants)
 # }
 # time_summary <- get_time_summary(trials_coded)
@@ -58,21 +57,22 @@ ggplot(time_summary, aes(x = age, y = diff)) +
         strip.text = element_text(size = 8))
 ggsave("plots/times/durations_age.png", width = 9, height = 8)
 
-ggplot(time_summary, aes(x = prop_trials, y = diff)) +
-  facet_wrap(vars(task_label), nrow = 2) +
-  # geom_smooth(method = "lm", colour = "darkgrey") +
-  geom_point(aes(colour = task_group), alpha = 0.8) +
-  scale_colour_ptol() +
-  labs(x = "Proportion trials completed", y = "Duration (minutes)") +
-  guides(colour = "none") +
-  theme(legend.position = "bottom",
-        strip.text = element_text(size = 8))
+time_summary |> left_join(prop_trials) |>
+  ggplot(aes(x = prop_trials, y = diff)) +
+    facet_wrap(vars(task_label), nrow = 3) +
+    geom_smooth(method = "lm", colour = "darkgrey") +
+    geom_point(aes(colour = task_group), alpha = 0.8) +
+    scale_colour_ptol() +
+    labs(x = "Proportion trials completed", y = "Duration (minutes)") +
+    guides(colour = "none") +
+    theme(legend.position = "bottom",
+          strip.text = element_text(size = 8))
 ggsave("plots/durations_completed.png", width = 12, height = 5.5)
 ```
 
 
 ```{r}
-trial_times <- trials_ids |>
+trial_times <- trials |>
   filter(!is.na(pid)) |>
   # mutate(task = fct_inorder(task)) |>
   # arrange(user_id, run_id, task, trial_index) |>

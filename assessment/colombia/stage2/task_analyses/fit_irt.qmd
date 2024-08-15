@@ -260,19 +260,23 @@ mirt_scores <- function(mod, df, df_prepped) {
 mirt_aic <- function(mod) mod@Fit$AIC
 
 # some manual debugging stuff
-# eg <- task_data_prepped |> filter(task_id == "egma-math") |> pull(data_filtered) |> pluck(1)
-# ggplot(eg, aes(x = item_mean)) +
-#   facet_wrap(vars(corpus_trial_type), scales = "free") +
-#   geom_density()
+eg <- task_data_prepped |> filter(task_id == "egma-math") |> pull(data_filtered) |> pluck(1)
+ggplot(eg, aes(x = item_mean)) +
+  facet_wrap(vars(corpus_trial_type), scales = "free") +
+  geom_density()
 # tdp <- task_data_args |> slice(9)
-# # tdp <- task_data_args |> filter(task_id == "egma-math")
-# dp <- tdp$data_prepped[[1]]
-# fm <- fit_mirt(dp, tdp$item_type[[1]], tdp$model_str[[1]],  tdp$model_type[[1]], tdp$task_id[[1]], tdp$guess[[1]])
+tdp <- task_data_args |> filter(task_id == "egma-math")
+dp <- tdp$data_prepped[[1]]
+fm <- fit_mirt(dp, tdp$item_type[[1]], tdp$model_str[[1]],  tdp$model_type[[1]], tdp$task_id[[1]], tdp$guess[[1]])
 
 # fit all the models!
 task_models <- task_data_args |>
   mutate(mod = pmap(list(data_prepped, item_type, model_str, model_type,
                          task_id, guess), fit_mirt))
+# error fitting Rasch for egma-math:
+# Error in `mutate()`: In argument: `mod = pmap(...)`.
+# Caused by error in `pmap()`: In index: 17.
+# Caused by error: ! Number of items selected not equal to number of parameter names
 
 # get each model's coefs, scores, AIC
 task_results <- task_models |>

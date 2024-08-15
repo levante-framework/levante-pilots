@@ -32,7 +32,7 @@ participant_summary <- trials_coded |>
 
 Plot correctness distribution by task
 
-```{r}
+```{r, fig.width=9, fig.height=6}
 ggplot(participant_summary, aes(x = "", y = prop_correct)) +
   facet_wrap(vars(task_label), nrow = 3) +
   geom_sina(aes(colour = task_group, size = prop_trials), alpha = 0.8) +
@@ -51,7 +51,7 @@ ggsave("plots/subject_correct.png", width = 14, height = 9)
 
 Plot zero proportion distribution by task
 
-```{r}
+```{r, fig.width=9, fig.height=6}
 ggplot(participant_summary, 
        aes(x = prop_correct, fill = is_zero)) +
   facet_wrap(vars(task_label), nrow = 3) +
@@ -83,9 +83,9 @@ ggsave("plots/subject_completed.png", width = 14, height = 8)
 
 Plot correctness over age by task
 
-```{r}
+```{r, fig.width=9, fig.height=7}
 ggplot(participant_summary |> filter(!is.na(age)), aes(x = age, y = prop_correct)) +
-  facet_wrap(vars(task_label_age), nrow = 3) +
+  facet_wrap(vars(task_label), nrow = 3) + 
   geom_smooth(method = "lm", colour = "darkgrey") +
   geom_point(aes(colour = task_group, size = prop_trials), alpha = 0.8) +
   scale_y_continuous(limits = c(0, 1)) +
@@ -102,9 +102,9 @@ ggsave("plots/subject_correct_age.png", width = 14, height = 9)
 
 Plot completeness over age by task
 
-```{r}
+```{r, fig.width=9, fig.height=7}
 ggplot(participant_summary |> filter(!is.na(age)), aes(x = age, y = prop_trials)) +
-  facet_wrap(vars(task_label_age), nrow = 3) +
+  facet_wrap(vars(task_label), nrow = 3) +
   geom_smooth(method = "lm", colour = "darkgrey") +
   geom_point(aes(colour = task_group), alpha = 0.8) +
   scale_y_continuous(limits = c(0, 1)) +
@@ -118,15 +118,15 @@ ggsave("plots/subject_completed_age.png", width = 14, height = 8)
 ```{r}
 trials_items <- trials_coded |>
   filter(!is.na(item)) |>
-  group_by(task, item, expected_answer) |>
+  group_by(task, item, answer) |>
   mutate(item_id = cur_group_id())
 
 # get by-item summaries
 item_summary <- trials_items |>
-  group_by(task_group, task, item_id, item, expected_answer) |>
+  group_by(task_group, task, item_id, item, answer) |>
   summarise(subjects = n_distinct(user_id),
             trials = n(),
-            num_correct = sum(is_correct, na.rm = TRUE),
+            num_correct = sum(correct, na.rm = TRUE),
             prop_correct = num_correct / trials) |>
   ungroup()
 
@@ -135,7 +135,7 @@ item_summary |> count(task)
 # items with very high correctness
 high_correct <- item_summary |>
   filter(prop_correct >= 0.95) |>
-  select(task, item_id, item, expected_answer, trials, prop_correct) |>
+  select(task, item_id, item, answer, trials, prop_correct) |>
   arrange(task, desc(prop_correct))
 
 high_correct |> count(task, sort = TRUE)
@@ -180,8 +180,8 @@ scores <- score_list |>
   left_join(task_categories) |>
   mutate(score_type = score_type |> str_remove(" \\(.*\\)"))
 
-task_categories <- levels(scores$task_category)
-task_pal <- ptol_pal()(length(task_categories)) |> set_names(task_categories)
+task_categories_vec <- levels(scores$task_category)
+task_pal <- ptol_pal()(length(task_categories_vec)) |> set_names(task_categories_vec)
 
 ggplot(scores |> filter(!is.na(age)), aes(x = age, y = score)) +
   ggh4x::facet_nested_wrap(vars(task_category, task_label), nrow = 2,
