@@ -14,15 +14,15 @@ participants <- read_rds("data_processed/participants.rds")
 participant_summary <- trials_coded |>
   group_by(task_group, task, user_id, run_id) |>
   summarise(trials = n(),
-            num_correct = sum(is_correct, na.rm = TRUE),
+            num_correct = sum(correct, na.rm = TRUE),
             prop_correct = num_correct / trials) |>
   ungroup() |>
   left_join(participants) |>
   group_by(task) |>
   mutate(n = n(),
-         # n_age = length(discard(age, is.na)),
+         n_age = length(discard(age, is.na)),
          task_label = glue("{task}\n(n = {n})"),
-         # task_label_age = glue("{task}\n(n = {n_age})"),
+         task_label_age = glue("{task}\n(n = {n_age})"),
          prop_trials = trials / max(trials)) |>
   ungroup() |>
   mutate(task_label = fct_inorder(task_label),
@@ -169,6 +169,7 @@ task_categories <- tribble(
 
 scores <- score_list |>
   bind_rows() |>
+  select(-age) |> # remove ages that have come along for the ride and are not directly computed in participants
   # filter(!(task %in% exclude_tasks)) |>
   # left_join(participants |> select(user_id, age)) |>
   left_join(participants) |>

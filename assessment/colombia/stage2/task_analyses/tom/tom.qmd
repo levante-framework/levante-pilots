@@ -1,0 +1,63 @@
+
+```{r load-data}
+source(here::here("assessment/colombia/stage2/_setup.R"))
+
+tom <- read_rds(file = here("assessment","colombia","stage2","task_analyses","data","tom_data.rds"))
+```
+
+Note that our ToM data structure probably needs some work.
+
+```{r}
+tom |>
+  select(assessment_stage, corpus_trial_type) |>
+  distinct()
+  
+```
+
+
+Compute sumscores, removing the irrelevant questions.
+
+```{r}
+tom_sumscores <- tom |> 
+  group_by(user_id, assessment_stage, corpus_trial_type, age) |>
+  filter(!(assessment_stage == "hostile-attribution" & 
+  summarise(correct = mean(correct)) 
+
+ggplot(tom_sumscores, aes(x = age, y = correct)) + 
+  geom_point(alpha = .5) + 
+  geom_smooth() +
+  ylim(0,1) + 
+  facet_wrap(~interaction(corpus_trial_type,assessment_stage))
+  
+```
+
+```{r}
+tom_sumscores |> 
+  pivot_wider(names_from = "corpus_trial_type", values_from = "correct") |>
+  ungroup() |>
+  select(age, emotion_reasoning_question, false_belief_question, reality_check_question) |>
+  GGally::ggpairs( lower = list(continuous = GGally::wrap("points", alpha = 0.3)))
+  
+  # ggplot(aes(x = age, y = correct)) + 
+  # geom_point(alpha = .5) + 
+  # geom_smooth() +
+  # ylim(0,1) + 
+  # facet_wrap(~corpus_trial_type)
+
+```
+
+
+
+
+# MIRT
+
+```{r}
+source(here("assessment","colombia","stage2","irt_helpers.R"))
+
+tom_mirt  <- tom |> 
+  filter_repeat_runs() |>
+  dedupe_items() |> 
+  remove_no_var_items() |>
+  to_mirt_shape()
+```
+
