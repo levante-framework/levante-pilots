@@ -27,11 +27,32 @@ egma |>
 ```
 
 
-Compute sumscores, remove irrelevant questions.
+Compute sumscores, create abbreviations and unique item_id.
 
 ```{r}
 egma_cleaned <- egma |>
-  filter(!is.na(corpus_trial_type), !is.na(age))
+  filter(!is.na(corpus_trial_type), !is.na(age)) |>
+  mutate(task_abbrev = case_when(
+    corpus_trial_type == "number identification" ~ "ident",
+    corpus_trial_type == "number comparison" ~ "comp",
+    corpus_trial_type == "missing number" ~ "seq",
+    corpus_trial_type == "addition" ~ "add",
+    corpus_trial_type == "subtraction" ~ "sub",
+    corpus_trial_type == "number line 4afc" ~ "line2num",
+    corpus_trial_type == "multiplication" ~ "mult",
+    corpus_trial_type == "number line slider" ~ "num2line",
+    corpus_trial_type == "fraction" ~ "frac",
+    TRUE ~ NA_character_ 
+  )) 
+  # item_id = paste(task_abbrev,item,answer), # <- need a unique item id
+
+
+math_items <- egma_cleaned |> select(corpus_trial_type, item, answer) |>
+  distinct() |>
+  mutate(item_id = paste("item",1:n(),sep='_'))
+
+egma_cleaned <- egma_cleaned |>
+  left_join(math_items)
 ```
 
 ```{r, warning=F, message=F}
@@ -46,11 +67,11 @@ ggplot(egma_sumscores, aes(x = age, y = correct)) +
   facet_wrap(.~corpus_trial_type)
 ```
 
-```{r, message=F, warning=F}
+```{r, fig.width=10, fig.height=10, message=F, warning=F}
 egma_sumscores |>
   ungroup() |>
   pivot_wider(names_from = "corpus_trial_type", values_from = "correct") |>
-  select(age, addition, `missing number`, multiplication, `number comparison`, `number line 4afc`) |>
+  select(age, addition, `missing number`, multiplication, `number comparison`, `number line 4afc`, `number line slider`) |>
   GGally::ggpairs( lower = list(continuous = GGally::wrap("points", alpha = 0.3)))
   
   # ggplot(aes(x = age, y = correct)) + 
@@ -68,9 +89,8 @@ egma_sumscores |>
 ```{r}
 source(here("assessment","colombia","stage2","irt_helpers.R"))
 
-task_data_coded <- egma_cleaned |>
-  mutate(item_id = paste(item,answer, sep=':'),
-         chance = ifelse(corpus_trial_type=="number line slider", NUMBERLINE_TOLERANCE*2, .25)) |>
+task_data_coded <- egma_cleaned |> 
+  mutate(chance = ifelse(corpus_trial_type=="number line slider", NUMBERLINE_TOLERANCE*2, .25)) |>
   mutate(item_id = item_id |> str_replace_all("-", "_")) |>
   select(matches("id"), age, corpus_trial_type, item_id, chance, correct, rt, server_timestamp)
 
@@ -96,7 +116,7 @@ task_data_prepped <- task_data_nested |>
 
 Let's start by just fitting our general set of models. 
 
-```{r}
+```{r, message=F}
 item_types <- c("Rasch", "2PL") #, "3PL") # set of parameterizations
 model_types <- c(1, 2) # set of dimensionalities
 
@@ -114,7 +134,6 @@ task_data_args <- task_data_prepped |>
 task_models <- task_data_args |>
   mutate(mod = pmap(list(data_prepped, item_type, model_str, model_type,
                          task_id, guess), fit_mirt))
-
 ```
 Now let's take a look!
 
@@ -132,25 +151,25 @@ task_best <- task_results |>
   ungroup() |>
   select(task_id, item_type, model_type, coefs, scores)
 
-# scores from best fitting models
+# scores from best fitting model
 task_scores <- task_best |>
   select(task_id, item_type, scores) |>
   unnest(scores) |>
-  mutate(item_type = fct_recode(item_type, "1PL" = "Rasch"),
-         score_type = glue("ability ({item_type})")) |>
+  mutate(score_type = glue("ability ({item_type})")) |>
   select(task = task_id, user_id, age, score_type, score = ability)
 ```
 
 ## 2PL 
 
 ```{r}
-egma_items <- task_data_coded |>
-  select(corpus_trial_type, item_id) |> # answer
+egma_items <- egma_cleaned |>
+  select(corpus_trial_type, item_id, item, answer) |> # answer
   distinct()
 
 egma_coefs <- task_best$coefs[[1]] |>
-  mutate(item = str_sub(item, 1, -3)) |>
-  left_join(tom_items)
+  mutate(item_id = str_sub(item, 1, -3)) |>
+  select(-item) |>
+  left_join(egma_items)
 
 ggplot(egma_coefs |> 
            pivot_longer(a1:a2, names_to = "dim", values_to = "a"), 
@@ -171,8 +190,9 @@ egma_coefs |>
 
 ```{r}
 egma_coefs <- task_results$coefs[[2]] |>
-  mutate(item = str_sub(item, 1, -3)) |>
-  left_join(tom_items)
+  mutate(item_id = str_sub(item, 1, -3)) |>
+  select(-item) |>
+  left_join(egma_items)
 
 ggplot(egma_coefs, 
        aes(x = -d, y = a1, col = corpus_trial_type)) + 
@@ -180,5 +200,13 @@ ggplot(egma_coefs,
   ggrepel::geom_label_repel(aes(label = item), size =2) + 
   xlab("Difficulty") + 
   ylab("Discrimination")
+```
+
+
+```{r}
+task_scores |>
+  ggplot(aes(x=age, y=score)) +
+  geom_point() + theme_classic() +
+  geom_smooth()
 ```
 
