@@ -89,3 +89,6 @@ mirt_scores <- function(mod, df, df_prepped) {
 
 # get AIC of fitted mirt model
 mirt_aic <- function(mod) mod@Fit$AIC
+
+# get AIC of fitted mirt model
+mirt_bic <- function(mod) mod@Fit$BIC
