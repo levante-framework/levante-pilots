@@ -232,16 +232,16 @@ task_models <- task_data_args |>
 # Caused by error in `pmap()`: In index: 17.
 # Caused by error: ! Number of items selected not equal to number of parameter names
 
-# get each model's coefs, scores, AIC
+# get each model's coefs, scores, BIC
 task_results <- task_models |>
   mutate(coefs = map(mod, mirt_coefs),
          scores = pmap(list(mod, data_filtered, data_prepped), mirt_scores),
-         aic = map_dbl(mod, mirt_aic))
+         bic = map_dbl(mod, mirt_bic))
 
 # best fitting model for each task
 task_best <- task_results |>
   group_by(task_id) |>
-  filter(aic == min(aic)) |>
+  filter(bic == min(bic)) |>
   ungroup() |>
   select(task_id, item_type, model_type, coefs, scores)
 
