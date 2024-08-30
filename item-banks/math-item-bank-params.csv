@@ -1,0 +1,211 @@
+source,block_index,task,trial_type,difficulty,audio_file,prompt,orig_item_num,item,time_limit,answer,notes,response_alternatives,assessment_stage,chance_level,item_id,corpus_trial_type,d
+EGMA,0,math,instructions,NA,math-instructions1,We are going to play some counting games and some number games. Are you ready?,NA,NA,NA,NA,NA,NA,instructions,NA,NA,NA,NA
+EGMA,1,math,Number Identification,-2.5,number-identification-1,Choose the number you hear.,0,1,5000,1,practice,"3,6,9",practice_response,0.25,num-ident-1,NA,NA
+EGMA,1,math,Number Identification,-2.5,number-identification-2,Choose the number you hear.,1,2,5000,2,NA,"5,4,7",test_response,0.25,num-ident-2,number identification,-4.06457271096837
+EGMA,1,math,Number Identification,-2.5,number-identification-3,Choose the number you hear.,2,9,5000,9,NA,"0,8,3",test_response,0.25,num-ident-9,number identification,-2.82121494220776
+EGMA,1,math,Number Identification,-2.5,number-identification-4,Choose the number you hear.,3,0,5000,0,NA,"1,9,10",test_response,0.25,num-ident-0,number identification,-3.766049204567237
+EGMA,1,math,Number Identification,-2.5,number-identification-5,Choose the number you hear.,4,12,5000,12,NA,"6,11,21",test_response,0.25,num-ident-12,number identification,-2.7988291702545753
+EGMA,1,math,Number Identification,-2.5,number-identification-6,Choose the number you hear.,5,30,5000,30,NA,"20,60,13",test_response,0.25,num-ident-30,number identification,-3.010847313024019
+EGMA,1,math,Number Identification,-2.5,number-identification-7,Choose the number you hear.,6,22,5000,22,NA,"44,52,20",test_response,0.25,num-ident-22,number identification,-2.89730954002974
+EGMA,1,math,Number Identification,-2.5,number-identification-8,Choose the number you hear.,7,45,5000,45,NA,"65,54,40",test_response,0.25,num-ident-45,number identification,-2.2110768249101214
+EGMA,1,math,Number Identification,-2.5,number-identification-9,Choose the number you hear.,8,39,5000,39,NA,"29,38,79",test_response,0.25,num-ident-39,number identification,-2.721685427491621
+EGMA,1,math,Number Identification,-2.5,number-identification-10,Choose the number you hear.,9,23,5000,23,NA,"32,21,43",test_response,0.25,num-ident-23,number identification,-2.859608017233039
+EGMA,1,math,Number Identification,-2.5,number-identification-11,Choose the number you hear.,10,48,5000,48,NA,"58,40,84",test_response,0.25,num-ident-48,number identification,-2.557103616427863
+EGMA,1,math,Number Identification,-2.5,number-identification-12,Choose the number you hear.,11,91,5000,91,NA,"71,1,90",test_response,0.25,num-ident-91,number identification,-2.3216868505968726
+EGMA,1,math,Number Identification,-2.5,number-identification-13,Choose the number you hear.,12,33,5000,33,NA,"30,43,23",test_response,0.25,num-ident-33,number identification,-2.8414227258500686
+EGMA,1,math,Number Identification,-2.5,number-identification-14,Choose the number you hear.,13,74,5000,74,NA,"79,68,84",test_response,0.25,num-ident-74,number identification,-2.494895597898196
+EGMA,1,math,Number Identification,-2.5,number-identification-15,Choose the number you hear.,14,87,5000,87,NA,"67,78,77",test_response,0.25,num-ident-87,number identification,-2.2889078770550064
+EGMA,1,math,Number Identification,-2.5,number-identification-16,Choose the number you hear.,15,65,5000,65,NA,"60,55,56",test_response,0.25,num-ident-65,number identification,-2.2014591142192717
+EGMA,1,math,Number Identification,-2,number-identification-17,Choose the number you hear.,16,108,5000,108,NA,"109,100,8",test_response,0.25,num-ident-108,number identification,-3.4717000560168363
+EGMA,1,math,Number Identification,-2,number-identification-18,Choose the number you hear.,17,245,5000,245,NA,"250,205,240",test_response,0.25,num-ident-245,number identification,-2.00710545659012
+EGMA,1,math,Number Identification,-2,number-identification-19,Choose the number you hear.,18,587,5000,587,NA,"687,87,507",test_response,0.25,num-ident-587,number identification,-1.770147938224598
+EGMA,1,math,Number Identification,-2,number-identification-20,Choose the number you hear.,19,731,5000,731,NA,"703,31,730",test_response,0.25,num-ident-731,number identification,-2.2094967911140504
+EGMA,1,math,Number Identification,-2,number-identification-21,Choose the number you hear.,20,989,5000,989,NA,"982,89,980",test_response,0.25,num-ident-989,number identification,-2.302952882311034
+EGMA,2,math,Number Comparison,-2.5,number-comparison-prompt1,Which number is larger?,21,"8, 4",5000,8,practice,4,practice_response,0.5,num-comp-8,NA,NA
+EGMA,2,math,Number Comparison,-2.5,number-comparison-prompt1,Which number is larger?,22,"10, 12",5000,12,practice,10,practice_response,0.5,num-comp-12,NA,NA
+EGMA,2,math,Number Comparison,-2.5,number-comparison-prompt2,Which is larger?,23,"7, 5",5000,7,NA,5,NA,0.5,num-comp-7,number comparison,-2.8319526922672593
+EGMA,2,math,Number Comparison,-2.5,number-comparison-prompt2,Which is larger?,24,"11, 24",5000,24,NA,11,NA,0.5,num-comp-24,number comparison,-3.1333422060223044
+EGMA,2,math,Number Comparison,-2.5,number-comparison-prompt2,Which is larger?,25,"39, 23",5000,39,NA,23,NA,0.5,num-comp-39,number comparison,-3.7325592420822225
+EGMA,2,math,Number Comparison,-2.5,number-comparison-prompt2,Which is larger?,26,"58, 49",5000,58,NA,49,NA,0.5,num-comp-58,number comparison,-2.6170280269091677
+EGMA,2,math,Number Comparison,-2.5,number-comparison-prompt2,Which is larger?,27,"65, 67",5000,67,NA,65,NA,0.5,num-comp-67,number comparison,-2.9401954783885036
+EGMA,2,math,Number Comparison,-2.5,number-comparison-prompt2,Which is larger?,28,"94, 78",5000,94,NA,78,NA,0.5,num-comp-94,number comparison,-2.7396989331092745
+EGMA,2,math,Number Comparison,-2,number-comparison-prompt2,Which is larger?,29,"146, 153",5000,153,NA,146,NA,0.5,num-comp-153,number comparison,-2.3893292512015716
+EGMA,2,math,Number Comparison,-2,number-comparison-prompt2,Which is larger?,30,"287, 534",5000,534,NA,287,NA,0.5,num-comp-534,number comparison,-0.37117254338494754
+EGMA,2,math,Number Comparison,-2,number-comparison-prompt2,Which is larger?,31,"623, 632",5000,632,NA,623,NA,0.5,num-comp-632,number comparison,-2.1500539129074063
+EGMA,2,math,Number Comparison,-2,number-comparison-prompt2,Which is larger?,32,"867, 965",5000,965,NA,867,NA,0.5,num-comp-965,number comparison,-0.22816183042215407
+EGMA,4,math,Missing Number,-2,missing-number-prompt1,What number goes in the blank?,33,"1, 2, _, 4",5000,3,practice,"0,5,2",practice_response,0.25,missing-num-3,NA,NA
+EGMA,4,math,Missing Number,-2,missing-number-prompt2,What number goes here?,34,"5, 10, 15, _",5000,20,practice,"25,30,35",practice_response,0.25,missing-num-20,NA,NA
+EGMA,4,math,Missing Number,-2,missing-number-prompt2,What number goes here?,35,"5, 6, 7, _",5000,8,NA,"9,10,12",NA,0.25,missing-num-8by1,missing number,-1.883717961962371
+EGMA,4,math,Missing Number,-2,missing-number-prompt2,What number goes here?,36,"14, 15, _, 17",5000,16,NA,"18,20,19",NA,0.25,missing-num-16,missing number,-2.3505922755741144
+EGMA,4,math,Missing Number,-2,missing-number-prompt2,What number goes here?,37,"20, _, 40, 50",5000,30,NA,"10,60,35",NA,0.25,missing-num-30,missing number,-2.188715616558603
+EGMA,4,math,Missing Number,-2,missing-number-prompt2,What number goes here?,38,"_, 300, 400, 500",5000,200,NA,"100,150,600",NA,0.25,missing-num-200,missing number,-1.1098550501261457
+EGMA,4,math,Missing Number,-2,missing-number-prompt2,What number goes here?,39,"2, 4, 6, _",5000,8,NA,"9,10,7",NA,0.25,missing-num-8by2,missing number,-0.7061339703425425
+EGMA,4,math,Missing Number,-2,missing-number-prompt2,What number goes here?,40,"348, 349, _, 351",5000,350,NA,"347,346,352",NA,0.25,missing-num-350,missing number,-1.316599597390172
+EGMA,4,math,Missing Number,-2,missing-number-prompt2,What number goes here?,41,"28, _, 24, 22",5000,26,NA,"27,20,29",NA,0.25,missing-num-26,missing number,0.9688891991596168
+EGMA,4,math,Missing Number,-2,missing-number-prompt2,What number goes here?,42,"30, 35, _, 45",5000,40,NA,"50,25,55",NA,0.25,missing-num-40,missing number,-1.427776067623782
+EGMA,4,math,Missing Number,-2,missing-number-prompt2,What number goes here?,43,"550, 540, 530, _",5000,520,NA,"510,500,525",NA,0.25,missing-num-520,missing number,-0.9304156328737875
+EGMA,4,math,Missing Number,-2,missing-number-prompt2,What number goes here?,44,"3, 8, _, 18",5000,13,NA,"16,14,10",NA,0.25,missing-num-13,missing number,2.644993362510482
+George,5,math,Addition,-1.5,addition-prompt1,Add the numbers and choose the correct answer.,NA,1+1,5000,2,practice,"0,1,3",practice_response,0.25,1+1,NA,NA
+EGMA,5,math,Addition,-1.5,addition-prompt1,Add the numbers and choose the correct answer.,45,1+3,5000,4,NA,"5,6,2",NA,0.25,1+3,addition,-2.6919939320798583
+EGMA,5,math,Addition,-1.5,addition-prompt2,Add the numbers.,46,2+3,5000,5,NA,"7,6,4",NA,0.25,2+3,addition,-2.314128311708339
+EGMA,5,math,Addition,-1.5,addition-prompt2,Add the numbers.,47,6+2,5000,8,NA,"9,7,12",NA,0.25,6+2,addition,-1.9466014974785442
+EGMA,5,math,Addition,-1.5,addition-prompt2,Add the numbers.,48,4+5,5000,9,NA,"7,8,11",NA,0.25,4+5,addition,-2.225422249303248
+EGMA,5,math,Addition,-1.5,addition-prompt2,Add the numbers.,49,3+3,5000,6,NA,"4,7,8",NA,0.25,3+3,addition,-3.513055940288709
+EGMA,5,math,Addition,-1.5,addition-prompt2,Add the numbers.,50,8+1,5000,9,NA,"7,10,11",NA,0.25,8+1,addition,-3.4541647160616638
+EGMA,5,math,Addition,-1.5,addition-prompt2,Add the numbers.,51,7+3,5000,10,NA,"11,9,8",NA,0.25,7+3,addition,-2.1285844955052213
+EGMA,5,math,Addition,-1.5,addition-prompt2,Add the numbers.,52,3+9,5000,12,NA,"11,13,14",NA,0.25,3+9,addition,-1.5391768355550945
+EGMA,5,math,Addition,-1.5,addition-prompt2,Add the numbers.,53,2+8,5000,10,NA,"9,11,12",NA,0.25,2+8,addition,-2.12231116996987
+EGMA,5,math,Addition,-1.5,addition-prompt2,Add the numbers.,54,9+3,5000,12,NA,"13,10,14",NA,0.25,9+3,addition,-1.59698117841293
+EGMA,5,math,Addition,-1.5,addition-prompt2,Add the numbers.,55,7+8,5000,15,NA,"13,17,19",NA,0.25,7+8,addition,-0.8185232843976692
+EGMA,5,math,Addition,-1.5,addition-prompt2,Add the numbers.,56,4+7,5000,11,NA,"12,13,10",NA,0.25,4+7,addition,-1.2117172676727457
+EGMA,5,math,Addition,-1.5,addition-prompt2,Add the numbers.,57,7+5,5000,12,NA,"14,13,11",NA,0.25,7+5,addition,-0.9117194425686684
+EGMA,5,math,Addition,-1.5,addition-prompt2,Add the numbers.,58,8+6,5000,14,NA,"16,18,12",NA,0.25,8+6,addition,-1.001207104369971
+EGMA,5,math,Addition,-1.5,addition-prompt2,Add the numbers.,59,9+8,5000,17,NA,"19,15,16",NA,0.25,9+8,addition,-0.2885632191071104
+EGMA,5,math,Addition,-1.5,addition-prompt2,Add the numbers.,60,6+7,5000,13,NA,"15,11,12",NA,0.25,6+7,addition,-0.713940007008793
+EGMA,5,math,Addition,-1.5,addition-prompt2,Add the numbers.,61,8+8,5000,16,NA,"14,18,17",NA,0.25,8+8,addition,-1.2766343940487632
+EGMA,5,math,Addition,-1.5,addition-prompt2,Add the numbers.,62,8+5,5000,13,NA,"15,11,16",NA,0.25,8+5,addition,-1.7967202169920364
+EGMA,5,math,Addition,-1.5,addition-prompt2,Add the numbers.,63,10+2,5000,12,NA,"14,13,11",NA,0.25,10+2,addition,-3.0564197661022305
+EGMA,5,math,Addition,-1.5,addition-prompt2,Add the numbers.,64,8+10,5000,18,NA,"19,17,16",NA,0.25,8+10,addition,-2.29734651314071
+EGMA,5,math,Addition,-1,addition-prompt2,Add the numbers.,65,13+6,5000,19,NA,"18,17,20",NA,0.25,13+6,addition,-0.6961830842232073
+EGMA,5,math,Addition,-1,addition-prompt2,Add the numbers.,66,18+7,5000,25,NA,"23,24,26",NA,0.25,18+7,addition,-0.5767299094641168
+EGMA,5,math,Addition,-1,addition-prompt2,Add the numbers.,67,12+14,5000,26,NA,"24,28,25",NA,0.25,12+14,addition,-0.44446594003117407
+EGMA,5,math,Addition,-1,addition-prompt2,Add the numbers.,68,22+37,5000,59,NA,"69,51,49",NA,0.25,22+37,addition,0.1213012599906139
+EGMA,5,math,Addition,-1,addition-prompt2,Add the numbers.,69,38+26,5000,64,NA,"54,66,56",NA,0.25,38+26,addition,1.3089378558400409
+EGMA,6,math,Subtraction,-1.4,subtraction-prompt1,Subtract the numbers and choose the correct answer.,70,4-3,5000,1,NA,"2,3,4",NA,0.25,4-3,subtraction,-1.4574335933473241
+EGMA,6,math,Subtraction,-1.4,subtraction-prompt1,Subtract the numbers and choose the correct answer.,71,5-3,5000,2,NA,"3,4,5",NA,0.25,5-3,subtraction,-2.1027656490323503
+EGMA,6,math,Subtraction,-1.4,subtraction-prompt2,Subtract the numbers.,72,8-2,5000,6,NA,"5,4,7",NA,0.25,8-2,subtraction,-1.3850369610375506
+EGMA,6,math,Subtraction,-1.4,subtraction-prompt2,Subtract the numbers.,73,9-5,5000,4,NA,"6,5,3",NA,0.25,9-5,subtraction,-1.6459747446050108
+EGMA,6,math,Subtraction,-1.4,subtraction-prompt2,Subtract the numbers.,74,6-3,5000,3,NA,"9,5,4",NA,0.25,6-3,subtraction,-2.0269320410882035
+EGMA,6,math,Subtraction,-1.4,subtraction-prompt2,Subtract the numbers.,75,9-1,5000,8,NA,"7,9,10",NA,0.25,9-1,subtraction,-2.8093280258424937
+EGMA,6,math,Subtraction,-1.4,subtraction-prompt2,Subtract the numbers.,76,10-3,5000,7,NA,"6,8,5",NA,0.25,10-3,subtraction,-1.0438588269779734
+EGMA,6,math,Subtraction,-1.4,subtraction-prompt2,Subtract the numbers.,77,12-9,5000,3,NA,"4,2,5",NA,0.25,12-9,subtraction,0.6100290416342646
+EGMA,6,math,Subtraction,-1.4,subtraction-prompt2,Subtract the numbers.,78,10-8,5000,2,NA,"3,4,5",NA,0.25,10-8,subtraction,-0.8315135821166302
+EGMA,6,math,Subtraction,-1.4,subtraction-prompt2,Subtract the numbers.,79,12-3,5000,9,NA,"8,7,10",NA,0.25,12-3,subtraction,-0.2049049514336835
+EGMA,6,math,Subtraction,-1.4,subtraction-prompt2,Subtract the numbers.,80,15-8,5000,7,NA,"6,8,9",NA,0.25,15-8,subtraction,0.47191405303632883
+EGMA,6,math,Subtraction,-1.4,subtraction-prompt2,Subtract the numbers.,81,11-7,5000,4,NA,"2,3,5",NA,0.25,11-7,subtraction,0.4250394703084616
+EGMA,6,math,Subtraction,-1.4,subtraction-prompt2,Subtract the numbers.,82,12-5,5000,7,NA,"6,8,9",NA,0.25,12-5,subtraction,-0.5083243520845819
+EGMA,6,math,Subtraction,-1.4,subtraction-prompt2,Subtract the numbers.,83,14-6,5000,8,NA,"7,6,9",NA,0.25,14-6,subtraction,0.17985915337665412
+EGMA,6,math,Subtraction,-1.4,subtraction-prompt2,Subtract the numbers.,84,17-8,5000,9,NA,"8,11,7",NA,0.25,17-8,subtraction,0.5732308150582288
+EGMA,6,math,Subtraction,-1.4,subtraction-prompt2,Subtract the numbers.,85,13-7,5000,6,NA,"7,8,9",NA,0.25,13-7,subtraction,-0.10306730349927562
+EGMA,6,math,Subtraction,-1.4,subtraction-prompt2,Subtract the numbers.,86,16-8,5000,8,NA,"9,7,6",NA,0.25,16-8,subtraction,-0.10908689652525685
+EGMA,6,math,Subtraction,-1.4,subtraction-prompt2,Subtract the numbers.,87,13-5,5000,8,NA,"7,9,6",NA,0.25,13-5,subtraction,-0.061316485626433236
+EGMA,6,math,Subtraction,-1.4,subtraction-prompt2,Subtract the numbers.,88,12-2,5000,10,NA,"9,11,8",NA,0.25,12-2,subtraction,-2.2125663355939085
+EGMA,6,math,Subtraction,-1.4,subtraction-prompt2,Subtract the numbers.,89,18-10,5000,8,NA,"7,10,9",NA,0.25,18-10,subtraction,-0.4993859998323049
+EGMA,6,math,Subtraction,-0.9,subtraction-prompt2,Subtract the numbers.,90,19-6,5000,13,NA,"11,12,14",NA,0.25,19-6,subtraction,0.03517477288115107
+EGMA,6,math,Subtraction,-0.9,subtraction-prompt2,Subtract the numbers.,91,25-7,5000,18,NA,"19,17,16",NA,0.25,25-7,subtraction,0.5540160758978067
+EGMA,6,math,Subtraction,-0.9,subtraction-prompt2,Subtract the numbers.,92,26-14,5000,12,NA,"13,11,15",NA,0.25,26-14,subtraction,0.41395146340721833
+EGMA,6,math,Subtraction,-0.9,subtraction-prompt2,Subtract the numbers.,93,59-37,5000,22,NA,"21,19,23",NA,0.25,59-37,subtraction,1.1425236726355092
+EGMA,6,math,Subtraction,-0.9,subtraction-prompt2,Subtract the numbers.,94,64-26,5000,38,NA,"36,37,34",NA,0.25,64-26,subtraction,2.1906682036031566
+Siegler,3,math,Number Line 4afc,-0.5,number-line-prompt1,Choose the number that is marked on the number line.,NA,"0,10",5000,1,NA,"4,3,5",NA,0.25,line2num-1-10,NA,NA
+Siegler,3,math,Number Line 4afc,-0.5,number-line-prompt1,Choose the number that is marked on the number line.,NA,"0,10",5000,2,NA,"0,4,5",NA,0.25,line2num-2-10,NA,NA
+Siegler,3,math,Number Line 4afc,-0.5,number-line-prompt1,Choose the number that is marked on the number line.,NA,"0,10",5000,4,NA,"6,1,2",NA,0.25,line2num-4-10,NA,NA
+Siegler,3,math,Number Line 4afc,-0.5,number-line-prompt1,Choose the number that is marked on the number line.,NA,"0,10",5000,5,NA,"6,4,3",NA,0.25,line2num-5-10,NA,NA
+Siegler,3,math,Number Line 4afc,-0.5,number-line-prompt1,Choose the number that is marked on the number line.,NA,"0,10",5000,7,NA,"5,4,9",NA,0.25,line2num-7-10,NA,NA
+Siegler,3,math,Number Line 4afc,-0.5,number-line-prompt1,Choose the number that is marked on the number line.,NA,"0,10",5000,8,NA,"10,6,5",NA,0.25,line2num-8-10,NA,NA
+Siegler,3,math,Number Line 4afc,-0.5,number-line-prompt1,Choose the number that is marked on the number line.,NA,"0,100",5000,50,NA,"40,60,30",NA,0.25,line2num-50-100,NA,NA
+Siegler,3,math,Number Line 4afc,-0.5,number-line-prompt1,Choose the number that is marked on the number line.,NA,"0,100",5000,30,NA,"50,15,45",NA,0.25,line2num-30-100,NA,NA
+Siegler,3,math,Number Line 4afc,-0.5,number-line-prompt1,Choose the number that is marked on the number line.,NA,"0,100",5000,98,NA,"68,83,71",NA,0.25,line2num-98-100,NA,NA
+Siegler,3,math,Number Line 4afc,-0.5,number-line-prompt1,Choose the number that is marked on the number line.,NA,"0,100",5000,7,NA,"33,41,25",NA,0.25,line2num-7-100,NA,NA
+Siegler,3,math,Number Line 4afc,-0.5,number-line-prompt1,Choose the number that is marked on the number line.,NA,"0,100",5000,25,NA,"10,45,5",NA,0.25,line2num-25-100,NA,NA
+Siegler,3,math,Number Line 4afc,-0.5,number-line-prompt1,Choose the number that is marked on the number line.,NA,"0,100",5000,67,NA,"51,83,89",NA,0.25,line2num-67-100,NA,NA
+Siegler,3,math,Number Line 4afc,-0.5,number-line-prompt1,Choose the number that is marked on the number line.,NA,"0,100",5000,33,NA,"22,44,11",NA,0.25,line2num-33-100,NA,NA
+Siegler,3,math,Number Line 4afc,-0.5,number-line-prompt1,Choose the number that is marked on the number line.,NA,"0,100",5000,79,NA,"95,59,63",NA,0.25,line2num-79-100,NA,NA
+Siegler,3,math,Number Line 4afc,-0.5,number-line-prompt1,Choose the number that is marked on the number line.,NA,"0,100",5000,14,NA,"43,29,36",NA,0.25,line2num-14-100,NA,NA
+Siegler,3,math,Number Line 4afc,-0.5,number-line-prompt1,Choose the number that is marked on the number line.,NA,"0,100",5000,42,NA,"64,27,57",NA,0.25,line2num-42-100,NA,NA
+Siegler,3,math,Number Line 4afc,-0.5,number-line-prompt1,Choose the number that is marked on the number line.,NA,"0,100",5000,59,NA,"81,44,76",NA,0.25,line2num-59-100,NA,NA
+Siegler,3,math,Number Line 4afc,-0.5,number-line-prompt1,Choose the number that is marked on the number line.,NA,"0,100",5000,71,NA,"91,55,86",NA,0.25,line2num-71-100,NA,NA
+Siegler,3,math,Number Line 4afc,-0.2,number-line-prompt1,Choose the number that is marked on the number line.,NA,"0,1000",5000,258,NA,"112,473,413",NA,0.25,line2num-258-1000,NA,NA
+Siegler,3,math,Number Line 4afc,-0.2,number-line-prompt1,Choose the number that is marked on the number line.,NA,"0,1000",5000,461,NA,"304,611,193",NA,0.25,line2num-461-1000,NA,NA
+Siegler,3,math,Number Line 4afc,-0.2,number-line-prompt1,Choose the number that is marked on the number line.,NA,"0,1000",5000,507,NA,"352,674,705",NA,0.25,line2num-507-1000,NA,NA
+Siegler,3,math,Number Line 4afc,-0.2,number-line-prompt1,Choose the number that is marked on the number line.,NA,"0,1000",5000,417,NA,"256,592,202",NA,0.25,line2num-417-1000,NA,NA
+Siegler,3,math,Number Line 4afc,-0.2,number-line-prompt1,Choose the number that is marked on the number line.,NA,"0,1000",5000,310,NA,"150,460,210",NA,0.25,line2num-310-1000,NA,NA
+Siegler,3,math,Number Line 4afc,-0.2,number-line-prompt1,Choose the number that is marked on the number line.,NA,"0,1000",5000,5,NA,"155,205,275",NA,0.25,line2num-5-1000,NA,NA
+Siegler,3,math,Number Line 4afc,-0.2,number-line-prompt1,Choose the number that is marked on the number line.,NA,"0,1000",5000,639,NA,"449,789,859",NA,0.25,line2num-639-1000,NA,NA
+Siegler,3,math,Number Line 4afc,-0.2,number-line-prompt1,Choose the number that is marked on the number line.,NA,"0,1000",5000,831,NA,"781,931,631",NA,0.25,line2num-831-1000,NA,NA
+Siegler,3,math,Number Line 4afc,-0.2,number-line-prompt1,Choose the number that is marked on the number line.,NA,"0,1000",5000,542,NA,"392,732,273",NA,0.25,line2num-542-1000,NA,NA
+Siegler,3,math,Number Line 4afc,-0.2,number-line-prompt1,Choose the number that is marked on the number line.,NA,"0,1000",5000,941,NA,"791,735,690",NA,0.25,line2num-941-1000,NA,NA
+Siegler,3,math,Number Line 4afc,-0.2,number-line-prompt1,Choose the number that is marked on the number line.,NA,"0,1000",5000,644,NA,"795,451,910",NA,0.25,line2num-644-1000,NA,NA
+Siegler,3,math,Number Line 4afc,-0.2,number-line-prompt1,Choose the number that is marked on the number line.,NA,"0,1000",5000,126,NA,"520,917,722",NA,0.25,line2num-126-1000,NA,NA
+Siegler,3,math,Number Line 4afc,0,number-line-prompt1,Choose the number that is marked on the number line.,NA,"0,1",5000,0.1,NA,"0.25,0.3,0.4",NA,0.25,line2num-0.1-1,NA,NA
+Siegler,3,math,Number Line 4afc,0,number-line-prompt1,Choose the number that is marked on the number line.,NA,"0,1",5000,0.45,NA,"0.6,0.25,0.3",NA,0.25,line2num-0.45-1,NA,NA
+Siegler,3,math,Number Line 4afc,0,number-line-prompt1,Choose the number that is marked on the number line.,NA,"0,1",5000,0.34,NA,"0.19,0.5,0.05",NA,0.25,line2num-0.34-1,NA,NA
+Siegler,3,math,Number Line 4afc,0,number-line-prompt1,Choose the number that is marked on the number line.,NA,"0,1",5000,0.75,NA,"0.6,0.55,0.9",NA,0.25,line2num-0.75-1,NA,NA
+Siegler,3,math,Number Line 4afc,0,number-line-prompt1,Choose the number that is marked on the number line.,NA,"0,1",5000,0.9,NA,"0.7,0.8,0.75",NA,0.25,line2num-0.9-1,NA,NA
+Siegler,3,math,Number Line 4afc,0,number-line-prompt1,Choose the number that is marked on the number line.,NA,"0,1",5000,0.2,NA,"0.45,0.05,0.35",NA,0.25,line2num-0.2-1,NA,NA
+George,7,math,Multiplication,0.1,multiplication-prompt1,Multiply the numbers and choose the correct answer.,NA,2x3,5000,6,NA,"5,9,8",NA,0.25,2x3,multiplication,-0.39445196083484135
+George,7,math,Multiplication,0.1,multiplication-prompt1,Multiply the numbers and choose the correct answer.,NA,4x2,5000,8,NA,"6,10,4",NA,0.25,4x2,multiplication,-1.3605771425676378
+George,7,math,Multiplication,0.1,multiplication-prompt2,Multiply the numbers.,NA,3x6,5000,18,NA,"20,14,9",NA,0.25,3x6,multiplication,0.6320883167022149
+George,7,math,Multiplication,0.1,multiplication-prompt2,Multiply the numbers.,NA,8x1,5000,8,NA,"9,16,1",NA,0.25,8x1,multiplication,-2.00461759334837
+George,7,math,Multiplication,0.1,multiplication-prompt2,Multiply the numbers.,NA,7x3,5000,21,NA,"11,20,19",NA,0.25,7x3,multiplication,-0.7089997042626291
+George,7,math,Multiplication,0.1,multiplication-prompt2,Multiply the numbers.,NA,2x14,5000,28,NA,"24,26,16",NA,0.25,2x14,multiplication,0.5921128166952755
+George,7,math,Multiplication,0.1,multiplication-prompt2,Multiply the numbers.,NA,4x6,5000,24,NA,"22,32,12",NA,0.25,4x6,multiplication,0.07091467931538246
+George,7,math,Multiplication,0.1,multiplication-prompt2,Multiply the numbers.,NA,4x8,5000,32,NA,"34,28,40",NA,0.25,4x8,multiplication,0.8550589870589278
+George,7,math,Multiplication,0.2,multiplication-prompt2,Multiply the numbers.,NA,5x7,5000,35,NA,"30,45,55",NA,0.25,5x7,multiplication,0.7276291016076258
+George,7,math,Multiplication,0.2,multiplication-prompt2,Multiply the numbers.,NA,7x6,5000,42,NA,"24,44,32",NA,0.25,7x6,multiplication,0.11987879819281405
+George,7,math,Multiplication,0.2,multiplication-prompt2,Multiply the numbers.,NA,3x13,5000,39,NA,"37,36,42",NA,0.25,3x13,multiplication,0.731246946400879
+George,7,math,Multiplication,0.2,multiplication-prompt2,Multiply the numbers.,NA,7x8,5000,56,NA,"57,65,54",NA,0.25,7x8,multiplication,1.2839517893810786
+George,7,math,Multiplication,0.2,multiplication-prompt2,Multiply the numbers.,NA,21x4,5000,84,NA,"86,64,25",NA,0.25,21x4,multiplication,0.7202246103424934
+George,7,math,Multiplication,0.2,multiplication-prompt2,Multiply the numbers.,NA,26x3,5000,78,NA,"68,76,88",NA,0.25,26x3,multiplication,1.527084285387135
+George,7,math,Multiplication,0.2,multiplication-prompt2,Multiply the numbers.,NA,8x9,5000,72,NA,"63,92,84",NA,0.25,8x9,multiplication,-0.7576776859616828
+George,7,math,Multiplication,0.2,multiplication-prompt2,Multiply the numbers.,NA,9x11,5000,99,NA,"89,91,96",NA,0.25,9x11,multiplication,-0.7497812439968659
+George,7,math,Multiplication,0.2,multiplication-prompt2,Multiply the numbers.,NA,10x7,5000,70,NA,"77,107,67",NA,0.25,10x7,multiplication,0.12407959182761756
+George,7,math,Multiplication,0.2,multiplication-prompt2,Multiply the numbers.,NA,6x100,5000,600,NA,"106,500,900",NA,0.25,6x100,NA,NA
+George,7,math,Multiplication,0.2,multiplication-prompt2,Multiply the numbers.,NA,10x48,5000,480,NA,"408,840,464",NA,0.25,10x48,multiplication,0.9412573779832358
+George,7,math,Multiplication,0.3,multiplication-prompt2,Multiply the numbers.,NA,20x42,5000,840,NA,"820,860,880",NA,0.25,20x42,multiplication,1.8208247508544584
+George,7,math,Multiplication,0.3,multiplication-prompt2,Multiply the numbers.,NA,7x23,5000,161,NA,"116,121,187",NA,0.25,7x23,multiplication,1.431998949382917
+George,7,math,Multiplication,0.3,multiplication-prompt2,Multiply the numbers.,NA,351x4,5000,1404,NA,"1414,1384,1435",NA,0.25,351x4,multiplication,0.5147408226233656
+George,7,math,Multiplication,0.3,multiplication-prompt2,Multiply the numbers.,NA,346x10,5000,3460,NA,"356,3640,3046",NA,0.25,346x10,multiplication,1.4501774204201563
+George,7,math,Multiplication,0.3,multiplication-prompt2,Multiply the numbers.,NA,45x9,5000,405,NA,"365,409,393",NA,0.25,45x9,multiplication,2.878593043004885
+George,7,math,Multiplication,0.3,multiplication-prompt2,Multiply the numbers.,NA,219x20,5000,4380,NA,"2190,4830,4240",NA,0.25,219x20,multiplication,1.2204925147449825
+Siegler,3,math,Number Line Slider,-0.5,number-line-slider-prompt1,Move the slider to the indicated number.,NA,"0,10",5000,1,NA,NA,NA,0.1,slider-1-10,NA,NA
+Siegler,3,math,Number Line Slider,-0.5,number-line-slider-prompt1,Move the slider to the indicated number.,NA,"0,10",5000,2,NA,NA,NA,0.1,slider-2-10,NA,NA
+Siegler,3,math,Number Line Slider,-0.5,number-line-slider-prompt1,Move the slider to the indicated number.,NA,"0,10",5000,4,NA,NA,NA,0.1,slider-4-10,NA,NA
+Siegler,3,math,Number Line Slider,-0.5,number-line-slider-prompt1,Move the slider to the indicated number.,NA,"0,10",5000,5,NA,NA,NA,0.1,slider-5-10,NA,NA
+Siegler,3,math,Number Line Slider,-0.5,number-line-slider-prompt1,Move the slider to the indicated number.,NA,"0,10",5000,7,NA,NA,NA,0.1,slider-7-10,NA,NA
+Siegler,3,math,Number Line Slider,-0.5,number-line-slider-prompt1,Move the slider to the indicated number.,NA,"0,10",5000,8,NA,NA,NA,0.1,slider-8-10,NA,NA
+Siegler,3,math,Number Line Slider,-0.5,number-line-slider-prompt1,Move the slider to the indicated number.,NA,"0,100",5000,50,NA,NA,NA,0.1,slider-50-100,NA,NA
+Siegler,3,math,Number Line Slider,-0.5,number-line-slider-prompt1,Move the slider to the indicated number.,NA,"0,100",5000,30,NA,NA,NA,0.1,slider-30-100,NA,NA
+Siegler,3,math,Number Line Slider,-0.5,number-line-slider-prompt1,Move the slider to the indicated number.,NA,"0,100",5000,98,NA,NA,NA,0.1,slider-98-100,NA,NA
+Siegler,3,math,Number Line Slider,-0.5,number-line-slider-prompt1,Move the slider to the indicated number.,NA,"0,100",5000,7,NA,NA,NA,0.1,slider-7-100,NA,NA
+Siegler,3,math,Number Line Slider,-0.5,number-line-slider-prompt1,Move the slider to the indicated number.,NA,"0,100",5000,25,NA,NA,NA,0.1,slider-25-100,NA,NA
+Siegler,3,math,Number Line Slider,-0.5,number-line-slider-prompt1,Move the slider to the indicated number.,NA,"0,100",5000,67,NA,NA,NA,0.1,slider-67-100,NA,NA
+Siegler,3,math,Number Line Slider,-0.5,number-line-slider-prompt1,Move the slider to the indicated number.,NA,"0,100",5000,33,NA,NA,NA,0.1,slider-33-100,NA,NA
+Siegler,3,math,Number Line Slider,-0.5,number-line-slider-prompt1,Move the slider to the indicated number.,NA,"0,100",5000,79,NA,NA,NA,0.1,slider-79-100,NA,NA
+Siegler,3,math,Number Line Slider,-0.5,number-line-slider-prompt1,Move the slider to the indicated number.,NA,"0,100",5000,14,NA,NA,NA,0.1,slider-14-100,NA,NA
+Siegler,3,math,Number Line Slider,-0.5,number-line-slider-prompt1,Move the slider to the indicated number.,NA,"0,100",5000,42,NA,NA,NA,0.1,slider-42-100,NA,NA
+Siegler,3,math,Number Line Slider,-0.5,number-line-slider-prompt1,Move the slider to the indicated number.,NA,"0,100",5000,59,NA,NA,NA,0.1,slider-59-100,NA,NA
+Siegler,3,math,Number Line Slider,-0.5,number-line-slider-prompt1,Move the slider to the indicated number.,NA,"0,100",5000,71,NA,NA,NA,0.1,slider-71-100,NA,NA
+Siegler,3,math,Number Line Slider,-0.2,number-line-slider-prompt1,Move the slider to the indicated number.,NA,"0,1000",5000,258,NA,NA,NA,0.1,slider-258-1000,NA,NA
+Siegler,3,math,Number Line Slider,-0.2,number-line-slider-prompt1,Move the slider to the indicated number.,NA,"0,1000",5000,461,NA,NA,NA,0.1,slider-461-1000,NA,NA
+Siegler,3,math,Number Line Slider,-0.2,number-line-slider-prompt1,Move the slider to the indicated number.,NA,"0,1000",5000,507,NA,NA,NA,0.1,slider-507-1000,NA,NA
+Siegler,3,math,Number Line Slider,-0.2,number-line-slider-prompt1,Move the slider to the indicated number.,NA,"0,1000",5000,417,NA,NA,NA,0.1,slider-417-1000,NA,NA
+Siegler,3,math,Number Line Slider,-0.2,number-line-slider-prompt1,Move the slider to the indicated number.,NA,"0,1000",5000,310,NA,NA,NA,0.1,slider-310-1000,NA,NA
+Siegler,3,math,Number Line Slider,-0.2,number-line-slider-prompt1,Move the slider to the indicated number.,NA,"0,1000",5000,5,NA,NA,NA,0.1,slider-5-1000,NA,NA
+Siegler,3,math,Number Line Slider,-0.2,number-line-slider-prompt1,Move the slider to the indicated number.,NA,"0,1000",5000,639,NA,NA,NA,0.1,slider-639-1000,NA,NA
+Siegler,3,math,Number Line Slider,-0.2,number-line-slider-prompt1,Move the slider to the indicated number.,NA,"0,1000",5000,831,NA,NA,NA,0.1,slider-831-1000,NA,NA
+Siegler,3,math,Number Line Slider,-0.2,number-line-slider-prompt1,Move the slider to the indicated number.,NA,"0,1000",5000,542,NA,NA,NA,0.1,slider-542-1000,NA,NA
+Siegler,3,math,Number Line Slider,-0.2,number-line-slider-prompt1,Move the slider to the indicated number.,NA,"0,1000",5000,941,NA,NA,NA,0.1,slider-941-1000,NA,NA
+Siegler,3,math,Number Line Slider,-0.2,number-line-slider-prompt1,Move the slider to the indicated number.,NA,"0,1000",5000,644,NA,NA,NA,0.1,slider-644-1000,NA,NA
+Siegler,3,math,Number Line Slider,-0.2,number-line-slider-prompt1,Move the slider to the indicated number.,NA,"0,1000",5000,126,NA,NA,NA,0.1,slider-126-1000,NA,NA
+Siegler,3,math,Number Line Slider,0,number-line-slider-prompt1,Move the slider to the indicated number.,NA,"0,1",5000,0.1,NA,NA,NA,0.1,slider-0.1-1,NA,NA
+Siegler,3,math,Number Line Slider,0,number-line-slider-prompt1,Move the slider to the indicated number.,NA,"0,1",5000,0.45,NA,NA,NA,0.1,slider-0.45-1,NA,NA
+Siegler,3,math,Number Line Slider,0,number-line-slider-prompt1,Move the slider to the indicated number.,NA,"0,1",5000,0.34,NA,NA,NA,0.1,slider-0.34-1,NA,NA
+Siegler,3,math,Number Line Slider,0,number-line-slider-prompt1,Move the slider to the indicated number.,NA,"0,1",5000,0.75,NA,NA,NA,0.1,slider-0.75-1,NA,NA
+Siegler,3,math,Number Line Slider,0,number-line-slider-prompt1,Move the slider to the indicated number.,NA,"0,1",5000,0.9,NA,NA,NA,0.1,slider-0.9-1,NA,NA
+Siegler,3,math,Number Line Slider,0,number-line-slider-prompt1,Move the slider to the indicated number.,NA,"0,1",5000,0.2,NA,NA,NA,0.1,slider-0.2-1,NA,NA
+George,5,math,Fraction,0.5,addition-prompt2,Add the numbers.,NA,1/4+2/4,5000,3/4,NA,"2/4,1,3/8",NA,NA,1/4+2/4,fraction,4.393284866028203
+George,5,math,Fraction,0.5,addition-prompt2,Add the numbers.,NA,1/3+2/3,5000,1,NA,"3,2,2/3",NA,NA,1/3+2/3,fraction,11.751432132969104
+George,5,math,Fraction,0.5,addition-prompt2,Add the numbers.,NA,1/6+1/3,5000,1/2,NA,"2/9,2/3,5/6",NA,NA,1/6+1/3,fraction,1.2740411179915703
+George,5,math,Fraction,0.5,addition-prompt2,Add the numbers.,NA,1/7+3/14,5000,5/14,NA,"1/2,2/7,3/7",NA,NA,1/7+3/14,NA,NA
+George,5,math,Fraction,0.5,addition-prompt2,Add the numbers.,NA,5/12+1/6,5000,7/12,NA,"1/3,6/12,2/3",NA,NA,5/12+1/6,NA,NA
+George,5,math,Fraction,0.5,addition-prompt2,Add the numbers.,NA,3/9+1/3,5000,2/3,NA,"4/12,5/9,7/9",NA,NA,3/9+1/3,NA,NA
+George,5,math,Fraction,0.5,addition-prompt2,Add the numbers.,NA,1/3+2/5,5000,11/15,NA,"2/3,3/8,4/5",NA,NA,1/3+2/5,NA,NA
+George,5,math,Fraction,0.5,addition-prompt2,Add the numbers.,NA,2/8+3/9,5000,7/12,NA,"5/17,5/9,45/72",NA,NA,2/8+3/9,NA,NA
+George,5,math,Fraction,0.6,subtraction-prompt2,Subtract the numbers.,NA,4/8-1/8,5000,3/8,NA,"3,3/4,3/0",NA,NA,4/8-1/8,NA,NA
+George,5,math,Fraction,0.6,subtraction-prompt2,Subtract the numbers.,NA,7/10-2/5,5000,3/10,NA,"5/10,1/5,5/5",NA,NA,7/10-2/5,NA,NA
+George,5,math,Fraction,0.6,subtraction-prompt2,Subtract the numbers.,NA,1/3-1/7,5000,4/21,NA,"6/21,-1/4,1/7",NA,NA,1/3-1/7,NA,NA
+George,5,math,Fraction,0.6,subtraction-prompt2,Subtract the numbers.,NA,5/12-1/6,5000,1/4,NA,"4/12,4/6,5/12",NA,NA,5/12-1/6,NA,NA
+George,5,math,Fraction,0.6,subtraction-prompt2,Subtract the numbers.,NA,1/9-1/10,5000,1/90,NA,"9/90,8/90,1/30",NA,NA,1/9-1/10,NA,NA
+George,5,math,Fraction,0.6,subtraction-prompt2,Subtract the numbers.,NA,1/2-1/3,5000,1/6,NA,"2/6,1/3,3/6",NA,NA,1/2-1/3,NA,NA
+George,5,math,Fraction,0.6,subtraction-prompt2,Subtract the numbers.,NA,3/4-7/16,5000,5/16,NA,"1/4,3/8,7/16",NA,NA,3/4-7/16,NA,NA
+George,5,math,Fraction,0.6,subtraction-prompt2,Subtract the numbers.,NA,17/8-5/4,5000,7/8,NA,"12/4,7/4,12/8",NA,NA,17/8-5/4,NA,NA

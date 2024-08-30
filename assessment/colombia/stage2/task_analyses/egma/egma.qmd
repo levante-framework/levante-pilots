@@ -142,12 +142,12 @@ Now let's take a look!
 task_results <- task_models |>
   mutate(coefs = map(mod, mirt_coefs),
          scores = pmap(list(mod, data_filtered, data_prepped), mirt_scores),
-         aic = map_dbl(mod, mirt_aic))
+         bic = map_dbl(mod, mirt_bic))
 
 # best fitting model for each task
 task_best <- task_results |>
   group_by(task_id) |>
-  filter(aic == min(aic)) |>
+  filter(bic == min(bic)) |>
   ungroup() |>
   select(task_id, item_type, model_type, coefs, scores)
 
@@ -159,7 +159,7 @@ task_scores <- task_best |>
   select(task = task_id, user_id, age, score_type, score = ability)
 ```
 
-## 2PL 
+## Rasch
 
 ```{r}
 egma_items <- egma_cleaned |>
@@ -171,30 +171,29 @@ egma_coefs <- task_best$coefs[[1]] |>
   select(-item) |>
   left_join(egma_items)
 
-ggplot(egma_coefs |> 
-           pivot_longer(a1:a2, names_to = "dim", values_to = "a"), 
-       aes(x = d, y = a, col = corpus_trial_type)) + 
-  geom_point(alpha = .5) + 
-  facet_wrap(~dim)
+egma_coefs |> 
+  ggplot(aes(x = d, y = corpus_trial_type)) + 
+  geom_violin() +
+  geom_point(alpha = .5)
 ```
 
 ```{r}
 egma_coefs |>
-  arrange(desc(a1)) |>
+  arrange(desc(d)) |>
   knitr::kable()
 ```
 
 
-## 1PL 
+## 2PL 
 
 
 ```{r}
-egma_coefs <- task_results$coefs[[2]] |>
+egma_coefs2 <- task_results$coefs[[2]] |>
   mutate(item_id = str_sub(item, 1, -3)) |>
   select(-item) |>
   left_join(egma_items)
 
-ggplot(egma_coefs, 
+ggplot(egma_coefs2, 
        aes(x = -d, y = a1, col = corpus_trial_type)) + 
   geom_point(alpha = .5) +
   ggrepel::geom_label_repel(aes(label = item), size =2) + 
@@ -204,9 +203,19 @@ ggplot(egma_coefs,
 
 
 ```{r}
-task_scores |>
+task_scores |> filter(age < 13) |>
   ggplot(aes(x=age, y=score)) +
   geom_point() + theme_classic() +
   geom_smooth()
+```
+## Add item parameters to item bank
+
+```{r}
+math_item_bank <- read_csv(here("item-banks","math-item-bank.csv"))
+
+math <- math_item_bank |> 
+  left_join(egma_coefs |> mutate(d = -d) |> select(corpus_trial_type, item, answer, d))
+
+math |> write_csv(here("item-banks","math-item-bank-params.csv"))
 ```
 
