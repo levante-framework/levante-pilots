@@ -158,10 +158,10 @@ ggplot(mr_coefs,
 ```
 
 
-```{r}
+```{r, fig.width=3.5, fig.height=3.5}
 task_scores |> filter(age<14) |>
   ggplot(aes(x=age, y=score)) +
-  geom_point() + theme_classic() +
-  geom_smooth()
+  geom_point(alpha=.5) + theme_classic() +
+  geom_smooth(color='darkgray')
 ```
 
