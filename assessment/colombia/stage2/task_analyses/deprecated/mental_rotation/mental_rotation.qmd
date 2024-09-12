@@ -18,7 +18,7 @@ Munge data.
 ```{r}
 mr <- trials_coded |>
   filter(task_id == "mental-rotation") |>
-  select(user_id, run_id, item, response, is_correct, rt, age, server_timestamp) |>
+  select(user_id, run_id, item, response, correct, rt, age, server_timestamp) |>
   mutate(rt = as.numeric(rt),
          stim_type = if_else(str_count(item) == 5, "2d", "3d"),
          stim_set = str_sub(item, 1, 1) |> fct_recode("rabbit" = "r", "duck" = "d"),
@@ -38,7 +38,7 @@ mr |> distinct(stim_type, stim_set, angle, item) |> count(stim_type, stim_set, a
 ```{r}
 mr_summary <- mr |> 
   group_by(user_id, age) |>
-  summarise(prop_correct =  mean(is_correct), 
+  summarise(prop_correct =  mean(correct), 
             n = n()) |>
   ungroup()
 ```
@@ -64,7 +64,7 @@ ggplot(mr_summary, aes(x = n, y = prop_correct)) +
 mr_subject_type <- mr |>
   group_by(user_id, stim_type, angle) |>
   summarise(items = n_distinct(item),
-            prop_correct = mean(is_correct, na.rm = TRUE))
+            prop_correct = mean(correct, na.rm = TRUE))
 
 mr_type <- mr_subject_type |>
   group_by(stim_type, angle) |>
@@ -86,7 +86,7 @@ ggplot(mr_subject_type, aes(x = angle, y = prop_correct, colour = stim_type)) +
   scale_colour_ptol(guide = "none") +
   labs(x = "Angle", y = "Proportion correct responses", colour = "")
 
-#ggsave("plots/mr_accuracy_type.png", width = 6, height = 3.5)
+ggsave("plots/mr_accuracy_type.png", width = 6, height = 3.5)
 ```
 
 
@@ -94,7 +94,7 @@ ggplot(mr_subject_type, aes(x = angle, y = prop_correct, colour = stim_type)) +
 mr_subject_set <- mr |>
   group_by(user_id, stim_type, stim_set, angle) |>
   summarise(items = n_distinct(item),
-            prop_correct = mean(is_correct, na.rm = TRUE))
+            prop_correct = mean(correct, na.rm = TRUE))
 
 mr_set <- mr_subject_set |>
   group_by(stim_type, stim_set, angle) |>
@@ -121,10 +121,10 @@ ggsave("plots/mr_accuracy_set.png", width = 11, height = 3.5)
 
 ```{r}
 mr_subject_type_rt <- mr |>
-  group_by(user_id, stim_type, angle, is_correct) |>
+  group_by(user_id, stim_type, angle, correct) |>
   summarise(items = n_distinct(item),
             median_rt = median(rt, na.rm = TRUE)) |>
-  mutate(correct = if_else(is_correct, "correct", "incorrect"))
+  mutate(correct = if_else(correct, "correct", "incorrect"))
 
 mr_type_rt <- mr_subject_type_rt |>
   group_by(stim_type, angle, correct) |>
@@ -150,10 +150,10 @@ ggsave("plots/mr_rt_type.png", width = 6, height = 5)
 
 ```{r}
 mr_subject_set_rt <- mr |>
-  group_by(user_id, stim_type, stim_set, angle, is_correct) |>
+  group_by(user_id, stim_type, stim_set, angle, correct) |>
   summarise(items = n_distinct(item),
             median_rt = median(rt, na.rm = TRUE)) |>
-  mutate(correct = if_else(is_correct, "correct", "incorrect"))
+  mutate(correct = if_else(correct, "correct", "incorrect"))
 
 mr_set_rt <- mr_subject_set_rt |>
   group_by(stim_type, stim_set, angle, correct) |>
@@ -191,14 +191,14 @@ mr_first_runs <- mr |>
 
 mr_wide <- mr |>
   inner_join(mr_first_runs) |>
-  mutate(is_correct = as.numeric(is_correct)) |>
-  select(user_id, item, is_correct) |> 
+  mutate(correct = as.numeric(correct)) |>
+  select(user_id, item, correct) |> 
   group_by(user_id, item) |>
   mutate(instance = seq_along(item),
          item_inst = glue("{item}_{instance}")) |> 
   ungroup() |> 
   select(-item, -instance) |> 
-  pivot_wider(names_from = "item_inst", values_from = "is_correct")
+  pivot_wider(names_from = "item_inst", values_from = "correct")
 
 mr_mat <- as.matrix(select(mr_wide, -user_id))
 rownames(mr_mat) <- mr_wide$user_id
