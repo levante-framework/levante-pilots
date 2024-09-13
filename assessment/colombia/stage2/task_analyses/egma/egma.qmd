@@ -57,21 +57,40 @@ egma_cleaned <- egma_cleaned |>
 
 ```{r, warning=F, message=F}
 egma_sumscores <- egma_cleaned  |> 
-  group_by(user_id, corpus_trial_type, age) |>
-  summarise(correct = mean(correct)) 
+  filter(age < 14) |>
+  group_by(user_id, run_id, corpus_trial_type, age) |>
+  summarise(correct = mean(correct),
+            n = n()) 
 
 ggplot(egma_sumscores, aes(x = age, y = correct)) + 
   geom_point(alpha = .5) + 
   geom_smooth() +
-  ylim(0,1) + 
+  ylim(0,1) + ylab("Proportion Correct") + xlab("Age (years)") +
   facet_wrap(.~corpus_trial_type)
 ```
 
-```{r, fig.width=10, fig.height=10, message=F, warning=F}
-egma_sumscores |>
+```{r}
+ggplot(egma_sumscores, aes(x = age, y = n)) + 
+  geom_point(alpha = .4) + 
+  geom_smooth() +
+  ylab("Number of Trials Completed") + xlab("Age (years)") +
+  facet_wrap(.~corpus_trial_type)
+```
+
+
+```{r, fig.width=9, fig.height=9, message=F, warning=F}
+
+egma_sumscores |> select(-n) |>
   ungroup() |>
   pivot_wider(names_from = "corpus_trial_type", values_from = "correct") |>
-  select(age, addition, `missing number`, multiplication, `number comparison`, `number line 4afc`, `number line slider`) |>
+  select(age, addition, `missing number`, `number comparison`, `number identification`) |>
+  GGally::ggpairs( lower = list(continuous = GGally::wrap("points", alpha = 0.3)))
+
+
+egma_sumscores |> select(-n) |>
+  ungroup() |>
+  pivot_wider(names_from = "corpus_trial_type", values_from = "correct") |>
+  select(age, multiplication, `number line 4afc`, `number line slider`) |>
   GGally::ggpairs( lower = list(continuous = GGally::wrap("points", alpha = 0.3)))
   
   # ggplot(aes(x = age, y = correct)) + 
@@ -173,7 +192,7 @@ egma_coefs <- task_best$coefs[[1]] |>
 
 egma_coefs |> 
   ggplot(aes(x = d, y = corpus_trial_type)) + 
-  geom_violin() +
+  geom_violin() + ylab("Trial Type") +
   geom_point(alpha = .5)
 ```
 
@@ -202,11 +221,11 @@ ggplot(egma_coefs2,
 ```
 
 
-```{r}
+```{r, fig.width=3.5, fig.height=3.5}
 task_scores |> filter(age < 13) |>
   ggplot(aes(x=age, y=score)) +
-  geom_point() + theme_classic() +
-  geom_smooth()
+  geom_point(alpha=.4) + theme_classic() +
+  geom_smooth() + ylab("Score") + xlab("Age (years)")
 ```
 ## Add item parameters to item bank
 
@@ -217,5 +236,50 @@ math <- math_item_bank |>
   left_join(egma_coefs |> mutate(d = -d) |> select(corpus_trial_type, item, answer, d))
 
 math |> write_csv(here("item-banks","math-item-bank-params.csv"))
+```
+
+### Number line slider vs. 4AFC
+
+```{r}
+nl_trials <- egma_cleaned |> # egma_cleaned ?
+  filter(corpus_trial_type %in% c("number line 4afc","number line slider")) |> 
+  group_by(corpus_trial_type, item, answer) |>
+  summarise(correct = mean(correct), 
+            n = n()) |>
+  mutate(number_line = case_when(item=="{'0': 0, '1': 1000}" ~ "0-1000",
+                                 item=="{'0': 0, '1': 100}" ~ "0-100",
+                                 item=="{'0': 0, '1': 10}" ~ "0-10",
+                                 item=="{'0': 0, '1': 1}" ~ "0-1",
+                                 TRUE ~ NA)) |>
+  select(-item, -n) |>
+  pivot_wider(names_from = "corpus_trial_type", values_from = "correct")
+
+cor.test(nl_trials$`number line 4afc`, nl_trials$`number line slider`)
+
+nl_trials |> 
+  ggplot(aes(x=`number line slider`, y=`number line 4afc`)) + 
+  geom_smooth(method="lm", color="darkgrey") +
+  geom_point(aes(color=number_line)) 
+```
+
+
+### Exploratory Factor Analysis
+
+```{r}
+library(psych)
+sub_wide <- egma_sumscores |> 
+  filter(n > 5) |> 
+  ungroup() |>
+  select(-n, -user_id) |>
+  pivot_wider(names_from = "corpus_trial_type", values_from = "correct") |>
+  select(-fraction, -multiplication, -`number line 4afc`) # too much missing data
+
+row.names(sub_wide) = sub_wide$run_id
+sub_wide$run_id = NULL
+
+sub_wide_complete <- sub_wide[complete.cases(sub_wide),]
+
+scree(sub_wide_complete, pc=FALSE)
+fa.parallel(sub_wide_complete, fa="fa")
 ```
 
