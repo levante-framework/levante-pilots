@@ -191,7 +191,8 @@ egma_coefs <- task_best$coefs[[1]] |>
   left_join(egma_items)
 
 egma_coefs |> 
-  ggplot(aes(x = d, y = corpus_trial_type)) + 
+  mutate(difficulty = -1*d) |>
+  ggplot(aes(x = difficulty, y = corpus_trial_type)) + 
   geom_violin() + ylab("Trial Type") +
   geom_point(alpha = .5)
 ```
