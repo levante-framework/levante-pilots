@@ -41,12 +41,14 @@ to_mirt_shape <- function(df) {
 paste_c <- partial(paste, collapse = ",")
 generate_model_str <- function(df, df_prepped, item_type, f) { # f = num factors
   params <- "d" # always have difficulty
+  prior <- ""
+  items <- df |> pull(item_id) |> unique() # item ids
   if (item_type != "Rasch") {
     # add slopes a[i] based on parameterization
     s <- as.numeric(str_extract(item_type, "^\\d")) - 1
     params <- c(params, paste0("a", 1:s))
+    #prior <- paste0("PRIOR = (1-", length(items), ", a0, norm, 0, 5)") # do these need to be named items?
   }
-  items <- df |> pull(item_id) |> unique() # item ids
   constraints <- items |> map(\(item_id) {
     # get columns with item's instances
     matched <- colnames(df_prepped) |>
@@ -60,15 +62,15 @@ generate_model_str <- function(df, df_prepped, item_type, f) { # f = num factors
   # F[i] = 1-K statement for each factor
   factors <- map_chr(1:f, \(i) glue("F{i} = 1-{ncol(df_prepped)}"))
   # combine statements
-  paste(c(factors, constraint), collapse = "\n")
+  paste(c(factors, constraint, prior), collapse = "\n")
 }
 
 
 # wrapper to fit mirt model with supplied arguments
-fit_mirt <- function(df, item_type, model_str, model_type, task_id, guess) {
+fit_mirt <- function(df, item_type, model_str, model_type, task_id, guess, verbose = F) {
   message(glue("fitting {item_type} model with {model_type} dims for {task_id}"))
   mirt(df, itemtype = item_type, model = model_str, guess = guess,
-       technical = list(NCYCLES = 2000), verbose = TRUE)
+       technical = list(NCYCLES = 2000), verbose = verbose)
 }
 
 # get item parameters of fitted mirt model
@@ -87,3 +89,6 @@ mirt_scores <- function(mod, df, df_prepped) {
 
 # get AIC of fitted mirt model
 mirt_aic <- function(mod) mod@Fit$AIC
+
+# get AIC of fitted mirt model
+mirt_bic <- function(mod) mod@Fit$BIC

@@ -14,6 +14,13 @@ participants <- read_rds("data_processed/participants.rds") |>
 nrow(participants |> filter(is.na(group_name))) # 367 (down from 1400)
 ```
 
+## Students per school and grade/age
+
+```{r}
+table(participants$school, participants$grade)
+table(participants$school, round(participants$age))
+```
+
 # Load all scores
 ```{r}
 score_list <- map(list.files("scores", full.names = TRUE), read_rds)

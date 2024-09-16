@@ -20,7 +20,7 @@ score_ntl <- function(item, answer, response, threshold = 0.05) {
 
 trials_numberline <- trials_coded |>
   filter(!is.na(item), str_detect(task, "line 4afc|line slider")) |>
-  select(subtask, item, expected_answer, user_id, run_id, response, is_correct) |> # assessment_pid had some NAs
+  select(subtask, item, answer, user_id, run_id, response, correct) |> # assessment_pid had some NAs
   mutate(subtask = fct_recode(subtask, "ntl" = "number line slider", "ltn" = "number line 4afc")) 
 
 # some ltn are NA, but have is_correct..
@@ -28,18 +28,18 @@ summary(trials_numberline)
 
 trials_numberline <- trials_numberline |>
   pivot_wider(names_from = subtask, values_from = response) |>
-  mutate(correct_ltn = expected_answer == ltn, # should just use is_correct ?
-         #correct_ntl_5 = score_ntl(item, expected_answer, ntl, 0.05)#,
-         correct_ntl_10 = score_ntl(item, expected_answer, ntl, 0.1)#,
-         #correct_ntl_15 = score_ntl(item, expected_answer, ntl, 0.15)
+  mutate(correct_ltn = answer == ltn, # should just use is_correct ?
+         #correct_ntl_5 = score_ntl(item, answer, ntl, 0.05)#,
+         correct_ntl_10 = score_ntl(item, answer, ntl, 0.1)#,
+         #correct_ntl_15 = score_ntl(item, answer, ntl, 0.15)
          ) |>
   select(-ltn, -ntl) |>
-  pivot_longer(cols = contains("correct_"), names_to = "metric", values_to = "correct")
+  pivot_longer(cols = contains("correct_"), names_to = "metric", values_to = "is_correct")
 ```
 
 ```{r}
 by_it <- trials_numberline |>
-  mutate(item_label = paste(str_replace(item, "'0': (\\d+), '1': (\\d+)", "\\1-\\2"), expected_answer)) |>
+  mutate(item_label = paste(str_replace(item, "'0': (\\d+), '1': (\\d+)", "\\1-\\2"), answer)) |>
   group_by(item_label, metric) |>
   summarise(n = n(), prop_correct = mean(correct, na.rm=T))
 
@@ -62,14 +62,14 @@ line_summary <- trials_numberline |>
                       #"number-to-line (15%)" = "correct_ntl_15"
                       ) |>
            fct_inorder()) |>
-  group_by(item, expected_answer, metric) |>
+  group_by(item, answer, metric) |>
   summarise(subjects = n_distinct(run_id), # assessment_pid
             trials = n(),
             num_correct = sum(correct, na.rm = TRUE),
             prop_correct = num_correct / trials) |>
   ungroup() |>
   arrange(metric, prop_correct) |>
-  mutate(item_label = paste(str_replace(item, "'0': (\\d+), '1': (\\d+)", "\\1-\\2"), expected_answer),
+  mutate(item_label = paste(str_replace(item, "'0': (\\d+), '1': (\\d+)", "\\1-\\2"), answer),
          item_label = fct_inorder(item_label),
          item_index = factor(row_number()))
          # item_index = paste(metric, item_label) |> fct_inorder())
@@ -137,7 +137,7 @@ cor.test(line_summary |> filter(metric=="line-to-number") |> pull(prop_correct),
          line_summary |> filter(metric=="number-to-line (15%)") |> pull(prop_correct)) # .83
 
 # why so many NAs in correct?
-trials_numberline |> filter(is.na(correct)) # 12000 trials..many fraction expected_answer, but not all
+trials_numberline |> filter(is.na(correct)) # 12000 trials..many fraction answer, but not all
 
 acc_s <- trials_numberline |> group_by(run_id, metric) |>
   summarize(accuracy = mean(correct),
