@@ -1,0 +1,106 @@
+---
+format: html
+---
+  
+```{r setup}
+source("scripts/_setup.R")
+source("scripts/_data_loading_functions.R")
+```
+
+```{r datasets}
+dataset_names <- c("DE-pilot")
+
+dataset_tables <- get_datasets(dataset_names)
+dataset_data <- combine_datasets(dataset_tables)
+```
+
+```{r participants}
+users <- collect_users(dataset_data)
+
+# calculate participant ages
+participants <- users |>
+  mutate(birth_month = as.numeric(birth_month),
+         birth_year = as.numeric(birth_year),
+         birth_year_original = birth_year,
+         valid_birth_year = !is.na(birth_year) & birth_year > 2005 & birth_year < 2023,
+         birth_year = if_else(valid_birth_year, birth_year, NA),
+         date_last_updated = ymd_hms(last_updated)) |>
+  select(user_id, assessment_pid, group_name = name, birth_month, birth_year, # what about assessment_uid ?
+         date_last_updated, birth_year_original, valid_birth_year, grade) |>
+  distinct() |>
+  mutate(dob = ym(paste(birth_year, birth_month, sep = "-")),
+         age = as.numeric(difftime(date_last_updated, dob, units = "days")) / 365.25)
+
+invalid_users <- participants |>
+  filter(!is.na(birth_year_original), !valid_birth_year)
+```
+
+```{r runs}
+runs <- dataset_data$runs
+```
+
+```{r trials}
+trials <- dataset_data$trials
+
+# add participant info to trials
+trials_ids <- trials |> inner_join(participants)
+
+# check that user + run + trial uniquely identifies each row
+trials_ids |> count(user_id, run_id, trial_id) |> filter(n > 1)
+
+# code and remove practice trials
+trials_filtered <- trials_ids |>
+  mutate(practice = is_practice_trial | assessment_stage == "instructions" |
+           str_detect(corpus_trial_type, "training")) |>
+  filter(is.na(practice) | !practice) |>
+  select(-practice, -is_practice_trial)
+
+# code info on tasks, subtasks, task groups
+roar_tasks <- c("letter", "pa", "pa-es", "sre", "sre-es", "swr", "swr-es", "vocab")
+trials_tasks <- trials_filtered |>
+  filter(!(task_id %in% c("pa", "sre", "swr"))) |>
+  mutate(task_group = case_when(
+    task_id %in% roar_tasks ~ "ROAR",
+    str_detect(task_id, "egma") ~ "EGMA",
+    task_id == "hearts-and-flowers" ~ "H&F",
+    task_id == "theory-of-mind" ~ "ToM",
+    TRUE ~ task_id
+  )) |>
+  mutate(corpus_trial_type = if_else(
+    task_group == "EGMA" & is.na(corpus_trial_type) & !is.na(item),
+    if_else(is.na(distractors) | distractors == "{}", "number line slider", "number line 4afc"),
+    corpus_trial_type),
+         corpus_trial_type = str_to_lower(corpus_trial_type)) |>
+  mutate(subtask = case_when(
+    task_group %in% c("EGMA", "mental-rotation") ~ corpus_trial_type,
+    task_group == "ROAR" ~ task_id,
+    task_id == "theory-of-mind" ~ corpus_trial_type |>
+      str_remove("_question") |>
+      fct_collapse(corpus_trial_type,
+                   "theory-of-mind" = c("false_belief", "reality_check", "reference"),
+                   "hostile-attribution" = c("action", "attribution"),
+                   "emotion-reasoning" = "emotion_reasoning"))) |>
+  mutate(task = if_else(is.na(subtask), task_id, glue("{task_group} ({subtask})")))
+
+# order tasks approximately by presentation order
+trials_tasks_ordered <- trials_tasks |>
+  add_count(user_id, run_id, name = "run_trials") |>
+  arrange(desc(run_trials), server_timestamp) |>
+  mutate(task_group = fct_inorder(task_group),
+         task = fct_inorder(task))
+
+# filter out trials missing item but only for tasks that have some items
+trials_coded <- trials_tasks_ordered |>
+  group_by(task) |>
+  filter(all(is.na(item)) | !is.na(item)) |>
+  ungroup() |>
+  mutate(server_timestamp = as_datetime(server_timestamp))
+  # filter(!is.na(item) | !is.na(expected_answer) | !is.na(is_correct)) |>
+
+# recode correctness for some tasks
+  # mutate(is_correct = is_correct |
+  #          str_detect(task, "hostile") & !str_detect(response, "accident"))
+
+write_rds(trials_coded, "data_processed/trials_coded.rds")
+write_rds(participants, "data_processed/participants.rds")
+```

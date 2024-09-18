@@ -1,0 +1,92 @@
+```{r setup}
+source("../scripts/_setup.R")
+
+trials_coded <- read_rds("../data_processed/trials_coded.rds")
+participants <- read_rds("../data_processed/participants.rds")
+```
+
+Munge data.
+
+```{r}
+mr <- trials_coded |>
+  filter(task_id == "mental-rotation") |>
+  select(user_id, run_id, item, response, correct, rt, age, server_timestamp) |>
+  mutate(rt = as.numeric(rt),
+         stim_type = if_else(str_count(item) == 5, "2d", "3d"),
+         stim_set = str_sub(item, 1, 1) |> fct_recode("rabbit" = "r", "duck" = "d"),
+         stim_set = if_else(stim_type == "2d", glue("2d ({stim_set})"), "3d"),
+         angle = item |> str_sub(-3) |> as.numeric(),
+         angle = if_else(angle > 180, 360 - angle, angle),
+         .after = item) |>
+  mutate(rt = rt / 1000)
+```
+
+```{r}
+mr |> distinct(stim_type, stim_set, angle, item) |> count(stim_type, stim_set, angle)
+```
+
+# Accuracy
+
+```{r}
+mr_subject_type <- mr |>
+  group_by(user_id, stim_type, angle) |>
+  summarise(items = n_distinct(item),
+            prop_correct = mean(correct, na.rm = TRUE)) |>
+  ungroup()
+
+mr_type <- mr_subject_type |>
+  group_by(stim_type, angle) |>
+  summarise(accuracy = mean(prop_correct),
+            sd = sd(prop_correct),
+            n = n(),
+            se = sd / sqrt(n)) |>
+  ungroup()
+```
+
+```{r}
+ggplot(mr_subject_type, aes(x = prop_correct)) + geom_histogram()
+
+(mr_subject_type |> filter(prop_correct == 0) |> nrow()) / nrow(mr_subject_type)
+```
+
+```{r}
+ggplot(mr_subject_type, aes(x = angle, y = prop_correct, colour = stim_type)) +
+  facet_grid(cols = vars(stim_type), scales = "free_x", space = "free_x") +
+  geom_jitter(alpha = 0.5, size = 0.8) +
+  geom_pointrange(aes(y = accuracy, ymin = accuracy - 1.96 * se, ymax = accuracy + 1.96 * se),
+                  data = mr_type) +
+  geom_line(aes(y = accuracy), data = mr_type) +
+  geom_hline(yintercept = .5, lty = 2) + 
+  scale_x_continuous(breaks = unique(mr_subject_type$angle)) +
+  scale_colour_ptol(guide = "none") +
+  labs(x = "Angle", y = "Proportion correct responses", colour = "")
+
+ggsave("plots/mr_accuracy_type.png", width = 6, height = 3.5)
+```
+
+```{r}
+mr_subject_set <- mr |>
+  group_by(user_id, stim_type, stim_set, angle) |>
+  summarise(items = n_distinct(item),
+            prop_correct = mean(correct, na.rm = TRUE))
+
+mr_set <- mr_subject_set |>
+  group_by(stim_type, stim_set, angle) |>
+  summarise(accuracy = mean(prop_correct),
+            sd = sd(prop_correct),
+            n = n(),
+            se = sd / sqrt(n))
+```
+
+```{r}
+ggplot(mr_subject_set, aes(x = angle, y = prop_correct, colour = stim_type)) +
+  facet_grid(cols = vars(stim_set), scales = "free_x", space = "free_x") +
+  geom_jitter(alpha = 0.5, size = 0.8) +
+  geom_pointrange(aes(y = accuracy, ymin = accuracy - 1.96 * se, ymax = accuracy + 1.96 * se),
+                  data = mr_set, position = position_dodge(width = 10)) +
+  geom_line(aes(y = accuracy), data = mr_set) +
+  scale_x_continuous(breaks = unique(mr_subject_set$angle)) +
+  scale_colour_ptol(guide = "none") +
+  labs(x = "Angle", y = "Proportion correct responses", colour = "")
+ggsave("plots/mr_accuracy_set.png", width = 11, height = 3.5)
+```

@@ -1,0 +1,75 @@
+---
+format: html
+---
+
+```{r setup}
+source("../scripts/_setup.R")
+
+trials_coded <- read_rds("../data_processed/trials_coded.rds")
+participants <- read_rds("../data_processed/participants.rds")
+```
+
+# H&F
+
+```{r}
+ef_data <- trials_coded |>
+  filter(task_id %in%
+           c("hearts-and-flowers", "memory-game")) |>
+  select(task_id, user_id, run_id, trial_id, age, subtask, corpus_trial_type,
+         item, response, correct, rt, server_timestamp)
+
+# remove second administrations
+ef_first_runs <- ef_data |>
+  group_by(task_id, user_id) |>
+  filter(server_timestamp == min(server_timestamp)) |>
+  ungroup() |>
+  select(user_id, run_id)
+
+ef_data <- inner_join(ef_data, ef_first_runs)
+```
+
+```{r hf}
+hf <- ef_data |>
+  filter(task_id %in% c("hearts-and-flowers")) |>
+  arrange(user_id, server_timestamp) |>
+  mutate(rt = as.numeric(rt), response_fast = rt < 200, response_slow = rt > 2000) |>
+  mutate(correct = !is.na(correct) & correct & !response_fast & !response_slow)
+
+# hf |> count(response_fast, response_slow)
+
+hf_accuracy <- hf |>
+  group_by(task_id, user_id, run_id, age) |>
+  summarise(trials_accuracy = n(), prop_correct = mean(correct)) |>
+  ungroup()
+```
+
+# Memory Game
+
+```{r mg}
+mg <- ef_data |>
+  filter(task_id %in% c("memory-game")) |>
+  mutate(span = str_count(response, ":"))
+
+mg_span <- mg |>
+  filter(correct) |>
+  group_by(task_id, user_id, run_id, age) |>
+  summarise(trials_span = n(), longest = max(span)) |>
+  ungroup()
+```
+
+# Across EF
+
+Combined model fits
+```{r}
+hf_scores <- hf_accuracy |>
+  select(task = task_id, user_id, score = prop_correct) |>
+  mutate(score_type = "proportion correct")
+
+mg_scores <- mg_span |>
+  select(task = task_id, user_id, score = longest) |>
+  mutate(score_type = "longest span")
+
+ef_scores <- bind_rows(hf_scores, mg_scores)
+
+write_rds(ef_scores, "../scores/ef_scores.rds")
+```

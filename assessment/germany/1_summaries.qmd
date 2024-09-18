@@ -1,0 +1,195 @@
+---
+format: html
+---
+  
+```{r setup}
+source("scripts/_setup.R")
+
+trials_coded <- read_rds("data_processed/trials_coded.rds")
+participants <- read_rds("data_processed/participants.rds")
+```
+
+Combine all task scores into one plot!
+
+```{r}
+score_list <- map(list.files("task_analyses/scores", full.names = TRUE), read_rds)
+# exclude_tasks <- c("hostile-attribution", "pa-es")
+# score_list <- read_rds("scores/combined_scores.rds")
+
+task_categories <- tribble(
+  ~task, ~task_category,
+  "hearts-and-flowers", "executive function",
+  "same-different-selection", "executive function",
+  "memory-game", "executive function",
+  "egma-math", "math",
+  "matrix-reasoning", "reasoning",
+  "mental-rotation", "spatial cognition",
+  "trog", "language",
+  "vocab", "language",
+  "pa-es", "reading",
+  "sre-es", "reading",
+  "swr-es", "reading",
+  "emotion-reasoning", "social cognition",
+  "theory-of-mind", "social cognition",
+  "hostile-attribution", "social cognition"
+) |> mutate(task_category = task_category |> str_to_sentence() |> fct_inorder())
+
+scores <- score_list |>
+  bind_rows() |>
+  select(-age) |> # remove ages that have come along for the ride and are not directly computed in participants
+  # filter(!(task %in% exclude_tasks)) |>
+  # left_join(participants |> select(user_id, age)) |>
+  left_join(participants) |>
+  filter(!is.na(age), age >= 5, age <= 12) |>
+  group_by(task) |>
+  mutate(n = n_distinct(user_id), task_label = glue("{task}\n(n = {n})")) |>
+  ungroup() |>
+  left_join(task_categories) |>
+  mutate(score_type = score_type |> str_remove(" \\(.*\\)"))
+# scores |> count(task, user_id) |> filter(n > 1)
+
+task_categories_vec <- levels(scores$task_category)
+task_pal <- ptol_pal()(length(task_categories_vec)) |> set_names(task_categories_vec)
+
+ggplot(scores |> filter(!is.na(age)), aes(x = age, y = score)) +
+  ggh4x::facet_nested_wrap(vars(task_category, task_label), nrow = 2,
+                      nest_line = element_line(), solo_line = TRUE,
+                      axes = "x",
+                      scales = "free_y") +
+  geom_point(aes(colour = task_category), alpha = 0.5) +
+  geom_smooth(method = "gam", formula = y ~ x, colour = "darkgrey") +
+  # geom_text(aes(label = score_type), x = Inf, y = 0.05, hjust = 1, vjust = 0,
+  #           family = .font) +
+  # scale_y_continuous() +
+  scale_x_continuous(breaks = seq(6, 14, 2)) +
+  scale_colour_manual(values = task_pal) +
+  # scale_colour_ptol() +
+  # scale_shape_manual(values = c(19, 1), guide = "none") +
+  # scale_size_binned(range = c(0.05, 2.5)) +
+  labs(x = "Age (years)", y = "Score") +
+  guides(colour = "none") +
+  theme(legend.position = "bottom",
+        legend.key.width = unit(2, "lines"))
+        # strip.text = element_text(size = 8))
+
+ggsave("plots/all_scores.png", width = 14, height = 6)
+```
+
+```{r}
+task_plot <- function(tasks) {
+  ggplot(scores |> filter(!is.na(age), task %in% tasks),
+         aes(x = age, y = score)) +
+    ggh4x::facet_nested_wrap(vars(task_category, task_label), #nrow = 2,
+                             nest_line = element_line(), solo_line = TRUE,
+                             axes = "x",
+                             scales = "free_y"
+                             ) +
+    geom_point(aes(colour = task_category), alpha = 0.5) +
+    geom_smooth(method = "gam", colour = "darkgrey") +
+    scale_x_continuous(breaks = seq(6, 14, 2)) +
+    scale_colour_manual(values = task_pal) +
+    labs(x = "Age (years)", y = "Score") +
+    guides(colour = "none") +
+    theme(legend.position = "bottom",
+          legend.key.width = unit(2, "lines"))
+}
+
+task_plot("matrix-reasoning")
+ggsave("plots/mxr.png", width = 4, height = 4)
+
+task_plot("mental-rotation")
+ggsave("plots/mr.png", width = 4, height = 4)
+
+task_plot(c("theory-of-mind", "hostile-attribution"))
+ggsave("plots/tom.png", width = 7, height = 4)
+
+task_plot(c("hearts-and-flowers", "memory-game", "same-different-selection"))
+ggsave("plots/ef.png", width = 9, height = 4)
+
+task_plot(c("sre-es", "swr-es", "trog", "vocab"))
+ggsave("plots/lang.png", width = 6, height = 6)
+```
+
+```{r}
+lang_scores <- scores |>
+  filter(task_category %in% c("Language", "Reading")) |>
+  select(user_id, task, score) |>
+  pivot_wider(names_from = task, values_from = score) |>
+  select(-user_id)
+  # rename(`same-different` = `same-different-selection`) |>
+  GGally::ggpairs()
+  
+lang_scores |> select(`sre-es`, trog, vocab) |> GGally::ggpairs()
+ggsave("plots/lang_cors_sre.png", width = 6, height = 5)
+
+lang_scores |> select(`swr-es`, trog) |> GGally::ggpairs()
+ggsave("plots/lang_cors_swr.png", width = 4, height = 3)
+```
+
+
+```{r participant_summary}
+# get by-participant correctness and completeness
+participant_summary <- trials_coded |>
+  group_by(task_group, task, user_id, run_id) |>
+  summarise(trials = n(),
+            num_correct = sum(correct, na.rm = TRUE),
+            prop_correct = num_correct / trials) |>
+  ungroup() |>
+  left_join(participants) |>
+  group_by(task) |>
+  mutate(n = n(),
+         n_age = length(discard(age, is.na)),
+         task_label = glue("{task}\n(n = {n})"),
+         task_label_age = glue("{task}\n(n = {n_age})"),
+         prop_trials = trials / max(trials)) |>
+  ungroup() |>
+  mutate(task_label = fct_inorder(task_label),
+         # task_label_age = fct_inorder(task_label_age),
+         is_zero = prop_correct == 0)
+```
+
+```{r, fig.width=9, fig.height=7}
+ggplot(participant_summary |> filter(!is.na(age)), aes(x = age, y = prop_correct)) +
+  facet_wrap(vars(task_label), nrow = 3) + 
+  geom_smooth(method = "lm", colour = "darkgrey") +
+  geom_point(aes(colour = task_group, size = prop_trials), alpha = 0.8) +
+  scale_y_continuous(limits = c(0, 1)) +
+  scale_colour_ptol() +
+  scale_size_binned(range = c(0.05, 2.5)) +
+  labs(x = "Age (years)", y = "Subject's proportion correct responses",
+       size = "Proportion of trials completed") +
+  guides(colour = "none") +
+  theme(legend.position = "bottom",
+        legend.key.width = unit(2, "lines"),
+        strip.text = element_text(size = 8))
+ggsave("plots/subject_correct_age.png", width = 12, height = 7)
+```
+
+Table of median task times
+
+```{r}
+time_summary <- trials_coded |>
+  mutate(server_timestamp = as_datetime(server_timestamp)) |>
+  arrange(user_id, run_id, server_timestamp) |>
+  group_by(task_id, run_id, user_id) |>
+  summarise(trials = n(),
+            start = min(server_timestamp), end = max(server_timestamp)) |>
+  ungroup() |>
+  mutate(diff = difftime(end, start, units = "mins")) |>
+  left_join(participants) |>
+  left_join(task_categories, by = c("task_id" = "task"))
+
+task_time_summary <- time_summary |>
+  group_by(task_category, task_id) |>
+  summarise(median_diff = median(diff) |> round(2)) |>
+  ungroup()
+
+task_time_summary
+sum(task_time_summary$median_diff)
+
+total_time_summary <- time_summary |>
+  group_by(user_id, run_id) |>
+  summarise(total = sum(diff)) |>
+  ungroup() |>
+  summarise(med = median(total))
+```
