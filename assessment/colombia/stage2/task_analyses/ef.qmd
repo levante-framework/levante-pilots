@@ -1,0 +1,110 @@
+---
+format: html
+---
+
+```{r setup}
+source(here::here("assessment/colombia/stage2/scripts/_setup.R"))
+
+trials_coded <- read_rds(here("assessment/colombia/stage2/data_processed/trials_coded.rds"))
+participants <- read_rds(here("assessment/colombia/stage2/data_processed/participants.rds"))
+```
+
+# H&F
+
+accuracy
++ accuracy (% correct)
++ non-responses -> incorrect
++ responses within 200 ms of stimulus presentation -> incorrect
+- many same responses in a row -> missing
+- min number of non-missing responses to calculate composites (5?)
+
+? If participants stop responding to many trials in a row, we count those as missing. (Not sure if you want to implement this.)
+
+RT
++ average RT only on the correct trials
+- exclude first trial in block
+
+For memory, we recommend using the number of correct trials. It has more variability than memory span (longest sequence with a correct response), but memory span will be more meaningful to some researchers.
+
+```{r}
+ef_data <- trials_coded |>
+  filter(task_id %in%
+           c("hearts-and-flowers", "same-different-selection", "memory-game")) |>
+  select(task_id, user_id, run_id, trial_id, age, subtask, corpus_trial_type,
+         item, response, correct, rt, server_timestamp)
+
+# remove second administrations
+ef_first_runs <- ef_data |>
+  group_by(task_id, user_id) |>
+  filter(server_timestamp == min(server_timestamp)) |>
+  ungroup() |>
+  select(user_id, run_id)
+
+ef_data <- inner_join(ef_data, ef_first_runs)
+```
+
+```{r hf}
+hf <- ef_data |>
+  filter(task_id %in% c("hearts-and-flowers")) |>
+  arrange(user_id, server_timestamp) |>
+  mutate(rt = as.numeric(rt), response_fast = rt < 200, response_slow = rt > 2000) |>
+  mutate(correct = !is.na(correct) & correct & !response_fast & !response_slow)
+
+hf_summary <- hf |>
+  group_by(user_id, run_id, age, subtask) |>
+  summarise(trials_accuracy = n(), prop_correct = mean(correct)) |>
+  ungroup()
+```
+
+# Memory Game
+
+```{r mg}
+mg <- ef_data |>
+  filter(task_id %in% c("memory-game")) |>
+  mutate(span = str_count(response, ":"))
+
+mg_summary <- mg |>
+  filter(correct) |>
+  group_by(user_id, run_id, age) |>
+  summarise(trials_span = n(), longest = max(span)) |>
+  ungroup()
+```
+
+# MEFS
+
+```{r}
+mefs <- read_csv(here("assessment/colombia/stage2/task_analyses/data",
+                       "mefs_LEVANTE_20240617_0804.csv")) |>
+  filter(`Child ID` != "1234")
+
+# cor.test(mefs$`A1_Standard Score`, mefs$`A1_Age (Months)`) 
+# cor.test(mefs$`A1_Percentile (National)`, mefs$`A1_Age (Months)`) 
+# cor.test(mefs$`A1_Total Score`, mefs$`A1_Age (Months)`)
+
+mefs_scores <- mefs |>
+  rename_with(\(nm) nm |> str_to_lower() |> str_replace_all(" ", "_") |> str_remove_all("[\\(\\)]")) |>
+  select(user_id = child_id, total = a1_total_score, standard = a1_standard_score) |>
+  pivot_longer(cols = -user_id, names_to = "score_type", values_to = "score") |>
+  group_by(user_id, score_type) |>
+  summarise(score = mean(score)) |> # some children have multiple admins
+  ungroup() |>
+  mutate(task = glue("mefs ({score_type})"))
+```
+
+# Across EF
+
+Combined model fits
+```{r}
+hf_scores <- hf_summary |>
+  filter(subtask == "hearts and flowers") |>
+  select(user_id, score = prop_correct) |>
+  mutate(task = "hearts-and-flowers", score_type = "proportion correct")
+
+mg_scores <- mg_summary |>
+  select(user_id, score = longest) |>
+  mutate(task = "memory-game", score_type = "longest span")
+
+ef_scores <- bind_rows(hf_scores, mg_scores, mefs_scores)
+
+write_rds(ef_scores, here("assessment/colombia/stage2/scores/ef_scores.rds"))
+```

@@ -1,0 +1,464 @@
+---
+format: html
+---
+
+```{r setup}
+source(here::here("assessment/colombia/stage2/_setup.R"))
+
+trials_coded <- read_rds(here("assessment/colombia/stage2/data_processed/trials_coded.rds"))
+participants <- read_rds(here("assessment/colombia/stage2/data_processed/participants.rds"))
+```
+
+# H&F
+
+accuracy
++ accuracy (% correct)
++ non-responses -> incorrect
++ responses within 200 ms of stimulus presentation -> incorrect
+- many same responses in a row -> missing
+- min number of non-missing responses to calculate composites (5?)
+
+? If participants stop responding to many trials in a row, we count those as missing. (Not sure if you want to implement this.)
+
+RT
++ average RT only on the correct trials
+- exclude first trial in block
+
+For memory, we recommend using the number of correct trials. It has more variability than memory span (longest sequence with a correct response), but memory span will be more meaningful to some researchers.
+
+```{r}
+ef_data <- trials_coded |>
+  filter(task_id %in%
+           c("hearts-and-flowers", "same-different-selection", "memory-game")) |>
+  select(task_id, user_id, run_id, trial_id, age, subtask, corpus_trial_type,
+         item, response, correct, rt, server_timestamp)
+
+# remove second administrations
+ef_first_runs <- ef_data |>
+  group_by(task_id, user_id) |>
+  filter(server_timestamp == min(server_timestamp)) |>
+  ungroup() |>
+  select(user_id, run_id)
+
+ef_data <- inner_join(ef_data, ef_first_runs)
+```
+
+```{r hf}
+#, "memory-game", "same-different-selection"
+# streak_n <- 2
+
+hf <- ef_data |>
+  filter(task_id %in% c("hearts-and-flowers")) |>
+  # select(task, subtask, trial_id, user_id, run_id, age, item, expected_answer, server_timestamp,
+         # response, correct, rt) |>
+  arrange(user_id, server_timestamp) |>
+  mutate(rt = as.numeric(rt), response_fast = rt < 200, response_slow = rt > 2000) |>
+  # l1 = lag(response, 1), l2 = lag(response, 2),
+  # s = list(l1, l2),
+  # streak = n_distinct(c(response, lag(response, 1), lag(response, 2))))
+  mutate(correct = !is.na(correct) & correct & !response_fast & !response_slow)
+
+hf |> count(response_fast, response_slow)
+hf |> count(correct, correct)
+# accuracy_mod <- glmer(correct ~ age + subtask + (1 | user_id), data = hf, family = "binomial")
+
+hf_accuracy <- hf |>
+  group_by(user_id, run_id, age, subtask) |>
+  summarise(trials_accuracy = n(), prop_correct = mean(correct)) |>
+  ungroup()
+
+hf_rt <- hf |>
+  group_by(user_id, run_id, age, subtask) |>
+  # mutate(cgr = cur_group_rows()) |>
+  # mutate(rt = c(NA, rt[2:n()])) |>
+  filter(correct) |>
+  summarise(trials_rt = n(), mean_rt = mean(rt, na.rm = TRUE),
+            median_rt = median(rt, na.rm = TRUE)) |>
+  ungroup()
+
+hf_summary <- hf_accuracy |> left_join(hf_rt)
+```
+
+```{r}
+hf_summary |>
+  select(subtask, age, prop_correct, mean_rt) |>
+  GGally::ggpairs(aes(color = subtask))
+# ggsave("plots/hf_ggpairs.png", width = 12, height = 10)
+```
+
+```{r}
+ggplot(filter(hf_summary, subtask == "hearts and flowers"),
+       aes(x = age, y = prop_correct)) +
+  geom_point() + 
+  geom_smooth() 
+```
+
+# Same Different Selection
+
+```{r sds}
+sds <- ef_data |>
+  filter(task_id %in% c("same-different-selection")) |>
+  # select(task, subtask, corpus_trial_type, trial_id, run_id, user_id, age, item, expected_answer, server_timestamp,
+         # response, correct) |>
+  # filter(!is.na(corpus_trial_type)) |>
+  arrange(user_id, server_timestamp) |>
+  mutate(corpus_trial_type = fct_inorder(corpus_trial_type))
+# arrange(user_id, server_timestamp)
+# mutate(rt = as.numeric(rt)) #, response_fast = rt < 200, response_slow = rt > 2000) |>
+# l1 = lag(response, 1), l2 = lag(response, 2),
+# s = list(l1, l2),
+# streak = n_distinct(c(response, lag(response, 1), lag(response, 2))))
+# mutate(correct = !is.na(correct) & correct & !response_fast & !response_slow)
+```
+
+```{r}
+sds_summary <- sds |>
+  group_by(user_id, run_id, age, corpus_trial_type) |>
+  summarise(trials_accuracy = n(), prop_correct = mean(correct)) |>
+  ungroup()
+```
+
+```{r}
+ggplot(sds_summary, aes(x = age, y = prop_correct)) +
+  facet_wrap(vars(corpus_trial_type)) +
+  geom_smooth(method = "lm") +
+  geom_point(aes(size = trials_accuracy)) +
+  scale_size_continuous(range = c(0.2, 3)) +
+  ylim(c(0, 1)) +
+  labs(x = "Age (years)", y = "Subject's proportion correct responses",
+       size = "Number of trials completed") +
+  theme(legend.position = "bottom")
+#ggsave("plots/sds_subtasks.png", width = 12, height = 3.5)
+```
+
+```{r}
+# sds_trial_min <- 10
+sds_composite <- sds |>
+  filter(corpus_trial_type != "test-dimensions") |>
+  group_by(user_id, run_id, age) |>
+  summarise(trials_accuracy = n(), prop_correct = mean(correct)) 
+
+# |>
+#   ungroup() |>
+#   filter(trials_accuracy > sds_trial_min)
+
+ggplot(sds_composite, aes(x = age, y = prop_correct)) +
+  geom_smooth(method = "lm") +
+  geom_point(aes(size = trials_accuracy)) +
+  scale_size_continuous(range = c(0.2, 3)) +
+  ylim(c(0, 1)) +
+  labs(x = "Age (years)", y = "Subject's proportion correct responses",
+       size = "Number of trials completed") +
+  theme(legend.position = "bottom")
+# ggsave("plots/sds_composite.png", width = 6, height = 5)
+```
+
+## IRT models
+
+We make a hack to create unique items. 
+
+```{r}
+sds_mirt <- sds |>
+  arrange(user_id, run_id, server_timestamp) |>
+  group_by(user_id) |>
+  mutate(idx = 1:n()) |>
+  ungroup() |>
+  mutate(correct = as.numeric(correct), 
+         item_unique = str_c(as.character(idx), "-", corpus_trial_type, "-", item))
+
+sds_wide <- sds_mirt |>
+  group_by(user_id, item_unique) |>
+  select(user_id, item_unique, correct) |>
+  pivot_wider(names_from = "item_unique", 
+              values_from = "correct") |>
+  ungroup()
+
+sds_mat <- as.matrix(select(sds_wide, -user_id))
+rownames(sds_mat) <- sds_wide$user_id
+
+# remove columns with no variance
+sds_cols <- colMeans(sds_mat, na.rm=TRUE) 
+sds_mat <- sds_mat[ , sds_cols > 0 & sds_cols < 1]
+```
+
+Fit models. 
+
+```{r}
+set.seed(1234)
+
+fit_mirt_ef <- function(data_mat, item_type) {
+  mod <- mirt(data_mat, 1, itemtype = item_type, verbose = TRUE,
+              technical = list(NCYCLES = 1000))
+  
+  mod_coefs <- coef(mod, simplify = TRUE)$items |> as_tibble(rownames = "item")
+  
+  scores <- fscores(mod, method = "MAP", verbose = FALSE)
+  mod_fscores <- tibble(user_id = rownames(data_mat), ability = scores[,1])
+  
+  list(model = mod, coefs = mod_coefs, fscores = mod_fscores)
+}
+```
+
+```{r}
+sds_1pl <- fit_mirt_ef(sds_mat, "Rasch")
+write_rds(sds_1pl, here("assessment/colombia/stage2/task_analyses/ef/fits/sds_1pl.rds"))
+
+sds_2pl <- fit_mirt_ef(sds_mat, "2PL")
+write_rds(sds_2pl, here("assessment/colombia/stage2/task_analyses/ef/fits/sds_2pl.rds"))
+
+sds_3pl <- fit_mirt_ef(sds_mat, "3PL")
+write_rds(sds_3pl, here("assessment/colombia/stage2/task_analyses/ef/fits/sds_3pl.rds"))
+```
+
+2PL model wins. 
+
+```{r}
+anova(sds_1pl$model, sds_2pl$model, sds_3pl$model)
+sds_best <- sds_2pl
+```
+
+Coefficients. 
+
+```{r}
+sds_coefs <- sds_best$coefs |>
+  rename(item_unique = item) |>
+  left_join(select(sds_mirt, item, item_unique, 
+                   corpus_trial_type, idx) |> distinct()) |>
+  mutate(different_way = str_detect(item, "in a different way"))
+
+ggplot(sds_coefs,
+       aes(x = idx, y = d, col = corpus_trial_type, shape = different_way)) + 
+  geom_jitter(alpha = .5, width = .5) + 
+  geom_smooth(method = "lm")
+```
+
+```{r}
+sds_score_compare <- sds_1pl$fscores |> rename(ability_1pl = ability) |>
+  left_join(sds_2pl$fscores |> rename(ability_2pl = ability)) |>
+  left_join(sds_3pl$fscores |> rename(ability_3pl = ability)) |>
+  left_join(participants |> select(user_id, age))
+
+sds_score_compare |> select(-user_id) |> GGally::ggpairs()
+```
+
+# Memory Game
+
+```{r mg}
+mg <- ef_data |>
+  filter(task_id %in% c("memory-game")) |>
+  mutate(span = str_count(response, ":"))
+  # select(task, user_id, run_id, trial_id, age, server_timestamp,
+  #        corpus_trial_type, response, rt, correct, expected_answer)
+
+# mg_first_runs <- mg_trials |>
+#   group_by(user_id) |>
+#   filter(server_timestamp == min(server_timestamp)) |>
+#   ungroup() |>
+#   select(user_id, run_id)
+
+# mg <- mg_trials |>
+#   inner_join(mg_first_runs) |>
+  # mutate(span = str_count(response, ":"))
+
+mg_span <- mg |>
+  filter(correct) |>
+  group_by(user_id, run_id, age) |>
+  summarise(trials_span = n(), longest = max(span)) |>
+  ungroup()
+
+mg_accuracy <- mg |>
+  group_by(user_id, run_id, age) |>
+  summarise(trials_accuracy = n(), prop_correct = mean(correct))
+
+mg_summary <- mg_accuracy |> left_join(mg_span) |> ungroup()
+```
+
+```{r}
+ggplot(mg_summary, aes(x = age, y = longest)) +
+  geom_smooth(method = "lm") +
+  geom_point() +
+  # geom_point(aes(size = trials)) +
+  # scale_size_continuous(range = c(0.2, 3)) +
+  # ylim(c(0, 1)) +
+  labs(x = "Age (years)", y = "Subject's longest correct sequence",
+       size = "Number of correct trials")
+# theme(legend.position = "bottom")
+# ggsave("plots/mg_span.png", width = 6, height = 5)
+```
+
+
+```{r}
+ggplot(mg_summary, aes(x = age, y = prop_correct)) +
+  geom_smooth(method = "lm") +
+  # geom_point() +
+  geom_point(aes(size = trials_accuracy)) +
+  scale_size_continuous(range = c(0.2, 3)) +
+  ylim(c(0, 1)) +
+  labs(x = "Age (years)", y = "Subject's proportion correct responses",
+       size = "Number of correct trials") +
+  theme(legend.position = "bottom")
+# ggsave("plots/mg_accuracy.png", width = 6, height = 5)
+```
+
+```{r}
+ggplot(mg, aes(x = span, y = as.numeric(correct))) + 
+  geom_jitter(alpha = .1, height = .1, width = .1) +
+  stat_summary(fun.data = "mean_cl_boot", 
+               col = "red") 
+```
+
+
+## IRT models
+
+```{r}
+mg_mirt <- mg |>
+  filter(span > 1) |>
+  arrange(user_id, span, server_timestamp) |>
+  group_by(user_id, span) |>
+  mutate(idx = 1:n()) |>
+  ungroup() |>
+  mutate(correct = as.numeric(correct), 
+         item_unique = str_c(as.character(span), "-", idx))
+
+mg_wide <- mg_mirt |>
+  select(user_id, item_unique, correct) |>
+  pivot_wider(names_from = "item_unique", 
+              values_from = "correct") |>
+  ungroup()
+
+mg_mat <- as.matrix(select(mg_wide, -user_id))
+rownames(mg_mat) <- mg_wide$user_id
+
+# remove columns with no variance
+mg_cols <- colMeans(mg_mat, na.rm=TRUE) 
+mg_mat <- mg_mat[ , mg_cols > 0 & mg_cols < 1]
+```
+
+Fit models. 
+
+```{r}
+mg_1pl <- fit_mirt_ef(mg_mat, "Rasch")
+write_rds(sds_1pl, here("assessment/colombia/stage2/task_analyses/ef/fits/mg_1pl.rds"))
+
+mg_2pl <- fit_mirt_ef(mg_mat, "2PL")
+write_rds(mg_2pl, here("assessment/colombia/stage2/task_analyses/ef/fits/mg_2pl.rds"))
+
+mg_3pl <- fit_mirt_ef(mg_mat, "3PL")
+write_rds(mg_3pl, here("assessment/colombia/stage2/task_analyses/ef/fits/mg_3pl.rds"))
+```
+
+2PL wins
+```{r}
+anova(mg_1pl$model, mg_2pl$model, mg_3pl$model)
+mg_best <- mg_2pl
+```
+
+Coefficients. 
+
+```{r}
+ggplot(mg_best$coefs, 
+       aes(x = item, y = d)) + 
+  geom_jitter(alpha = .5, width = .5) + 
+  geom_smooth(method = "lm") + 
+  coord_flip()
+```
+
+```{r}
+mg_score_compare <- mg_1pl$fscores |> rename(ability_1pl = ability) |>
+  left_join(mg_2pl$fscores |> rename(ability_2pl = ability)) |>
+  left_join(mg_3pl$fscores |> rename(ability_3pl = ability)) |>
+  left_join(participants |> select(user_id, age))
+
+mg_score_compare |> select(-user_id) |> GGally::ggpairs()
+```
+
+# Across EF
+
+Combined model fits
+```{r}
+hf_scores <- hf_accuracy |>
+  filter(subtask == "hearts and flowers") |>
+  select(user_id, score = prop_correct) |>
+  mutate(task = "hearts-and-flowers", score_type = "proportion correct")
+
+# sds_scores <- sds_best$fscores |>
+#   rename(score = ability) |>
+#   mutate(task = "same-different-selection", score_type = "ability (1PL)")
+
+# mg_scores <- mg_best$fscores |>
+#   rename(score = ability) |>
+#   mutate(task = "memory-game", score_type = "ability (1PL)")
+
+mg_scores <- mg_span |>
+  select(user_id, score = longest) |>
+  mutate(task = "memory-game", score_type = "longest span")
+
+# ef_scores <- bind_rows(hf_scores, sds_scores, mg_scores)
+ef_scores <- bind_rows(hf_scores, mg_scores)
+
+write_rds(ef_scores, here("assessment/colombia/stage2/scores/ef_scores.rds"))
+```
+
+
+```{r}
+# mefs1 <- read_csv(here("assessment","colombia","stage2",
+#                        "task-analyses","mefs","data",
+#                        "LEVANTE_20240608_1210.csv")) |> # long format data
+#   filter(`Child ID` != "1234") # remove test
+# mefs2 <- read_csv(here("assessment/colombia/stage2/task_analyses/mefs/data",
+#                        "LEVANTE_20240608_1225.csv")) |> # N=122; wide format data
+#   filter(`Child ID` != "1234")
+
+mefs <- read_csv(here("assessment/colombia/stage2/task_analyses/mefs/data",
+                       "LEVANTE_20240617_0804.csv")) |>
+  filter(`Child ID` != "1234")
+
+# standardized by age, looks like
+cor.test(mefs2$`A1_Standard Score`, mefs2$`A1_Age (Months)`) 
+cor.test(mefs2$`A1_Percentile (National)`, mefs2$`A1_Age (Months)`) 
+
+cor.test(mefs2$`A1_Total Score`, mefs2$`A1_Age (Months)`) # r=.56
+```
+
+```{r}
+mefs_ef <- mefs |>
+  rename_with(\(nm) nm |> str_to_lower() |> str_replace_all(" ", "_") |> str_remove_all("[\\(\\)]")) |>
+  select(user_id = child_id, score = a1_total_score) |>
+  group_by(user_id) |>
+  summarise(score = mean(score)) |> # some children have multiple admins
+  mutate(task = "mefs")
+
+sds <- read_rds(here("assessment/colombia/stage2/scores/combined_scores.rds")) |>
+  filter(task == "same-different-selection")
+
+ef_compare <- ef_scores |>
+  bind_rows(sds) |>
+  select(-score_type, -age) |>
+  bind_rows(mefs_ef) |>
+  left_join(participants |> select(user_id, age)) |>
+  nest(data = -task) |>
+  mutate(fits = map(data, \(d) lm(score ~ age, data = d) |>
+                      broom::augment(newdata = d))) |>
+  select(-data) |>
+  unnest(fits)
+
+ef_compare |>
+  select(user_id, task, score) |>
+  pivot_wider(names_from = task, values_from = score) |>
+  select(-user_id) |>
+  rename(`same-different` = `same-different-selection`) |>
+  GGally::ggpairs()
+
+ggsave(here("assessment/colombia/stage2/task_analyses/ef/plots/ef_cors.png"),
+       width = 8.5, height = 6.5)
+
+ef_compare |>
+  select(user_id, task, .resid) |>
+  pivot_wider(names_from = task, values_from = .resid) |>
+  select(-user_id) |>
+  rename(`same-different` = `same-different-selection`) |>
+  GGally::ggpairs()
+
+ggsave(here("assessment/colombia/stage2/task_analyses/ef/plots/ef_cors_resid.png"),
+       width = 8.5, height = 6.5)
+```

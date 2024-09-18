@@ -3,7 +3,7 @@ format: html
 ---
 
 ```{r setup}
-source("_setup.R")
+source("scripts/_setup.R")
 
 trials_coded <- read_rds("data_processed/trials_coded.rds")
 participants <- read_rds("data_processed/participants.rds") |>

@@ -3,149 +3,16 @@ format: html
 ---
   
 ```{r setup}
-source("_setup.R")
+source("scripts/_setup.R")
 
 trials_coded <- read_rds("data_processed/trials_coded.rds")
 participants <- read_rds("data_processed/participants.rds")
 ```
 
-```{r participant_summary}
-# get by-participant correctness and completeness
-participant_summary <- trials_coded |>
-  group_by(task_group, task, user_id, run_id) |>
-  summarise(trials = n(),
-            num_correct = sum(correct, na.rm = TRUE),
-            prop_correct = num_correct / trials) |>
-  ungroup() |>
-  left_join(participants) |>
-  group_by(task) |>
-  mutate(n = n(),
-         n_age = length(discard(age, is.na)),
-         task_label = glue("{task}\n(n = {n})"),
-         task_label_age = glue("{task}\n(n = {n_age})"),
-         prop_trials = trials / max(trials)) |>
-  ungroup() |>
-  mutate(task_label = fct_inorder(task_label),
-         # task_label_age = fct_inorder(task_label_age),
-         is_zero = prop_correct == 0)
-```
-
-Plot correctness distribution by task
-
-```{r, fig.width=9, fig.height=6}
-ggplot(participant_summary, aes(x = "", y = prop_correct)) +
-  facet_wrap(vars(task_label), nrow = 3) +
-  geom_sina(aes(colour = task_group, size = prop_trials), alpha = 0.8) +
-  scale_colour_ptol() +
-  scale_size_binned(range = c(0.05, 2.5)) +
-  labs(y = "Subject's proportion of correct responses",
-       size = "Proportion of trials completed") +
-  guides(colour = "none") +
-  theme(axis.ticks.x = element_blank(),
-        axis.title.x = element_blank(),
-        strip.text = element_text(size = 8),
-        legend.position = "bottom",
-        legend.key.width = unit(2, "lines"))
-ggsave("plots/subject_correct.png", width = 14, height = 9)
-```
-
-Plot zero proportion distribution by task
-
-```{r, fig.width=9, fig.height=6}
-ggplot(participant_summary, 
-       aes(x = prop_correct, fill = is_zero)) +
-  facet_wrap(vars(task_label), nrow = 3) +
-  geom_histogram(aes(y = after_stat(density)), color = 1) + 
-  labs(x = "Subject's proportion of correct responses", 
-       y = "Density") +
- geom_density() + 
-  theme(axis.ticks.x = element_blank(),
-        axis.title.x = element_blank(),
-        strip.text = element_text(size = 8),
-        legend.position = "bottom",
-        legend.key.width = unit(2, "lines"))
-```
-
-Plot completeness distribution by task
-
-```{r}
-ggplot(participant_summary, aes(x = "", y = prop_trials)) +
-  facet_wrap(vars(task_label), nrow = 3) +
-  geom_sina(aes(colour = task_group)) +
-  scale_colour_ptol() +
-  labs(y = "Subject's proportion of trials completed") +
-  guides(colour = "none") +
-  theme(axis.ticks.x = element_blank(),
-        axis.title.x = element_blank(),
-        strip.text = element_text(size = 8))
-ggsave("plots/subject_completed.png", width = 14, height = 8)
-```
-
-Plot correctness over age by task
-
-```{r, fig.width=9, fig.height=7}
-ggplot(participant_summary |> filter(!is.na(age)), aes(x = age, y = prop_correct)) +
-  facet_wrap(vars(task_label), nrow = 3) + 
-  geom_smooth(method = "lm", colour = "darkgrey") +
-  geom_point(aes(colour = task_group, size = prop_trials), alpha = 0.8) +
-  scale_y_continuous(limits = c(0, 1)) +
-  scale_colour_ptol() +
-  scale_size_binned(range = c(0.05, 2.5)) +
-  labs(x = "Age (years)", y = "Subject's proportion correct responses",
-       size = "Proportion of trials completed") +
-  guides(colour = "none") +
-  theme(legend.position = "bottom",
-        legend.key.width = unit(2, "lines"),
-        strip.text = element_text(size = 8))
-ggsave("plots/subject_correct_age.png", width = 14, height = 9)
-```
-
-Plot completeness over age by task
-
-```{r, fig.width=9, fig.height=7}
-ggplot(participant_summary |> filter(!is.na(age)), aes(x = age, y = prop_trials)) +
-  facet_wrap(vars(task_label), nrow = 3) +
-  geom_smooth(method = "lm", colour = "darkgrey") +
-  geom_point(aes(colour = task_group), alpha = 0.8) +
-  scale_y_continuous(limits = c(0, 1)) +
-  scale_colour_ptol() +
-  labs(x = "Age (years)", y = "Subject's proportion trials completed") +
-  guides(colour = "none") +
-  theme(strip.text = element_text(size = 8))
-ggsave("plots/subject_completed_age.png", width = 14, height = 8)
-```
-
-```{r}
-trials_items <- trials_coded |>
-  filter(!is.na(item)) |>
-  group_by(task, item, answer) |>
-  mutate(item_id = cur_group_id())
-
-# get by-item summaries
-item_summary <- trials_items |>
-  group_by(task_group, task, item_id, item, answer) |>
-  summarise(subjects = n_distinct(user_id),
-            trials = n(),
-            num_correct = sum(correct, na.rm = TRUE),
-            prop_correct = num_correct / trials) |>
-  ungroup()
-
-item_summary |> count(task)
-
-# items with very high correctness
-high_correct <- item_summary |>
-  filter(prop_correct >= 0.95) |>
-  select(task, item_id, item, answer, trials, prop_correct) |>
-  arrange(task, desc(prop_correct))
-
-high_correct |> count(task, sort = TRUE)
-# write_csv(high_correct, "data/high_correct_items.csv")
-```
-
 Combine all task scores into one plot!
 
 ```{r}
-score_list <- map(list.files("scores", full.names = TRUE), read_rds)
+score_list <- list.files("scores", full.names = TRUE) |> set_names() |> map(read_rds)
 # exclude_tasks <- c("hostile-attribution", "pa-es")
 # score_list <- read_rds("scores/combined_scores.rds")
 
@@ -154,6 +21,8 @@ task_categories <- tribble(
   "hearts-and-flowers", "executive function",
   "same-different-selection", "executive function",
   "memory-game", "executive function",
+  "mefs (standard)", "executive function",
+  "mefs (total)", "executive function",
   "egma-math", "math",
   "matrix-reasoning", "reasoning",
   "mental-rotation", "spatial cognition",
@@ -163,28 +32,38 @@ task_categories <- tribble(
   "sre-es", "reading",
   "swr-es", "reading",
   "theory-of-mind", "social cognition",
-  "hostile-attribution", "social cognition"
+  "hostile-attribution", "social cognition",
+  "emotion-reasoning", "social cognition"
 ) |> mutate(task_category = task_category |> str_to_sentence() |> fct_inorder())
 
+# temporary replacement of ToM scores
+score_list[[1]] <- score_list[[1]] |> filter(!(task %in% c("theory-of-mind", "hostile-attribution")))
+
 scores <- score_list |>
+  map(\(sc) sc |> mutate(task = as.character(task))) |>
   bind_rows() |>
   select(-age) |> # remove ages that have come along for the ride and are not directly computed in participants
   # filter(!(task %in% exclude_tasks)) |>
-  # left_join(participants |> select(user_id, age)) |>
-  left_join(participants) |>
+  left_join(participants |> select(user_id, age)) |>
+  # left_join(participants) |>
   filter(!is.na(age), age >= 5, age <= 12) |>
   group_by(task) |>
   mutate(n = n_distinct(user_id), task_label = glue("{task}\n(n = {n})")) |>
+  mutate(score_age = lm(score ~ age)$residuals) |>
   ungroup() |>
   left_join(task_categories) |>
   mutate(score_type = score_type |> str_remove(" \\(.*\\)"))
-# scores |> count(task, user_id) |> filter(n > 1)
+# scores |> count(task, score_type, user_id) |> filter(n > 1)
+
+# scores |>
+#   group_by(task) |>
+#   mutate(score_age = lm(score ~ age)$residuals)
 
 task_categories_vec <- levels(scores$task_category)
 task_pal <- ptol_pal()(length(task_categories_vec)) |> set_names(task_categories_vec)
 
 ggplot(scores |> filter(!is.na(age)), aes(x = age, y = score)) +
-  ggh4x::facet_nested_wrap(vars(task_category, task_label), nrow = 2,
+  ggh4x::facet_nested_wrap(vars(task_category, task_label), nrow = 3,
                       nest_line = element_line(), solo_line = TRUE,
                       axes = "x",
                       scales = "free_y") +
@@ -204,11 +83,12 @@ ggplot(scores |> filter(!is.na(age)), aes(x = age, y = score)) +
         legend.key.width = unit(2, "lines"))
         # strip.text = element_text(size = 8))
 
-ggsave("plots/all_scores.png", width = 14, height = 6)
+ggsave("plots/scores/all_scores.png", width = 12, height = 8)
+# ggsave("plots/all_scores.png", width = 15.5, height = 5.5)
 ```
 
 ```{r}
-task_plot <- function(tasks) {
+task_plot <- \(tasks) {
   ggplot(scores |> filter(!is.na(age), task %in% tasks),
          aes(x = age, y = score)) +
     ggh4x::facet_nested_wrap(vars(task_category, task_label), #nrow = 2,
@@ -227,35 +107,52 @@ task_plot <- function(tasks) {
 }
 
 task_plot("matrix-reasoning")
-ggsave("plots/mxr.png", width = 4, height = 4)
+ggsave("plots/scores/mxr.png", width = 4, height = 4)
 
 task_plot("mental-rotation")
-ggsave("plots/mr.png", width = 4, height = 4)
+ggsave("plots/scores/mr.png", width = 4, height = 4)
 
-task_plot(c("theory-of-mind", "hostile-attribution"))
-ggsave("plots/tom.png", width = 7, height = 4)
+task_plot(c("theory-of-mind", "hostile-attribution", "emotion-reasoning"))
+ggsave("plots/scores/tom.png", width = 9, height = 4)
 
 task_plot(c("hearts-and-flowers", "memory-game", "same-different-selection"))
-ggsave("plots/ef.png", width = 9, height = 4)
+ggsave("plots/scores/ef.png", width = 9, height = 4)
 
 task_plot(c("sre-es", "swr-es", "trog", "vocab"))
-ggsave("plots/lang.png", width = 6, height = 6)
+ggsave("plots/scores/lang.png", width = 6, height = 6)
+
+task_plot(c("mefs (standard)", "mefs (total)"))
+ggsave("plots/scores/mefs.png", width = 7, height = 4)
 ```
 
 ```{r}
-lang_scores <- scores |>
-  filter(task_category %in% c("Language", "Reading")) |>
-  select(user_id, task, score) |>
-  pivot_wider(names_from = task, values_from = score) |>
-  select(-user_id)
-  # rename(`same-different` = `same-different-selection`) |>
-  GGally::ggpairs()
-  
-lang_scores |> select(`sre-es`, trog, vocab) |> GGally::ggpairs()
-ggsave("plots/lang_cors_sre.png", width = 6, height = 5)
+cors_plot <- \(tasks, measure = score) {
+  measure <- enquo(measure)
+  scores |>
+    filter(task %in% tasks) |>
+    select(user_id, task, !!measure) |>
+    pivot_wider(names_from = task, values_from = !!measure) |>
+    select(-user_id) |>
+    GGally::ggpairs()
+}
 
-lang_scores |> select(`swr-es`, trog) |> GGally::ggpairs()
-ggsave("plots/lang_cors_swr.png", width = 4, height = 3)
+cors_plot(c("theory-of-mind", "hostile-attribution", "emotion-reasoning"))
+ggsave("plots/cors/tom_cors.png", width = 6, height = 5)
+
+ef_tasks <- c("hearts-and-flowers", "memory-game", "same-different-selection")
+cors_plot(c(ef_tasks, "mefs (total)"))
+ggsave("plots/cors/ef_cors.png", width = 8, height = 7)
+
+cors_plot(c(ef_tasks, "mefs (standard)"), measure = score_age)
+ggsave("plots/cors/ef_cors_age.png", width = 8, height = 7)
+
+age_cors <- scores |>
+  group_by(task) |>
+  summarise(age_cor = cor(score, age),
+            agec_cor = cor(score_age, age))
+
+scores |>
+  select(task_category, task, score, age)
 ```
 
 Table of median task times

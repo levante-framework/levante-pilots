@@ -1,5 +1,6 @@
 ```{r load-data}
-source(here::here("assessment/colombia/stage2/_setup.R"))
+source(here("assessment/colombia/stage2/scripts/_setup.R"))
+source(here("assessment/colombia/stage2/scripts/irt_helpers.R"))
 
 trials_coded <- read_rds(here("assessment/colombia/stage2/data_processed/trials_coded.rds"))
 participants <- read_rds(here("assessment/colombia/stage2/data_processed/participants.rds"))
@@ -118,13 +119,17 @@ egma_numberline <- egma |>
   filter(corpus_trial_type != "line_slid") |>
   bind_rows(numberline)
 
-# theory of mind is separated by assessment_stage +
+# theory of mind is separated by groups of corpus_trial_type +
 # has special processing to identify items +
-# hostile attribution correctness recoding
-hostile_values <- read_csv(here("assessment/colombia/stage2/task_analyses/hostile-attribution-coding.csv"))
+# hostile attribution correctness are recoded
+hostile_values <- read_csv(here("assessment/colombia/stage2/task_analyses/data/hostile-attribution-coding.csv"))
 tom <- task_data |>
   filter(task_id == "theory-of-mind") |>
-  mutate(task_id = assessment_stage) |> # treat hostile-attribution as task
+  mutate(corpus_trial_type = corpus_trial_type |> str_remove_all("_question")) |>
+  mutate(task_id = fct_collapse(corpus_trial_type,
+                                "theory-of-mind" = c("false_belief", "reality_check", "reference"),
+                                "hostile-attribution" = "audio",
+                                "emotion-reasoning" = "emotion_reasoning")) |>
   group_by(user_id, run_id, task_id, item, corpus_trial_type) |>
   mutate(i = 1:n(), n = n()) |> # sequentially number items
   ungroup() |>
@@ -134,11 +139,11 @@ tom <- task_data |>
          # item_id = if_else(n == 1, item_id, paste(item_id, i))) |>
   select(-i, -n) |>
   left_join(hostile_values) |>
-  mutate(correct = if_else(task_id == "hostile-attribution",
-                              value %in% c("purpose", "hostile"),
-                              correct)) |>
+  mutate(correct = if_else(str_detect(task_id, "hostile"),
+                           value %in% c("purpose", "hostile"),
+                           correct)) |>
   select(-value)
-write_rds(tom, here("assessment","colombia","stage2","task_analyses","data","tom_data.rds"))
+# write_rds(tom, here("assessment/colombia/stage2/task_analyses/data/tom_data.rds"))
 
 task_data_coded <- task_data |>
   # replace separated out data
@@ -173,12 +178,10 @@ task_data_nested <- task_data_rt |>
   select(-starts_with("rt")) |> # drop all RT columns
   nest(data = everything(), .by = task_id) # nest data by task
 
-write_rds(task_data_nested, here("assessment","colombia","stage2","task_analyses","data","task_data.rds"))
+write_rds(task_data_nested, here("assessment/colombia/stage2/task_analyses/data/task_data.rds"))
 ```
 
 ```{r}
-source("irt_helpers.R")
-
 # transform each task's data for modeling by applying above functions
 task_data_prepped <- task_data_nested |>
   mutate(data_filtered = map(data, \(df) df |> filter_repeat_runs() |>
@@ -191,9 +194,8 @@ task_data_prepped <- task_data_nested |>
 # generate model strings, using constraints for repeated items
 # TODO: is kind of slow, could be probably improved
 
-
 item_types <- c("Rasch", "2PL") #, "3PL") # set of parameterizations
-model_types <- c(1, 2) # set of dimensionalities
+model_types <- c(1) #, 2) # set of dimensionalities
 
 # add arguments for model fitting to data
 task_data_args <- task_data_prepped |>
@@ -212,16 +214,15 @@ task_data_args <- task_data_prepped |>
 ```{r fit-models}
 set.seed(1234)
 
-
 # some manual debugging stuff
-eg <- task_data_prepped |> filter(task_id == "egma-math") |> pull(data_filtered) |> pluck(1)
-ggplot(eg, aes(x = item_mean)) +
-  facet_wrap(vars(corpus_trial_type), scales = "free") +
-  geom_density()
-# tdp <- task_data_args |> slice(9)
-tdp <- task_data_args |> filter(task_id == "egma-math")
-dp <- tdp$data_prepped[[1]]
-fm <- fit_mirt(dp, tdp$item_type[[1]], tdp$model_str[[1]],  tdp$model_type[[1]], tdp$task_id[[1]], tdp$guess[[1]])
+# eg <- task_data_prepped |> filter(task_id == "egma-math") |> pull(data_filtered) |> pluck(1)
+# ggplot(eg, aes(x = item_mean)) +
+#   facet_wrap(vars(corpus_trial_type), scales = "free") +
+#   geom_density()
+# # tdp <- task_data_args |> slice(9)
+# tdp <- task_data_args |> filter(task_id == "egma-math")
+# dp <- tdp$data_prepped[[1]]
+# fm <- fit_mirt(dp, tdp$item_type[[1]], tdp$model_str[[1]],  tdp$model_type[[1]], tdp$task_id[[1]], tdp$guess[[1]])
 
 # fit all the models!
 task_models <- task_data_args |>
@@ -255,7 +256,7 @@ task_scores <- task_best |>
 
 # save all data + models + results
 save(task_results,
-     file = here("assessment/colombia/stage2/task_analyses/irt_models.RData"))
+     file = here("assessment/colombia/stage2/task_analyses/data/irt_models.RData"))
 
 # save scores
 write_rds(task_scores, here("assessment/colombia/stage2/scores/combined_scores.rds"))
@@ -274,6 +275,8 @@ item_coefs <- task_results |>
   mutate(model = paste(params, dims) |> fct_inorder()) |>
   group_by(model, term) |>
   filter(!all(value == 1))
+
+write_rds(item_coefs, here("assessment/colombia/stage2/task_analyses/data/item_coefs.rds"))
 
 # item parameters distributions
 ggplot(item_coefs, aes(x = model, y = value, colour = term)) +

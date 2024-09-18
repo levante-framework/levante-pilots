@@ -3,8 +3,8 @@ format: html
 ---
   
 ```{r setup}
-source("_setup.R")
-source("_data_loading_functions.R")
+source("scripts/_setup.R")
+source("scripts/_data_loading_functions.R")
 ```
 
 ```{r datasets}
