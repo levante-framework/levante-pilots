@@ -81,14 +81,23 @@ mefs <- read_csv(here("assessment/colombia/stage2/task_analyses/data",
 # cor.test(mefs$`A1_Percentile (National)`, mefs$`A1_Age (Months)`) 
 # cor.test(mefs$`A1_Total Score`, mefs$`A1_Age (Months)`)
 
+# mefs_scores <- mefs |>
+#   rename_with(\(nm) nm |> str_to_lower() |> str_replace_all(" ", "_") |> str_remove_all("[\\(\\)]")) |>
+#   select(user_id = child_id, total = a1_total_score, standard = a1_standard_score) |>
+#   pivot_longer(cols = -user_id, names_to = "score_type", values_to = "score") |>
+#   group_by(user_id, score_type) |>
+#   summarise(score = mean(score)) |> # some children have multiple admins
+#   ungroup() |>
+#   mutate(task = glue("mefs ({score_type})"))
+
 mefs_scores <- mefs |>
   rename_with(\(nm) nm |> str_to_lower() |> str_replace_all(" ", "_") |> str_remove_all("[\\(\\)]")) |>
-  select(user_id = child_id, total = a1_total_score, standard = a1_standard_score) |>
-  pivot_longer(cols = -user_id, names_to = "score_type", values_to = "score") |>
-  group_by(user_id, score_type) |>
+  filter(str_length(child_id) > 3) |>
+  select(user_id = child_id, score = a1_total_score) |>
+  group_by(user_id) |>
   summarise(score = mean(score)) |> # some children have multiple admins
   ungroup() |>
-  mutate(task = glue("mefs ({score_type})"))
+  mutate(task = "mefs", score_type = "total")
 ```
 
 # Across EF
