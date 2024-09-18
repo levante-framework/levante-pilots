@@ -88,7 +88,7 @@ ggsave("plots/scores/tom.png", width = 9, height = 4)
 
 ef_tasks <- c("hearts-and-flowers", "memory-game", "same-different-selection", "mefs")
 task_plot(ef_tasks)
-ggsave("plots/scores/ef.png", width = 9, height = 4)
+ggsave("plots/scores/ef.png", width = 11, height = 4)
 
 task_plot(c("sre-es", "swr-es", "trog", "vocab"))
 ggsave("plots/scores/lang.png", width = 9, height = 4)
@@ -109,10 +109,10 @@ cors_plot(c("theory-of-mind", "hostile-attribution", "emotion-reasoning"), score
 ggsave("plots/cors/tom_cors.png", width = 6, height = 5)
 
 cors_plot(ef_tasks, score)
-ggsave("plots/cors/ef_cors.png", width = 8, height = 7)
+ggsave("plots/cors/ef_cors.png", width = 8.5, height = 8.5)
 
 cors_plot(ef_tasks, score_age)
-ggsave("plots/cors/ef_cors_age.png", width = 8, height = 7)
+ggsave("plots/cors/ef_cors_age.png", width = 8.5, height = 8.5)
 
 age_cors <- scores |>
   group_by(task) |>
