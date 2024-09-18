@@ -178,7 +178,7 @@ task_data_nested <- task_data_rt |>
   select(-starts_with("rt")) |> # drop all RT columns
   nest(data = everything(), .by = task_id) # nest data by task
 
-write_rds(task_data_nested, here("assessment/colombia/stage2/task_analyses/data/task_data.rds"))
+write_rds(task_data_nested, here("assessment/colombia/stage2/task_analyses/data/task_data_nested.rds"))
 ```
 
 ```{r}
