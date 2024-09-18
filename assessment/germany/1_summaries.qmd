@@ -12,7 +12,7 @@ participants <- read_rds("data_processed/participants.rds")
 Combine all task scores into one plot!
 
 ```{r}
-score_list <- map(list.files("task_analyses/scores", full.names = TRUE), read_rds)
+score_list <- map(list.files("scores", full.names = TRUE), read_rds)
 # exclude_tasks <- c("hostile-attribution", "pa-es")
 # score_list <- read_rds("scores/combined_scores.rds")
 
@@ -50,82 +50,31 @@ scores <- score_list |>
 
 task_categories_vec <- levels(scores$task_category)
 task_pal <- ptol_pal()(length(task_categories_vec)) |> set_names(task_categories_vec)
-
-ggplot(scores |> filter(!is.na(age)), aes(x = age, y = score)) +
-  ggh4x::facet_nested_wrap(vars(task_category, task_label), nrow = 2,
-                      nest_line = element_line(), solo_line = TRUE,
-                      axes = "x",
-                      scales = "free_y") +
-  geom_point(aes(colour = task_category), alpha = 0.5) +
-  geom_smooth(method = "gam", formula = y ~ x, colour = "darkgrey") +
-  # geom_text(aes(label = score_type), x = Inf, y = 0.05, hjust = 1, vjust = 0,
-  #           family = .font) +
-  # scale_y_continuous() +
-  scale_x_continuous(breaks = seq(6, 14, 2)) +
-  scale_colour_manual(values = task_pal) +
-  # scale_colour_ptol() +
-  # scale_shape_manual(values = c(19, 1), guide = "none") +
-  # scale_size_binned(range = c(0.05, 2.5)) +
-  labs(x = "Age (years)", y = "Score") +
-  guides(colour = "none") +
-  theme(legend.position = "bottom",
-        legend.key.width = unit(2, "lines"))
-        # strip.text = element_text(size = 8))
-
-ggsave("plots/all_scores.png", width = 14, height = 6)
 ```
 
 ```{r}
-task_plot <- function(tasks) {
+task_plot <- \(tasks, nr = 1) {
   ggplot(scores |> filter(!is.na(age), task %in% tasks),
          aes(x = age, y = score)) +
-    ggh4x::facet_nested_wrap(vars(task_category, task_label), #nrow = 2,
+    ggh4x::facet_nested_wrap(vars(task_category, task_label), nrow = nr,
                              nest_line = element_line(), solo_line = TRUE,
                              axes = "x",
-                             scales = "free_y"
-                             ) +
+                             scales = "free_y") +
     geom_point(aes(colour = task_category), alpha = 0.5) +
     geom_smooth(method = "gam", colour = "darkgrey") +
     scale_x_continuous(breaks = seq(6, 14, 2)) +
     scale_colour_manual(values = task_pal) +
     labs(x = "Age (years)", y = "Score") +
-    guides(colour = "none") +
-    theme(legend.position = "bottom",
-          legend.key.width = unit(2, "lines"))
+    guides(colour = "none")
 }
 
-task_plot("matrix-reasoning")
-ggsave("plots/mxr.png", width = 4, height = 4)
-
-task_plot("mental-rotation")
-ggsave("plots/mr.png", width = 4, height = 4)
-
-task_plot(c("theory-of-mind", "hostile-attribution"))
-ggsave("plots/tom.png", width = 7, height = 4)
+all_tasks <- unique(scores$task)
+task_plot(all_tasks, 2)
+ggsave("plots/scores/all_scores.png", width = 14, height = 6)
 
 task_plot(c("hearts-and-flowers", "memory-game", "same-different-selection"))
 ggsave("plots/ef.png", width = 9, height = 4)
-
-task_plot(c("sre-es", "swr-es", "trog", "vocab"))
-ggsave("plots/lang.png", width = 6, height = 6)
 ```
-
-```{r}
-lang_scores <- scores |>
-  filter(task_category %in% c("Language", "Reading")) |>
-  select(user_id, task, score) |>
-  pivot_wider(names_from = task, values_from = score) |>
-  select(-user_id)
-  # rename(`same-different` = `same-different-selection`) |>
-  GGally::ggpairs()
-  
-lang_scores |> select(`sre-es`, trog, vocab) |> GGally::ggpairs()
-ggsave("plots/lang_cors_sre.png", width = 6, height = 5)
-
-lang_scores |> select(`swr-es`, trog) |> GGally::ggpairs()
-ggsave("plots/lang_cors_swr.png", width = 4, height = 3)
-```
-
 
 ```{r participant_summary}
 # get by-participant correctness and completeness

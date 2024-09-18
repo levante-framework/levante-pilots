@@ -70,14 +70,13 @@ trials_tasks <- trials_filtered |>
     task_group == "EGMA" & is.na(corpus_trial_type) & !is.na(item),
     if_else(is.na(distractors) | distractors == "{}", "number line slider", "number line 4afc"),
     corpus_trial_type),
-         corpus_trial_type = str_to_lower(corpus_trial_type)) |>
+         corpus_trial_type = str_to_lower(corpus_trial_type),
+    corpus_trial_type = str_remove_all(corpus_trial_type, "_question$")) |>
   mutate(subtask = case_when(
     task_group %in% c("EGMA", "mental-rotation") ~ corpus_trial_type,
     task_group == "ROAR" ~ task_id,
     task_id == "theory-of-mind" ~ corpus_trial_type |>
-      str_remove("_question") |>
-      fct_collapse(corpus_trial_type,
-                   "theory-of-mind" = c("false_belief", "reality_check", "reference"),
+      fct_collapse("theory-of-mind" = c("false_belief", "reality_check", "reference"),
                    "hostile-attribution" = c("action", "attribution"),
                    "emotion-reasoning" = "emotion_reasoning"))) |>
   mutate(task = if_else(is.na(subtask), task_id, glue("{task_group} ({subtask})")))
@@ -95,11 +94,16 @@ trials_coded <- trials_tasks_ordered |>
   filter(all(is.na(item)) | !is.na(item)) |>
   ungroup() |>
   mutate(server_timestamp = as_datetime(server_timestamp))
-  # filter(!is.na(item) | !is.na(expected_answer) | !is.na(is_correct)) |>
 
-# recode correctness for some tasks
-  # mutate(is_correct = is_correct |
-  #          str_detect(task, "hostile") & !str_detect(response, "accident"))
+# check for miscoded trials
+trials_coded |>
+  filter(subtask != "number line slider") |>
+  select(user_id, task_id, item, answer, response, correct) |>
+  mutate(correct_dup = answer == response,
+         correct_check = correct == correct_dup) |>
+  filter(is.na(correct_check) | !correct_check) |>
+  arrange(task_id, user_id) #|>
+  # write_csv("DE_no_response.csv")
 
 write_rds(trials_coded, "data_processed/trials_coded.rds")
 write_rds(participants, "data_processed/participants.rds")

@@ -177,11 +177,12 @@ task_data_nested <- task_data_rt |>
   select(-starts_with("rt")) |> # drop all RT columns
   nest(data = everything(), .by = task_id) # nest data by task
 
-write_rds(task_data_nested, ("data/task_data.rds"))
+write_rds(task_data_nested, ("data/task_data_nested.rds"))
 ```
 
 ```{r}
-source("irt_helpers.R")
+source("../scripts/irt_helpers.R")
+task_data_nested <- read_rds("data/task_data_nested.rds")
 
 # transform each task's data for modeling by applying above functions
 task_data_prepped <- task_data_nested |>
@@ -243,7 +244,8 @@ task_scores <- task_best |>
   select(task = task_id, user_id, age, score_type, score = ability)
 
 # save all data + models + results
-save(task_results, file = "irt_models.RData")
+# save(task_results, file = "irt_models.RData")
+write_rds(task_results, "data/task_results.rds")
 
 # save scores
 write_rds(task_scores, "../scores/combined_scores.rds")
@@ -251,23 +253,25 @@ write_rds(task_scores, "../scores/combined_scores.rds")
 
 ```{r}
 # item parameters
-# item_coefs <- task_results |>
-#   select(task_id, dims = model_type, params = item_type, coefs) |>
-#   unnest(coefs) |>
-#   select(-g, -u) |>
-#   pivot_longer(c(d, a1, a2), names_to = "term", values_to = "value") |>
-#   filter(!is.na(value)) |>
-#   mutate(params = fct_inorder(params), term = fct_inorder(term)) |>
-#   arrange(task_id, params, dims) |>
-#   mutate(model = paste(params, dims) |> fct_inorder()) |>
-#   group_by(model, term) |>
-#   filter(!all(value == 1))
-# 
-# # item parameters distributions
-# ggplot(item_coefs, aes(x = model, y = value, colour = term)) +
-#   facet_wrap(vars(task_id), scale = "free", nrow = 2) +
-#   geom_sina(size = 0.8) +
-#   scale_colour_ptol() +
-#   labs(x = "IRT model type", y = "Parameter value", colour = "Parameter")
-# ggsave("irt_params.png", width = 14, height = 6)
+item_coefs <- task_results |>
+  select(task_id, dims = model_type, params = item_type, coefs) |>
+  unnest(coefs) |>
+  select(-g, -u) |>
+  # pivot_longer(c(d, a1, a2), names_to = "term", values_to = "value") |>
+  pivot_longer(c(d, a1), names_to = "term", values_to = "value") |>
+  filter(!is.na(value)) |>
+  mutate(params = fct_inorder(params), term = fct_inorder(term)) |>
+  arrange(task_id, params, dims) |>
+  mutate(model = paste(params, dims) |> fct_inorder()) |>
+  group_by(model, term) |>
+  filter(!all(value == 1))
+write_rds(item_coefs, "data/item_coefs.rds")
+
+# item parameters distributions
+ggplot(item_coefs, aes(x = model, y = value, colour = term)) +
+  facet_wrap(vars(task_id), scale = "free", nrow = 2) +
+  geom_sina(size = 0.8) +
+  scale_colour_ptol() +
+  labs(x = "IRT model type", y = "Parameter value", colour = "Parameter")
+ggsave("plots/irt_params.png", width = 14, height = 6)
 ```
