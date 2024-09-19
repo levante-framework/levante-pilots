@@ -1,0 +1,70 @@
+---
+title: "CO vs. DE"
+format: html
+editor: visual
+---
+
+## Initial Comparison of Colombia and Germany Data
+
+For purposes of quality control, since there are at least two notable differences (apart from geographic) in the two studies:
+
+1.  In CO, most tasks had an early stopping criterion of 3 incorrect trials (in a row). In DE, this threshold was raised to 6, and removed entirely for ToM+HA.
+2.  CO data collection was in schools, supervised by researchers, while DE data was collected at home (presumably) under parent supervision.
+
+Thus, we may expect some overall differences in accuracy and trials-per-participant between the two sites (i.e., more trials and lower accuracy in DE vs. CO).
+
+```{r load-data}
+co_trials_coded <- read_rds("colombia/stage2/data_processed/trials_coded.rds") |>
+  mutate(country = "CO")
+co_participants <- read_rds("colombia/stage2/data_processed/participants.rds") |>
+  mutate(country = "CO")
+
+trials_coded <- read_rds("germany/data_processed/trials_coded.rds") |> 
+  mutate(country = "DE", 
+         theta_estimate = as.numeric(theta_estimate),
+         theta_estimate2 = as.numeric(theta_estimate2),
+         theta_se = as.numeric(theta_se),
+         theta_se2 = as.numeric(theta_se2),
+         grade = as.numeric(grade)) |> bind_rows(co_trials_coded)
+participants <- read_rds("germany/data_processed/participants.rds") |>
+  mutate(country = "DE", 
+         grade = as.numeric(grade)) |> bind_rows(co_participants)
+rm(co_trials_coded, co_participants)
+```
+
+```{r participant_summary}
+participant_summary <- trials_coded |>
+  group_by(task_group, task, user_id, run_id) |>
+  summarise(trials = n(),
+            #total_time = sum(as.numeric(rt), na.rm=T),
+            num_correct = sum(correct, na.rm = TRUE),
+            prop_correct = num_correct / trials) |>
+  ungroup() |>
+  left_join(participants) |>
+  group_by(task) |>
+  mutate(n = n(),
+         n_age = length(discard(age, is.na)),
+         task_label = glue("{task}\n(n = {n})"),
+         task_label_age = glue("{task}\n(n = {n_age})"),
+         prop_trials = trials / max(trials)) |>
+  ungroup() |>
+  mutate(task_label = fct_inorder(task_label),
+         is_zero = prop_correct == 0) |>
+  filter(task!="EGMA ()", task!="egma-math")
+```
+
+```{r}
+by_country <- participant_summary |>
+  group_by(task, country) |>
+  summarise(mean_trials_completed = mean(trials),
+            mean_accuracy = mean(prop_correct), 
+            n = n(),
+            mean_age = mean(age, na.rm=T)) 
+```
+
+```{r}
+by_country |> 
+  ggplot(aes(x = task, y = mean_trials_completed, fill=country)) +
+  geom_col(position = position_dodge()) +
+  theme(axis.text.x = element_text(angle = 45, vjust = 1, hjust=1))
+```

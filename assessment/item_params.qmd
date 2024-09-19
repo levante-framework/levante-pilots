@@ -28,5 +28,9 @@ all_coefs <- full_join(de_coefs, co_coefs, suffix = c("_de", "_co"),
 
 coef_cors <- all_coefs |>
   group_by(task_id, dims, params, term) |>
-  summarise(coef_cor = cor(value_de, value_co, use = "na.or.complete"))
+  summarise(coef_cor = cor(value_de, value_co, use = "na.or.complete")) 
+
+coef_cors |>
+  filter(term=="d", !is.na(coef_cor)) |>
+  arrange(desc(coef_cor))
 ```

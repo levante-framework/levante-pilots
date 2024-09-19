@@ -33,7 +33,9 @@ participant_summary <- trials_coded |>
 Plot correctness distribution by task
 
 ```{r, fig.width=9, fig.height=6}
-ggplot(participant_summary, aes(x = "", y = prop_correct)) +
+participant_summary |>
+  filter(task!="egma-math") |> # 1 instruction trial per participant
+ggplot(aes(x = "", y = prop_correct)) +
   facet_wrap(vars(task_label), nrow = 3) +
   geom_sina(aes(colour = task_group, size = prop_trials), alpha = 0.8) +
   scale_colour_ptol() +
