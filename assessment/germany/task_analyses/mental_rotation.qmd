@@ -90,3 +90,32 @@ ggplot(mr_subject_set, aes(x = angle, y = prop_correct, colour = stim_type)) +
   labs(x = "Angle", y = "Proportion correct responses", colour = "")
 ggsave("plots/mr_accuracy_set.png", width = 11, height = 3.5)
 ```
+
+# Accuracy and RT over time
+
+(Looking for fatigue)
+
+```{r}
+acc_rt_by_block <- mr |> 
+  arrange(user_id, server_timestamp) |>
+  group_by(user_id) |>
+  mutate(trial_index = row_number()) |>
+  ungroup() |>
+  group_by(user_id) |>
+  mutate(trial_block_index = ceiling(trial_index / 10)) |>
+  group_by(user_id, trial_block_index) |>
+  summarise(mean_accuracy = mean(correct, na.rm=T), 
+            median_rt = median(rt, na.rm=T),
+            .groups = 'drop')
+
+acc_rt_by_block |>
+  group_by(trial_block_index) |>
+  summarise(accuracy = mean(mean_accuracy),
+            rt = mean(median_rt),
+            Nsubj = n()) |>
+  mutate(trial_index = trial_block_index*10) |>
+  ggplot(aes(x = trial_index, y = accuracy, color = rt)) +
+  geom_point(aes(size = Nsubj), alpha=.4) + 
+  geom_line() + ylim(0.5,1)
+```
+
