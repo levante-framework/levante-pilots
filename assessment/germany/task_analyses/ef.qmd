@@ -52,10 +52,22 @@ mg <- ef_data |>
 
 mg_span <- mg |>
   filter(correct) |>
-  group_by(task_id, user_id, run_id, age) |>
+  group_by(task_id, user_id, run_id, age, corpus_trial_type) |>
   summarise(trials_span = n(), longest = max(span)) |>
   ungroup()
 ```
+
+```{r}
+mg_span |>
+  ggplot(aes(x=longest, fill=corpus_trial_type)) + 
+  geom_density(alpha=.5)
+
+mg_wide <- mg_span |>
+  pivot_wider(id_cols = c(user_id, run_id, age), values_from = longest, names_from = corpus_trial_type)
+cor.test(mg_wide$forward, mg_wide$backward)
+```
+
+
 
 # Across EF
 

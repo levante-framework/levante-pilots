@@ -34,3 +34,12 @@ coef_cors |>
   filter(term=="d", !is.na(coef_cor)) |>
   arrange(desc(coef_cor))
 ```
+
+```{r}
+all_coefs |>
+  filter(term=="d") |>
+  ggplot(aes(x = value_co, y = value_de)) +
+  facet_wrap(. ~ task_id) + 
+  geom_point(alpha=.3)
+```
+
