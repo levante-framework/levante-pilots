@@ -37,6 +37,13 @@ invalid_users <- participants |>
   filter(!is.na(birth_year_original), !valid_birth_year)
 ```
 
+```{r}
+participants |>
+  ggplot(aes(x=age)) +
+  geom_histogram()
+```
+
+
 ```{r runs}
 runs <- dataset_data$runs
 ```
@@ -57,6 +64,8 @@ trials_filtered <- trials_ids |>
   filter(is.na(practice) | !practice) |>
   select(-practice, -is_practice_trial)
 
+trials |> filter(is.na(distractors)) 
+
 # code info on tasks, subtasks, task groups
 roar_tasks <- c("letter", "pa", "pa-es", "sre", "sre-es", "swr", "swr-es", "vocab")
 trials_tasks <- trials_filtered |>
@@ -68,12 +77,16 @@ trials_tasks <- trials_filtered |>
     task_id == "theory-of-mind" ~ "ToM",
     TRUE ~ task_id
   )) |>
-  mutate(corpus_trial_type = if_else(
-    task_group == "EGMA" & is.na(corpus_trial_type) & !is.na(item),
-    if_else(is.na(distractors) | distractors == "{}", "number line slider", "number line 4afc"),
-    corpus_trial_type),
-         corpus_trial_type = str_to_lower(corpus_trial_type),
-    corpus_trial_type = str_remove_all(corpus_trial_type, "_question$")) |>
+  mutate(corpus_trial_type = str_to_lower(corpus_trial_type),
+         corpus_trial_type = str_remove_all(corpus_trial_type, "_question$")) |>
+  mutate(corpus_trial_type = case_when(
+    corpus_trial_type == "" & trial_index < 40 ~ "forward", # determine based on index/order
+    corpus_trial_type == "" & trial_index > 40 ~ "backward",
+    corpus_trial_type == 1500 & trial_index < 56 ~ "hearts", 
+    corpus_trial_type == 1500 & trial_index > 56 ~ "flowers", 
+    corpus_trial_type == 1500 & trial_index > 107 ~ "hearts and flowers",
+    .default = corpus_trial_type
+  )) |>
   mutate(subtask = case_when(
     task_group %in% c("EGMA", "mental-rotation") ~ corpus_trial_type,
     task_group == "ROAR" ~ task_id,
