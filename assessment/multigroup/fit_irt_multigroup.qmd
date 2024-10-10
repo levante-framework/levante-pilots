@@ -1,0 +1,100 @@
+```{r load-data}
+# source("../scripts/_setup.R")
+# source("../scripts/irt_helpers.R")
+
+task_data_co <- read_rds("../colombia/stage2/task_analyses/data/task_data_nested.rds")
+task_data_de <- read_rds("../germany/task_analyses/data/task_data_nested.rds")
+
+# transform each task's data for modeling by applying above functions
+task_data_prepped <- task_data_nested |>
+  mutate(data_filtered = map(data, \(df) df |> filter_repeat_runs() |>
+                               dedupe_items() |> remove_no_var_items()),
+         data_prepped = map(data_filtered, to_mirt_shape)) |>
+  # pull out chance values
+  mutate(guess = map(data_filtered, # TODO: check that this gives correct order
+                     \(df) df |> distinct(item_inst, chance) |> pull(chance)))
+```
+
+
+```{r setup-models}
+# generate model strings, using constraints for repeated items
+# TODO: is kind of slow, could be probably improved
+
+item_types <- c("Rasch", "2PL") #, "3PL") # set of parameterizations
+model_types <- c(1) #, 2) # set of dimensionalities
+# model_types <- c(1) # set of dimensionalities
+
+# add arguments for model fitting to data
+task_data_args <- task_data_prepped |>
+  # duplicate rows per dimensionality x parameterization
+  expand_grid(model_type = model_types, item_type = item_types) |>
+  # generate model string with item constraints + dimensionality
+  mutate(model_str = pmap_chr(list(data, data_prepped, item_type, model_type),
+                              generate_model_str))
+```
+
+### Fit models
+
+```{r fit-models}
+set.seed(1234)
+
+# fit all the models!
+task_models <- task_data_args |>
+  mutate(mod = pmap(list(data_prepped, item_type, model_str, model_type,
+                         task_id, guess), fit_mirt))
+
+# get each model's coefs, scores, BIC
+task_results <- task_models |>
+  mutate(coefs = map(mod, mirt_coefs),
+         scores = pmap(list(mod, data_filtered, data_prepped), mirt_scores),
+         bic = map_dbl(mod, mirt_bic))
+
+# best fitting model for each task
+task_best <- task_results |>
+  group_by(task_id) |>
+  filter(bic == min(bic)) |>
+  ungroup() |>
+  select(task_id, item_type, model_type, coefs, scores)
+
+# scores from best fitting models
+task_scores <- task_best |>
+  select(task_id, item_type, scores) |>
+  unnest(scores) |>
+  mutate(item_type = fct_recode(item_type, "1PL" = "Rasch"),
+         score_type = glue("ability ({item_type})")) |>
+  select(task = task_id, user_id, age, score_type, score = ability)
+
+# save all data + models + results
+# save(task_results, file = "irt_models.RData")
+write_rds(task_results, "data/task_results.rds")
+
+# save scores
+write_rds(task_scores, "../scores/combined_scores.rds")
+```
+
+```{r}
+# item parameters
+item_coefs <- task_results |>
+  select(task_id, dims = model_type, params = item_type, coefs) |>
+  unnest(coefs) |>
+  select(-g, -u) |>
+  # pivot_longer(c(d, a1, a2), names_to = "term", values_to = "value") |>
+  pivot_longer(c(d, a1), names_to = "term", values_to = "value") |>
+  filter(!is.na(value)) |>
+  mutate(params = fct_inorder(params), term = fct_inorder(term)) |>
+  arrange(task_id, params, dims) |>
+  # mutate(model = paste(params, dims) |> fct_inorder()) |>
+  mutate(model = params |> fct_inorder(),
+         term = term |> fct_recode("difficulty" = "d", "discrimination" = "a1")) |>
+  group_by(model, term) |>
+  filter(!all(value == 1))
+write_rds(item_coefs, "data/item_coefs.rds")
+
+# item parameters distributions
+ggplot(item_coefs, aes(x = model, y = value, colour = term)) +
+  facet_wrap(vars(task_id), scale = "free", nrow = 2) +
+  geom_sina(size = 0.8) +
+  scale_colour_ptol() +
+  labs(x = "IRT model type", y = "Parameter value", colour = "Parameter")
+ggsave("plots/irt_params.png", width = 14, height = 6)
+```
