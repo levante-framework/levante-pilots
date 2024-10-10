@@ -4,6 +4,12 @@ format: html
 editor: visual
 ---
 
+```{r}
+library(tidyverse)
+library(glue)
+```
+
+
 ## Initial Comparison of Colombia and Germany Data
 
 For purposes of quality control, since there are at least two notable differences (apart from geographic) in the two studies:
