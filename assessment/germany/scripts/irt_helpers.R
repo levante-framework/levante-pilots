@@ -39,17 +39,32 @@ to_mirt_shape <- function(df) {
 }
 
 paste_c <- partial(paste, collapse = ",")
-generate_model_str <- function(df, df_prepped, item_type, f) { # f = num factors
-  params <- "d" # always have difficulty
-  prior <- ""
-  items <- df |> pull(item_id) |> unique() # item ids
-  if (item_type != "Rasch") {
-    # add slopes a[i] based on parameterization
-    s <- as.numeric(str_extract(item_type, "^\\d")) - 1
-    params <- c(params, paste0("a", 1:s))
-    #prior <- paste0("PRIOR = (1-", length(items), ", a0, norm, 0, 5)") # do these need to be named items?
+generate_model_str <- function(df, df_prepped,
+                               item_type, # Rasch / 2PL / 3PL
+                               nf # num factors
+                               ) {
+  # params <- "d" # always have difficulty
+  # prior <- ""
+  n_items <- ncol(df_prepped)
+  item_ids <- df |> pull(item_id) |> unique() # item ids
+  
+  # F[i] = 1-K statement for each factor
+  factors <- map_chr(1:nf, \(i) glue("F{i} = 1-{n_items}"))
+  
+  if (item_type == "Rasch") {
+    params <- "d"
+    prior <- ""
+  } else if (item_type == "2PL") {
+    # slopes a[i] based on parameterization
+    slopes <- paste0("a", 1:nf)
+    params <- c("d", slopes)
+    # prior for each slope
+    priors <- map_chr(slopes, \(s) glue("(1-{n_items}, {s}, lnorm, 0.0, 1.0)"))
+    prior <- glue("PRIOR = {paste(priors, collapse = ',')}")
+  } else {
+    stop("invalid item type (must be Rasch or 2PL)")
   }
-  constraints <- items |> map(\(item_id) {
+  constraints <- item_ids |> map(\(item_id) {
     # get columns with item's instances
     matched <- colnames(df_prepped) |>
       keep(\(col) str_detect(col, glue("^{item_id}{item_sep}")))
@@ -58,13 +73,14 @@ generate_model_str <- function(df, df_prepped, item_type, f) { # f = num factors
       map_chr(params, \(p) glue("({paste_c(matched)},{p})")) |> paste_c()
     }
   }) |> compact() |> paste_c() # combine into CONSTRAIN statement
-  constraint <- if (str_length(constraints) > 1) paste0("CONSTRAIN=", constraints) else ""
-  # F[i] = 1-K statement for each factor
-  factors <- map_chr(1:f, \(i) glue("F{i} = 1-{ncol(df_prepped)}"))
+  constraint <- if (str_length(constraints) > 1) paste0("CONSTRAIN = ", constraints) else ""
+  
   # combine statements
   paste(c(factors, constraint, prior), collapse = "\n")
 }
 
+# s<-paste("F=1-",ni,"
+#              PRIOR = (1-",ni,", a1, lnorm, 0.0, 1.0)",sep="")
 
 # wrapper to fit mirt model with supplied arguments
 fit_mirt <- function(df, item_type, model_str, model_type, task_id, guess, verbose = F) {

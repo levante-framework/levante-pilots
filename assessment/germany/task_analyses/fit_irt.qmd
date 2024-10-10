@@ -188,7 +188,10 @@ task_data_nested <- read_rds("data/task_data_nested.rds")
 task_data_prepped <- task_data_nested |>
   mutate(data_filtered = map(data, \(df) df |> filter_repeat_runs() |>
                                dedupe_items() |> remove_no_var_items()),
-         data_prepped = map(data_filtered, to_mirt_shape))
+         data_prepped = map(data_filtered, to_mirt_shape)) |>
+  # pull out chance values
+  mutate(guess = map(data_filtered, # TODO: check that this gives correct order
+                     \(df) df |> distinct(item_inst, chance) |> pull(chance)))
 ```
 
 
@@ -197,8 +200,8 @@ task_data_prepped <- task_data_nested |>
 # TODO: is kind of slow, could be probably improved
 
 item_types <- c("Rasch", "2PL") #, "3PL") # set of parameterizations
-# model_types <- c(1, 2) # set of dimensionalities
-model_types <- c(1) # set of dimensionalities
+model_types <- c(1) #, 2) # set of dimensionalities
+# model_types <- c(1) # set of dimensionalities
 
 # add arguments for model fitting to data
 task_data_args <- task_data_prepped |>
@@ -206,11 +209,36 @@ task_data_args <- task_data_prepped |>
   expand_grid(model_type = model_types, item_type = item_types) |>
   # generate model string with item constraints + dimensionality
   mutate(model_str = pmap_chr(list(data, data_prepped, item_type, model_type),
-                              generate_model_str)) |>
-  # pull out chance values
-  mutate(guess = map(data_filtered, # TODO: check that this gives correct order
-                     \(df) df |> distinct(item_inst, chance) |> pull(chance)))
+                              generate_model_str))
 ```
+
+```{r}
+td <- task_data_prepped |> slice(1)
+df <- td$data[[1]]
+df_prepped <- td$data_prepped[[1]]
+guess <- td$guess[[1]]
+task <- td$task_id[[1]]
+# item_type <- td$item_type[[1]]
+# f <- td$model_type[[1]]
+model_str <- generate_model_str(df, df_prepped, "Rasch", 1)
+mod <- fit_mirt(df_prepped, "Rasch", model_str, 1, task, guess)
+
+model_str <- generate_model_str(df, df_prepped, "2PL", 1)
+mod <- fit_mirt(df_prepped, "2PL", model_str, 1, task, guess)
+
+# model_str <- generate_model_str(df, df_prepped, "3PL", 1)
+# mod <- fit_mirt(df_prepped, "3PL", model_str, 1, task, guess)
+# 
+# model_str <- generate_model_str(df, df_prepped, "Rasch", 2)
+# mod <- fit_mirt(df_prepped, "Rasch", model_str, 2, task, guess)
+# 
+# model_str <- generate_model_str(df, df_prepped, "2PL", 2)
+# mod <- fit_mirt(df_prepped, "2PL", model_str, 2, task, guess)
+# 
+# model_str <- generate_model_str(df, df_prepped, "3PL", 2)
+# mod <- fit_mirt(df_prepped, "3PL", model_str, 2, task, guess)
+```
+
 
 ### Fit models
 
@@ -262,7 +290,9 @@ item_coefs <- task_results |>
   filter(!is.na(value)) |>
   mutate(params = fct_inorder(params), term = fct_inorder(term)) |>
   arrange(task_id, params, dims) |>
-  mutate(model = paste(params, dims) |> fct_inorder()) |>
+  # mutate(model = paste(params, dims) |> fct_inorder()) |>
+  mutate(model = params |> fct_inorder(),
+         term = term |> fct_recode("difficulty" = "d", "discrimination" = "a1")) |>
   group_by(model, term) |>
   filter(!all(value == 1))
 write_rds(item_coefs, "data/item_coefs.rds")
