@@ -5,16 +5,49 @@
 task_data_co <- read_rds("../colombia/stage2/task_analyses/data/task_data_nested.rds")
 task_data_de <- read_rds("../germany/task_analyses/data/task_data_nested.rds")
 
+task_data_combined <- left_join(
+  task_data_co |> rename(data_co = data),
+  task_data_de |> rename(data_de = data)
+) |>
+  filter(task_id != "trog") |>
+  mutate(data = map2(data_co, data_de, \(df_co, df_de) {
+    bind_rows(df_co |> mutate(group = "CO"),
+              df_de |> mutate(group = "DE"))
+  }))
+
+# format data for mirt
+to_mirt_shape_grouped <- function(df) {
+  df |>
+    mutate(correct = as.numeric(correct)) |> # values to numeric
+    select(user_id, group, item_inst, correct) |>
+    pivot_wider(names_from = "item_inst", values_from = "correct") |> # column for each item
+    column_to_rownames("user_id") # user_id to rownames
+}
+
 # transform each task's data for modeling by applying above functions
-task_data_prepped <- task_data_nested |>
+task_data_prepped <- task_data_combined |>
   mutate(data_filtered = map(data, \(df) df |> filter_repeat_runs() |>
                                dedupe_items() |> remove_no_var_items()),
-         data_prepped = map(data_filtered, to_mirt_shape)) |>
+         data_wide = map(data_filtered, to_mirt_shape_grouped),
+         data_prepped = map(data_wide, \(df) df |> select(-group)),
+         groups = map(data_wide, \(df) df |> pull(group))) |>
   # pull out chance values
   mutate(guess = map(data_filtered, # TODO: check that this gives correct order
                      \(df) df |> distinct(item_inst, chance) |> pull(chance)))
 ```
 
+```{r}
+tdp <- task_data_prepped |> slice(5)
+mod <- multipleGroup(tdp$data_prepped[[1]], group = tdp$groups[[1]],
+                     itemtype = "Rasch", invariance = "intercepts")
+coef(mod, simplify = TRUE)
+
+mod <- multipleGroup(tdp$data_prepped[[1]], group = tdp$groups[[1]],
+                     itemtype = "2PL", invariance = "slopes")
+as_tibble(coef(mod, simplify = TRUE)$CO$items, rownames = "item")
+as_tibble(coef(mod, simplify = TRUE)$DE$items, rownames = "item")
+
+```
 
 ```{r setup-models}
 # generate model strings, using constraints for repeated items
