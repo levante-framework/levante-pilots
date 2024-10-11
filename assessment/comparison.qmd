@@ -185,3 +185,30 @@ ggplot(ha, aes(x = age, y = correct, col = site)) +
   xlab("Age")
 ```
 
+
+```{r}
+ha_subtype <- trials_coded |>
+  mutate(corpus_trial_type = ifelse(site == "DE", corpus_trial_type, 
+                                    ifelse(str_detect(distractors, "q2"), "action", "attribution"))) |> 
+  filter(subtask == "hostile-attribution", !is.na(age)) |>
+  group_by(site, user_id, run_id, age, corpus_trial_type) |>
+  summarise(correct = sum(correct))
+
+ggplot(ha_subtype, aes(x = age, y = correct, col = site)) + 
+  geom_jitter(alpha = .5, width = 0, height = .1)+ 
+  geom_smooth() + 
+  facet_wrap(~corpus_trial_type) + 
+  ylab("Number of hostile answers") + 
+  xlab("Age")
+```
+
+```{r}
+ha_subtype |>
+  pivot_wider(names_from = "corpus_trial_type", values_from = "correct") |>
+  ggplot(aes(x = action, y = attribution, col = site)) + 
+  geom_jitter() + 
+  geom_smooth(method = "lm") 
+```
+
+
+
