@@ -9,7 +9,6 @@ library(tidyverse)
 library(glue)
 ```
 
-
 ## Initial Comparison of Colombia and Germany Data
 
 For purposes of quality control, since there are at least two notable differences (apart from geographic) in the two studies:
@@ -88,7 +87,6 @@ de_scores <- map(list.files("germany/scores", full.names = TRUE),
 score_list <- c(co_scores, de_scores)
 ```
 
-
 ```{r}
 # exclude_tasks <- c("hostile-attribution", "pa-es")
 
@@ -128,7 +126,6 @@ task_categories_vec <- levels(scores$task_category)
 # task_pal <- ptol_pal()(length(task_categories_vec)) |> set_names(task_categories_vec)
 ```
 
-
 ```{r}
 plot_scores <- scores |> 
   filter(!is.na(age)) |>
@@ -161,14 +158,12 @@ ggplot(plot_scores,
 
 ```
 
-
 ```{r}
 ggplot(scores, aes(x = age, y = score, col = site)) + 
   geom_point() + 
   geom_smooth() + 
   facet_wrap(~task)
 ```
-
 
 # Random exploration
 
@@ -184,7 +179,6 @@ ggplot(ha, aes(x = age, y = correct, col = site)) +
   ylab("Number of hostile answers") + 
   xlab("Age")
 ```
-
 
 ```{r}
 ha_subtype <- trials_coded |>
@@ -209,6 +203,3 @@ ha_subtype |>
   geom_jitter() + 
   geom_smooth(method = "lm") 
 ```
-
-
-
