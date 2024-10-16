@@ -113,7 +113,12 @@ trials_coded <- trials_tasks_ordered |>
   group_by(task) |>
   filter(all(is.na(item)) | !is.na(item)) |>
   ungroup() |>
-  mutate(server_timestamp = as_datetime(server_timestamp))
+  mutate(server_timestamp = as_datetime(server_timestamp)) |>
+  mutate( # de-dictify distractors: Extract values after each colon and space, up to comma
+    distractors_cln = str_extract_all(distractors, "(?<=: )([^,]+)") |>  
+      map_chr(~ paste(.x, collapse = ", ")) |>
+      str_replace_all("[{}']", "") 
+  )
   # filter(!is.na(item) | !is.na(expected_answer) | !is.na(is_correct)) |>
 
 # recode correctness for some tasks

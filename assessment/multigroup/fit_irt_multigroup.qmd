@@ -1,6 +1,17 @@
+Our task-by-task strategy for looking at measurement invariance:
+
+* fit multigroup IRT model assuming scalar invariance - group mean and variance can vary but the item parameters are assumed to be the same
+* compare 1PL and 2PL (and eventually, 1D and 2D) models using IMV
+* look for outliers either on outfit or slopes in 2PL
+* uniform logistic DIF as a first step
+* compute marginal reliabilities using `marginal_rxx` 
+* use resulting item parameters for fitting CATs
+* use EAP fscores to get thetas for each child
+
 ```{r load-data}
-# source("../scripts/_setup.R")
-# source("../scripts/irt_helpers.R")
+library(here)
+source(here("assessment", "colombia", "stage2", "scripts","_setup.R"))
+source(here("assessment", "colombia", "stage2", "scripts","irt_helpers.R"))
 
 task_data_co <- read_rds("../colombia/stage2/task_analyses/data/task_data_nested.rds")
 task_data_de <- read_rds("../germany/task_analyses/data/task_data_nested.rds")
@@ -38,15 +49,32 @@ task_data_prepped <- task_data_combined |>
 
 ```{r}
 tdp <- task_data_prepped |> slice(5)
-mod <- multipleGroup(tdp$data_prepped[[1]], group = tdp$groups[[1]],
-                     itemtype = "Rasch", invariance = "intercepts")
-coef(mod, simplify = TRUE)
+mrot <- task_data_prepped |> slice(1)
 
 mod <- multipleGroup(tdp$data_prepped[[1]], group = tdp$groups[[1]],
                      itemtype = "2PL", invariance = "slopes")
 as_tibble(coef(mod, simplify = TRUE)$CO$items, rownames = "item")
 as_tibble(coef(mod, simplify = TRUE)$DE$items, rownames = "item")
 
+```
+
+
+```{r}
+mrot_1grp_mod <- mirt(mrot$data_prepped[[1]], 
+                     itemtype = "Rasch")
+mrot_mod <- multipleGroup(mrot$data_prepped[[1]], 
+                          group = mrot$groups[[1]],
+                     itemtype = "Rasch", 
+                     invariance = c("free_means","free_variances", 
+                                    "slopes","intercepts"))
+coef(mrot_mod, simplify = TRUE)
+
+de_mod <- extract.group(mrot_mod, group = "DE")
+co_mod <- extract.group(mrot_mod, group = "CO")
+
+marginal_rxx(mrot_1grp_mod)
+marginal_rxx(de_mod) # why are these the same? 
+marginal_rxx(co_mod) # why are these the same? 
 ```
 
 ```{r setup-models}

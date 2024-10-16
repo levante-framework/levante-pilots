@@ -103,12 +103,23 @@ trials_tasks_ordered <- trials_tasks |>
   mutate(task_group = fct_inorder(task_group),
          task = fct_inorder(task))
 
+safe_fromJSON <- possibly(
+  function(x) {
+    x <- str_replace_all(x, "'", "\"") # Replace single quotes with double quotes
+    parsed <- fromJSON(x)
+    paste(unlist(parsed), collapse = ",") 
+    }, 
+  NA_character_ )
+
 # filter out trials missing item but only for tasks that have some items
 trials_coded <- trials_tasks_ordered |>
   group_by(task) |>
   filter(all(is.na(item)) | !is.na(item)) |>
   ungroup() |>
-  mutate(server_timestamp = as_datetime(server_timestamp))
+  mutate(server_timestamp = as_datetime(server_timestamp)) |>
+  mutate( # JSON -> comma-separated strings that match the corpus
+    distractors_cln = map_chr(distractors, safe_fromJSON) |> unlist()
+    )
 
 # check for miscoded trials
 trials_coded |>
