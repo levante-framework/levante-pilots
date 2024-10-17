@@ -1,9 +1,17 @@
 ```{r load-data}
+require(here)
+
 source(here("assessment/colombia/stage2/scripts/_setup.R"))
 source(here("assessment/colombia/stage2/scripts/irt_helpers.R"))
 
 trials_coded <- read_rds(here("assessment/colombia/stage2/data_processed/trials_coded.rds"))
 participants <- read_rds(here("assessment/colombia/stage2/data_processed/participants.rds"))
+
+# merge in unique item_ids from corpus (ToDo: add other corpora)
+math_items <- read_csv(here("item-banks/math-item-bank-params.csv")) |>
+  rename(distractors = response_alternatives) |> 
+  filter(trial_type!="instructions", is.na(notes)) |>
+  select(-source, -task, -block_index, -difficulty, -assessment_stage)
 ```
 
 ```{r}
@@ -19,6 +27,7 @@ irt_tasks <- c("egma-math",
 # setdiff(trials_coded$task_id, irt_tasks)
 
 task_data <- trials_coded |>
+  mutate(distractors_cln = ifelse(distractors_cln=="", NA, str_remove_all(distractors_cln, " "))) |>
   # only relevant tasks + not missing item + has response or correct
   filter(task_id %in% irt_tasks,
          !is.na(item),
@@ -26,12 +35,12 @@ task_data <- trials_coded |>
   # chronological order
   arrange(user_id, run_id, server_timestamp) |>
   # curly braces in items cause regex problems
-  mutate(item = item |> str_remove_all("[\\{\\}]")) |>
+  #mutate(item = item |> str_remove_all("[\\{\\}]")) |>
   # compute number of distractors + chance level
   mutate(distractors = distractors |> str_count(":") |> na_if(0),
          chance = 1 / (distractors + 1)) |>
   select(matches("_id"), age, corpus_trial_type, assessment_stage, item,
-         answer, chance, response, correct, rt, server_timestamp)
+         answer, chance, response, correct, rt, server_timestamp, distractors_cln)
 
 # same-different-selection needs special processing to identify items
 sds <- task_data |>
@@ -83,6 +92,11 @@ sds <- task_data |>
 # egma needs special processing to identify items
 egma <- task_data |>
   filter(task_id == "egma-math") |>
+  mutate(item = case_when(item=="{'0': 0, '1': 10}" ~ "0,10", 
+                          item=="{'0': 0, '1': 100}" ~ "0,100",
+                          item=="{'0': 0, '1': 1000}" ~ "0,1000",
+                          item=="{'0': 0, '1': 1}" ~ "0,1",
+                          .default = item)) |>
   # recode subtasks for shorter item strings
   mutate(corpus_trial_type = corpus_trial_type |> fct_recode(
     num_id = "number identification",
@@ -100,7 +114,20 @@ egma <- task_data |>
                         str_extract(item, "\\d+$"),
                         item)) |>
   # item_id = "[subtask] [item] [answer]"
-  mutate(item_id = paste(corpus_trial_type, item, answer))
+  #mutate(item_id = paste(corpus_trial_type, item, answer))
+  rename(distractors = distractors_cln) 
+  
+egma_no_slide <- egma |> 
+  filter(corpus_trial_type != "line_slid") |>
+  left_join(math_items |> 
+              filter(trial_type!="Number Line Slider") |>
+              select(item, answer, item_id)) 
+
+View(egma_no_slide |> group_by(run_id, item_id) |>
+    count() |> filter(n>1))
+
+View(egma_no_slide |> filter(is.na(item_id)))
+# some issue with number line 4afc...multiple responses for same item?
 
 # score just number line trials
 threshold <- 0.15
@@ -112,12 +139,16 @@ numberline <- egma |>
     # get distance b/w response & answer, scale to max, compare to threshold
     abs(as.numeric(response) - as.numeric(answer)) / max_value < threshold
   })) |>
-  mutate(chance = threshold * 2)
+  mutate(chance = threshold * 2) |>
+  left_join(math_items |> select(item, answer, item_id))
 
 # recombine numberline with rest of egma
-egma_numberline <- egma |>
-  filter(corpus_trial_type != "line_slid") |>
+egma_numberline <- egma_no_slide |>
   bind_rows(numberline)
+
+# weird...
+egma_numberline |> group_by(run_id, item_id) |>
+  count() |> filter(n>1)
 
 # theory of mind is separated by groups of corpus_trial_type +
 # has special processing to identify items +
