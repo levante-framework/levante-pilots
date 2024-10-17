@@ -10,8 +10,8 @@ Our task-by-task strategy for looking at measurement invariance:
 
 ```{r load-data}
 library(here)
-source(here("assessment", "colombia", "stage2", "scripts","_setup.R"))
-source(here("assessment", "colombia", "stage2", "scripts","irt_helpers.R"))
+source(here("assessment/colombia/stage2/scripts/_setup.R"))
+source(here("assessment/colombia/stage2/scripts/irt_helpers.R"))
 
 task_data_co <- read_rds("../colombia/stage2/task_analyses/data/task_data_nested.rds")
 task_data_de <- read_rds("../germany/task_analyses/data/task_data_nested.rds")
@@ -48,114 +48,74 @@ task_data_prepped <- task_data_combined |>
 ```
 
 ```{r}
-tdp <- task_data_prepped |> slice(5)
+multigroup_coefs <- \(mod) {
+  transpose(coef(mod, simplify = TRUE))$items |>
+    map(partial(as_tibble, rownames = "item")) |>
+    list_rbind(names_to = "site")
+}
+
+multigroup_extract_groups <- \(mod) {
+  mod@Data$groupNames |> set_names() |> map(\(gr) extract.group(mod, group = gr))
+}
+
+multigroup_itemfit <- \(submods, fit_stats) {
+  submods |>
+    map(\(submod) itemfit(submod, fit_stats = fit_stats) |> as_tibble()) |>
+    list_rbind(names_to = "site")
+}
+```
+
+```{r}
 mrot <- task_data_prepped |> slice(1)
 
-mod <- multipleGroup(tdp$data_prepped[[1]], group = tdp$groups[[1]],
-                     itemtype = "2PL", invariance = "slopes")
-as_tibble(coef(mod, simplify = TRUE)$CO$items, rownames = "item")
-as_tibble(coef(mod, simplify = TRUE)$DE$items, rownames = "item")
+# TODO: port item constraints? priors? guess?
+mrot_mod_rasch <- multipleGroup(
+  mrot$data_prepped[[1]], group = mrot$groups[[1]], itemtype = "Rasch", 
+  invariance = c("free_means","free_variances", "slopes", "intercepts"))
 
-```
+mrot_mod_2pl <- multipleGroup(
+  mrot$data_prepped[[1]], group = mrot$groups[[1]], itemtype = "2PL", 
+  invariance = c("free_means","free_variances", "slopes", "intercepts"))
 
+# extract submodels from multigroup models
+mrot_submods_rasch <- multigroup_extract_groups(mrot_mod_rasch)
+mrot_submods_2pl <- multigroup_extract_groups(mrot_mod_2pl)
 
-```{r}
-mrot_1grp_mod <- mirt(mrot$data_prepped[[1]], 
-                     itemtype = "Rasch")
-mrot_mod <- multipleGroup(mrot$data_prepped[[1]], 
-                          group = mrot$groups[[1]],
-                     itemtype = "Rasch", 
-                     invariance = c("free_means","free_variances", 
-                                    "slopes","intercepts"))
-coef(mrot_mod, simplify = TRUE)
+# get item coefs
+mrot_coefs_rasch <- multigroup_coefs(mrot_mod_rasch)
+mrot_coefs_2pl <- multigroup_coefs(mrot_mod_2pl)
 
-de_mod <- extract.group(mrot_mod, group = "DE")
-co_mod <- extract.group(mrot_mod, group = "CO")
+# outliers by 2PL slope
+mrot_outlifers_a1 <- mrot_coefs_2pl |> filter(abs(a1) > 3) |> distinct(item, a1)
 
-marginal_rxx(mrot_1grp_mod)
-marginal_rxx(de_mod) # why are these the same? 
-marginal_rxx(co_mod) # why are these the same? 
-```
+# infit/outfit statistics
+mrot_infit_rasch <- multigroup_itemfit(mrot_submods_rasch, "infit")
+mrot_infit_2pl <- multigroup_itemfit(mrot_submods_2pl, "infit")
 
-```{r setup-models}
-# generate model strings, using constraints for repeated items
-# TODO: is kind of slow, could be probably improved
+# outliers by outfit
+mrot_outliers_outfit_rasch <- mrot_infit_rasch |> filter(abs(z.outfit) > 1)
+mrot_outliers_outfit_2pl <- mrot_infit_2pl |> filter(abs(z.outfit) > 1)
 
-item_types <- c("Rasch", "2PL") #, "3PL") # set of parameterizations
-model_types <- c(1) #, 2) # set of dimensionalities
-# model_types <- c(1) # set of dimensionalities
+# marginal reliabilities
+mrot_marginal_rasch <- mrot_submods_rasch |> map(marginal_rxx) # why are these the same?
+mrot_marginal_2pl <- mrot_submods_2pl |> map(marginal_rxx) # why are these the same?
 
-# add arguments for model fitting to data
-task_data_args <- task_data_prepped |>
-  # duplicate rows per dimensionality x parameterization
-  expand_grid(model_type = model_types, item_type = item_types) |>
-  # generate model string with item constraints + dimensionality
-  mutate(model_str = pmap_chr(list(data, data_prepped, item_type, model_type),
-                              generate_model_str))
-```
-
-### Fit models
-
-```{r fit-models}
-set.seed(1234)
-
-# fit all the models!
-task_models <- task_data_args |>
-  mutate(mod = pmap(list(data_prepped, item_type, model_str, model_type,
-                         task_id, guess), fit_mirt))
-
-# get each model's coefs, scores, BIC
-task_results <- task_models |>
-  mutate(coefs = map(mod, mirt_coefs),
-         scores = pmap(list(mod, data_filtered, data_prepped), mirt_scores),
-         bic = map_dbl(mod, mirt_bic))
-
-# best fitting model for each task
-task_best <- task_results |>
-  group_by(task_id) |>
-  filter(bic == min(bic)) |>
+# difR needs to have only items that are present in more than one group
+df <- mrot$data_filtered[[1]] |>
+  group_by(item_id) |>
+  filter(n_distinct(group) > 1) |>
   ungroup() |>
-  select(task_id, item_type, model_type, coefs, scores)
+  to_mirt_shape_grouped()
+dp <- df |> select(-group)
+gr <- df |> pull(group)
 
-# scores from best fitting models
-task_scores <- task_best |>
-  select(task_id, item_type, scores) |>
-  unnest(scores) |>
-  mutate(item_type = fct_recode(item_type, "1PL" = "Rasch"),
-         score_type = glue("ability ({item_type})")) |>
-  select(task = task_id, user_id, age, score_type, score = ability)
+setdiff(colnames(mrot$data_prepped[[1]]), colnames(df))
 
-# save all data + models + results
-# save(task_results, file = "irt_models.RData")
-write_rds(task_results, "data/task_results.rds")
-
-# save scores
-write_rds(task_scores, "../scores/combined_scores.rds")
-```
-
-```{r}
-# item parameters
-item_coefs <- task_results |>
-  select(task_id, dims = model_type, params = item_type, coefs) |>
-  unnest(coefs) |>
-  select(-g, -u) |>
-  # pivot_longer(c(d, a1, a2), names_to = "term", values_to = "value") |>
-  pivot_longer(c(d, a1), names_to = "term", values_to = "value") |>
-  filter(!is.na(value)) |>
-  mutate(params = fct_inorder(params), term = fct_inorder(term)) |>
-  arrange(task_id, params, dims) |>
-  # mutate(model = paste(params, dims) |> fct_inorder()) |>
-  mutate(model = params |> fct_inorder(),
-         term = term |> fct_recode("difficulty" = "d", "discrimination" = "a1")) |>
-  group_by(model, term) |>
-  filter(!all(value == 1))
-write_rds(item_coefs, "data/item_coefs.rds")
-
-# item parameters distributions
-ggplot(item_coefs, aes(x = model, y = value, colour = term)) +
-  facet_wrap(vars(task_id), scale = "free", nrow = 2) +
-  geom_sina(size = 0.8) +
-  scale_colour_ptol() +
-  labs(x = "IRT model type", y = "Parameter value", colour = "Parameter")
-ggsave("plots/irt_params.png", width = 14, height = 6)
+mrot_dif <- difR::difLogReg(dp,
+                            group = gr,
+                            focal.name = "CO",
+                            group.type = "group",
+                            type = "udif")
+# mrot_dif$DIFitems
+mrot_difitems <- colnames(dp)[mrot_dif$DIFitems]
 ```
