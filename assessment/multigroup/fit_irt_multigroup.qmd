@@ -65,6 +65,9 @@ multigroup_itemfit <- \(submods, fit_stats) {
 }
 ```
 
+# Mental Rotation
+
+
 ```{r}
 mrot <- task_data_prepped |> slice(1)
 
@@ -76,7 +79,9 @@ mrot_mod_rasch <- multipleGroup(
 mrot_mod_2pl <- multipleGroup(
   mrot$data_prepped[[1]], group = mrot$groups[[1]], itemtype = "2PL", 
   invariance = c("free_means","free_variances", "slopes", "intercepts"))
+```
 
+```{r}
 # extract submodels from multigroup models
 mrot_submods_rasch <- multigroup_extract_groups(mrot_mod_rasch)
 mrot_submods_2pl <- multigroup_extract_groups(mrot_mod_2pl)
@@ -84,22 +89,48 @@ mrot_submods_2pl <- multigroup_extract_groups(mrot_mod_2pl)
 # get item coefs
 mrot_coefs_rasch <- multigroup_coefs(mrot_mod_rasch)
 mrot_coefs_2pl <- multigroup_coefs(mrot_mod_2pl)
+```
 
+
+```{r}
 # outliers by 2PL slope
-mrot_outlifers_a1 <- mrot_coefs_2pl |> filter(abs(a1) > 3) |> distinct(item, a1)
+mrot_outliers_a1 <- mrot_coefs_2pl |> filter(abs(a1) > 3) |> distinct(item, a1)
 
-# infit/outfit statistics
+ggplot(mrot_coefs_2pl |>
+         select(-g,-u) |>
+         pivot_longer(a1:d, names_to = "parameter", values_to = "value"), 
+       aes(x = value)) + 
+  geom_histogram(binwidth = 1) + 
+  facet_wrap(~parameter)
+```
+
+My understanding is that we want outfit (unweighted) for the Rasch model.
+
+
+```{r}
 mrot_infit_rasch <- multigroup_itemfit(mrot_submods_rasch, "infit")
+
+```
+
+
+
+```{r}
+# infit/outfit statistics
 mrot_infit_2pl <- multigroup_itemfit(mrot_submods_2pl, "infit")
 
 # outliers by outfit
 mrot_outliers_outfit_rasch <- mrot_infit_rasch |> filter(abs(z.outfit) > 1)
 mrot_outliers_outfit_2pl <- mrot_infit_2pl |> filter(abs(z.outfit) > 1)
+```
 
+```{r}
 # marginal reliabilities
 mrot_marginal_rasch <- mrot_submods_rasch |> map(marginal_rxx) # why are these the same?
 mrot_marginal_2pl <- mrot_submods_2pl |> map(marginal_rxx) # why are these the same?
+```
 
+
+```{r}
 # difR needs to have only items that are present in more than one group
 df <- mrot$data_filtered[[1]] |>
   group_by(item_id) |>
@@ -115,7 +146,9 @@ mrot_dif <- difR::difLogReg(dp,
                             group = gr,
                             focal.name = "CO",
                             group.type = "group",
-                            type = "udif")
+                            type = "udif", 
+                            purify = TRUE)
+
 # mrot_dif$DIFitems
 mrot_difitems <- colnames(dp)[mrot_dif$DIFitems]
 ```
