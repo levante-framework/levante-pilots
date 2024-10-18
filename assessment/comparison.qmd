@@ -126,7 +126,7 @@ task_categories_vec <- levels(scores$task_category)
 # task_pal <- ptol_pal()(length(task_categories_vec)) |> set_names(task_categories_vec)
 ```
 
-```{r}
+```{r, fig.width=8, fig.height=14}
 plot_scores <- scores |> 
   filter(!is.na(age)) |>
   filter(!(task %in% c("trog", "mefs", "vocab", "sre-es", "swr-es")))
@@ -159,12 +159,13 @@ ggplot(plot_scores,
 ```
 
 ```{r}
-ggplot(scores, aes(x = age, y = score, col = site)) + 
+scores |>
+  mutate(score_sc = ifelse(task=="mefs" | task=="sre-es", score/10, score)) |>
+ggplot(aes(x = age, y = score_sc, col = site)) + 
   geom_point() + 
   geom_smooth() + 
   facet_wrap(~task)
 ```
-
 
 # Random exploration
 
