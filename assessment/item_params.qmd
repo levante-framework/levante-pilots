@@ -37,7 +37,7 @@ coef_cors |>
 
 ```{r}
 all_coefs |>
-  filter(term=="d") |>
+  filter(term=="d", value_co > -50) |> # some extreme outliers..should look into
   ggplot(aes(x = value_co, y = value_de)) +
   facet_wrap(. ~ task_id) + 
   geom_point(alpha=.3)
