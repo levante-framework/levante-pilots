@@ -305,3 +305,13 @@ ggplot(item_coefs, aes(x = model, y = value, colour = term)) +
   labs(x = "IRT model type", y = "Parameter value", colour = "Parameter")
 ggsave("irt_params.png", width = 14, height = 6)
 ```
+
+```{r}
+task_rxx <- task_results |>
+  group_by(task_id) |>
+  filter(bic == min(bic)) |>
+  ungroup() |>
+  mutate(rxx = map_dbl(mod, marginal_rxx)) |>
+  select(task_id, rxx) |>
+  arrange(task_id)
+```
