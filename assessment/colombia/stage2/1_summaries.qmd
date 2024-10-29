@@ -168,18 +168,33 @@ time_summary <- trials_coded |>
   ungroup() |>
   mutate(diff = difftime(end, start, units = "mins")) |>
   left_join(participants) |>
-  left_join(task_categories, by = c("task_id" = "task"))
+  left_join(task_categories, by = c("task_id" = "task")) |>
+  filter(trials > 2)
+
+ggplot(time_summary, aes(x = diff)) +
+  facet_wrap(vars(task_id)) +
+  geom_histogram()
 
 task_time_summary <- time_summary |>
   group_by(task_category, task_id) |>
-  summarise(median_diff = median(diff) |> round(2)) |>
-  ungroup()
+  summarise(median_diff = median(diff),
+            min_diff = min(diff),
+            max_diff = max(diff)) |>
+  ungroup() |>
+  mutate(across(contains("diff"), \(d) round(d, 2))) |>
+  mutate(combined_diff = glue("{median_diff} [{min_diff}, {max_diff}]"))
 
 task_time_summary
 sum(task_time_summary$median_diff)
 
-total_time_summary <- time_summary |>
+run_time_summary <- time_summary |>
   group_by(user_id, run_id) |>
+  summarise(total = sum(diff)) |>
+  ungroup() |>
+  summarise(med = median(total))
+
+user_summary <- time_summary |>
+  group_by(user_id) |>
   summarise(total = sum(diff)) |>
   ungroup() |>
   summarise(med = median(total))
