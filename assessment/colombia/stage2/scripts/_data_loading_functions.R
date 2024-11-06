@@ -5,6 +5,17 @@ fix_table_types <- function(table_data) {
     mutate(across(matches("birth_"), as.integer),
            across(matches("difficulty"), as.double),
            across(matches("rt"), as.character),
+           across(matches("grade"), as.character),
+           across(matches("example"), as.character),
+           across(matches("growth_mind"), as.character),
+           across(matches("lonely_"), as.character),
+           across(matches("math_"), as.character),
+           across(matches("learning_"), as.character),
+           across(matches("reading_"), as.character),
+           across(matches("teacher_"), as.character),
+           across(matches("school_"), as.character),
+           across(matches("class_"), as.character), # class_friends, class_help .. 
+           across(matches("time_finished|last_updated|created_at|date_created|date_closed|date_opened"), as_datetime),
            across(matches("email_verified|is_reliable|is_bestrun"), as.logical))
 }
 
