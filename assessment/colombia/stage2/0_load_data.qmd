@@ -11,7 +11,7 @@ source("scripts/_data_loading_functions.R")
 #dataset_names <- c("columbia_pilot_0523_0529:f068:v2_1", # 612 users, user_type="guest", assessment_uid non-null; only 209 with trials
 #                   "columbia-pilot-0528-0618") # 4847 users
 
-dataset_names <- c("CO-pilot-plus-Guest")
+dataset_names <- c("CO-pilot-plus-Guest", "CO-rural-pilot")
 
 dataset_tables <- get_datasets(dataset_names)
 dataset_data <- combine_datasets(dataset_tables)
@@ -34,6 +34,9 @@ get_colombia_missing_demo_data <- function() {
 users <- collect_users(dataset_data)
 
 
+# users |> filter(birth_year=="0" | birth_month=="0") |> distinct(user_id)
+# 19 users with birth_month / birth_year == 0
+
 # calculate participant ages
 participants <- users |>
   mutate(birth_month = as.numeric(birth_month),
@@ -48,7 +51,8 @@ participants <- users |>
   mutate(dob = ym(paste(birth_year, birth_month, sep = "-")),
          age = as.numeric(difftime(date_last_updated, dob, units = "days")) / 365.25)
 
-table(participants$valid_birth_year) # 894 with birthdays; 1200 without
+table(participants$valid_birth_year) # was: 894 with birthdays; 1200 without
+# now: 724 with, 386 without..
 table(participants$grade) # 502 participants
 #   0   1   2   3   4   5   6 
 #  56  68 112  85  59  53  69 
@@ -72,10 +76,18 @@ trials_ids <- trials |> inner_join(participants)
 # check that user + run + trial uniquely identifies each row
 trials_ids |> count(user_id, run_id, trial_id) |> filter(n > 1)
 
+table(trials$is_practice_trial)
+
+unique(trials_ids$assessment_stage)
+# "hearts and flowers practice" "hearts practice" "flowers practice"
+
+sort(table(trials_ids$corpus_trial_type))
+
 # code and remove practice trials
 trials_filtered <- trials_ids |>
-  mutate(practice = is_practice_trial | assessment_stage == "practice_response" |
-           str_detect(corpus_trial_type, "training")) |>
+  mutate(is_practice_trial = ifelse(is_practice_trial=="true", T, F)) |>
+  mutate(practice = is_practice_trial | str_detect(assessment_stage, "practice") |
+           str_detect(corpus_trial_type, "training")) |> #  | corpus_trial_type=="practice"
   filter(is.na(practice) | !practice) |>
   select(-practice, -is_practice_trial)
 
@@ -125,6 +137,9 @@ trials_coded <- trials_tasks_ordered |>
   # mutate(is_correct = is_correct |
   #          str_detect(task, "hostile") & !str_detect(response, "accident"))
 
-write_rds(trials_coded, "data_processed/trials_coded.rds")
+# keep it <100mb for github..can always merge in participants again
+write_rds(trials_coded |> select(-validation_err_msg, -date_last_updated, 
+                                 -group_name, -birth_year_original, -grade), 
+          "data_processed/trials_coded.rds")
 write_rds(participants, "data_processed/participants.rds")
 ```
