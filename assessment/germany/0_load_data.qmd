@@ -117,9 +117,14 @@ trials_coded <- trials_tasks_ordered |>
   filter(all(is.na(item)) | !is.na(item)) |>
   ungroup() |>
   mutate(server_timestamp = as_datetime(server_timestamp)) |>
-  mutate( # JSON -> comma-separated strings that match the corpus
-    distractors_cln = map_chr(distractors, safe_fromJSON) |> unlist()
-    )
+  mutate( # de-dictify distractors: Extract values after each colon and space, up to comma
+    distractors_cln = str_extract_all(distractors, "(?<=: )([^,]+)") |>  
+      map_chr(~ paste(.x, collapse = ", ")) |>
+      str_replace_all("[{}']", "") 
+  )
+  #mutate( # JSON -> comma-separated strings that match the corpus
+  #  distractors_cln = map_chr(distractors, safe_fromJSON) |> unlist()
+  #  )
 
 # check for miscoded trials
 trials_coded |>

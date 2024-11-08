@@ -11,6 +11,11 @@ math_items <- read_csv(here("item-banks/math-item-bank-params.csv")) |>
   rename(distractors = response_alternatives) |> 
   filter(trial_type!="instructions", is.na(notes)) |>
   select(-source, -task, -block_index, -difficulty, -assessment_stage)
+
+trog_items <- read_csv(here("item-banks/trog-item-bank-full-params.csv")) |>
+  rename(distractors = response_alternatives) |> 
+  filter(!is.na(item)) |>
+  select(-source, -task, -d, -d_sp, -assessment_stage, -prompt)
 ```
 
 ```{r}
@@ -41,9 +46,15 @@ task_data <- trials_coded |>
   select(matches("_id"), age, corpus_trial_type, assessment_stage, item,
          answer, chance, response, correct, rt, server_timestamp, distractors_cln)
 
+trog <- task_data |>
+  filter(task_id == "trog") |>
+  select(-item_id) |>
+  left_join(trog_items |> 
+              select(item, answer, item_id)) 
+
 # same-different-selection needs special processing to identify items
 sds <- task_data |>
-  filter(task_id == "same-different-selection") |>
+  filter(task_id == "same-different-selection", item!="") |>
   filter(corpus_trial_type != "something-same-1") |>
   arrange(server_timestamp) |>
   mutate(different = str_extract(item, "different")) |> # trials are "different" or NA
@@ -90,7 +101,7 @@ sds <- task_data |>
 
 # egma needs special processing to identify items
 egma <- task_data |>
-  filter(task_id == "egma-math") |>
+  filter(task_id == "egma-math", item!="") |>
   mutate(item = case_when(item=="{'0': 0, '1': 10}" ~ "0,10", 
                           item=="{'0': 0, '1': 100}" ~ "0,100",
                           item=="{'0': 0, '1': 1000}" ~ "0,1000",
@@ -114,7 +125,9 @@ egma <- task_data |>
 
 egma_no_slide <- egma |> 
   filter(corpus_trial_type != "line_slid") |>
+  select(-item_id) |>
   left_join(math_items |> 
+              filter(trial_type!="Number Line Slider") |>
               select(item, distractors, item_id, answer) |> 
               rename(corpus_answer = answer)) |> # chance_level
   mutate(answer = ifelse(answer!=corpus_answer, corpus_answer, answer)) |> # correct "7/8" issue
@@ -165,8 +178,8 @@ tom <- task_data |>
 
 task_data_coded <- task_data |>
   # replace separated out data
-  filter(!task_id %in% c("egma-math", "same-different-selection", "theory-of-mind")) |>
-  bind_rows(sds) |> bind_rows(egma_numberline) |> bind_rows(tom) |>
+  filter(!task_id %in% c("egma-math", "same-different-selection", "theory-of-mind", "trog")) |>
+  bind_rows(sds) |> bind_rows(egma_numberline) |> bind_rows(tom) |> bind_rows(trog) |>
   # id other items as just item
   mutate(item_id = if_else(!is.na(item_id), item_id, item)) |>
   # hyphens in item names mess up mirt constraints (yes really)
