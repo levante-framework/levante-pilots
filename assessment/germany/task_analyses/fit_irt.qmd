@@ -25,7 +25,8 @@ irt_tasks <- c("egma-math",
                "mental-rotation",
                "same-different-selection",
                "theory-of-mind",
-               "trog")
+               "trog",
+               "vocab")
 
 # excluded tasks
 # setdiff(trials_coded$task_id, irt_tasks)
@@ -45,6 +46,10 @@ task_data <- trials_coded |>
          chance = 1 / (distractors + 1)) |>
   select(matches("_id"), age, corpus_trial_type, assessment_stage, item,
          answer, chance, response, correct, rt, server_timestamp, distractors_cln)
+
+vocab <- task_data |>
+  filter(task_id == "vocab", corpus_trial_type=="test") |> # or assessment_stage=="test_response"
+  mutate(item_id = paste0("vocab-",item))
 
 trog <- task_data |>
   filter(task_id == "trog") |>
@@ -155,7 +160,7 @@ egma_numberline <- egma_no_slide |>
 # hostile attribution correctness recoding
 # hostile_values <- read_csv(here("assessment/colombia/stage2/task_analyses/hostile-attribution-coding.csv"))
 tom <- task_data |>
-  filter(task_id == "theory-of-mind") |>
+  filter(task_id == "theory-of-mind", item!="") |>
   mutate(corpus_trial_type = str_remove_all(corpus_trial_type, "_question")) |>
   mutate(task_id = fct_collapse(corpus_trial_type,
                                 "theory-of-mind" = c("false_belief", "reality_check", "reference"),
@@ -178,10 +183,11 @@ tom <- task_data |>
 
 task_data_coded <- task_data |>
   # replace separated out data
-  filter(!task_id %in% c("egma-math", "same-different-selection", "theory-of-mind", "trog")) |>
-  bind_rows(sds) |> bind_rows(egma_numberline) |> bind_rows(tom) |> bind_rows(trog) |>
+  filter(!task_id %in% c("egma-math", "same-different-selection", "theory-of-mind", "trog", "vocab")) |>
+  bind_rows(sds) |> bind_rows(egma_numberline) |> bind_rows(tom) |> 
+  bind_rows(trog) |> bind_rows(vocab) |>
   # id other items as just item
-  mutate(item_id = if_else(!is.na(item_id), item_id, item)) |>
+  mutate(item_id = if_else(!is.na(item_id) | item_id=="", item_id, item)) |>
   # hyphens in item names mess up mirt constraints (yes really)
   mutate(item_id = item_id |> str_replace_all("-", "_")) |>
   select(matches("id"), age, corpus_trial_type, item_id, chance, correct, rt, server_timestamp)
