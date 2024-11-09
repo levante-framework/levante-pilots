@@ -52,10 +52,11 @@ vocab <- task_data |>
   mutate(item_id = paste0("vocab-",item))
 
 trog <- task_data |>
-  filter(task_id == "trog") |>
+  filter(task_id == "trog", item!="") |>
   select(-item_id) |>
   left_join(trog_items |> 
-              select(item, answer, item_id)) 
+              select(answer, item_id)) 
+
 
 # same-different-selection needs special processing to identify items
 sds <- task_data |>

@@ -51,12 +51,20 @@ task_data <- trials_coded |>
 vocab <- task_data |>
   filter(task_id == "vocab", corpus_trial_type=="test") |> # or assessment_stage=="test_response"
   mutate(item_id = paste0("vocab-",item))
+testthat::expect_equal(sum(is.na(vocab$item_id)), 0)
 
-trog <- task_data |>
-  filter(task_id == "trog") |>
+# these items can be answered more easily in gendered languages
+removed_trog_items <- c("33-woman-in-chair", "34-woman-holds-baby", "35-boy-in-tree", "36-girl-before-horse")
+
+trog <- task_data |> 
+  filter(task_id == "trog", item!="",
+         !answer %in% removed_trog_items) |> # these two items were modified slightly for colorblind-friendliness 
+  mutate(answer = ifelse(answer=="74-short-yellow-pencil", "74-short-green-pencil",
+                         ifelse(answer=="57-green-chair-red-box", "57-yellow-chair-red-box", answer))) |>
   select(-item_id) |>
   left_join(trog_items |> 
-              select(item, answer, item_id)) 
+              select(answer, item_id)) # item
+testthat::expect_equal(sum(is.na(trog$item_id)), 0)
 
 # same-different-selection needs special processing to identify items
 sds <- task_data |>
@@ -79,6 +87,7 @@ sds <- task_data |>
   mutate(item_id = if (all(trial == 1)) paste(corpus_trial_type, i) else paste(corpus_trial_type, trial, response)) |>
   ungroup() |>
   select(-different, -trial_i, -i, -response, -trial)
+testthat::expect_equal(sum(is.na(sds$item_id)), 0)
 
 # # same-different-selection item identification with within-block equivalence
 # sds <- task_data |>
@@ -107,54 +116,75 @@ sds <- task_data |>
 
 # egma needs special processing to identify items
 egma <- task_data |>
-  filter(task_id == "egma-math", item!="") |> # empty item comes from instructions
+  filter(task_id == "egma-math", item!="") |> 
+  select(-item_id, -corpus_trial_type) |>
+  rename(distractors = distractors_cln) |>
   mutate(item = case_when(item=="{'0': 0, '1': 10}" ~ "0,10", 
                           item=="{'0': 0, '1': 100}" ~ "0,100",
                           item=="{'0': 0, '1': 1000}" ~ "0,1000",
                           item=="{'0': 0, '1': 1}" ~ "0,1",
                           .default = item)) |>
-  # recode subtasks for shorter item strings
-  mutate(corpus_trial_type = corpus_trial_type |> fct_recode(
-    num_id = "number identification",
-    num_comp = "number comparison",
-    miss_num = "missing number",
-    add = "addition",
-    sub = "subtraction",
-    line_4afc = "number line 4afc",
-    mult = "multiplication",
-    line_slid = "number line slider",
-    frac = "fraction"
-  )) |>
-  # item_id = "[subtask] [item] [answer]"
-  #mutate(item_id = paste(corpus_trial_type, item, answer))
-  rename(distractors = distractors_cln) 
-  
-egma_no_slide <- egma |> 
-  filter(corpus_trial_type != "line_slid") |>
-  select(-item_id) |>
   left_join(math_items |> 
-              filter(trial_type!="Number Line Slider") |>
-              select(item, answer, item_id)) 
+              select(item, answer, item_id, distractors, corpus_trial_type)) |> 
+  mutate(corpus_trial_type = case_when(
+    is.na(chance) ~ "number line slider",
+    item=="0,1" ~ "number line 4afc",
+    item=="0,10" ~ "number line 4afc",
+    item=="0,100" ~ "number line 4afc",
+    item=="0,1000" ~ "number line 4afc",
+    str_detect(item, "/") ~ "fraction",
+    str_detect(item, "x") ~ "multiplication",
+    .default = corpus_trial_type)
+    ) 
+testthat::expect_equal(sum(is.na(egma$item_id)), 0)
 
-# score just number line trials
+missing_ids <- egma |> filter(is.na(item_id))
+table(missing_ids$corpus_trial_type)
+# only in number line 4afc + slider trials
+
 threshold <- 0.15
-numberline <- egma |>
-  filter(corpus_trial_type == "line_slid") |>
+slider_trials <- egma |> 
+  filter(corpus_trial_type=="number line slider") |>
+  select(-item_id) |>
+  left_join(math_items |> filter(corpus_trial_type=="number line slider") |>
+              select(item, answer, item_id, corpus_trial_type)) |>
   mutate(correct = pmap_lgl(list(item, answer, response), \(item, answer, response) {
     # get slider max from item ("{'0': 0, '1': [max_value]}")
     max_value <- as.numeric(str_extract(item, "\\d+$"))
     # get distance b/w response & answer, scale to max, compare to threshold
     abs(as.numeric(response) - as.numeric(answer)) / max_value < threshold
   })) |>
-  mutate(chance = threshold * 2) |>
-  select(-item_id) |>
-  left_join(math_items |> 
-              filter(trial_type=="Number Line Slider") |> 
-              select(item, answer, item_id))
+  mutate(chance = threshold * 2)
+sum(is.na(slider_trials$item_id))
 
-# recombine numberline with rest of egma
-egma_numberline <- egma_no_slide |>
-  bind_rows(numberline)
+
+numline4afc_trials <- egma |> 
+  filter(corpus_trial_type=="number line 4afc") |>
+  select(-item_id) |>
+  left_join(math_items |> filter(corpus_trial_type=="number line 4afc") |>
+              select(item, answer, item_id, corpus_trial_type))
+sum(is.na(numline4afc_trials$item_id))
+
+# recombine all of egma
+egma_numberline <- egma |>
+  filter(corpus_trial_type != "number line slider", 
+         corpus_trial_type != "number line 4afc") |>
+  bind_rows(numline4afc_trials) |>
+  bind_rows(slider_trials)
+testthat::expect_equal(sum(is.na(egma_numberline$item_id)), 0)
+
+  # mutate(corpus_trial_type = corpus_trial_type |> fct_recode(
+  #   num_id = "number identification",
+  #   num_comp = "number comparison",
+  #   miss_num = "missing number",
+  #   add = "addition",
+  #   sub = "subtraction",
+  #   line_4afc = "number line 4afc",
+  #   mult = "multiplication",
+  #   line_slid = "number line slider",
+  #   frac = "fraction"
+  # ))
+
 
 # theory of mind is separated by groups of corpus_trial_type +
 # has special processing to identify items +
@@ -185,7 +215,9 @@ tom <- task_data |>
 task_data_coded <- task_data |>
   # replace separated out data
   filter(!task_id %in% c("egma-math", "same-different-selection", "theory-of-mind", "trog", "vocab")) |>
-  bind_rows(sds) |> bind_rows(egma_numberline) |> bind_rows(tom) |> 
+  #bind_rows(sds) |>  
+  # TODO: fix SDS chance rate issue, add it back
+  bind_rows(egma_numberline) |> bind_rows(tom) |> 
   bind_rows(trog) |> bind_rows(vocab) |>
   # id other items as just item
   mutate(item_id = if_else(!is.na(item_id) | item=="", item_id, item)) |>
@@ -253,8 +285,8 @@ task_data_args <- task_data_prepped |>
 set.seed(1234)
 
 # some manual debugging stuff
-eg <- task_data_prepped |> filter(task_id == "egma-math") |> pull(data_filtered) |> pluck(1)
-samdif <- task_data_prepped |> filter(task_id == "same-different-selection") |> pull(data_filtered) |> pluck(1)
+#eg <- task_data_prepped |> filter(task_id == "egma-math") |> pull(data_filtered) |> pluck(1)
+#samdif <- task_data_prepped |> filter(task_id == "same-different-selection") |> pull(data_filtered) |> pluck(1)
 # ggplot(eg, aes(x = item_mean)) +
 #   facet_wrap(vars(corpus_trial_type), scales = "free") +
 #   geom_density()
