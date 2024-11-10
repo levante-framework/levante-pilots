@@ -33,8 +33,7 @@ trials_coded <- read_rds("germany/data_processed/trials_coded.rds") |>
          grade = as.numeric(grade)) |> bind_rows(co_trials_coded)
 
 participants <- read_rds("germany/data_processed/participants.rds") |>
-  mutate(site = "DE", 
-         grade = as.numeric(grade)) |> bind_rows(co_participants)
+  mutate(site = "DE") |> bind_rows(co_participants)
 rm(co_trials_coded, co_participants)
 ```
 
@@ -68,8 +67,16 @@ by_site <- participant_summary |>
             mean_age = mean(age, na.rm=T)) 
 ```
 
+ToDo: revisit mental-rotation coding in CO (extract 2d and 3d)
+
 ```{r}
 by_site |> 
+  filter(task!="ToM (instructions)") |>
+  mutate(task_chr = as.character(task),
+         task = ifelse(task_chr=="H&F (hearts)" |
+                         task_chr=="H&F (flowers)" | 
+                         task_chr=="H&F (hearts and flowers)", 
+                       "hearts-and-flowers", task_chr)) |> 
   ggplot(aes(x = task, y = mean_trials_completed, fill=site)) +
   geom_col(position = position_dodge()) +
   theme(axis.text.x = element_text(angle = 45, vjust = 1, hjust=1))
@@ -162,7 +169,7 @@ ggplot(plot_scores,
 scores |>
   mutate(score_sc = ifelse(task=="mefs" | task=="sre-es", score/10, score)) |>
 ggplot(aes(x = age, y = score_sc, col = site)) + 
-  geom_point() + 
+  geom_point(alpha=.2) + 
   geom_smooth() + 
   facet_wrap(~task)
 ```
