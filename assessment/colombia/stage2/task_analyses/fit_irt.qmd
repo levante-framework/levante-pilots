@@ -53,7 +53,7 @@ vocab <- task_data |>
   mutate(item_id = paste0("vocab-",item))
 testthat::expect_equal(sum(is.na(vocab$item_id)), 0)
 
-# these items can be answered more easily in gendered languages
+# these items can be answered quite easily in gendered languages
 removed_trog_items <- c("33-woman-in-chair", "34-woman-holds-baby", "35-boy-in-tree", "36-girl-before-horse")
 
 trog <- task_data |> 
@@ -136,11 +136,11 @@ egma <- task_data |>
     str_detect(item, "x") ~ "multiplication",
     .default = corpus_trial_type)
     ) 
-testthat::expect_equal(sum(is.na(egma$item_id)), 0)
+#testthat::expect_equal(sum(is.na(egma$item_id)), 0)
 
 missing_ids <- egma |> filter(is.na(item_id))
 table(missing_ids$corpus_trial_type)
-# only in number line 4afc + slider trials
+# only in number line 4afc, probably due to changes in distractors
 
 threshold <- 0.15
 slider_trials <- egma |> 
@@ -155,7 +155,7 @@ slider_trials <- egma |>
     abs(as.numeric(response) - as.numeric(answer)) / max_value < threshold
   })) |>
   mutate(chance = threshold * 2)
-sum(is.na(slider_trials$item_id))
+testthat::expect_equal(sum(is.na(slider_trials$item_id)), 0)
 
 
 numline4afc_trials <- egma |> 
@@ -163,7 +163,7 @@ numline4afc_trials <- egma |>
   select(-item_id) |>
   left_join(math_items |> filter(corpus_trial_type=="number line 4afc") |>
               select(item, answer, item_id, corpus_trial_type))
-sum(is.na(numline4afc_trials$item_id))
+testthat::expect_equal(sum(is.na(numline4afc_trials$item_id)), 0)
 
 # recombine all of egma
 egma_numberline <- egma |>
@@ -195,7 +195,7 @@ tom <- task_data |>
   mutate(corpus_trial_type = corpus_trial_type |> str_remove_all("_question")) |>
   mutate(task_id = fct_collapse(corpus_trial_type,
                                 "theory-of-mind" = c("false_belief", "reality_check", "reference"),
-                                "hostile-attribution" = "audio",
+                                "hostile-attribution" = c("audio", "attribution", "action"),
                                 "emotion-reasoning" = "emotion_reasoning")) |>
   group_by(user_id, run_id, task_id, item, corpus_trial_type) |>
   mutate(i = 1:n(), n = n()) |> # sequentially number items
@@ -210,14 +210,13 @@ tom <- task_data |>
                            value %in% c("purpose", "hostile"),
                            correct)) |>
   select(-value)
+testthat::expect_equal(sum(is.na(tom$item_id)), 0)
 # write_rds(tom, here("assessment/colombia/stage2/task_analyses/data/tom_data.rds"))
 
 task_data_coded <- task_data |>
   # replace separated out data
   filter(!task_id %in% c("egma-math", "same-different-selection", "theory-of-mind", "trog", "vocab")) |>
-  #bind_rows(sds) |>  
-  # TODO: fix SDS chance rate issue, add it back
-  bind_rows(egma_numberline) |> bind_rows(tom) |> 
+  bind_rows(sds) |> bind_rows(egma_numberline) |> bind_rows(tom) |> 
   bind_rows(trog) |> bind_rows(vocab) |>
   # id other items as just item
   mutate(item_id = if_else(!is.na(item_id) | item=="", item_id, item)) |>
@@ -297,6 +296,7 @@ set.seed(1234)
 
 # fit all the models!
 task_models <- task_data_args |>
+  filter(task_id!="same-different-selection") |> # TODO: fix SDS
   mutate(mod = pmap(list(data_prepped, item_type, model_str, model_type,
                          task_id, guess), fit_mirt))
 # fitting Rasch model with 1 dims for same-different-selection
