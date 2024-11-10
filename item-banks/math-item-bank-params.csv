@@ -102,18 +102,18 @@ Siegler,3,math,Number Line 4afc,-0.5,number-line-prompt1,Choose the number that 
 Siegler,3,math,Number Line 4afc,-0.5,number-line-prompt1,Choose the number that is marked on the number line.,NA,"0,10",5000,5,NA,"6,4,3",test_response,0.25,line2num-5-10,number line 4afc,NA
 Siegler,3,math,Number Line 4afc,-0.5,number-line-prompt1,Choose the number that is marked on the number line.,NA,"0,10",5000,7,NA,"5,4,9",test_response,0.25,line2num-7-10,number line 4afc,NA
 Siegler,3,math,Number Line 4afc,-0.5,number-line-prompt1,Choose the number that is marked on the number line.,NA,"0,10",5000,8,NA,"10,6,5",test_response,0.25,line2num-8-10,number line 4afc,NA
-Siegler,3,math,Number Line 4afc,-0.5,number-line-prompt1,Choose the number that is marked on the number line.,NA,"0,10",5000,50,NA,"40,60,30",test_response,0.25,line2num-50-100,number line 4afc,NA
-Siegler,3,math,Number Line 4afc,-0.5,number-line-prompt1,Choose the number that is marked on the number line.,NA,"0,10",5000,30,NA,"50,15,45",test_response,0.25,line2num-30-100,number line 4afc,NA
-Siegler,3,math,Number Line 4afc,-0.5,number-line-prompt1,Choose the number that is marked on the number line.,NA,"0,10",5000,98,NA,"68,83,71",test_response,0.25,line2num-98-100,number line 4afc,NA
-Siegler,3,math,Number Line 4afc,-0.5,number-line-prompt1,Choose the number that is marked on the number line.,NA,"0,10",5000,7,NA,"33,41,25",test_response,0.25,line2num-7-100,number line 4afc,NA
-Siegler,3,math,Number Line 4afc,-0.5,number-line-prompt1,Choose the number that is marked on the number line.,NA,"0,10",5000,25,NA,"10,45,5",test_response,0.25,line2num-25-100,number line 4afc,NA
-Siegler,3,math,Number Line 4afc,-0.5,number-line-prompt1,Choose the number that is marked on the number line.,NA,"0,10",5000,67,NA,"51,83,89",test_response,0.25,line2num-67-100,number line 4afc,NA
-Siegler,3,math,Number Line 4afc,-0.5,number-line-prompt1,Choose the number that is marked on the number line.,NA,"0,10",5000,33,NA,"22,44,11",test_response,0.25,line2num-33-100,number line 4afc,NA
-Siegler,3,math,Number Line 4afc,-0.5,number-line-prompt1,Choose the number that is marked on the number line.,NA,"0,10",5000,79,NA,"95,59,63",test_response,0.25,line2num-79-100,number line 4afc,NA
-Siegler,3,math,Number Line 4afc,-0.5,number-line-prompt1,Choose the number that is marked on the number line.,NA,"0,10",5000,14,NA,"43,29,36",test_response,0.25,line2num-14-100,number line 4afc,NA
-Siegler,3,math,Number Line 4afc,-0.5,number-line-prompt1,Choose the number that is marked on the number line.,NA,"0,10",5000,42,NA,"64,27,57",test_response,0.25,line2num-42-100,number line 4afc,NA
-Siegler,3,math,Number Line 4afc,-0.5,number-line-prompt1,Choose the number that is marked on the number line.,NA,"0,10",5000,59,NA,"81,44,76",test_response,0.25,line2num-59-100,number line 4afc,NA
-Siegler,3,math,Number Line 4afc,-0.5,number-line-prompt1,Choose the number that is marked on the number line.,NA,"0,10",5000,71,NA,"91,55,86",test_response,0.25,line2num-71-100,number line 4afc,NA
+Siegler,3,math,Number Line 4afc,-0.5,number-line-prompt1,Choose the number that is marked on the number line.,NA,"0,100",5000,50,NA,"40,60,30",test_response,0.25,line2num-50-100,number line 4afc,NA
+Siegler,3,math,Number Line 4afc,-0.5,number-line-prompt1,Choose the number that is marked on the number line.,NA,"0,100",5000,30,NA,"50,15,45",test_response,0.25,line2num-30-100,number line 4afc,NA
+Siegler,3,math,Number Line 4afc,-0.5,number-line-prompt1,Choose the number that is marked on the number line.,NA,"0,100",5000,98,NA,"68,83,71",test_response,0.25,line2num-98-100,number line 4afc,NA
+Siegler,3,math,Number Line 4afc,-0.5,number-line-prompt1,Choose the number that is marked on the number line.,NA,"0,100",5000,7,NA,"33,41,25",test_response,0.25,line2num-7-100,number line 4afc,NA
+Siegler,3,math,Number Line 4afc,-0.5,number-line-prompt1,Choose the number that is marked on the number line.,NA,"0,100",5000,25,NA,"10,45,5",test_response,0.25,line2num-25-100,number line 4afc,NA
+Siegler,3,math,Number Line 4afc,-0.5,number-line-prompt1,Choose the number that is marked on the number line.,NA,"0,100",5000,67,NA,"51,83,89",test_response,0.25,line2num-67-100,number line 4afc,NA
+Siegler,3,math,Number Line 4afc,-0.5,number-line-prompt1,Choose the number that is marked on the number line.,NA,"0,100",5000,33,NA,"22,44,11",test_response,0.25,line2num-33-100,number line 4afc,NA
+Siegler,3,math,Number Line 4afc,-0.5,number-line-prompt1,Choose the number that is marked on the number line.,NA,"0,100",5000,79,NA,"95,59,63",test_response,0.25,line2num-79-100,number line 4afc,NA
+Siegler,3,math,Number Line 4afc,-0.5,number-line-prompt1,Choose the number that is marked on the number line.,NA,"0,100",5000,14,NA,"43,29,36",test_response,0.25,line2num-14-100,number line 4afc,NA
+Siegler,3,math,Number Line 4afc,-0.5,number-line-prompt1,Choose the number that is marked on the number line.,NA,"0,100",5000,42,NA,"64,27,57",test_response,0.25,line2num-42-100,number line 4afc,NA
+Siegler,3,math,Number Line 4afc,-0.5,number-line-prompt1,Choose the number that is marked on the number line.,NA,"0,100",5000,59,NA,"81,44,76",test_response,0.25,line2num-59-100,number line 4afc,NA
+Siegler,3,math,Number Line 4afc,-0.5,number-line-prompt1,Choose the number that is marked on the number line.,NA,"0,100",5000,71,NA,"91,55,86",test_response,0.25,line2num-71-100,number line 4afc,NA
 Siegler,3,math,Number Line 4afc,-0.2,number-line-prompt1,Choose the number that is marked on the number line.,NA,"0,1000",5000,258,NA,"112,473,413",test_response,0.25,line2num-258-1000,number line 4afc,NA
 Siegler,3,math,Number Line 4afc,-0.2,number-line-prompt1,Choose the number that is marked on the number line.,NA,"0,1000",5000,461,NA,"304,611,193",test_response,0.25,line2num-461-1000,number line 4afc,NA
 Siegler,3,math,Number Line 4afc,-0.2,number-line-prompt1,Choose the number that is marked on the number line.,NA,"0,1000",5000,507,NA,"352,674,705",test_response,0.25,line2num-507-1000,number line 4afc,NA
@@ -163,18 +163,18 @@ Siegler,3,math,Number Line Slider,-0.5,number-line-slider-prompt1,Move the slide
 Siegler,3,math,Number Line Slider,-0.5,number-line-slider-prompt1,Move the slider to the indicated number.,NA,"0,10",5000,5,NA,NA,test_response,0.3,slider-5-10,number line slider,NA
 Siegler,3,math,Number Line Slider,-0.5,number-line-slider-prompt1,Move the slider to the indicated number.,NA,"0,10",5000,7,NA,NA,test_response,0.3,slider-7-10,number line slider,NA
 Siegler,3,math,Number Line Slider,-0.5,number-line-slider-prompt1,Move the slider to the indicated number.,NA,"0,10",5000,8,NA,NA,test_response,0.3,slider-8-10,number line slider,NA
-Siegler,3,math,Number Line Slider,-0.5,number-line-slider-prompt1,Move the slider to the indicated number.,NA,"0,10",5000,50,NA,NA,test_response,0.3,slider-50-100,number line slider,NA
-Siegler,3,math,Number Line Slider,-0.5,number-line-slider-prompt1,Move the slider to the indicated number.,NA,"0,10",5000,30,NA,NA,test_response,0.3,slider-30-100,number line slider,NA
-Siegler,3,math,Number Line Slider,-0.5,number-line-slider-prompt1,Move the slider to the indicated number.,NA,"0,10",5000,98,NA,NA,test_response,0.3,slider-98-100,number line slider,NA
-Siegler,3,math,Number Line Slider,-0.5,number-line-slider-prompt1,Move the slider to the indicated number.,NA,"0,10",5000,7,NA,NA,test_response,0.3,slider-7-100,number line slider,NA
-Siegler,3,math,Number Line Slider,-0.5,number-line-slider-prompt1,Move the slider to the indicated number.,NA,"0,10",5000,25,NA,NA,test_response,0.3,slider-25-100,number line slider,NA
-Siegler,3,math,Number Line Slider,-0.5,number-line-slider-prompt1,Move the slider to the indicated number.,NA,"0,10",5000,67,NA,NA,test_response,0.3,slider-67-100,number line slider,NA
-Siegler,3,math,Number Line Slider,-0.5,number-line-slider-prompt1,Move the slider to the indicated number.,NA,"0,10",5000,33,NA,NA,test_response,0.3,slider-33-100,number line slider,NA
-Siegler,3,math,Number Line Slider,-0.5,number-line-slider-prompt1,Move the slider to the indicated number.,NA,"0,10",5000,79,NA,NA,test_response,0.3,slider-79-100,number line slider,NA
-Siegler,3,math,Number Line Slider,-0.5,number-line-slider-prompt1,Move the slider to the indicated number.,NA,"0,10",5000,14,NA,NA,test_response,0.3,slider-14-100,number line slider,NA
-Siegler,3,math,Number Line Slider,-0.5,number-line-slider-prompt1,Move the slider to the indicated number.,NA,"0,10",5000,42,NA,NA,test_response,0.3,slider-42-100,number line slider,NA
-Siegler,3,math,Number Line Slider,-0.5,number-line-slider-prompt1,Move the slider to the indicated number.,NA,"0,10",5000,59,NA,NA,test_response,0.3,slider-59-100,number line slider,NA
-Siegler,3,math,Number Line Slider,-0.5,number-line-slider-prompt1,Move the slider to the indicated number.,NA,"0,10",5000,71,NA,NA,test_response,0.3,slider-71-100,number line slider,NA
+Siegler,3,math,Number Line Slider,-0.5,number-line-slider-prompt1,Move the slider to the indicated number.,NA,"0,100",5000,50,NA,NA,test_response,0.3,slider-50-100,number line slider,NA
+Siegler,3,math,Number Line Slider,-0.5,number-line-slider-prompt1,Move the slider to the indicated number.,NA,"0,100",5000,30,NA,NA,test_response,0.3,slider-30-100,number line slider,NA
+Siegler,3,math,Number Line Slider,-0.5,number-line-slider-prompt1,Move the slider to the indicated number.,NA,"0,100",5000,98,NA,NA,test_response,0.3,slider-98-100,number line slider,NA
+Siegler,3,math,Number Line Slider,-0.5,number-line-slider-prompt1,Move the slider to the indicated number.,NA,"0,100",5000,7,NA,NA,test_response,0.3,slider-7-100,number line slider,NA
+Siegler,3,math,Number Line Slider,-0.5,number-line-slider-prompt1,Move the slider to the indicated number.,NA,"0,100",5000,25,NA,NA,test_response,0.3,slider-25-100,number line slider,NA
+Siegler,3,math,Number Line Slider,-0.5,number-line-slider-prompt1,Move the slider to the indicated number.,NA,"0,100",5000,67,NA,NA,test_response,0.3,slider-67-100,number line slider,NA
+Siegler,3,math,Number Line Slider,-0.5,number-line-slider-prompt1,Move the slider to the indicated number.,NA,"0,100",5000,33,NA,NA,test_response,0.3,slider-33-100,number line slider,NA
+Siegler,3,math,Number Line Slider,-0.5,number-line-slider-prompt1,Move the slider to the indicated number.,NA,"0,100",5000,79,NA,NA,test_response,0.3,slider-79-100,number line slider,NA
+Siegler,3,math,Number Line Slider,-0.5,number-line-slider-prompt1,Move the slider to the indicated number.,NA,"0,100",5000,14,NA,NA,test_response,0.3,slider-14-100,number line slider,NA
+Siegler,3,math,Number Line Slider,-0.5,number-line-slider-prompt1,Move the slider to the indicated number.,NA,"0,100",5000,42,NA,NA,test_response,0.3,slider-42-100,number line slider,NA
+Siegler,3,math,Number Line Slider,-0.5,number-line-slider-prompt1,Move the slider to the indicated number.,NA,"0,100",5000,59,NA,NA,test_response,0.3,slider-59-100,number line slider,NA
+Siegler,3,math,Number Line Slider,-0.5,number-line-slider-prompt1,Move the slider to the indicated number.,NA,"0,100",5000,71,NA,NA,test_response,0.3,slider-71-100,number line slider,NA
 Siegler,3,math,Number Line Slider,-0.2,number-line-slider-prompt1,Move the slider to the indicated number.,NA,"0,1000",5000,258,NA,NA,test_response,0.3,slider-258-1000,number line slider,NA
 Siegler,3,math,Number Line Slider,-0.2,number-line-slider-prompt1,Move the slider to the indicated number.,NA,"0,1000",5000,461,NA,NA,test_response,0.3,slider-461-1000,number line slider,NA
 Siegler,3,math,Number Line Slider,-0.2,number-line-slider-prompt1,Move the slider to the indicated number.,NA,"0,1000",5000,507,NA,NA,test_response,0.3,slider-507-1000,number line slider,NA
