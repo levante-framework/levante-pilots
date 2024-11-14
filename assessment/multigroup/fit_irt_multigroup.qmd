@@ -67,6 +67,31 @@ multigroup_itemfit <- \(submods, fit_stats) {
 
 # Mental Rotation
 
+```{r}
+d_mrot <- mrot$data[[1]]
+
+d_mrot |>
+  group_by(group, user_id, run_id, age) |>
+  summarise(correct = mean(correct)) |>
+  ggplot(aes(x = age, y = correct, col = group)) + 
+  geom_point() + 
+  geom_smooth()
+```
+
+```{r}
+d_mrot |>
+  mutate(angle = as.numeric(str_sub(item_id, -3, -1))) |>
+  group_by(group, user_id, run_id, corpus_trial_type, angle) |>
+  summarise(correct = mean(correct)) |>
+  filter(!is.na(corpus_trial_type)) |>
+  ggplot(aes(x = angle, y = correct,  col = corpus_trial_type)) + 
+  geom_jitter(alpha = .1, width = 5, height = 0) + 
+  geom_smooth(aes(group = corpus_trial_type), method = "loess") + 
+  geom_hline(yintercept = .5, lty =2) + 
+  facet_wrap(~group)
+```
+
+
 
 ```{r}
 mrot <- task_data_prepped |> slice(1)
@@ -94,7 +119,7 @@ mrot_coefs_2pl <- multigroup_coefs(mrot_mod_2pl)
 
 ```{r}
 # outliers by 2PL slope
-mrot_outliers_a1 <- mrot_coefs_2pl |> filter(abs(a1) > 3) |> distinct(item, a1)
+mrot_outliers_a1 <- mrot_coefs_2pl |> filter(abs(a1) > 3) 
 
 ggplot(mrot_coefs_2pl |>
          select(-g,-u) |>
@@ -103,6 +128,16 @@ ggplot(mrot_coefs_2pl |>
   geom_histogram(binwidth = 1) + 
   facet_wrap(~parameter)
 ```
+
+
+```{r}
+ggplot(mrot_coefs_2pl, 
+       aes(x = d, y = a1, col = site)) + 
+  geom_point() 
+```
+
+
+
 
 My understanding is that we want outfit (unweighted) for the Rasch model.
 
