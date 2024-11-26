@@ -1,0 +1,120 @@
+```{r load-data}
+library(tidyverse)
+library(glue)
+library(here)
+library(mirt)
+
+source(here("02_score_data/irt_helpers.R"))
+
+# tasks to include in these analyses
+irt_tasks <- c("egma-math",
+               "matrix-reasoning",
+               "mental-rotation",
+               "same-different-selection",
+               "theory-of-mind",
+               "trog",
+               "vocab")
+
+sites <- c("ca_pilot", "co_pilot", "de_pilot")
+task_data_nested <- sites |>
+  set_names() |>
+  map(\(s) read_rds(here(glue("01_processed_data/{s}/task_data_nested.rds")))) |>
+  list_rbind(names_to = "site") |>
+  filter(task_id %in% irt_tasks)
+```
+
+```{r}
+# transform each task's data for modeling by applying above functions
+task_data_prepped <- task_data_nested |>
+  mutate(data_filtered = map(data, \(df) df |> filter_repeat_runs() |>
+                               dedupe_items() |> remove_no_var_items()),
+         data_prepped = map(data_filtered, to_mirt_shape)) |>
+  # pull out chance values
+  mutate(guess = map(data_filtered, # TODO: check that this gives correct order
+                     \(df) df |> distinct(item_inst, chance) |> pull(chance)))
+```
+
+```{r setup-models}
+# generate model strings, using constraints for repeated items
+
+item_types <- c("Rasch", "2PL") #, "3PL") # set of parameterizations
+model_types <- c(1) #, 2) # set of dimensionalities
+# model_types <- c(1) # set of dimensionalities
+
+# add arguments for model fitting to data
+task_data_args <- task_data_prepped |>
+  # duplicate rows per dimensionality x parameterization
+  expand_grid(model_type = model_types, item_type = item_types) |>
+  # generate model string with item constraints + dimensionality
+  mutate(model_str = pmap_chr(list(data, data_prepped, item_type, model_type),
+                              generate_model_str))
+```
+
+### Fit models
+
+```{r fit-models}
+set.seed(1234)
+
+# fit all the models!
+task_models <- task_data_args |>
+  mutate(mod = pmap(list(row_number(), data_prepped, item_type, model_str,
+                         model_type, task_id, guess),
+                    fit_mirt))
+
+# get each model's coefs, scores, BIC
+task_results <- task_models |>
+  mutate(coefs = map(mod, mirt_coefs),
+         scores = pmap(list(mod, data_filtered, data_prepped), mirt_scores),
+         bic = map_dbl(mod, mirt_bic))
+
+# best fitting model for each task
+task_best <- task_results |>
+  group_by(site, task_id) |>
+  filter(bic == min(bic)) |>
+  ungroup()
+  # select(site, task_id, item_type, model_type, coefs, scores)
+
+# scores from best fitting models
+task_scores <- task_best |>
+  select(site, task_id, item_type, model_type, scores) |>
+  unnest(scores) |>
+  mutate(#item_type = fct_recode(item_type, "1PL" = "Rasch"),
+         metric_type = glue("ability ({item_type}-{model_type})")) |>
+  select(site, task_id, user_id, run_id, metric_type, metric_value = ability)
+
+# save all data + models + results
+# save(task_results, file = "irt_models.RData")
+write_rds(task_results, here("02_scored_data/irt_outputs/task_results.rds"))
+
+# save scores
+write_rds(task_scores, here("02_scored_data/scores_irt.rds"))
+```
+
+```{r}
+# item parameters
+item_coefs <- task_results |>
+  select(site, task_id, dims = model_type, params = item_type, coefs) |>
+  unnest(coefs) |>
+  select(-g, -u) |>
+  # pivot_longer(c(d, a1, a2), names_to = "term", values_to = "value") |>
+  pivot_longer(c(d, a1), names_to = "term", values_to = "value") |>
+  filter(!is.na(value)) |>
+  mutate(params = fct_inorder(params), term = fct_inorder(term)) |>
+  arrange(task_id, params, dims) |>
+  # mutate(model = paste(params, dims) |> fct_inorder()) |>
+  mutate(model = params |> fct_inorder(),
+         term = term |> fct_recode("difficulty" = "d", "discrimination" = "a1")) |>
+  group_by(model, term) |>
+  filter(!all(value == 1)) |>
+  ungroup()
+
+write_rds(item_coefs, here("02_scored_data/irt_outputs/item_coefs.rds"))
+```
+
+```{r}
+task_rxx <- task_best |>
+  mutate(rxx = map_dbl(mod, marginal_rxx)) |>
+  select(site, task_id, rxx)
+
+write_rds(task_rxx, here("02_scored_data/irt_outputs/task_rxx.rds"))
+```
