@@ -1,0 +1,129 @@
+---
+format: html
+---
+
+```{r}
+library(ltm)
+library(tidyverse)
+library(ggforce)
+
+.font <- "Source Sans Pro"
+theme_set(theme_bw(base_size = 14, base_family = .font))
+theme_update(panel.grid = element_blank(),
+             strip.background = element_blank(),
+             legend.key = element_blank(),
+             panel.border = element_blank(),
+             axis.line = element_line(),
+             strip.text = element_text(face = "bold"))
+```
+
+```{r}
+# survey <- jsonlite::read_json("data/survey.json")
+# sur <- map(survey$pages, \(page) map(page$elements, as_tibble))
+# 
+# st <- map(survey$pages[[1]]$elements, as_tibble)
+# names(survey$pages[[1]])
+# 
+# map(survey$pages[[5]]$elements, as_tibble)
+```
+
+```{r}
+survey_items <- read_csv("metadata/Survey Creation - Questionnaire Details - Caregiver Forms.csv")
+```
+
+```{r}
+prolific_json <- jsonlite::read_json("data_raw/LEVANTE_Prolific.json")
+
+valid_id <- \(id) !is.null(id) && str_length(id) == 24
+all_one <- \(x) all(map(x, length) <= 1)
+
+json_df <- map(prolific_json$Data, \(df) enframe(df) |> pivot_wider()) |> list_rbind()
+
+json_df_tidy <- json_df |>
+  mutate(ProlificID = map(ProlificID, str_trim)) |>
+  filter(map_lgl(ProlificID, valid_id)) |> # remove rows with missing/invalid ProlificID (from test data)
+  mutate(id = 1:n(), .before = everything()) |> # add index to use instead of Prolific
+  select(-ProlificID) |> # remove Prolific ID
+  mutate(across(where(all_one), \(col) map(col, \(v) ifelse(is.null(v), NA, v)))) |> # replace NULL with NA
+  mutate(across(where(all_one), unlist)) |> # unlist all length 1 columns
+  select(-HappendAt, -InstanceId) |> # remove junk columns
+  # select(where(negate(all_one))) |>
+  mutate(across(where(negate(all_one)), \(col) map(col, as_tibble))) |> # turn list columns into tibbles
+  unnest(where(negate(all_one)), keep_empty = TRUE) |> # move nested tibble columns into top-level columns
+  mutate(ounces = if_else(is.na(ounces), "0", ounces),
+         ChildHeight = as.numeric(feet) + as.numeric(inches) / 12,
+         ChildWeight = as.numeric(pounds) + as.numeric(ounces) / 16,
+         .after = ChildAgeYears) |>
+  select(-feet, -inches, -pounds, -ounces)
+  # rename(ChildHeightFeet = feet, ChildHeightInches = inches, # temporary, variables will be renamed in survey
+  #        ChildWeightPounds = pounds, ChildWeightPunces = ounces)
+
+items <- survey_items |>
+  select(survey_name, variable_name, response_type, response_options, form_construct, form_subconstruct)
+
+json_df_items <- json_df_tidy |>
+  pivot_longer(-id, names_to = "variable_name", values_transform = as.character) |>
+  left_join(items) |>
+  mutate(value_numeric = as.numeric(value), .after = value)
+
+# saveRDS(json_df_vals, "data_processed/survey_tidy.rds")
+
+# json_df_items |>
+#   filter(is.na(form_construct))
+
+# json_df_items |>
+#   group_by(ProlificID) |>
+#   summarise(missing = sum(is.na(value)))
+
+# item_means <- json_df_items |>
+#   filter(!is.na(form_construct)) |>
+#   group_by(form_construct, form_subconstruct, variable_name) |>
+#   summarise(mean = mean(value_numeric, na.rm = TRUE))
+
+# ggplot(item_means, aes(x = mean)) +
+#   facet_wrap(vars(form_construct)) +
+#   geom_histogram()
+
+json_df_items |>
+  filter(!(variable_name %in% c("ChildAgeYears", "ChildHeight", "ChildWeight"))) |>
+ggplot(aes(x = value_numeric, y = variable_name)) +
+  # facet_grid(rows = vars(form_construct), scales = "free", space = "free") +
+  facet_wrap(vars(form_construct), scales = "free", ncol = 4) +
+  geom_sina() +
+  labs(x = "Response", y = "Item")
+ggsave("pilot_vals.png", width = 16, height = 8)
+  # geom_point()
+
+item_alphas <- json_df_items |>
+  select(ProlificID, variable_name, value_numeric, form_construct, form_subconstruct) |>
+  filter(!is.na(form_construct), !is.na(form_subconstruct), !is.na(value_numeric)) |>
+  filter(!(variable_name %in% c("ChildAgeYears", "ChildHeight", "ChildWeight"))) |>
+  filter(!(form_subconstruct %in% c("Behavior", "Sex and Gender"))) |>
+  nest(data = -c(form_construct, form_subconstruct)) |>
+  # slice(7) |>
+  mutate(df_vals = map(data, function(df) {
+    df |>
+      pivot_wider(names_from = variable_name, values_from = value_numeric) |>
+      select(-ProlificID)
+  })) |>
+  mutate(alpha = map(df_vals, \(dfv) cronbach.alpha(dfv, na.rm = TRUE) |> unclass() |> as_tibble()))
+
+alphas <- item_alphas |>
+  select(form_construct, form_subconstruct, alpha) |>
+  unnest(alpha) |>
+  filter(!is.na(alpha)) |>
+  mutate(form_construct = fct_inorder(form_construct)) |>
+  arrange(form_construct, desc(alpha)) |>
+  mutate(form_subconstruct = fct_inorder(form_subconstruct))
+
+ggplot(alphas, aes(x = alpha, y = form_subconstruct)) +
+  facet_grid(vars(form_construct), scales = "free_y", space = "free_y") + #, switch = "y") +
+  geom_vline(xintercept = 0, linetype = "dotted") +
+  geom_point(aes(size = p)) +
+  labs(x = "Cronbach's alpha", y = "Subconstruct") +
+  theme(legend.position = "bottom")
+  # theme(strip.text.y.left = element_text(angle = 0),
+  #       strip.placement = "outside")
+
+ggsave("pilot_alpha.png", width = 7, height = 11)
+```
