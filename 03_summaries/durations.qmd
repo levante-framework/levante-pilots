@@ -1,0 +1,58 @@
+```{r setup}
+library(tidyverse)
+library(here)
+library(glue)
+```
+
+```{r}
+sites <- c("ca_pilot", "co_pilot", "de_pilot")
+
+trials_coded <- sites |>
+  set_names() |>
+  map(\(s) read_rds(here(glue("00_prepped_data/{s}/trials_coded.rds")))) |>
+  list_rbind(names_to = "site")
+```
+
+Table of median task times
+
+```{r}
+time_summary <- trials_coded |>
+  mutate(server_timestamp = as_datetime(server_timestamp)) |>
+  arrange(user_id, run_id, server_timestamp) |>
+  group_by(site, task_id, run_id, user_id) |>
+  summarise(trials = n(),
+            start = min(server_timestamp), end = max(server_timestamp)) |>
+  ungroup() |>
+  mutate(diff = difftime(end, start, units = "mins")) |>
+  left_join(participants) |>
+  left_join(task_categories, by = c("task_id" = "task")) |>
+  filter(trials > 2)
+
+# ggplot(time_summary, aes(x = diff)) +
+#   facet_wrap(vars(site, task_id)) +
+#   geom_histogram()
+
+task_time_summary <- time_summary |>
+  group_by(site, task_category, task_id) |>
+  summarise(median_diff = median(diff),
+            min_diff = min(diff),
+            max_diff = max(diff)) |>
+  ungroup() |>
+  mutate(across(contains("diff"), \(d) round(d, 2))) |>
+  mutate(combined_diff = glue("{median_diff} [{min_diff}, {max_diff}]"))
+
+# task_time_summary
+# sum(task_time_summary$median_diff)
+
+run_time_summary <- time_summary |>
+  group_by(user_id, run_id) |>
+  summarise(total = sum(diff)) |>
+  ungroup() |>
+  summarise(med = median(total))
+
+user_summary <- time_summary |>
+  group_by(user_id) |>
+  summarise(total = sum(diff)) |>
+  ungroup() |>
+  summarise(med = median(total))
+```
