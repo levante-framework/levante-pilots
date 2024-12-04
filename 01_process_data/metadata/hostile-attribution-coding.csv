@@ -1,0 +1,24 @@
+item,item_id,response,value
+hostile-attribution-1b,hostile-attribution-1b audio,ToM-by-accident,accident
+hostile-attribution-1b,hostile-attribution-1b audio 1,hostile-attribution-scene1-by-accident,accident
+hostile-attribution-1b,hostile-attribution-1b audio 1,ToM-on-purpose,purpose
+hostile-attribution-1b,hostile-attribution-1b audio 1,ToM-by-accident,accident
+hostile-attribution-1b,hostile-attribution-1b audio 1,hostile-attribution-scene1-on-purpose,purpose
+hostile-attribution-1b,hostile-attribution-1b audio 2,hostile-attribution-scene1-q2-ans1,non-hostile
+hostile-attribution-1b,hostile-attribution-1b audio 2,hostile-attribution-scene1-q2-ans2,non-hostile
+hostile-attribution-1b,hostile-attribution-1b audio 2,hostile-attribution-scene1-q2-ans3,hostile
+hostile-attribution-2b,hostile-attribution-2b audio,ToM-by-accident,accident
+hostile-attribution-2b,hostile-attribution-2b audio 1,hostile-attribution-scene2-by-accident,accident
+hostile-attribution-2b,hostile-attribution-2b audio 1,hostile-attribution-scene2-on-purpose,purpose
+hostile-attribution-2b,hostile-attribution-2b audio 1,ToM-by-accident,accident
+hostile-attribution-2b,hostile-attribution-2b audio 1,ToM-on-purpose,purpose
+hostile-attribution-2b,hostile-attribution-2b audio 2,hostile-attribution-scene2-q2-ans1,non-hostile
+hostile-attribution-2b,hostile-attribution-2b audio 2,hostile-attribution-scene2-q2-ans2,hostile
+hostile-attribution-2b,hostile-attribution-2b audio 2,hostile-attribution-scene2-q2-ans3,non-hostile
+hostile-attribution-3c,hostile-attribution-3c audio,hostile-attribution-scene3-on-purpose,purpose
+hostile-attribution-3c,hostile-attribution-3c audio 1,hostile-attribution-scene3-on-purpose,purpose
+hostile-attribution-3c,hostile-attribution-3c audio 1,ToM-on-purpose,purpose
+hostile-attribution-3c,hostile-attribution-3c audio 1,ToM-by-accident,accident
+hostile-attribution-3c,hostile-attribution-3c audio 2,hostile-attribution-scene3-q2-ans1,hostile
+hostile-attribution-3c,hostile-attribution-3c audio 2,hostile-attribution-scene3-q2-ans2,non-hostile
+hostile-attribution-3c,hostile-attribution-3c audio 2,hostile-attribution-scene3-q2-ans3,non-hostile
