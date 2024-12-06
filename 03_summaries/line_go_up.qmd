@@ -115,7 +115,9 @@ task_plot_sites <- \(scores, ylab, nr = NULL, nc = NULL) {
          caption = glue("Note: includes only tasks with at least {threshold_n} observations")) +
     guides(colour = "none")
 }
+```
 
+```{r}
 threshold_n <- 10
 threshold_scores <- scores |> filter(site_task_n >= threshold_n)
 
@@ -126,8 +128,9 @@ ggsave(here("03_summaries/plots/sumscores_pooled.png"), width = 15, height = 6)
 
 task_plot_sites(sumscores, ylab = "Proportion correct", nc = 7)
 ggsave(here("03_summaries/plots/sumscores_sites.png"), width = 15, height = 15)
+```
 
-
+```{r}
 irt_scores <- threshold_scores |>
   filter(str_detect(metric_type, "ability"))
 
@@ -157,7 +160,9 @@ task_metrics <- tribble(
   "theory-of-mind", "ability",
   "hostile-attribution", "prop_correct"
 )
+```
 
+```{r}
 task_scores <- threshold_scores |>
   mutate(metric_type = if_else(str_detect(metric_type, "ability"), "ability", metric_type)) |>
   filter(!is.na(metric_value)) |>
@@ -168,6 +173,18 @@ ggsave(here("03_summaries/plots/scores_pooled.png"), width = 15, height = 6)
 
 task_plot_sites(task_scores, ylab = "Score", nc = 6)
 ggsave(here("03_summaries/plots/scores_sites.png"), width = 14, height = 15)
+```
+
+```{r}
+task_plot_pooled(filter(task_scores, site == "ca_pilot"), ylab = "Score", nr = 2)
+ggsave(here("03_summaries/plots/scores_ca.png"), width = 10, height = 6)
+
+task_plot_pooled(filter(task_scores, site == "co_pilot"), ylab = "Score", nr = 2)
+ggsave(here("03_summaries/plots/scores_co.png"), width = 14, height = 6)
+
+task_plot_pooled(filter(task_scores, site == "de_pilot"), ylab = "Score", nr = 2)
+ggsave(here("03_summaries/plots/scores_de.png"), width = 14, height = 6)
+
 
 # task_plot(c("hearts-and-flowers", "memory-game", "same-different-selection"))
 # ggsave("plots/ef_scores.png", width = 9, height = 4)
