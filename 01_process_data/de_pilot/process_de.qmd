@@ -190,7 +190,10 @@ tom <- task_data |>
 hearts_and_flowers <- task_data |>
   filter(task_id == "hearts-and-flowers") |>
   filter(corpus_trial_type == "hearts and flowers" |
-           assessment_stage == "hearts and flowers stimulus")
+           assessment_stage == "hearts and flowers stimulus") |>
+  mutate(rt_num = as.numeric(rt), response_fast = rt_num < 200, response_slow = rt_num > 2000) |>
+  mutate(correct = !is.na(correct) & correct & !response_fast & !response_slow) |>
+  select(-rt_num, -response_fast, -response_slow)
 
 task_data_coded <- task_data |>
   # replace separated out data
