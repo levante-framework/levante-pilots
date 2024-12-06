@@ -1,0 +1,298 @@
+```{r setup}
+library(tidyverse)
+library(here)
+library(glue)
+library(lavaan)
+library(tidySEM)
+library(ggthemes)
+
+.font <- "Source Sans Pro"
+theme_set(theme_bw(base_size = 14, base_family = .font))
+theme_update(panel.grid = element_blank(),
+             strip.background = element_blank(),
+             legend.key = element_blank(),
+             panel.border = element_blank(),
+             axis.line = element_line(),
+             strip.text = element_text(face = "bold"))
+```
+
+```{r}
+sites <- c("ca_pilot", "co_pilot", "de_pilot")
+
+participants <- sites |>
+  set_names() |>
+  map(\(s) read_rds(here(glue("00_prepped_data/{s}/participants.rds")))) |>
+  list_rbind(names_to = "site")
+```
+
+
+```{r}
+score_files <- list.files(here("02_scored_data"), pattern = "*.rds",
+                          full.names = TRUE)
+score_list <- score_files |> map(read_rds)
+# exclude_tasks <- c("hostile-attribution", "pa-es")
+# score_list <- read_rds("scores/combined_scores.rds")
+
+task_categories <- tribble(
+  ~task, ~task_category,
+  "hearts-and-flowers", "executive function",
+  "same-different-selection", "executive function",
+  "memory-game", "executive function",
+  "egma-math", "math",
+  "matrix-reasoning", "reasoning",
+  "mental-rotation", "spatial cognition",
+  "trog", "language",
+  "vocab", "language",
+  "pa-es", "reading",
+  "sre-es", "reading",
+  "swr-es", "reading",
+  "pa", "reading",
+  "sre", "reading",
+  "swr", "reading",
+  "emotion-reasoning", "social cognition",
+  "theory-of-mind", "social cognition",
+  "hostile-attribution", "social cognition"
+) |> mutate(task_category = task_category |> str_to_sentence() |> fct_inorder())
+
+run_ages <- participants |>
+  select(user_id, ages) |>
+  unnest(ages)
+
+scores <- score_list |>
+  bind_rows() |>
+  rename(task = task_id) |>
+  left_join(run_ages) |>
+  filter(!is.na(age), age >= 5, age <= 12) |>
+  left_join(task_categories) |>
+  group_by(site, task) |>
+  mutate(site_task_n = n_distinct(user_id),
+         site_task_label = glue("{task}\n(n = {site_task_n})")) |>
+  group_by(task) |>
+  mutate(task_label = glue("{task}\n(n = {n_distinct(user_id)})")) |>
+  ungroup() |>
+  mutate(site_label = site |>
+           # fct_relevel("co_pilot", "de_pilot", "ca_pilot") |>
+           fct_recode("Canada" = "ca_pilot",
+                      "Colombia" = "co_pilot",
+                      "Germany" = "de_pilot")) |>
+  group_by(site) |>
+  mutate(site_label = glue("{site_label} (n = {n_distinct(user_id)})")) |>
+  ungroup()
+  # mutate(score_type = score_type |> str_remove(" \\(.*\\)"))
+
+# task_categories_vec <- levels(scores$task_category)
+# task_pal <- ptol_pal()(length(task_categories_vec)) |> set_names(task_categories_vec)
+task_metrics <- tribble(
+  ~task, ~metric_type,
+  "hearts-and-flowers", "prop_correct",
+  "same-different-selection", "ability",
+  "memory-game", "longest_span",
+  "egma-math", "ability",
+  "matrix-reasoning", "ability",
+  "mental-rotation", "ability",
+  "trog", "ability",
+  "vocab", "ability",
+  "pa-es", "prop_correct",
+  "sre-es", "prop_correct",
+  "swr-es", "ability",
+  "pa", "prop_correct",
+  "sre", "prop_correct",
+  "swr", "prop_correct",
+  "emotion-reasoning", "prop_correct",
+  "theory-of-mind", "ability",
+  "hostile-attribution", "prop_correct"
+)
+
+task_scores <- scores |>
+  mutate(metric_type = if_else(str_detect(metric_type, "ability"), "ability", metric_type)) |>
+  filter(!is.na(metric_value)) |>
+  inner_join(task_metrics)
+```
+
+
+# Factor analysis
+
+```{r}
+scores_wide <- task_scores |>
+  select(task, metric_value, user_id, site) |>
+  pivot_wider(names_from = "task", values_from = "metric_value", 
+              id_cols = c("user_id","site"), 
+              values_fn = mean) 
+
+scores_wide_mat <- scores_wide |>
+  janitor:::clean_names() |>
+  mutate(across(matrix_reasoning:same_different_selection, ~ scale(.x)[,1]))
+```
+
+First CFA 
+
+```{r}
+cfa_model <-  "
+reasoning =~ matrix_reasoning + mental_rotation 
+ef =~ hearts_and_flowers + memory_game + same_different_selection
+social =~ theory_of_mind + hostile_attribution + emotion_reasoning
+language =~ trog + vocab + sre_es + swr_es
+math =~ egma_math
+"
+
+fit <- cfa(cfa_model, scores_wide_mat, std.lv=TRUE, missing='fiml')
+summary(fit, fit.measures=TRUE, standardize=TRUE)
+
+layout = matrix(nrow=3, ncol = 14, 
+                data = c(NA,NA,NA,NA, NA,NA,NA,NA, NA,NA,NA,NA, NA, NA,
+                         "reasoning",NA, "ef", NA, NA, NA, "social",NA, NA, "language",NA, NA, NA, 
+                         "math",
+                         "matrix_reasoning", "mental_rotation", "hearts_and_flowers","memory_game","mefs", "same_different_selection",  "theory_of_mind","hostile_attribution","emotion_reasoning","trog","vocab","sre_es","swr_es","egma_math"), byrow = TRUE)
+
+graph_sem(model = fit, text_size = 3, layout = layout)
+```
+
+Add age. 
+
+```{r}
+cfa_age_model <-  "
+# measurement
+reasoning =~ matrix_reasoning + mental_rotation 
+ef =~ hearts_and_flowers + memory_game + mefs + same_different_selection
+social =~ theory_of_mind + emotion_reasoning
+language =~ trog + vocab + sre_es + swr_es
+math =~ egma_math
+
+# age regressions
+reasoning ~ age
+ef ~ age
+social ~ age
+language ~ age
+math ~ age
+"
+
+fit <- sem(cfa_age_model, scores_wide_mat, std.lv=TRUE, missing='fiml')
+summary(fit, fit.measures=TRUE, standardize=TRUE)
+
+layout = matrix(nrow=5, ncol = 14, 
+                data = c(NA,NA,NA,NA, NA,NA,NA, "age", NA,NA,NA,NA, NA, NA,
+                  NA,NA,NA,NA, NA,NA,NA,NA, NA,NA,NA,NA, NA, NA,
+                         "reasoning",NA, "ef", NA, NA, NA, "social",NA, NA, "language",NA, NA, NA, 
+                         "math",
+                                    NA,NA,NA,NA, NA,NA,NA,NA, NA,NA,NA,NA, NA, NA,
+
+                         "matrix_reasoning", "mental_rotation", "hearts_and_flowers","memory_game","mefs", "same_different_selection",  "theory_of_mind","hostile_attribution","emotion_reasoning","trog","vocab","sre_es","swr_es","egma_math"), byrow = TRUE)
+
+graph_sem(model = fit, text_size = 3, layout = t(layout))
+```
+
+Alternative model putting spatial cognition on its own doesn't see supported (extra construct). 
+
+```{r}
+cfa_age_model_alt <-  "
+# measurement
+reasoning =~ matrix_reasoning
+ef =~ hearts_and_flowers + memory_game + mefs + same_different_selection
+social =~ theory_of_mind + emotion_reasoning 
+language =~ trog + vocab + sre_es + swr_es
+math =~ egma_math 
+spatial =~ mental_rotation
+
+# age regressions
+reasoning ~ age
+ef ~ age
+social ~ age
+language ~ age
+math ~ age
+spatial ~ age
+"
+
+fit_alt <- sem(cfa_age_model_alt, scores_wide_mat, std.lv=TRUE, missing='fiml')
+summary(fit_alt, fit.measures=TRUE, standardize=TRUE)
+layout_alt = matrix(nrow=4, ncol = 14, 
+                data = c(NA,NA,NA,NA, NA,NA,NA, "age", NA,NA,NA,NA, NA, NA,
+                  NA,NA,NA,NA, NA,NA,NA,NA, NA,NA,NA,NA, NA, NA,
+                         "reasoning","spatial", "ef", NA, NA, NA, "social",NA, NA, "language",NA, NA, NA, 
+                         "math",
+                         "matrix_reasoning", "mental_rotation", "hearts_and_flowers","memory_game","mefs", "same_different_selection",  "theory_of_mind","hostile_attribution","emotion_reasoning","trog","vocab","sre_es","swr_es","egma_math"), byrow = TRUE)
+graph_sem(model = fit_alt, text_size = 3, layout = layout_alt)
+
+anova(fit,fit_alt)
+```
+## Site specific
+
+```{r}
+cfa_age_model <-  "
+# measurement
+reasoning =~ matrix_reasoning + mental_rotation 
+ef =~ hearts_and_flowers + memory_game + mefs + same_different_selection
+social =~ theory_of_mind + emotion_reasoning
+language =~ trog + vocab + sre_es + swr_es
+math =~ egma_math
+
+# age regressions
+reasoning ~ age
+ef ~ age
+social ~ age
+language ~ age
+math ~ age
+"
+
+fit <- sem(cfa_age_model, filter(scores_wide_mat, site == "DE"), std.lv=TRUE, missing='fiml')
+summary(fit, fit.measures=TRUE, standardize=TRUE)
+
+layout = matrix(nrow=5, ncol = 14, 
+                data = c(NA,NA,NA,NA, NA,NA,NA, "age", NA,NA,NA,NA, NA, NA,
+                  NA,NA,NA,NA, NA,NA,NA,NA, NA,NA,NA,NA, NA, NA,
+                         "reasoning",NA, "ef", NA, NA, NA, "social",NA, NA, "language",NA, NA, NA, 
+                         "math",
+                                    NA,NA,NA,NA, NA,NA,NA,NA, NA,NA,NA,NA, NA, NA,
+
+                         "matrix_reasoning", "mental_rotation", "hearts_and_flowers","memory_game","mefs", "same_different_selection",  "theory_of_mind","hostile_attribution","emotion_reasoning","trog","vocab","sre_es","swr_es","egma_math"), byrow = TRUE)
+
+graph_sem(model = fit, text_size = 3, layout = t(layout))
+```
+
+## Age exploration
+
+Let's try a model that adds log age instead of / as well as age. 
+
+```{r}
+scores_wide_mat$log_age <- log(scores_wide_mat$age)
+cfa_age_model <-  "
+# measurement
+reasoning =~ matrix_reasoning + mental_rotation 
+ef =~ hearts_and_flowers + memory_game + mefs + same_different_selection
+social =~ theory_of_mind + emotion_reasoning
+language =~ trog + vocab + sre_es + swr_es
+math =~ egma_math
+
+# age regressions
+reasoning ~ age + log_age
+ef ~ age + log_age
+social ~ age + log_age
+language ~ age + log_age
+math ~ age + log_age
+"
+
+fit <- sem(cfa_age_model, scores_wide_mat, std.lv=TRUE, missing='fiml')
+summary(fit, fit.measures=TRUE, standardize=TRUE)
+
+layout = matrix(nrow=4, ncol = 14, 
+                data = c(NA,NA,NA,NA, NA,NA,"log_age", "age", NA,NA,NA,NA, NA, NA,
+                  NA,NA,NA,NA, NA,NA,NA,NA, NA,NA,NA,NA, NA, NA,
+                         "reasoning",NA, "ef", NA, NA, NA, "social",NA, NA, "language",NA, NA, NA, 
+                         "math",
+                         "matrix_reasoning", "mental_rotation", "hearts_and_flowers","memory_game","mefs", "same_different_selection",  "theory_of_mind","hostile_attribution","emotion_reasoning","trog","vocab","sre_es","swr_es","egma_math"), byrow = TRUE)
+
+graph_sem(model = fit, text_size = 3, layout = t(layout))
+```
+
+Median split on age
+
+```{r}
+fit_younger <- cfa(cfa_model, data = filter(scores_wide_mat, age < 9),
+                   std.lv=TRUE, missing='fiml')
+fit_older <- cfa(cfa_model, data = filter(scores_wide_mat, age >= 9),
+                 std.lv=TRUE, missing='fiml')
+summary(fit_younger, fit.measures=TRUE, standardize=TRUE)
+summary(fit_older, fit.measures=TRUE, standardize=TRUE)
+
+graph_sem(model = fit_younger, text_size = 3, layout = layout)
+graph_sem(model = fit_older, text_size = 3, layout = layout)
+```
