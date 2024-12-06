@@ -28,6 +28,6 @@ trials_coded <- trials |>
   rlevante::remove_practice_trials() |>
   arrange(task_id, run_id, user_id, server_timestamp)
 
-write_rds(trials_coded, here(glue("00_prepped_data/{site}/trials_coded.rds")))
-write_rds(participants, here(glue("00_prepped_data/{site}/participants.rds")))
+write_rds(trials_coded, here(glue("00_prepped_data/{site}/trials_coded.rds")), compress = "gz")
+write_rds(participants, here(glue("00_prepped_data/{site}/participants.rds")), compress = "gz")
 ```
