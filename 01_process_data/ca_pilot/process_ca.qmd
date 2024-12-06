@@ -185,7 +185,7 @@ task_data_coded <- task_data |>
   mutate(item_id = if_else(!is.na(item_id) | item_id=="", item_id, item)) |>
   # hyphens in item names mess up mirt constraints (yes really)
   mutate(item_id = item_id |> str_replace_all("-", "_")) |>
-  select(matches("id"), corpus_trial_type, item_id, chance, correct, rt, server_timestamp)
+  select(matches("id"), corpus_trial_type, item_id, chance, correct, rt, response, server_timestamp)
 
 # # identify too slow/fast RTs
 # # TODO: check min/max values + why are some RTs NA
