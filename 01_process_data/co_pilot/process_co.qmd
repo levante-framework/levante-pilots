@@ -175,9 +175,15 @@ tom <- task_data |>
   select(-value)
 # write_rds(tom, here("assessment/colombia/stage2/task_analyses/data/tom_data.rds"))
 
+hearts_and_flowers <- task_data |>
+  filter(task_id == "hearts-and-flowers") |>
+  filter(corpus_trial_type == "hearts and flowers" |
+           assessment_stage == "hearts and flowers stimulus")
+
 task_data_coded <- task_data |>
   # replace separated out data
-  filter(!task_id %in% c("egma-math", "same-different-selection", "theory-of-mind", "trog", "vocab")) |>
+  filter(!task_id %in% c("egma-math", "same-different-selection", "theory-of-mind", "trog", "vocab", "hearts-and-flowers")) |>
+  bind_rows(hearts_and_flowers) |>
   bind_rows(sds) |> bind_rows(egma_numberline) |> bind_rows(tom) |> 
   bind_rows(trog) |> bind_rows(vocab) |>
   # id other items as just item
