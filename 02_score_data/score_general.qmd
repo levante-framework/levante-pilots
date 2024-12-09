@@ -54,9 +54,27 @@ mg <- task_data_combined |>
   mutate(metric_type = "longest_span")
 ```
 
+Custom scoring for SRE. 
+
+Scoring is per https://roar.stanford.edu/technical/intro-sre.html#sec-sre-scoring
+
+"ROAR-Sentence is a two alternative forced choice (2AFC) task and is scored as the total number of correct responses minus the total number of incorrect responses in the alloted (3 minute) time window. This scoring method controls for guessing by controlling for the number of incorrect responses in the calculation of the scores. Raw Scores: The student’s raw score will range between 0-130."
+
+We normalize. 
+
+```{r sre}
+sre <- task_data_combined |>
+  filter(str_detect(task_id, "sre")) |>
+  group_by(site, task_id, user_id, run_id) |> # corpus_trial_type
+  summarise(metric_value = (sum(correct) - sum(!correct))/130) |>
+  ungroup() |>
+  mutate(metric_type = "guessing_adjusted_number_correct")
+```
+
+
 Combine scores
 
 ```{r}
-scores_combined <- bind_rows(sumscores, thetas, mg)
+scores_combined <- bind_rows(sumscores, thetas, mg, sre)
 write_rds(scores_combined, here("02_scored_data/scores_general.rds"))
 ```

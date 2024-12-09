@@ -12,7 +12,7 @@ format:
 ```{r}
 sites <- c("co_pilot")
 
-participants <- sites |>
+participants_nested <- sites |>
   set_names() |>
   map(\(s) read_rds(here(glue("00_prepped_data/{s}/participants.rds")))) |>
   list_rbind(names_to = "site")
@@ -48,55 +48,24 @@ task_categories <- tribble(
   "hostile-attribution", "social cognition"
 ) |> mutate(task_category = task_category |> str_to_sentence() |> fct_inorder())
 
-participant_data <- participants |>
-  select(user_id, ages, groups) |>
+participant_runs <- participants_nested |>
   unnest(ages) |>
   unnest(groups)
+```
 
-scores <- score_list |>
-  bind_rows() |>
-  rename(task = task_id) |>
-  left_join(participant_data) |>
-  filter(!is.na(age), age >= 5, age <= 12) |>
-  left_join(task_categories) 
-
-task_metrics <- tribble(
-  ~task, ~metric_type,
-  "hearts-and-flowers", "prop_correct",
-  "same-different-selection", "ability",
-  "memory-game", "longest_span",
-  "egma-math", "ability",
-  "matrix-reasoning", "ability",
-  "mental-rotation", "ability",
-  "trog", "ability",
-  "vocab", "ability",
-  "pa-es", "prop_correct",
-  "sre-es", "prop_correct",
-  "swr-es", "ability",
-  "pa", "prop_correct",
-  "sre", "prop_correct",
-  "swr", "prop_correct",
-  "emotion-reasoning", "prop_correct",
-  "theory-of-mind", "ability",
-  "hostile-attribution", "prop_correct"
-)
-
-task_scores <- scores |>
-  mutate(metric_type = if_else(str_detect(metric_type, "ability"), "ability", metric_type)) |>
-  filter(!is.na(metric_value)) |>
-  inner_join(task_metrics)
+```{r}
+participants <- participant_runs |>
+  mutate(school = group_name |> gsub(pattern="Coleg", replacement="Col") |> str_extract("Col.")) |>
+  group_by(user_id, site) |>
+  select(site, user_id, school, grade, age, sex, teacher_id) |>
+  mutate(age = round(age, 1)) |>
+  distinct()
 ```
 
 
-
 ```{r setup}
-
-  # Get school name (assume ColegB = ColB)
-participant_data |>
-  mutate(school = group_name |> gsub(pattern="Coleg", replacement="Col") |> str_extract("Col.") |> substring(4))
-
-# Number of participants missing group name
-nrow(participants |> filter(is.na(group_name))) # 367 (down from 1400)
+unique(participants$school)
+unique(participants$grade)
 ```
 
 ## Students per school and grade/age
@@ -109,56 +78,50 @@ table(participants$school, round(participants$age))
 # Load all scores
 
 ```{r}
-score_list <- map(list.files("scores", full.names = TRUE), read_rds)
-
-task_categories <- tribble(
-  ~task, ~task_category,
-  "hearts-and-flowers", "executive function",
-  "same-different-selection", "executive function",
-  "memory-game", "executive function",
-  "egma-math", "math",
-  "matrix-reasoning", "reasoning",
-  "mental-rotation", "spatial cognition",
-  "trog", "language",
-  "vocab", "language",
-  "pa-es", "reading",
-  "sre-es", "reading",
-  "swr-es", "reading",
-  "theory-of-mind", "social cognition",
-  "hostile-attribution", "social cognition"
-) |> mutate(task_category = task_category |> str_to_sentence() |> fct_inorder())
-
-
-scores <- score_list |>
-  bind_rows() |> 
-  distinct() |> # Remove duplicate rows from IRT task scores
-  select(-age) |>
+all_scores <- score_list |>
+  bind_rows() |>
+  rename(task = task_id) |>
   left_join(participants) |>
-  filter(!is.na(school), task != "hostile-attribution") |>
-  # filter(!is.na(age), age >= 5, age <= 12) |> # Missing many ages
-  group_by(task) |>
-  mutate(n = n_distinct(user_id), task_label = glue("{task}\n(n = {n})")) |>
-  ungroup() |>
-  left_join(task_categories) |>
-  mutate(score_type = score_type |> str_remove(" \\(.*\\)"))
+  filter(!is.na(age), age >= 5, age <= 12) 
 
-task_cat <- levels(scores$task_category)
-task_pal <- ptol_pal()(length(task_cat)) |> set_names(task_cat)
+
+task_metrics <- tribble(
+  ~task, ~metric_type,
+  "hearts-and-flowers", "prop_correct",
+  "same-different-selection", "ability",
+  "memory-game", "longest_span",
+  "egma-math", "ability",
+  "matrix-reasoning", "ability",
+  "mental-rotation", "ability",
+  "trog", "ability",
+  "vocab", "ability",
+  "pa-es", "prop_correct",
+  "sre-es", "guessing_adjusted_number_correct",
+  "swr-es", "ability",
+  "pa", "prop_correct",
+  "sre", "guessing_adjusted_number_correct",
+  "swr", "prop_correct",
+  "emotion-reasoning", "prop_correct",
+  "theory-of-mind", "ability",
+  "hostile-attribution", "prop_correct"
+)
+
+scores <- all_scores |>
+  mutate(metric_type = if_else(str_detect(metric_type, "ability"), "ability", metric_type)) |>
+  filter(!is.na(metric_value)) |>
+  inner_join(task_metrics) |>
+  left_join(task_categories) |>
+  mutate(score = metric_value)
 ```
 
-Scores with missing school info
+
+Scores with missing grade info.
+
 ```{r}
-scores_no_school <- score_list |>
-  bind_rows() |> 
-  distinct() |> # Remove duplicate rows from IRT task scores
-  left_join(participants) |>
-  filter(is.na(school), task != "hostile-attribution")
-
-scores_no_school |> group_by(task) |> summarise(n())
-nrow(scores_no_school) # 1083
-
-# Number of participants with scores but missing school info
-length(unique(scores_no_school$user_id)) # 625
+scores |>
+  group_by(task) |> 
+  filter(grade == "") |>
+  count()
 ```
 
 # Distributions across all schools
@@ -176,7 +139,7 @@ dist_all_schools
 All scores combining all schools in one plot
 ```{r}
 ggplot(scores, aes(x = "", y = score)) +
-  ggh4x::facet_nested_wrap(vars(task_category, task_label), nrow = 2,
+  ggh4x::facet_nested_wrap(vars(task_category, task), nrow = 2,
                            nest_line = element_line(), solo_line = TRUE,
                            axes = "x",scales = "free_y") +
   geom_sina(aes(colour = task_category), alpha = 0.8) +
@@ -187,14 +150,14 @@ ggplot(scores, aes(x = "", y = score)) +
         axis.title.x = element_blank(),
         strip.text = element_text(size = 10))
 
-ggsave("plots/reports/all_scores_all_schools.png", width = 14, height = 8)
+ggsave("plots_co/all_scores_all_schools.png", width = 14, height = 8)
 ```
 
 Just math and reading
 ```{r}
 ggplot(scores |> filter(task_category %in% c("Math", "Reading")), 
        aes(x = "", y = score)) +
-  ggh4x::facet_nested_wrap(vars(task_category, task_label), nrow = 1,
+  ggh4x::facet_nested_wrap(vars(task_category, task), nrow = 1,
                            nest_line = element_line(), solo_line = TRUE,
                            axes = "x",scales = "free_y") +
   geom_sina(aes(colour = task_category), alpha = 0.8) +
@@ -223,7 +186,7 @@ All scores, sina plots
 
 ```{r}
 ggplot(scores, aes(x = school, y = score)) +
-  ggh4x::facet_nested_wrap(vars(task_category, task_label), nrow = 2,
+  ggh4x::facet_nested_wrap(vars(task_category, task), nrow = 2,
                            nest_line = element_line(), solo_line = TRUE,
                            axes = "x",scales = "free_y") +
   geom_sina(aes(color = task_category), alpha = 0.8) + 
@@ -239,7 +202,7 @@ All scores, violin plots
 
 ```{r}
 ggplot(scores, aes(x = school, y = score)) +
-  ggh4x::facet_nested_wrap(vars(task_category, task_label), nrow = 2,
+  ggh4x::facet_nested_wrap(vars(task_category, task), nrow = 2,
                            nest_line = element_line(), solo_line = TRUE,
                            axes = "x",scales = "free_y") +
   geom_violin(trim = F, aes(fill = task_category), alpha = 0.8) + 
@@ -260,7 +223,7 @@ school_plot <- function(sch) {
     mutate(n = n_distinct(user_id), task_label = glue("{task}\n(n = {n})")) |>
     ungroup() |>
     ggplot(aes(x = "", y = score)) +
-    ggh4x::facet_nested_wrap(vars(task_category, task_label), nrow = 2,
+    ggh4x::facet_nested_wrap(vars(task_category, task), nrow = 2,
                            nest_line = element_line(), solo_line = TRUE,
                            axes = "x",scales = "free_y") +
     geom_sina(aes(colour = task_category), alpha = 0.8) +
@@ -272,17 +235,21 @@ school_plot <- function(sch) {
           strip.text = element_text(size = 10))
 }
 
-school_plot("A")
-ggsave("plots/reports/all_scores_schoolA.png", width = 14, height = 8)
+school_plot("ColA")
+ggsave("plots_co/all_scores_schoolA.png", width = 14, height = 8)
 
-school_plot("B")
-ggsave("plots/reports/all_scores_schoolB.png", width = 14, height = 8)
+school_plot("ColB")
+ggsave("plots_co/all_scores_schoolB.png", width = 14, height = 8)
 
-school_plot("C")
-ggsave("plots/reports/all_scores_schoolC.png", width = 14, height = 8)
+school_plot("ColC")
+ggsave("plots_co/all_scores_schoolC.png", width = 14, height = 8)
 
-school_plot("D")
-ggsave("plots/reports/all_scores_schoolD.png", width = 14, height = 8)
+school_plot("ColD")
+ggsave("plots_co/all_scores_schoolD.png", width = 14, height = 8)
+
+school_plot("ColE")
+ggsave("plots_co/all_scores_schoolE.png", width = 14, height = 8)
+
 ```
 
 Just math & reading scores, one school on one plot
@@ -293,7 +260,7 @@ school_math_read_plot <- function(sch) {
     mutate(n = n_distinct(user_id), task_label = glue("{task}\n(n = {n})")) |>
     ungroup() |>
     ggplot(aes(x = "", y = score)) +
-    ggh4x::facet_nested_wrap(vars(task_category, task_label), nrow = 1,
+    ggh4x::facet_nested_wrap(vars(task_category, task), nrow = 1,
                              nest_line = element_line(), solo_line = TRUE,
                              axes = "x",scales = "free_y") +
     geom_sina(aes(colour = task_category), alpha = 0.8) +
@@ -305,17 +272,20 @@ school_math_read_plot <- function(sch) {
           strip.text = element_text(size = 10))
 }
 
-school_math_read_plot("A")
-ggsave("plots/reports/math_read_schoolA.png", width = 14, height = 8)
+school_math_read_plot("ColA")
+ggsave("plots_co/math_read_schoolA.png", width = 14, height = 8)
 
-school_math_read_plot("B")
-ggsave("plots/reports/math_read_schoolB.png", width = 14, height = 8)
+school_math_read_plot("ColB")
+ggsave("plots_co/math_read_schoolB.png", width = 14, height = 8)
 
-school_math_read_plot("C")
-ggsave("plots/reports/math_read_schoolC.png", width = 14, height = 8)
+school_math_read_plot("ColC")
+ggsave("plots_co/math_read_schoolC.png", width = 14, height = 8)
 
-school_math_read_plot("D")
-ggsave("plots/reports/math_read_schoolD.png", width = 14, height = 8)
+school_math_read_plot("ColD")
+ggsave("plots_co/math_read_schoolD.png", width = 14, height = 8)
+
+school_math_read_plot("ColE")
+ggsave("plots_co/math_read_schoolE.png", width = 14, height = 8)
 ```
 
 # Save distribution files
@@ -324,7 +294,7 @@ Combine all distributions into one csv
 ```{r}
 dist_all_schools <- dist_all_schools |> mutate(school = "all")
 all_dist <- rbind(dist_all_schools, dist_by_school)
-write_csv(all_dist, "data/scores_summary_reports.csv")
+write_csv(all_dist, "data_co/scores_summary_reports.csv")
 ```
 
 Top 5% in each task from each school
@@ -338,7 +308,7 @@ top_5_percent_users <- scores |>
   group_by(school, task) |>
   do(top_5_percent(.)) |>
   select(school, task_category, task, user_id, score)
-write_csv(top_5_percent_users, "data/top5perc_task_school.csv")
+write_csv(top_5_percent_users, "data_co/top5perc_task_school.csv")
 ```
 
 Bottom 5% in each task from each school
@@ -353,6 +323,11 @@ bottom_5_percent_users <- scores |>
   do(bottom_5_percent(.)) |>
   select(school, task_category, task, user_id, score)
 
-write_csv(bottom_5_percent_users, "data/bottom5perc_task_school.csv")
+write_csv(bottom_5_percent_users, "data_co/bottom5perc_task_school.csv")
 ```
+
+# Percentiles across grades
+
+> I wonder if, for example, you could send us the percentage of students per school and grade in the different terciles or quartiles of each measure. I believe differences between grades will be appreciated.
+
 

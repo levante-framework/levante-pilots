@@ -63,6 +63,7 @@ scores <- score_list |>
   left_join(run_ages) |>
   filter(!is.na(age), age >= 5, age <= 12) |>
   left_join(task_categories) |>
+  mutate(task = str_replace(task, "-es", "")) |>
   group_by(site, task) |>
   mutate(site_task_n = n_distinct(user_id),
          site_task_label = glue("{task}\n(n = {site_task_n})")) |>
@@ -76,7 +77,7 @@ scores <- score_list |>
                       "Germany" = "de_pilot")) |>
   group_by(site) |>
   mutate(site_label = glue("{site_label} (n = {n_distinct(user_id)})")) |>
-  ungroup()
+  ungroup() 
   # mutate(score_type = score_type |> str_remove(" \\(.*\\)"))
 
 task_categories_vec <- levels(scores$task_category)
@@ -151,10 +152,10 @@ task_metrics <- tribble(
   "trog", "ability",
   "vocab", "ability",
   "pa-es", "prop_correct",
-  "sre-es", "prop_correct",
+  "sre-es", "guessing_adjusted_number_correct",
   "swr-es", "ability",
   "pa", "prop_correct",
-  "sre", "prop_correct",
+  "sre", "guessing_adjusted_number_correct",
   "swr", "prop_correct",
   "emotion-reasoning", "prop_correct",
   "theory-of-mind", "ability",
@@ -166,7 +167,7 @@ task_metrics <- tribble(
 task_scores <- threshold_scores |>
   mutate(metric_type = if_else(str_detect(metric_type, "ability"), "ability", metric_type)) |>
   filter(!is.na(metric_value)) |>
-  inner_join(task_metrics)
+  inner_join(task_metrics) 
 
 task_plot_pooled(task_scores, ylab = "Score", nr = 2)
 ggsave(here("03_summaries/plots/scores_pooled.png"), width = 15, height = 6)
@@ -176,16 +177,38 @@ ggsave(here("03_summaries/plots/scores_sites.png"), width = 14, height = 15)
 ```
 
 ```{r}
-task_plot_pooled(filter(task_scores, site == "ca_pilot"), ylab = "Score", nr = 2)
+task_plot_pooled(filter(task_scores, site == "ca_pilot") |>
+                   mutate(task_label = site_task_label), ylab = "Score", nr = 2)
 ggsave(here("03_summaries/plots/scores_ca.png"), width = 10, height = 6)
 
-task_plot_pooled(filter(task_scores, site == "co_pilot"), ylab = "Score", nr = 2)
+task_plot_pooled(filter(task_scores, site == "co_pilot") |>
+                   mutate(task_label = site_task_label), ylab = "Score", nr = 2)
 ggsave(here("03_summaries/plots/scores_co.png"), width = 14, height = 6)
 
-task_plot_pooled(filter(task_scores, site == "de_pilot"), ylab = "Score", nr = 2)
+task_plot_pooled(filter(task_scores, site == "de_pilot") |>
+                   mutate(task_label = site_task_label), ylab = "Score", nr = 2)
 ggsave(here("03_summaries/plots/scores_de.png"), width = 14, height = 6)
 
 
 # task_plot(c("hearts-and-flowers", "memory-game", "same-different-selection"))
 # ggsave("plots/ef_scores.png", width = 9, height = 4)
 ```
+Ages. 
+
+```{r}
+ages <- task_scores |>
+  group_by(user_id, site) |>
+  summarise(age = mean(age))
+
+ns <- ages |>
+  group_by(site) |>
+  count()
+
+ggplot(ages, aes(x = age, fill = site)) + 
+  geom_histogram(binwidth = 1)  + 
+  guides(fill= "none") + 
+  facet_wrap(~site)
+
+ggsave(here("03_summaries/plots/ages.png"), width = 8, height = 3)
+```
+
