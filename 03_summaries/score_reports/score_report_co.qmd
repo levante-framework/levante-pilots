@@ -8,6 +8,23 @@ format:
     code-fold: true
 ---
 
+```{r libraries}
+library(tidyverse)
+library(here)
+library(glue)
+library(ggforce)
+library(ggthemes)
+
+.font <- "Source Sans Pro"
+theme_set(theme_bw(base_size = 14, base_family = .font))
+theme_update(panel.grid = element_blank(),
+             strip.background = element_blank(),
+             legend.key = element_blank(),
+             panel.border = element_blank(),
+             axis.line = element_line(),
+             strip.text = element_text(face = "bold"))
+```
+
 
 ```{r}
 sites <- c("co_pilot")
@@ -112,6 +129,10 @@ scores <- all_scores |>
   inner_join(task_metrics) |>
   left_join(task_categories) |>
   mutate(score = metric_value)
+
+task_categories_vec <- levels(scores$task_category)
+task_pal <- ptol_pal()(length(task_categories_vec)) |> set_names(task_categories_vec)
+
 ```
 
 
@@ -224,8 +245,8 @@ school_plot <- function(sch) {
     ungroup() |>
     ggplot(aes(x = "", y = score)) +
     ggh4x::facet_nested_wrap(vars(task_category, task), nrow = 2,
-                           nest_line = element_line(), solo_line = TRUE,
-                           axes = "x",scales = "free_y") +
+                             nest_line = element_line(), solo_line = TRUE,
+                             axes = "x",scales = "free_y") +
     geom_sina(aes(colour = task_category), alpha = 0.8) +
     scale_colour_manual(values = task_pal) +
     labs(y = "Score") +
@@ -236,26 +257,28 @@ school_plot <- function(sch) {
 }
 
 school_plot("ColA")
-ggsave("plots_co/all_scores_schoolA.png", width = 14, height = 8)
+# ggsave("plots_co/all_scores_schoolA.png", width = 14, height = 8)
 
 school_plot("ColB")
-ggsave("plots_co/all_scores_schoolB.png", width = 14, height = 8)
+# ggsave("plots_co/all_scores_schoolB.png", width = 14, height = 8)
 
 school_plot("ColC")
-ggsave("plots_co/all_scores_schoolC.png", width = 14, height = 8)
+# ggsave("plots_co/all_scores_schoolC.png", width = 14, height = 8)
 
 school_plot("ColD")
-ggsave("plots_co/all_scores_schoolD.png", width = 14, height = 8)
+# ggsave("plots_co/all_scores_schoolD.png", width = 14, height = 8)
 
 school_plot("ColE")
-ggsave("plots_co/all_scores_schoolE.png", width = 14, height = 8)
+# ggsave("plots_co/all_scores_schoolE.png", width = 14, height = 8)
 
 ```
 
 Just math & reading scores, one school on one plot
+
 ```{r}
 school_math_read_plot <- function(sch) {
-  scores |> filter(school==sch, task_category %in% c("Math", "Reading")) |> 
+  scores |> 
+    filter(school == sch, task_category %in% c("Math", "Reading")) |> 
     group_by(task) |> 
     mutate(n = n_distinct(user_id), task_label = glue("{task}\n(n = {n})")) |>
     ungroup() |>
@@ -329,5 +352,72 @@ write_csv(bottom_5_percent_users, "data_co/bottom5perc_task_school.csv")
 # Percentiles across grades
 
 > I wonder if, for example, you could send us the percentage of students per school and grade in the different terciles or quartiles of each measure. I believe differences between grades will be appreciated.
+
+```{r}
+scores |>
+  filter(task %in% c("egma-math","sre-es","swr-es"), grade != "") |>
+  ggplot(aes(x = grade, y = score)) +
+  ggh4x::facet_nested_wrap(vars(task_category, task), nrow = 1,
+                           nest_line = element_line(), solo_line = TRUE,
+                           axes = "x",scales = "free_y") +
+  geom_jitter(alpha = .4, width = .2)+ 
+  geom_quantile(aes(group = 1, col = factor(..quantile..)), method = "rq") + 
+  labs(y = "Score", x = "Grade") +
+  ggthemes::scale_color_solarized(name = "Quantile") 
+```
+
+```{r}
+scores |>
+  filter(task %in% c("egma-math","sre-es","swr-es"), grade != "", 
+         school %in% c("ColC", "ColD")) |>
+  ggplot(aes(x = grade, y = score)) +
+  facet_grid(task ~ school, scales = "free_y") + 
+  # ggh4x::facet_nested_grid(vars(task_category, task), nrow = 1,
+  #                          nest_line = element_line(), solo_line = TRUE,
+  #                          axes = "x",scales = "free_y") +
+  geom_jitter(alpha = .4, width = .2)+ 
+  geom_quantile(aes(group = 1, col = factor(..quantile..)), method = "rq") + 
+  labs(y = "Score", x = "Grade") +
+  ggthemes::scale_color_solarized(name = "Quantile") 
+```
+
+
+
+```{r}
+percentile_scores <- scores |>
+  group_by(task) |>
+  filter(task_category %in% c("Math", "Reading"), 
+         task != "pa-es",
+         !is.na(grade), grade != "") |>
+  mutate(percentile = cut(score, 
+                          breaks = quantile(score, probs = seq(0, 1, 0.2)),
+                          include.lowest = TRUE,
+                          labels = c("0-20","20-40","40-60","60-80","80-100")), 
+         fct_grade = as_factor(grade))
+
+percentile_summary <- percentile_scores |> 
+  filter(task_category %in% c("Math", "Reading")) |>
+  filter(!is.na(percentile)) |> 
+  group_by(task_category, task, fct_grade, grade, percentile) |> 
+  dplyr::count(.drop = FALSE) |>
+  group_by(task_category, task, grade) |>
+  mutate(proportion = n / sum(n)) 
+  
+  
+  ggplot(percentile_summary, aes(x = grade, y = percentile)) +
+  ggh4x::facet_nested_wrap(vars(task_category, task), nrow = 1,
+                           nest_line = element_line(), solo_line = TRUE,
+                           axes = "x",scales = "free_y") +
+  # geom_point(aes(colour = task_category), alpha = 0.8) +
+  geom_tile(aes(fill= proportion)) + 
+  # scale_colour_manual(values = task_pal) +
+  # coord_flip() + 
+  viridis::scale_fill_viridis() +
+  labs(y = "Percentile") +
+  guides(colour = "none") +
+  theme(axis.ticks.x = element_blank(),
+        axis.title.x = element_blank(),
+        strip.text = element_text(size = 10))
+```
 
 
