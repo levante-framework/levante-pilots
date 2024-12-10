@@ -3,7 +3,7 @@ library(tidyverse)
 library(glue)
 library(here)
 
-sites <- c("ca_pilot", "co_pilot", "de_pilot")
+sites <- c("ca_pilot", "co_pilot", "de_pilot", "us_pilot")
 
 task_data_nested <- sites |>
   set_names() |>
