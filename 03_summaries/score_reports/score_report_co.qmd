@@ -14,15 +14,7 @@ library(here)
 library(glue)
 library(ggforce)
 library(ggthemes)
-
-.font <- "Source Sans Pro"
-theme_set(theme_bw(base_size = 14, base_family = .font))
-theme_update(panel.grid = element_blank(),
-             strip.background = element_blank(),
-             legend.key = element_blank(),
-             panel.border = element_blank(),
-             axis.line = element_line(),
-             strip.text = element_text(face = "bold"))
+source(here("03_summaries", "plotting_helper.R"))
 ```
 
 
@@ -43,27 +35,6 @@ score_files <- list.files(here("02_scored_data"), pattern = "*.rds",
 score_list <- score_files |> map(read_rds)
 # exclude_tasks <- c("hostile-attribution", "pa-es")
 # score_list <- read_rds("scores/combined_scores.rds")
-
-task_categories <- tribble(
-  ~task, ~task_category,
-  "hearts-and-flowers", "executive function",
-  "same-different-selection", "executive function",
-  "memory-game", "executive function",
-  "egma-math", "math",
-  "matrix-reasoning", "reasoning",
-  "mental-rotation", "spatial cognition",
-  "trog", "language",
-  "vocab", "language",
-  "pa-es", "reading",
-  "sre-es", "reading",
-  "swr-es", "reading",
-  "pa", "reading",
-  "sre", "reading",
-  "swr", "reading",
-  "emotion-reasoning", "social cognition",
-  "theory-of-mind", "social cognition",
-  "hostile-attribution", "social cognition"
-) |> mutate(task_category = task_category |> str_to_sentence() |> fct_inorder())
 
 participant_runs <- participants_nested |>
   unnest(ages) |>
@@ -100,28 +71,6 @@ all_scores <- score_list |>
   rename(task = task_id) |>
   left_join(participants) |>
   filter(!is.na(age), age >= 5, age <= 12) 
-
-
-task_metrics <- tribble(
-  ~task, ~metric_type,
-  "hearts-and-flowers", "prop_correct",
-  "same-different-selection", "ability",
-  "memory-game", "longest_span",
-  "egma-math", "ability",
-  "matrix-reasoning", "ability",
-  "mental-rotation", "ability",
-  "trog", "ability",
-  "vocab", "ability",
-  "pa-es", "prop_correct",
-  "sre-es", "guessing_adjusted_number_correct",
-  "swr-es", "ability",
-  "pa", "prop_correct",
-  "sre", "guessing_adjusted_number_correct",
-  "swr", "prop_correct",
-  "emotion-reasoning", "prop_correct",
-  "theory-of-mind", "ability",
-  "hostile-attribution", "prop_correct"
-)
 
 scores <- all_scores |>
   mutate(metric_type = if_else(str_detect(metric_type, "ability"), "ability", metric_type)) |>

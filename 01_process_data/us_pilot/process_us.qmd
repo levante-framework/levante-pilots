@@ -3,7 +3,7 @@ library(tidyverse)
 library(glue)
 library(here)
 
-site <- "ca_pilot"
+site <- "us_pilot"
 trials_coded <- read_rds(here(glue("00_prepped_data/{site}/trials_coded.rds")))
 
 # merge in unique item_ids from corpus (ToDo: add other corpora)
@@ -124,7 +124,7 @@ egma_no_slide <- egma |>
               filter(trial_type!="Number Line Slider") |>
               select(item, distractors, item_id, answer) |> 
               rename(corpus_answer = answer)) |> # chance_level
-  mutate(answer = ifelse(answer!=corpus_answer, corpus_answer, answer)) |> # correct "7/8" issue
+  mutate(answer = as.character(ifelse(answer!=corpus_answer, corpus_answer, answer))) |> # correct "7/8" issue
   select(-corpus_answer)
   
 # score just number line trials
@@ -148,27 +148,22 @@ egma_numberline <- egma_no_slide |>
 # has special processing to identify items +
 # hostile attribution correctness recoding
 # hostile_values <- read_csv(here("assessment/colombia/stage2/task_analyses/hostile-attribution-coding.csv"))
-tom <- task_data |>
-  filter(task_id == "theory-of-mind", item!="") |>
-  mutate(corpus_trial_type = str_remove_all(corpus_trial_type, "_question")) |>
-  mutate(task_id = fct_collapse(corpus_trial_type,
-                                "theory-of-mind" = c("false_belief", "reality_check", "reference"),
-                                "hostile-attribution" = c("action", "attribution"),
-                                "emotion-reasoning" = "emotion_reasoning")) |> #count(task_id, corpus_trial_type)
-  group_by(user_id, run_id, task_id, item, corpus_trial_type) |>
-  mutate(i = 1:n(), n = n()) |> # sequentially number items
-  ungroup() |>
-  # item_id = "item [question type]" (+ "[i]" if multiple same type items)
-  mutate(item_id = paste(item, corpus_trial_type),
-         item_id = paste(item_id, i)) |>
-         # item_id = if_else(n == 1, item_id, paste(item_id, i))) |>
-  select(-i, -n)
-  # left_join(hostile_values) |>
-  # mutate(correct = if_else(task_id == "hostile-attribution",
-  #                          value %in% c("purpose", "hostile"),
-  #                          correct)) |>
-  # select(-value)
-# write_rds(tom, here("assessment","colombia","stage2","task_analyses","data","tom_data.rds"))
+
+
+# MUST BE UNCOMMENTED TO PROCESS TOM
+# tom <- task_data |>
+#   filter(task_id == "theory-of-mind", item!="") |>
+#   mutate(corpus_trial_type = str_remove_all(corpus_trial_type, "_question")) |>
+#   mutate(task_id = fct_collapse(corpus_trial_type,
+#                                 "theory-of-mind" = c("false_belief", "reality_check", "reference"),
+#                                 "hostile-attribution" = c("action", "attribution"),
+#                                 "emotion-reasoning" = "emotion_reasoning")) |> #count(task_id, corpus_trial_type)
+#   group_by(user_id, run_id, task_id, item, corpus_trial_type) |>
+#   mutate(i = 1:n(), n = n()) |> # sequentially number items
+#   ungroup() |>
+#   mutate(item_id = paste(item, corpus_trial_type),
+#          item_id = paste(item_id, i)) |>
+#   select(-i, -n)
 
 hearts_and_flowers <- task_data |>
   filter(task_id == "hearts-and-flowers") |>
@@ -182,7 +177,7 @@ task_data_coded <- task_data |>
   # replace separated out data
   filter(!task_id %in% c("hearts-and-flowers", "egma-math", "same-different-selection", "theory-of-mind", "trog", "vocab")) |>
   bind_rows(hearts_and_flowers) |>
-  bind_rows(sds) |> bind_rows(egma_numberline) |> bind_rows(tom) |> 
+  bind_rows(sds) |> bind_rows(egma_numberline) |>
   bind_rows(trog) |> bind_rows(vocab) |>
   # id other items as just item
   mutate(item_id = if_else(!is.na(item_id) | item_id=="", item_id, item)) |>

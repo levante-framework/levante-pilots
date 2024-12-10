@@ -4,6 +4,7 @@ library(here)
 library(glue)
 library(ggforce)
 library(ggthemes)
+source(here("03_summaries", "plotting_helper.R"))
 
 .font <- "Source Sans Pro"
 theme_set(theme_bw(base_size = 14, base_family = .font))
@@ -33,26 +34,6 @@ score_list <- score_files |> map(read_rds)
 # exclude_tasks <- c("hostile-attribution", "pa-es")
 # score_list <- read_rds("scores/combined_scores.rds")
 
-task_categories <- tribble(
-  ~task, ~task_category,
-  "hearts-and-flowers", "executive function",
-  "same-different-selection", "executive function",
-  "memory-game", "executive function",
-  "egma-math", "math",
-  "matrix-reasoning", "reasoning",
-  "mental-rotation", "spatial cognition",
-  "trog", "language",
-  "vocab", "language",
-  "pa-es", "reading",
-  "sre-es", "reading",
-  "swr-es", "reading",
-  "pa", "reading",
-  "sre", "reading",
-  "swr", "reading",
-  "emotion-reasoning", "social cognition",
-  "theory-of-mind", "social cognition",
-  "hostile-attribution", "social cognition"
-) |> mutate(task_category = task_category |> str_to_sentence() |> fct_inorder())
 
 run_ages <- participants |>
   select(user_id, ages) |>
@@ -86,40 +67,6 @@ task_pal <- ptol_pal()(length(task_categories_vec)) |> set_names(task_categories
 ```
 
 ```{r}
-task_plot_pooled <- \(scores, ylab, nr = NULL, nc = NULL) {
-  ggplot(scores, aes(x = age, y = metric_value)) +
-    ggh4x::facet_nested_wrap(vars(task_category, task_label),
-                             nrow = nr, ncol = nc,
-                             nest_line = element_line(), solo_line = TRUE,
-                             axes = "x",
-                             scales = "free_y") +
-    geom_point(aes(colour = task_category), alpha = 0.5) +
-    geom_smooth(aes(group = site), method = "gam", colour = "darkgrey", formula = y ~ s(x, bs = "re")) +
-    scale_x_continuous(breaks = seq(6, 14, 2)) +
-    scale_colour_manual(values = task_pal) +
-    labs(x = "Age (years)", y = ylab,
-         caption = glue("Note: includes only tasks with at least {threshold_n} observations")) +
-    guides(colour = "none")
-}
-
-task_plot_sites <- \(scores, ylab, nr = NULL, nc = NULL) {
-  ggplot(scores, aes(x = age, y = metric_value)) +
-    ggh4x::facet_nested_wrap(vars(site_label, task_category, site_task_label),
-                             nrow = nr, ncol = nc,
-                             nest_line = element_line(), solo_line = TRUE,
-                             axes = "x",
-                             scales = "free_y") +
-    geom_point(aes(colour = task_category), alpha = 0.5) +
-    geom_smooth(aes(group = site), method = "gam", colour = "darkgrey", formula = y ~ s(x, bs = "re")) +
-    scale_x_continuous(breaks = seq(6, 14, 2)) +
-    scale_colour_manual(values = task_pal) +
-    labs(x = "Age (years)", y = ylab,
-         caption = glue("Note: includes only tasks with at least {threshold_n} observations")) +
-    guides(colour = "none")
-}
-```
-
-```{r}
 threshold_n <- 10
 threshold_scores <- scores |> filter(site_task_n >= threshold_n)
 
@@ -142,26 +89,7 @@ ggsave(here("03_summaries/plots/abilities_pooled.png"), width = 9, height = 6)
 task_plot_sites(irt_scores, ylab = "Ability", nc = 4)
 ggsave(here("03_summaries/plots/abilities_sites.png"), width = 9, height = 15)
 
-task_metrics <- tribble(
-  ~task, ~metric_type,
-  "hearts-and-flowers", "prop_correct",
-  "same-different-selection", "ability",
-  "memory-game", "longest_span",
-  "egma-math", "ability",
-  "matrix-reasoning", "ability",
-  "mental-rotation", "ability",
-  "trog", "ability",
-  "vocab", "ability",
-  "pa-es", "prop_correct",
-  "sre-es", "guessing_adjusted_number_correct",
-  "swr-es", "ability",
-  "pa", "prop_correct",
-  "sre", "guessing_adjusted_number_correct",
-  "swr", "prop_correct",
-  "emotion-reasoning", "prop_correct",
-  "theory-of-mind", "ability",
-  "hostile-attribution", "prop_correct"
-)
+
 ```
 
 ```{r}
