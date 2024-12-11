@@ -1,4 +1,5 @@
- .html
+rsconnect*
+*.html
 *files
 .Rproj.user
 .Rhistory
