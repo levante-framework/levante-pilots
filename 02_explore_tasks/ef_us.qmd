@@ -1,0 +1,17 @@
+```{r}
+library(tidyverse)
+library(glue)
+library(here)
+
+sites <- c("us_pilot")
+
+task_data_nested <- sites |>
+  set_names() |>
+  map(\(s) read_rds(here(glue("01_processed_data/{s}/task_data_nested.rds")))) |>
+  list_rbind(names_to = "site")
+
+task_data_combined <- task_data_nested |>
+  select(-task_id) |>
+  unnest(data)
+```
+

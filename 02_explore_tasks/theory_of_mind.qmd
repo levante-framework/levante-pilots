@@ -1,0 +1,313 @@
+# Data loading
+
+```{r}
+library(tidyverse)
+library(glue)
+library(here)
+library(mirt)
+library(ggrepel)
+
+source(here("02_score_data","irt_helpers.R"))
+source(here("03_summaries", "plotting_helper.R"))
+
+sites <- c("co_pilot", "de_pilot")
+
+task_data_nested <- sites |>
+  set_names() |>
+  map(\(s) read_rds(here(glue("01_processed_data/{s}/task_data_nested.rds")))) |>
+  list_rbind(names_to = "site")
+
+task_data_combined <- task_data_nested |>
+  select(-task_id) |>
+  unnest(data) 
+
+tom <- filter(task_data_combined, 
+              task_id %in% c("theory-of-mind","emotion-reasoning"))
+```
+
+Get ages. 
+
+```{r}
+participants <- sites |>
+  set_names() |>
+  map(\(s) read_rds(here(glue("00_prepped_data/{s}/participants.rds")))) |>
+  list_rbind(names_to = "site")
+
+run_ages <- participants |>
+  select(user_id, ages) |>
+  unnest(ages)
+
+tom <- left_join(tom, run_ages)
+```
+
+# Sumscore approach
+
+First plot sumscores.
+
+```{r}
+tom_runs <- tom |>
+  group_by(site, user_id, run_id, task_id) |>
+  summarise(correct = mean(correct), 
+            age = mean(age))
+
+ggplot(tom_runs, aes(x = age, y = correct)) + 
+  geom_point(alpha = .5) + 
+  geom_smooth(method = "lm") +
+  facet_grid(site ~ task_id)
+```
+
+Sites together. 
+
+```{r}
+ggplot(tom_runs, aes(x = age, y = correct, col = site)) + 
+  geom_point(alpha = .5) + 
+  geom_smooth(method = "lm") +
+  facet_wrap(~ task_id)
+```
+
+Just for kicks, let's look at correlations between TOM and emotion reasoning. 
+
+```{r}
+tom_runs |>
+  pivot_wider(names_from = "task_id", values_from = "correct") |>
+  ggplot(aes(x = `theory-of-mind`, y = `emotion-reasoning`)) + 
+  geom_jitter(height = .02, width = .02, alpha = .5) + 
+  geom_smooth(method = "lm") + 
+  facet_wrap(~site)
+```
+
+
+Note there are some substantial task differences between CO and DE that make these hard to interpret. 
+
+# IRT approach
+
+Let's move to models. 
+
+```{r}
+
+tom_plus_er_prepped <- tom |>
+  mutate(group = site) |>
+  filter_repeat_runs() |>
+  dedupe_items() |> 
+  remove_no_var_items() |>
+  nest() |>
+  mutate(data_filtered = data,
+         data_wide = map(data, \(df) to_mirt_shape_grouped(df)), 
+         data_prepped = map(data_wide, \(df) df |> select(-group)),
+         groups = map(data_wide, \(df) df |> pull(group))) |>
+  # pull out chance values
+  mutate(guess = map(data_filtered, # TODO: check that this gives correct order
+                     \(df) df |> distinct(item_inst, chance) |> pull(chance)))
+
+single_task_prepped <- tom |>
+  group_by(task_id) |>
+  mutate(group = site) |>
+  nest() |>
+  mutate(data_filtered = map(data, \(df) filter_repeat_runs(df) |> 
+                               dedupe_items() |> 
+                               remove_no_var_items()),
+         data_wide = map(data_filtered, \(df) to_mirt_shape_grouped(df)), 
+         data_prepped = map(data_wide, \(df) df |> select(-group)),
+         groups = map(data_wide, \(df) df |> pull(group))) |>
+  # pull out chance values
+  mutate(guess = map(data_filtered, # TODO: check that this gives correct order
+                     \(df) df |> distinct(item_inst, chance) |> pull(chance)))
+```
+
+
+```{r}
+tom_plus_er_mod_rasch <- multipleGroup(
+  tom_plus_er_prepped$data_prepped[[1]], 
+  group = tom_plus_er_prepped$groups[[1]], 
+  itemtype = "Rasch", 
+  invariance = c("slopes", "intercepts"))
+
+tom_mod_rasch <- multipleGroup(
+  single_task_prepped$data_prepped[[1]], 
+  group = single_task_prepped$groups[[1]], 
+  itemtype = "Rasch", 
+  invariance = c("slopes", "intercepts"))
+
+er_mod_rasch <- multipleGroup(
+  single_task_prepped$data_prepped[[2]], 
+  group = single_task_prepped$groups[[2]], 
+  itemtype = "Rasch", 
+  invariance = c("slopes", "intercepts"))
+```
+
+## Analysis
+
+get item coefs
+
+```{r}
+plus_coefs_rasch <- multigroup_coefs(tom_plus_er_mod_rasch)
+tom_coefs_rasch <- multigroup_coefs(tom_mod_rasch)
+er_coefs_rasch <- multigroup_coefs(er_mod_rasch)
+```
+
+
+
+```{r}
+er_coefs_rasch$item <- fct_reorder(er_coefs_rasch$item, er_coefs_rasch$d)
+ggplot(er_coefs_rasch, aes(x = item, y = -d)) + 
+  ylab("Difficulty") +
+  geom_point() + 
+  coord_flip() 
+```
+
+
+```{r}
+#| fig-height: 6
+tom_coefs_rasch$item <- fct_reorder(tom_coefs_rasch$item, tom_coefs_rasch$d)
+ggplot(tom_coefs_rasch, aes(x = item, y = -d)) + 
+  ylab("Difficulty") +
+  geom_point() + 
+  coord_flip() 
+```
+
+
+```{r}
+#| fig-height: 7
+plus_coefs_rasch$item <- fct_reorder(plus_coefs_rasch$item, plus_coefs_rasch$d)
+ggplot(plus_coefs_rasch, aes(x = item, y = -d)) + 
+  ylab("Difficulty") +
+  geom_point() + 
+  coord_flip()
+```
+
+My understanding is that we want outfit (unweighted) for the Rasch model.
+
+
+```{r}
+tom_submods_rasch <- multigroup_extract_groups(tom_mod_rasch)
+tom_infit_rasch <- multigroup_itemfit(tom_submods_rasch, "infit")
+tom_outliers_outfit_rasch <- tom_infit_rasch |> filter(abs(z.outfit) > 1)
+
+er_submods_rasch <- multigroup_extract_groups(er_mod_rasch)
+er_infit_rasch <- multigroup_itemfit(er_submods_rasch, "infit")
+er_outliers_outfit_rasch <- er_infit_rasch |> filter(abs(z.outfit) > 1)
+
+plus_submods_rasch <- multigroup_extract_groups(tom_plus_er_mod_rasch)
+plus_infit_rasch <- multigroup_itemfit(plus_submods_rasch, "infit")
+plus_outliers_outfit_rasch <- plus_infit_rasch |> filter(abs(z.outfit) > 1)
+```
+
+
+
+
+
+
+```{r}
+# infit/outfit statistics
+tom_infit <- multigroup_itemfit(mrot_submods_2pl, "infit")
+
+# outliers by outfit
+mrot_outliers_outfit_2pl <- mrot_infit_2pl |> filter(abs(z.outfit) > 1)
+```
+
+
+
+
+```{r}
+# marginal reliabilities
+mrot_marginal_rasch <- mrot_submods_rasch |> map(marginal_rxx) # why are these the same?
+mrot_marginal_2pl <- mrot_submods_2pl |> map(marginal_rxx) # why are these the same?
+```
+
+
+
+## 2PL stuff
+
+
+
+
+```{r}
+tom_mod_2pl <- multipleGroup(
+  tom_prepped$data_prepped[[1]], group = tom_prepped$groups[[1]], itemtype = "2PL", 
+  invariance = c("free_means","free_variances", "slopes", "intercepts"))
+
+tom_coefs_2pl <- multigroup_coefs(tom_mod_2pl)
+summary(tom_mod_2pl)
+
+tom_submods_2pl <- multigroup_extract_groups(tom_mod_2pl)
+
+ggplot(tom_coefs_2pl, aes(x = d, y = a1)) + 
+  geom_point() + 
+  facet_wrap(~site) + 
+  geom_text_repel(aes(label = item), size = 2, max.overlaps = 10)
+```
+
+outliers by 2PL slope
+
+
+```{r}
+
+mrot_outliers_a1 <- mrot_coefs_2pl |> filter(abs(a1) > 3) 
+
+ggplot(mrot_coefs_2pl |>
+         select(-g,-u) |>
+         pivot_longer(a1:d, names_to = "parameter", values_to = "value"), 
+       aes(x = value)) + 
+  geom_histogram(binwidth = 1) + 
+  facet_wrap(~parameter)
+```
+
+
+```{r}
+ggplot(mrot_coefs_2pl, 
+       aes(x = d, y = a1, col = site)) + 
+  geom_point() 
+```
+
+
+
+
+My understanding is that we want outfit (unweighted) for the Rasch model.
+
+
+```{r}
+mrot_infit_rasch <- multigroup_itemfit(mrot_submods_rasch, "infit")
+
+```
+
+
+
+```{r}
+# infit/outfit statistics
+mrot_infit_2pl <- multigroup_itemfit(mrot_submods_2pl, "infit")
+
+# outliers by outfit
+mrot_outliers_outfit_rasch <- mrot_infit_rasch |> filter(abs(z.outfit) > 1)
+mrot_outliers_outfit_2pl <- mrot_infit_2pl |> filter(abs(z.outfit) > 1)
+```
+
+```{r}
+# marginal reliabilities
+mrot_marginal_rasch <- mrot_submods_rasch |> map(marginal_rxx) # why are these the same?
+mrot_marginal_2pl <- mrot_submods_2pl |> map(marginal_rxx) # why are these the same?
+```
+
+
+```{r}
+# difR needs to have only items that are present in more than one group
+df <- mrot$data_filtered[[1]] |>
+  group_by(item_id) |>
+  filter(n_distinct(group) > 1) |>
+  ungroup() |>
+  to_mirt_shape_grouped()
+dp <- df |> select(-group)
+gr <- df |> pull(group)
+
+setdiff(colnames(mrot$data_prepped[[1]]), colnames(df))
+
+mrot_dif <- difR::difLogReg(dp,
+                            group = gr,
+                            focal.name = "CO",
+                            group.type = "group",
+                            type = "udif", 
+                            purify = TRUE)
+
+# mrot_dif$DIFitems
+mrot_difitems <- colnames(dp)[mrot_dif$DIFitems]
+```
+
