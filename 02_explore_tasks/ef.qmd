@@ -1,0 +1,228 @@
+# Data loading
+
+```{r}
+library(tidyverse)
+library(glue)
+library(here)
+library(mirt)
+library(ggrepel)
+# require(arm)
+library(lavaan)
+library(tidySEM)
+
+source(here("02_score_data","irt_helpers.R"))
+source(here("03_summaries", "plotting_helper.R"))
+
+sites <- c("co_pilot", "de_pilot")
+
+task_data_nested <- sites |>
+  set_names() |>
+  map(\(s) read_rds(here(glue("01_processed_data/{s}/task_data_nested.rds")))) |>
+  list_rbind(names_to = "site")
+
+task_data_combined <- task_data_nested |>
+  select(-task_id) |>
+  unnest(data) 
+
+ef <- filter(task_data_combined, 
+              task_id %in% c("hearts-and-flowers","same-different-selection","memory-game"))
+```
+
+Get ages. 
+
+```{r}
+participants <- sites |>
+  set_names() |>
+  map(\(s) read_rds(here(glue("00_prepped_data/{s}/participants.rds")))) |>
+  list_rbind(names_to = "site")
+
+run_ages <- participants |>
+  select(user_id, ages) |>
+  unnest(ages)
+
+ef <- left_join(ef, run_ages)
+```
+
+# Sumscore approach
+
+First plot sumscores.
+
+```{r}
+ef_runs <- ef |>
+  group_by(site, user_id, run_id, task_id) |>
+  summarise(correct = mean(correct), 
+            age = mean(age))
+
+ggplot(ef_runs, aes(x = age, y = correct)) + 
+  geom_point(alpha = .5) + 
+  geom_smooth(method = "loess", lambda = 1) +
+  facet_grid(site ~ task_id)
+```
+
+# Hearts and Flowers
+
+Zoom in on HF. 
+
+```{r}
+hf_runs <- ef |>
+  filter(task_id == "hearts-and-flowers") |>
+  group_by(site, user_id, run_id, task_id) |>
+  summarise(logit = coef(glm(correct ~ 1, family = "binomial"))[1],
+            bayeslogit = coef(arm::bayesglm(correct ~ 1, family = "binomial", 
+                                       prior.scale.for.intercept = .1))[1],
+            correct = mean(correct), 
+            age = mean(age))
+
+```
+
+```{r}
+ggplot(hf_runs,
+       aes(x = age, y = correct)) + 
+  geom_point(alpha = .5) + 
+  geom_smooth(method = "glm", method.args = list(family = "binomial")) +
+  geom_hline(yintercept = .5, lty = 2) + 
+  ylim(0,1) + 
+  facet_grid(site ~ task_id)
+```
+Logit scoring. 
+
+```{r}
+ggplot(hf_runs,
+       aes(x = age, y = logit)) + 
+  geom_point(alpha = .5) + 
+  geom_smooth(method = "glm", method.args = list(family = "binomial")) +
+  geom_hline(yintercept = 0, lty = 2) + 
+  # ylim(0,1) + 
+  facet_grid(site ~ task_id)
+```
+
+Bayesian logit. 
+
+```{r}
+ggplot(hf_runs,
+       aes(x = age, y = bayeslogit)) + 
+  geom_point(alpha = .5) + 
+  geom_smooth(method = "lm") +
+  geom_hline(yintercept = 0, lty = 2) + 
+  # ylim(0,1) + 
+  facet_grid(site ~ task_id)
+```
+
+Histograms. 
+
+```{r}
+ggplot(filter(ef_runs, task_id == "hearts-and-flowers") |>
+         mutate(age_group = cut(age, c(5, 7, 9, 11, 13, include.lowest=TRUE))) |>
+         filter(!is.na(age_group)),
+       aes(x = correct)) + 
+  geom_histogram(binwidth = .25) +
+  geom_vline(xintercept = .5, lty = 2) +
+  scale_x_continuous(breaks = c(0,.25, .5, .75, 1)) + 
+  facet_grid(site ~ age_group)
+```
+
+# Memory game
+
+```{r}
+mg_runs <- ef |>
+  filter(task_id == "memory-game", 
+         corpus_trial_type != "") |>
+  mutate(span = str_count(response, ":")) |>
+  filter(correct) |>
+  group_by(site, user_id, run_id, corpus_trial_type) |>
+  summarise(span = max(span), 
+            age = mean(age))
+```
+
+
+```{r}
+ggplot(mg_runs, aes(x = age, y = span, col = corpus_trial_type)) + 
+  geom_jitter(alpha = .5, height = .1, width = 0) + 
+  geom_smooth(method = "lm")+ 
+  facet_grid(corpus_trial_type~site, scales = "free_y")
+```
+
+# EF factor analysis
+
+```{r}
+sds_scores <- read_rds(here("02_scored_data","scores_irt.rds")) |>
+  filter(task_id == "same-different-selection")
+
+ef_scores <- bind_rows(sds_scores |> 
+                         filter(site %in% c("co_pilot","de_pilot")) |>
+                      dplyr::select(site, task_id, user_id, run_id, metric_type, metric_value), 
+                    mg_runs |> 
+                      filter(corpus_trial_type == "forward") |>
+                      mutate(metric_value = span, 
+                             metric_type = "longest span",
+                             task_id = "memory-game") |>
+                      dplyr::select(site, task_id, user_id, run_id, metric_type,  metric_value)) |>
+  bind_rows(hf_runs |>
+              pivot_longer(c(correct, logit, bayeslogit), names_to = "metric_type", 
+                           values_to = "metric_value") |>
+              dplyr::select(site, task_id, user_id, run_id, metric_type, metric_value))
+```
+
+
+
+```{r}
+ages <- run_ages |>
+  group_by(user_id) |>
+  summarise(age = mean(age))
+
+ef_scores_sumscore <- ef_scores |>
+  filter(task_id != "hearts-and-flowers" | 
+           (task_id == "hearts-and-flowers" & metric_type == "correct")) |>
+  dplyr::select(task_id, metric_value, user_id, site) |>
+  pivot_wider(names_from = "task_id", values_from = "metric_value", 
+              id_cols = c("user_id","site"), 
+              values_fn = mean) |>
+  janitor:::clean_names() |>
+  mutate(across(same_different_selection:hearts_and_flowers, ~ scale(.x)[,1])) |>
+  left_join(ages)
+
+ef_scores_bayeslogit <- ef_scores |>
+  filter(task_id != "hearts-and-flowers" | 
+           (task_id == "hearts-and-flowers" & metric_type == "bayeslogit")) |>
+  dplyr::select(task_id, metric_value, user_id, site) |>
+  pivot_wider(names_from = "task_id", values_from = "metric_value", 
+              id_cols = c("user_id","site"), 
+              values_fn = mean) |>
+  janitor:::clean_names() |>
+  mutate(across(same_different_selection:hearts_and_flowers, ~ scale(.x)[,1])) |>
+  left_join(ages)
+```
+
+```{r}
+cfa_model <-  "
+ef =~ hearts_and_flowers + memory_game + same_different_selection
+ef ~ age
+"
+
+fit <- cfa(cfa_model, ef_scores_sumscore, std.lv=TRUE, missing='fiml')
+summary(fit, fit.measures=TRUE, standardize=TRUE)
+
+graph_sem(model = fit, text_size = 3) + 
+  theme(panel.background = element_rect(fill = "white"))
+```
+
+
+
+```{r}
+cfa_model <-  "
+ef =~ hearts_and_flowers + memory_game + same_different_selection
+ef ~ age
+"
+
+fit_bayeslogit <- cfa(cfa_model, ef_scores_bayeslogit, std.lv=TRUE, missing='fiml')
+summary(fit_bayeslogit, fit.measures=TRUE, standardize=TRUE)
+
+graph_sem(model = fit_bayeslogit, text_size = 3) + 
+  theme(panel.background = element_rect(fill = "white"))
+```
+
+
+```{r}
+anova(fit, fit_bayeslogit)
+```
+

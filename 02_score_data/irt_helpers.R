@@ -93,3 +93,31 @@ mirt_aic <- function(mod) mod@Fit$AIC
 
 # get AIC of fitted mirt model
 mirt_bic <- function(mod) mod@Fit$BIC
+
+# get coefficients for multigroup model
+multigroup_coefs <- \(mod) {
+  transpose(coef(mod, simplify = TRUE))$items |>
+    map(partial(as_tibble, rownames = "item")) |>
+    list_rbind(names_to = "site")
+}
+
+# get groups out of multigroup model
+multigroup_extract_groups <- \(mod) {
+  mod@Data$groupNames |> set_names() |> map(\(gr) extract.group(mod, group = gr))
+}
+
+# get item fits out of multigroup model
+multigroup_itemfit <- \(submods, fit_stats) {
+  submods |>
+    map(\(submod) itemfit(submod, fit_stats = fit_stats) |> as_tibble()) |>
+    list_rbind(names_to = "site")
+}
+
+# format data for mirt
+to_mirt_shape_grouped <- function(df) {
+  df |>
+    mutate(correct = as.numeric(correct)) |> # values to numeric
+    select(user_id, group, item_inst, correct) |>
+    pivot_wider(names_from = "item_inst", values_from = "correct") |> # column for each item
+    column_to_rownames("user_id") # user_id to rownames
+}
