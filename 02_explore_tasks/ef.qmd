@@ -142,14 +142,32 @@ ggplot(mg_runs, aes(x = age, y = span, col = corpus_trial_type)) +
   facet_grid(corpus_trial_type~site, scales = "free_y")
 ```
 
-# EF factor analysis
+# SDS
+
 
 ```{r}
 sds_scores <- read_rds(here("02_scored_data","scores_irt.rds")) |>
   filter(task_id == "same-different-selection")
 
+sds <- left_join(sds_scores, run_ages) |>
+  filter(site %in% sites)
+
+```
+
+```{r}
+ggplot(sds, aes(x = age, y = metric_value)) + 
+  geom_point(alpha = .5) + 
+  geom_smooth(method = "lm") + 
+  facet_wrap(~site)
+```
+
+
+# EF factor analysis
+
+```{r}
+
 ef_scores <- bind_rows(sds_scores |> 
-                         filter(site %in% c("co_pilot","de_pilot")) |>
+                         filter(site %in% sites) |>
                       dplyr::select(site, task_id, user_id, run_id, metric_type, metric_value), 
                     mg_runs |> 
                       filter(corpus_trial_type == "forward") |>
