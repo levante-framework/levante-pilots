@@ -40,6 +40,11 @@ run_ages <- participants |>
   select(user_id, ages) |>
   unnest(ages)
 
+# this is useful below for various simplifications
+ages <- run_ages |>
+  group_by(user_id) |>
+  summarise(age = mean(age))
+
 ef <- left_join(ef, run_ages)
 ```
 
@@ -135,6 +140,74 @@ ggplot(hf_runs,
   facet_grid(site ~ task_id)
 ```
 
+## IRT for H&F
+
+```{r}
+hf <- ef |>
+  filter(task_id == "hearts-and-flowers") |>
+  mutate(item_id = item)
+  
+hf_data_prepped <- hf |>
+  nest() |>
+  mutate(data_filtered = map(data, \(df) df |> filter_repeat_runs() |>
+                               dedupe_items() |> remove_no_var_items()),
+         data_prepped = map(data_filtered, to_mirt_shape)) |>
+  # pull out chance values
+  mutate(guess = map(data_filtered, # TODO: check that this gives correct order
+                     \(df) df |> distinct(item_inst, chance) |> pull(chance)))
+
+# generate model strings, using constraints for repeated items
+
+item_types <- c("Rasch", "2PL") #, "3PL") # set of parameterizations
+model_types <- c(1) #, 2) # set of dimensionalities
+# model_types <- c(1) # set of dimensionalities
+
+# add arguments for model fitting to data
+hf_data_args <- hf_data_prepped |>
+  # duplicate rows per dimensionality x parameterization
+  expand_grid(model_type = model_types, item_type = item_types) |>
+  # generate model string with item constraints + dimensionality
+  mutate(model_str = pmap_chr(list(data, data_prepped, item_type, model_type),
+                              generate_model_str))
+hf_models <- hf_data_args |>
+  mutate(mod = pmap(list(row_number(), data_prepped, item_type, model_str,
+                         model_type, guess),
+                    fit_mirt))
+```
+
+```{r}
+# get each model's coefs, scores, BIC
+hf_results <- hf_models |>
+  mutate(coefs = map(mod, mirt_coefs),
+         scores = pmap(list(mod, data_filtered, data_prepped), mirt_scores),
+         bic = map_dbl(mod, mirt_bic))
+
+# best fitting model for each task
+hf_best <- hf_results |>
+  filter(bic == min(bic)) |>
+  ungroup()
+  # select(site, task_id, item_type, model_type, coefs, scores)
+
+# scores from best fitting models
+hf_scores <- hf_best |>
+  select(item_type, model_type, scores) |>
+  unnest(scores) |>
+  mutate(#item_type = fct_recode(item_type, "1PL" = "Rasch"),
+         metric_type = glue("ability ({item_type}-{model_type})")) |>
+  select(user_id, run_id, metric_type, metric_value = ability)
+
+```
+
+```{r}
+ggplot(left_join(hf_scores, ages), 
+       aes(x = age, y = metric_value)) + 
+  geom_point(alpha = .5) + 
+  geom_smooth(method = "lm") +
+  geom_smooth(method = "loess", col = "green") +
+  geom_hline(yintercept = 0, lty = 2) 
+```
+
+
 # Memory game
 
 ```{r}
@@ -194,16 +267,15 @@ ef_scores <- bind_rows(sds_scores |>
   bind_rows(hf_runs |>
               pivot_longer(c(correct, logit, bayeslogit), names_to = "metric_type", 
                            values_to = "metric_value") |>
-              dplyr::select(site, task_id, user_id, run_id, metric_type, metric_value))
+              dplyr::select(site, task_id, user_id, run_id, metric_type, metric_value)) |>
+  bind_rows(hf_scores |>
+              left_join(select(participants, site, user_id)) |>
+              mutate(task_id = "hearts-and-flowers"))
 ```
 
 
 
 ```{r}
-ages <- run_ages |>
-  group_by(user_id) |>
-  summarise(age = mean(age))
-
 ef_scores_sumscore <- ef_scores |>
   filter(task_id != "hearts-and-flowers" | 
            (task_id == "hearts-and-flowers" & metric_type == "correct")) |>
@@ -218,6 +290,17 @@ ef_scores_sumscore <- ef_scores |>
 ef_scores_bayeslogit <- ef_scores |>
   filter(task_id != "hearts-and-flowers" | 
            (task_id == "hearts-and-flowers" & metric_type == "bayeslogit")) |>
+  dplyr::select(task_id, metric_value, user_id, site) |>
+  pivot_wider(names_from = "task_id", values_from = "metric_value", 
+              id_cols = c("user_id","site"), 
+              values_fn = mean) |>
+  janitor:::clean_names() |>
+  mutate(across(same_different_selection:hearts_and_flowers, ~ scale(.x)[,1])) |>
+  left_join(ages)
+
+ef_scores_2pl <- ef_scores |>
+  filter(task_id != "hearts-and-flowers" | 
+           (task_id == "hearts-and-flowers" & metric_type == "ability (2PL-1)")) |>
   dplyr::select(task_id, metric_value, user_id, site) |>
   pivot_wider(names_from = "task_id", values_from = "metric_value", 
               id_cols = c("user_id","site"), 
@@ -252,6 +335,20 @@ fit_bayeslogit <- cfa(cfa_model, ef_scores_bayeslogit, std.lv=TRUE, missing='fim
 summary(fit_bayeslogit, fit.measures=TRUE, standardize=TRUE)
 
 graph_sem(model = fit_bayeslogit, text_size = 3) + 
+  theme(panel.background = element_rect(fill = "white"))
+```
+
+
+```{r}
+cfa_model <-  "
+ef =~ hearts_and_flowers + memory_game + same_different_selection
+ef ~ age
+"
+
+fit_2pl <- cfa(cfa_model, ef_scores_2pl, std.lv=TRUE, missing='fiml')
+summary(fit_2pl, fit.measures=TRUE, standardize=TRUE)
+
+graph_sem(model = fit_2pl, text_size = 3) + 
   theme(panel.background = element_rect(fill = "white"))
 ```
 
