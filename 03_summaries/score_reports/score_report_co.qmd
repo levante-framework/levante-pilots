@@ -42,13 +42,28 @@ participant_runs <- participants_nested |>
 ```
 
 ```{r}
-participants <- participant_runs |>
+participants_info <- participant_runs |>
   mutate(school = group_name |> gsub(pattern="Coleg", replacement="Col") |> str_extract("Col.")) |>
   group_by(user_id, site) |>
   select(site, user_id, school, grade, age, sex, teacher_id) |>
   mutate(age = round(age, 1)) |>
+  rename(db_grade = grade) |>
   distinct()
 ```
+
+Merge in grade info. Note 1000 is used for missing in Year/Month data. 
+
+```{r}
+grade_info <- read_csv(here("03_summaries","score_reports","data_co","grade_info_co.csv")) |>
+  janitor::clean_names() |>
+  mutate(month = ifelse(year == 1000, NA, month), 
+         year = ifelse(year == 1000, NA, year)) |>
+  rename(user_id = uid) |>
+  select(user_id, grade, year, month) 
+
+participants <- left_join(participants_info, grade_info)
+```
+
 
 
 ```{r setup}

@@ -51,7 +51,8 @@ First plot sumscores.
 ef_runs <- ef |>
   group_by(site, user_id, run_id, task_id) |>
   summarise(correct = mean(correct), 
-            age = mean(age))
+            age = mean(age), 
+            rt = mean(rt))
 
 ggplot(ef_runs, aes(x = age, y = correct)) + 
   geom_point(alpha = .5) + 
@@ -70,6 +71,7 @@ hf_runs <- ef |>
   summarise(logit = coef(glm(correct ~ 1, family = "binomial"))[1],
             bayeslogit = coef(arm::bayesglm(correct ~ 1, family = "binomial", 
                                        prior.scale.for.intercept = .1))[1],
+            correct_rt = mean(as.numeric(rt[correct]), na.rm=TRUE),
             correct = mean(correct), 
             age = mean(age))
 
@@ -121,6 +123,18 @@ ggplot(filter(ef_runs, task_id == "hearts-and-flowers") |>
   facet_grid(site ~ age_group)
 ```
 
+Reaction time. 
+
+```{r}
+ggplot(hf_runs,
+       aes(x = age, y = correct_rt)) + 
+  geom_point(alpha = .5) + 
+  geom_smooth(method = "lm") +
+  geom_hline(yintercept = 0, lty = 2) + 
+  # ylim(0,1) + 
+  facet_grid(site ~ task_id)
+```
+
 # Memory game
 
 ```{r}
@@ -160,6 +174,8 @@ ggplot(sds, aes(x = age, y = metric_value)) +
   geom_smooth(method = "lm") + 
   facet_wrap(~site)
 ```
+
+
 
 
 # EF factor analysis
