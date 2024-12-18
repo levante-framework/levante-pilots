@@ -4,8 +4,11 @@ library(glue)
 library(here)
 
 site <- "co_pilot"
+source(here("01_process_data", "processing_helper.R"))
 trials_coded <- read_rds(here(glue("00_prepped_data/{site}/trials_coded.rds")))
+```
 
+```{r}
 # merge in unique item_ids from corpus (ToDo: add other corpora)
 math_items <- read_csv(here("01_process_data/metadata/item_banks/math-item-bank-params.csv")) |>
   rename(distractors = response_alternatives) |> 
@@ -19,12 +22,6 @@ trog_items <- read_csv(here("01_process_data/metadata/item_banks/trog-item-bank-
 ```
 
 ```{r}
-# de-dictify distractors: extract values after each colon and space, up to comma
-dedict <- \(s) {
-  s |> str_extract_all("(?<=: )([^,]+)") |>
-    map_chr(partial(paste, collapse = ",")) |>
-    str_remove_all("[{}']")
-}
 
 task_data <- trials_coded |>
   mutate(distractors_cln = distractors |> dedict() |> na_if("")) |>
@@ -50,7 +47,9 @@ trog <- task_data |>
   select(-item_id) |>
   left_join(trog_items |> 
               select(answer, item_id)) # item
+```
 
+```{r}
 # same-different-selection needs special processing to identify items
 sds <- task_data |>
   filter(task_id == "same-different-selection", item!="") |>
@@ -72,6 +71,7 @@ sds <- task_data |>
   mutate(item_id = if (all(trial == 1)) paste(corpus_trial_type, i) else paste(corpus_trial_type, trial, response)) |>
   ungroup() |>
   select(-different, -trial_i, -i, -response, -trial)
+```
 
 # # same-different-selection item identification with within-block equivalence
 # sds <- task_data |>
@@ -98,6 +98,7 @@ sds <- task_data |>
 #   group_by(item_id) |>
 #   summarise(n = n(), n_users = n_distinct(user_id))
 
+```{r}
 # egma needs special processing to identify items
 egma <- task_data |>
   filter(task_id == "egma-math", item != "") |> 
@@ -120,7 +121,7 @@ egma <- task_data |>
     str_detect(item, "/") ~ "fraction",
     str_detect(item, "x") ~ "multiplication",
     .default = corpus_trial_type)
-    ) 
+  ) 
 
 threshold <- 0.15
 slider_trials <- egma |> 
@@ -148,7 +149,10 @@ egma_numberline <- egma |>
          corpus_trial_type != "number line 4afc") |>
   bind_rows(numline4afc_trials) |>
   bind_rows(slider_trials)
+```
 
+
+```{r}
 # theory of mind is separated by groups of corpus_trial_type +
 # has special processing to identify items +
 # hostile attribution correctness are recoded
@@ -166,7 +170,7 @@ tom <- task_data |>
   # item_id = "item [question type]" (+ "[i]" if multiple same type items)
   mutate(item_id = paste(item, str_remove(corpus_trial_type, "_question")),
          item_id = paste(item_id, i)) |>
-         # item_id = if_else(n == 1, item_id, paste(item_id, i))) |>
+  # item_id = if_else(n == 1, item_id, paste(item_id, i))) |>
   select(-i, -n) |>
   left_join(hostile_values) |>
   mutate(correct = if_else(str_detect(task_id, "hostile"),
@@ -174,15 +178,26 @@ tom <- task_data |>
                            correct)) |>
   select(-value)
 # write_rds(tom, here("assessment/colombia/stage2/task_analyses/data/tom_data.rds"))
+```
 
-hearts_and_flowers <- task_data |>
-  filter(task_id == "hearts-and-flowers") |>
-  filter(corpus_trial_type == "hearts and flowers" |
-           assessment_stage == "hearts and flowers stimulus") |>
-  mutate(rt_num = as.numeric(rt), response_fast = rt_num < 200, response_slow = rt_num > 2000) |>
-  mutate(correct = !is.na(correct) & correct & !response_fast & !response_slow) |>
-  select(-rt_num, -response_fast, -response_slow)
+CO-specific code for H&F.
 
+```{r}
+hearts_and_flowers <- process_hearts_and_flowers(task_data, 
+                                                 add_corpus_trial_type = TRUE)
+# 
+# hearts_and_flowers <- task_data |>
+#   filter(task_id == "hearts-and-flowers") |>
+#   mutate(corpus_trial_type = str_replace(assessment_stage, " stimulus",""), 
+#          item_id = item,
+#          rt_num = as.numeric(rt), 
+#          response_fast = rt_num < 200, 
+#          response_slow = rt_num > 2000,
+#          correct = !is.na(correct) & correct & !response_fast & !response_slow) |>
+#   select(-rt_num, -response_fast, -response_slow)
+```
+
+```{r}
 task_data_coded <- task_data |>
   # replace separated out data
   filter(!task_id %in% c("egma-math", "same-different-selection", "theory-of-mind", "trog", "vocab", "hearts-and-flowers")) |>
@@ -193,7 +208,7 @@ task_data_coded <- task_data |>
   mutate(item_id = if_else(!is.na(item_id) | item=="", item_id, item)) |>
   # hyphens in item names mess up mirt constraints (yes really)
   mutate(item_id = item_id |> str_replace_all("-", "_")) 
-  # select(matches("id"), corpus_trial_type, item_id, chance, correct, rt, server_timestamp)
+# select(matches("id"), corpus_trial_type, item_id, chance, correct, rt, server_timestamp)
 
 # identify too slow/fast RTs
 # TODO: check min/max values + why are some RTs NA
