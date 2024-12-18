@@ -4,8 +4,12 @@ library(glue)
 library(here)
 
 site <- "us_pilot"
+source(here("01_process_data", "processing_helper.R"))
 trials_coded <- read_rds(here(glue("00_prepped_data/{site}/trials_coded.rds")))
+```
 
+
+```{r}
 # merge in unique item_ids from corpus (ToDo: add other corpora)
 math_items <- read_csv(here("01_process_data/metadata/item_banks/math-item-bank-params.csv")) |>
   rename(distractors = response_alternatives) |> 
@@ -19,13 +23,6 @@ trog_items <- read_csv(here("01_process_data/metadata/item_banks/trog-item-bank-
 ```
 
 ```{r}
-# de-dictify distractors: extract values after each colon and space, up to comma
-dedict <- \(s) {
-  s |> str_extract_all("(?<=: )([^,]+)") |>
-    map_chr(partial(paste, collapse = ",")) |>
-    str_remove_all("[{}']")
-}
-
 task_data <- trials_coded |>
   mutate(distractors_cln = distractors |> dedict() |> na_if("")) |>
   # compute number of distractors + chance level
@@ -164,15 +161,20 @@ egma_numberline <- egma_no_slide |>
 #   mutate(item_id = paste(item, corpus_trial_type),
 #          item_id = paste(item_id, i)) |>
 #   select(-i, -n)
+```
 
-hearts_and_flowers <- task_data |>
-  filter(task_id == "hearts-and-flowers") |>
-  filter(corpus_trial_type == "hearts and flowers" |
-           assessment_stage == "hearts and flowers stimulus") |>
-  mutate(rt_num = as.numeric(rt), response_fast = rt_num < 200, response_slow = rt_num > 2000) |>
-  mutate(correct = !is.na(correct) & correct & !response_fast & !response_slow) |>
-  select(-rt_num, -response_fast, -response_slow)
+```{r}
+hearts_and_flowers <- process_hearts_and_flowers(task_data)
+# hearts_and_flowers <- task_data |>
+#   filter(task_id == "hearts-and-flowers") |>
+#   filter(corpus_trial_type == "hearts and flowers" |
+#            assessment_stage == "hearts and flowers stimulus") |>
+#   mutate(rt_num = as.numeric(rt), response_fast = rt_num < 200, response_slow = rt_num > 2000) |>
+#   mutate(correct = !is.na(correct) & correct & !response_fast & !response_slow) |>
+#   select(-rt_num, -response_fast, -response_slow)
+```
 
+```{r}
 task_data_coded <- task_data |>
   # replace separated out data
   filter(!task_id %in% c("hearts-and-flowers", "egma-math", "same-different-selection", "theory-of-mind", "trog", "vocab")) |>

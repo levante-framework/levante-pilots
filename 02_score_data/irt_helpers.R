@@ -21,12 +21,13 @@ dedupe_items <- function(df) {
 }
 
 # remove items with no variance
-remove_no_var_items <- function(df) {
+remove_no_var_items <- function(df, item_n_min = 1) {
   df |>
     group_by(item_inst) |>
-    mutate(item_mean = mean(correct, na.rm = TRUE)) |> # item means
+    mutate(item_mean = mean(correct, na.rm = TRUE), 
+           item_n = length(correct)) |> # item means
     ungroup() |>
-    filter(item_mean > 0, item_mean < 1) # need to be between 0 and 1
+    filter(item_mean > 0, item_mean < 1, item_n > item_n_min) # need to be between 0 and 1
 }
 
 # format data for mirt
