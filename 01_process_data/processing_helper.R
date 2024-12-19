@@ -1,3 +1,5 @@
+# ----------- MISC PROCESSING FUNCTIONS
+
 # de-dictify distractors: extract values after each colon and space, up to comma
 dedict <- \(s) {
   s |> str_extract_all("(?<=: )([^,]+)") |>
@@ -5,6 +7,98 @@ dedict <- \(s) {
     str_remove_all("[{}']")
 }
 
+# adds trial indices
+add_trial_index <- function (df) {
+  df |>
+    group_by(run_id) |>
+    arrange(server_timestamp) |>
+    mutate(trial_index = 1:n()) |>
+    ungroup() 
+}
+
+# cleanup of item ids
+clean_item_ids <- function(df) {
+  df |>
+    # id other items as just item
+    mutate(item_id = if_else(!is.na(item_id) | item_id=="", item_id, item)) |>
+    # hyphens in item names mess up mirt constraints (yes really)
+    mutate(item_id = item_id |> str_replace_all("-", "_"))
+}
+
+# cleanup of task data
+
+# only relevant tasks + not missing item + has response or correct
+# filter(task_id %in% irt_tasks,
+#        !is.na(item),
+#        !is.na(response) | !is.na(correct)) |>
+# # chronological order
+# arrange(user_id, run_id, server_timestamp) |>
+# curly braces in items cause regex problems
+#mutate(item = item |> str_remove_all("[\\{\\}]")) |>
+# compute number of distractors + chance level
+
+clean_trial_data <- function (df) {
+  df |>
+    add_trial_index() |>
+    mutate( # de-dictify distractors: Extract values after each colon and space, up to comma
+      distractors_cln = str_extract_all(distractors, "(?<=: )([^,]+)") |>  
+        map_chr(~ paste(.x, collapse = ", ")) |>
+        str_replace_all("[{}']", "") 
+    ) |>
+    mutate(distractors_cln = ifelse(distractors_cln=="", NA, str_remove_all(distractors_cln, " "))) |>
+    mutate(distractors = distractors |> str_count(":") |> na_if(0),
+           chance = 1 / (distractors + 1)) |>
+    select(matches("_id"), trial_index, corpus_trial_type, assessment_stage, item,
+           answer, chance, response, correct, rt, server_timestamp, distractors_cln, 
+           theta_estimate, theta_se)
+}
+
+# ----------- ITEM INFO LOADING
+
+# load math items
+load_math_items <- function() {
+  read_csv(here("01_process_data/metadata/item_banks/math-item-bank-params.csv")) |>
+    rename(distractors = response_alternatives) |> 
+    filter(trial_type!="instructions", is.na(notes)) |>
+    select(-source, -task, -block_index, -difficulty, -assessment_stage)
+}
+
+# load grammar items
+load_grammar_items <- function() {
+  read_csv(here("01_process_data/metadata/item_banks/trog-item-bank-full-params.csv")) |>
+    rename(distractors = response_alternatives) |> 
+    filter(!is.na(item)) |>
+    select(-source, -task, -d, -d_sp, -assessment_stage, -prompt)
+}
+
+# ----------- EXECUTIVE FUNCTION PROCESSING CODE 
+
+
+# processing code for same-different-selection
+process_sds <- function(df) {
+  df |>
+    filter(task_id == "same-different-selection", item!="") |>
+    filter(corpus_trial_type != "something-same-1") |>
+    arrange(server_timestamp) |>
+    mutate(different = str_extract(item, "different")) |> # trials are "different" or NA
+    group_by(user_id, run_id, corpus_trial_type) |> # within subtask (e.g. 3-match)
+    mutate(trial_i = consecutive_id(different), # number trials sequentially
+           trial_i = if_else(is.na(different), trial_i, trial_i - 1)) |> # "different" trials are actually part of previous trial
+    group_by(user_id, run_id, corpus_trial_type, trial_i) |>
+    mutate(i = 1:n()) |> # sequential number within multiple "different" trials
+    ungroup() |>
+    mutate(response = as.character(i) |>
+             fct_recode("first" = "1", "second" = "2",
+                        "third" = "3", "fourth" = "4")) |>
+    group_by(user_id, run_id, corpus_trial_type) |>
+    mutate(trial = consecutive_id(trial_i)) |> # renumber trials sequentially
+    group_by(user_id, run_id, corpus_trial_type) |>
+    mutate(item_id = if (all(trial == 1)) paste(corpus_trial_type, i) else paste(corpus_trial_type, trial, response)) |>
+    ungroup() |>
+    select(-different, -trial_i, -i, -response, -trial)
+}
+
+# processing code for filtering and scoring trials
 process_hearts_and_flowers <- function (df, add_corpus_trial_type = FALSE) {
   df <- df |>
     filter(task_id == "hearts-and-flowers") |>
@@ -16,9 +110,86 @@ process_hearts_and_flowers <- function (df, add_corpus_trial_type = FALSE) {
   
   # for CO data
   if (add_corpus_trial_type) {
-    df |>
+    df <- df |>
       mutate(corpus_trial_type = str_replace(assessment_stage, " stimulus",""))
   }
   
+  # clean up logging error in DE pilot data
+  df <- df |>
+    mutate(corpus_trial_type = case_when(
+      corpus_trial_type == "1500" & trial_index < 56 ~ "hearts", 
+      corpus_trial_type == "1500" & trial_index > 56 ~ "flowers", 
+      corpus_trial_type == "1500" & trial_index > 107 ~ "hearts and flowers",
+      .default = corpus_trial_type)) |>
+    select(-trial_index)
+  
+  # there are some corpus_trial_types that don't fit.
+  df <- filter(df,  
+               corpus_trial_type %in% c("hearts","flowers","hearts and flowers"))
   return(df)
+}
+
+# processing code for memory game - mostly vanilla but a little cleanup
+process_mg <- function(df) {
+  # for memory game in DE-pilot
+  df |>
+    filter(task_id == "memory-game") |>
+    mutate(corpus_trial_type = case_when(
+      corpus_trial_type == "" & trial_index < 40 ~ "forward", # determine based on index/order
+      corpus_trial_type == "" & trial_index > 40 ~ "backward",
+      .default = corpus_trial_type))
+}
+
+# ----------- EGMA PROCESSING CODE
+process_egma <- function(df) {
+  egma <- df |>
+    filter(task_id == "egma-math", item != "") |> 
+    # select(-item_id, -corpus_trial_type) |>
+    select(-corpus_trial_type) |>
+    rename(distractors = distractors_cln) |>
+    mutate(item = case_when(item=="{'0': 0, '1': 10}" ~ "0,10", 
+                            item=="{'0': 0, '1': 100}" ~ "0,100",
+                            item=="{'0': 0, '1': 1000}" ~ "0,1000",
+                            item=="{'0': 0, '1': 1}" ~ "0,1",
+                            .default = item)) |>
+    left_join(math_items |> 
+                select(item, answer, item_id, distractors, corpus_trial_type)) |> 
+    mutate(corpus_trial_type = case_when(
+      is.na(chance) ~ "number line slider",
+      item=="0,1" ~ "number line 4afc",
+      item=="0,10" ~ "number line 4afc",
+      item=="0,100" ~ "number line 4afc",
+      item=="0,1000" ~ "number line 4afc",
+      str_detect(item, "/") ~ "fraction",
+      str_detect(item, "x") ~ "multiplication",
+      .default = corpus_trial_type)
+    ) 
+  
+  threshold <- 0.15
+  slider_trials <- egma |> 
+    filter(corpus_trial_type=="number line slider") |>
+    select(-item_id) |>
+    left_join(math_items |> filter(corpus_trial_type=="number line slider") |>
+                select(item, answer, item_id, corpus_trial_type)) |>
+    mutate(correct = pmap_lgl(list(item, answer, response), \(item, answer, response) {
+      # get slider max from item ("{'0': 0, '1': [max_value]}")
+      max_value <- as.numeric(str_extract(item, "\\d+$"))
+      # get distance b/w response & answer, scale to max, compare to threshold
+      abs(as.numeric(response) - as.numeric(answer)) / max_value < threshold
+    })) |>
+    mutate(chance = threshold * 2)
+  
+  numline4afc_trials <- egma |> 
+    filter(corpus_trial_type == "number line 4afc") |>
+    select(-item_id) |>
+    left_join(math_items |> filter(corpus_trial_type == "number line 4afc") |>
+                select(item, answer, item_id, corpus_trial_type))
+  
+  # recombine all of egma
+  egma_numberline <- egma |>
+    filter(corpus_trial_type != "number line slider", 
+           corpus_trial_type != "number line 4afc") |>
+    bind_rows(numline4afc_trials) |>
+    bind_rows(slider_trials)
+  
 }

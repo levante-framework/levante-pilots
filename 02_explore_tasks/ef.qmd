@@ -56,8 +56,7 @@ First plot sumscores.
 ef_runs <- ef |>
   group_by(site, user_id, run_id, task_id) |>
   summarise(correct = mean(correct), 
-            age = mean(age), 
-            rt = mean(rt))
+            age = mean(age))
 
 ggplot(ef_runs, aes(x = age, y = correct)) + 
   geom_point(alpha = .5) + 
@@ -140,13 +139,21 @@ ggplot(hf_runs,
   facet_grid(site ~ task_id)
 ```
 
-## IRT for H&F
-
 ```{r}
 hf <- ef |>
   filter(task_id == "hearts-and-flowers") |>
-  mutate(item_id = item)
-  
+  # mutate(item_id = paste(corpus_trial_type, item_id, sep = " "))
+  mutate(item_id = corpus_trial_type)
+
+ggplot(hf, aes(x = as.numeric(rt))) + 
+  geom_histogram() + 
+  scale_x_log10(breaks = c(100,200, 500,1000,2000,3000,5000,10000)) + coord_flip()
+```
+
+
+## IRT for H&F
+
+```{r}
 hf_data_prepped <- hf |>
   nest() |>
   mutate(data_filtered = map(data, \(df) df |> filter_repeat_runs() |>

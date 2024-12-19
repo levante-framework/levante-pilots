@@ -6,31 +6,16 @@ library(here)
 site <- "ca_pilot"
 source(here("01_process_data", "processing_helper.R"))
 trials_coded <- read_rds(here(glue("00_prepped_data/{site}/trials_coded.rds")))
+task_data <- clean_trial_data(trials_coded)
 ```
 
 ```{r}
 # merge in unique item_ids from corpus (ToDo: add other corpora)
-math_items <- read_csv(here("01_process_data/metadata/item_banks/math-item-bank-params.csv")) |>
-  rename(distractors = response_alternatives) |> 
-  filter(trial_type!="instructions", is.na(notes)) |>
-  select(-source, -task, -block_index, -difficulty, -assessment_stage)
-
-trog_items <- read_csv(here("01_process_data/metadata/item_banks/trog-item-bank-full-params.csv")) |>
-  rename(distractors = response_alternatives) |> 
-  filter(!is.na(item)) |>
-  select(-source, -task, -d, -d_sp, -assessment_stage, -prompt)
+math_items <- load_math_items()
+trog_items <- load_grammar_items()
 ```
 
 ```{r}
-task_data <- trials_coded |>
-  mutate(distractors_cln = distractors |> dedict() |> na_if("")) |>
-  # compute number of distractors + chance level
-  mutate(n_distractors = distractors |> str_count(":") |> na_if(0),
-         chance = 1 / (n_distractors + 1)) |> 
-  select(user_id, run_id, task_id, trial_id, corpus_trial_type,
-         assessment_stage, item_id, item, answer, distractors_cln, chance,
-         response, correct, rt, server_timestamp, theta_estimate, theta_se)
-
 vocab <- task_data |>
   filter(task_id == "vocab", corpus_trial_type=="test") |> # or assessment_stage=="test_response"
   mutate(item_id = paste0("vocab-",item))
@@ -42,55 +27,13 @@ trog <- task_data |>
               select(answer, item_id)) 
 ```
 
+EF tasks 
 
 ```{r}
-# same-different-selection needs special processing to identify items
-sds <- task_data |>
-  filter(task_id == "same-different-selection", item!="") |>
-  filter(corpus_trial_type != "something-same-1") |>
-  arrange(server_timestamp) |>
-  mutate(different = str_extract(item, "different")) |> # trials are "different" or NA
-  group_by(user_id, run_id, corpus_trial_type) |> # within subtask (e.g. 3-match)
-  mutate(trial_i = consecutive_id(different), # number trials sequentially
-         trial_i = if_else(is.na(different), trial_i, trial_i - 1)) |> # "different" trials are actually part of previous trial
-  group_by(user_id, run_id, corpus_trial_type, trial_i) |>
-  mutate(i = 1:n()) |> # sequential number within multiple "different" trials
-  ungroup() |>
-  mutate(response = as.character(i) |>
-           fct_recode("first" = "1", "second" = "2",
-                      "third" = "3", "fourth" = "4")) |>
-  group_by(user_id, run_id, corpus_trial_type) |>
-  mutate(trial = consecutive_id(trial_i)) |> # renumber trials sequentially
-  group_by(user_id, run_id, corpus_trial_type) |>
-  mutate(item_id = if (all(trial == 1)) paste(corpus_trial_type, i) else paste(corpus_trial_type, trial, response)) |>
-  ungroup() |>
-  select(-different, -trial_i, -i, -response, -trial)
+sds <- process_sds(task_data)
+hearts_and_flowers <- process_hearts_and_flowers(task_data)
+mg <- process_mg(task_data)
 ```
-
-# # same-different-selection item identification with within-block equivalence
-# sds <- task_data |>
-#   filter(task_id == "same-different-selection") |>
-#   filter(corpus_trial_type != "something-same-1") |>
-#   arrange(server_timestamp) |>
-#   mutate(different = str_extract(item, "different")) |> # trials are "different" or NA
-#   group_by(user_id, run_id, corpus_trial_type) |> # within subtask (e.g. 3-match)
-#   mutate(trial_i = consecutive_id(different), # number trials sequentially
-#          trial_i = if_else(is.na(different), trial_i, trial_i - 1)) |> # "different" trials are actually part of previous trial
-#   group_by(user_id, run_id, corpus_trial_type, trial_i, different) |>
-#   mutate(i = 1:n()) |> # sequential number within multiple "different" trials
-#   ungroup() |>
-#   mutate(item_id = case_when(
-#     # different trial -> item_id = "[subtask] different [i]"
-#     !is.na(different) ~ paste(corpus_trial_type, different, i),
-#     # non different trial in X-match subtask -> item_id = "[subtask] same"
-#     str_detect(corpus_trial_type, "^\\d-") ~ paste(corpus_trial_type, "same"),
-#     # otherwise -> item_id = [subtask]
-#     TRUE ~ corpus_trial_type)) |>
-#   select(-different, -trial_i, -i)
-
-# sds |>
-#   group_by(item_id) |>
-#   summarise(n = n(), n_users = n_distinct(user_id))
 
 ```{r}
 # egma needs special processing to identify items
@@ -174,39 +117,19 @@ tom <- task_data |>
 ```
 
 ```{r}
-hearts_and_flowers <- process_hearts_and_flowers(task_data)
-```
-
-```{r}
+# replace separated out data
 task_data_coded <- task_data |>
-  # replace separated out data
-  filter(!task_id %in% c("hearts-and-flowers", "egma-math", "same-different-selection", "theory-of-mind", "trog", "vocab")) |>
+  filter(!task_id %in% c("egma-math", "same-different-selection", "memory-game", "theory-of-mind", "trog", "vocab", "hearts-and-flowers")) |>
+  bind_rows(egma_numberline) |> 
+  bind_rows(tom) |> 
+  bind_rows(trog) |> 
+  bind_rows(vocab) |>
   bind_rows(hearts_and_flowers) |>
-  bind_rows(sds) |> bind_rows(egma_numberline) |> bind_rows(tom) |> 
-  bind_rows(trog) |> bind_rows(vocab) |>
-  # id other items as just item
-  mutate(item_id = if_else(!is.na(item_id) | item_id=="", item_id, item)) |>
-  # hyphens in item names mess up mirt constraints (yes really)
-  mutate(item_id = item_id |> str_replace_all("-", "_")) |>
-  select(matches("id"), corpus_trial_type, item_id, chance, correct, rt, response, server_timestamp)
-
-# # identify too slow/fast RTs
-# # TODO: check min/max values + why are some RTs NA
-# min_rt <- 0.2
-# max_rt <- 50
-# task_data_rt <- task_data_coded |>
-#   mutate(rt = as.numeric(rt) / 1000, rt_fast = rt < min_rt, rt_slow = rt > max_rt) |>
-#   filter(is.na(rt) | rt > 0)
-
-# some plotting to look at rt filters
-# ggplot(task_data_rt, aes(x = rt)) +
-#   facet_wrap(vars(task_id)) +
-#   geom_density() +
-#   geom_vline(xintercept = c(min_rt, max_rt), color = "red", linetype = "dashed") +
-#   scale_x_log10(labels = scales::comma, breaks = 10 ^ seq(-2, 2)) +
-#   labs(x = "Response time (seconds)")
-# task_data_rt |> filter(rt_fast) |> count(task_id)
-# task_data_rt |> filter(rt_slow) |> count(task_id)
+  bind_rows(mg) |>
+  bind_rows(sds) |>
+  clean_item_ids() |>
+  select(matches("id"), trial_index, corpus_trial_type,
+         chance, correct, rt, response, server_timestamp)
 
 task_data_nested <- task_data_coded |>
   # filter(is.na(rt_fast) | !rt_fast, is.na(rt_slow) | !rt_slow) |> # remove too slow/fast RTs
