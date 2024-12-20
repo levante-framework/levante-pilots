@@ -7,14 +7,23 @@ site <- "co_pilot"
 source(here("01_process_data", "processing_helper.R"))
 trials_coded <- read_rds(here(glue("00_prepped_data/{site}/trials_coded.rds")))
 
-
+task_data <- clean_trial_data(trials_coded)
 ```
+
+Process. 
 
 ```{r}
-# merge in unique item_ids from corpus (ToDo: add other corpora)
-math_items <- load_math_items()
-trog_items <- load_grammar_items()
+# trog <- process_grammar(task_data)
+# vocab <- process_vocab(task_data)
+sds <- process_sds(task_data)
+hearts_and_flowers <- process_hearts_and_flowers(task_data, 
+                                                 add_corpus_trial_type = TRUE)
+mg <- process_mg(task_data)
+egma <- process_egma(task_data)
+# tom <- process_tom(task_data)
 ```
+
+CO special cases
 
 ```{r}
 vocab <- task_data |>
@@ -23,6 +32,8 @@ vocab <- task_data |>
 
 # these items can be answered quite easily in gendered languages
 removed_trog_items <- c("33-woman-in-chair", "34-woman-holds-baby", "35-boy-in-tree", "36-girl-before-horse")
+
+trog_items <- load_grammar_items()
 
 trog <- task_data |> 
   filter(task_id == "trog", item!="",
@@ -34,21 +45,7 @@ trog <- task_data |>
               select(answer, item_id)) # item
 ```
 
-EF tasks 
-
-```{r}
-sds <- process_sds(task_data)
-hearts_and_flowers <- process_hearts_and_flowers(task_data, 
-                                                 add_corpus_trial_type = TRUE)
-mg <- process_mg(task_data)
-```
-
-egma needs special processing to identify items
-
-```{r}
-egma <- process_egma(task_data)
-```
-
+CO-specific
 
 ```{r}
 # theory of mind is separated by groups of corpus_trial_type +
@@ -77,43 +74,22 @@ tom <- task_data |>
   select(-value)
 ```
 
-```{r}
 
-# replace separated out data
+```{r}
 task_data_coded <- task_data |>
-  filter(!task_id %in% c("egma-math", "same-different-selection", "memory-game", "theory-of-mind", "trog", "vocab", "hearts-and-flowers")) |>
-  bind_rows(egma) |> 
-  bind_rows(tom) |> 
+  filter(!task_id %in% c("trog", "vocab", "same-different-selection","hearts-and-flowers",
+                        "memory-game","egma-math", "theory-of-mind")) |>
   bind_rows(trog) |> 
   bind_rows(vocab) |>
+  bind_rows(sds) |>
   bind_rows(hearts_and_flowers) |>
   bind_rows(mg) |>
-  bind_rows(sds) |>
+  bind_rows(egma) |> 
+  bind_rows(tom) |> 
   clean_item_ids() |>
-  select(matches("id"), trial_index, corpus_trial_type, 
-         chance, correct, rt, response, server_timestamp)
-
-# identify too slow/fast RTs
-# TODO: check min/max values + why are some RTs NA
-# min_rt <- 0.5
-# max_rt <- 50
-# task_data_rt <- task_data_coded |>
-#   mutate(rt = as.numeric(rt) / 1000, rt_fast = rt < min_rt, rt_slow = rt > max_rt) |>
-#   filter(is.na(rt) | rt > 0)
-
-# some plotting to look at rt filters
-# ggplot(task_data_rt, aes(x = rt)) +
-#   facet_wrap(vars(task_id)) +
-#   geom_density() +
-#   geom_vline(xintercept = c(min_rt, max_rt), color = "red", linetype = "dashed") +
-#   scale_x_log10(labels = scales::comma, breaks = 10 ^ seq(-2, 2)) +
-#   labs(x = "Response time (seconds)")
-# task_data_rt |> filter(rt_fast) |> count(task_id)
-# task_data_rt |> filter(rt_slow) |> count(task_id)
+  get_final_variable_set()
 
 task_data_nested <- task_data_coded |>
-  # filter(is.na(rt_fast) | !rt_fast, is.na(rt_slow) | !rt_slow) |> # remove too slow/fast RTs
-  # select(-starts_with("rt")) |> # drop all RT columns
   nest(data = everything(), .by = task_id) # nest data by task
 
 write_rds(task_data_nested, here(glue("01_processed_data/{site}/task_data_nested.rds")))

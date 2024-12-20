@@ -9,80 +9,35 @@ trials_coded <- read_rds(here(glue("00_prepped_data/{site}/trials_coded.rds")))
 task_data <- clean_trial_data(trials_coded)
 ```
 
+Process tasks. 
 
 ```{r}
-# merge in unique item_ids from corpus (ToDo: add other corpora)
-math_items <- load_math_items()
-trog_items <- load_grammar_items()
-```
-
-```{r}
-vocab <- task_data |>
-  filter(task_id == "vocab", corpus_trial_type=="test") |> # or assessment_stage=="test_response"
-  mutate(item_id = paste0("vocab-",item))
-
-trog <- task_data |>
-  filter(task_id == "trog", item!="") |>
-  select(-item_id) |>
-  left_join(trog_items |> 
-              select(answer, item_id)) 
-```
-
-EF tasks 
-
-```{r}
+# trog <- process_grammar(task_data)
+# vocab <- process_vocab(task_data)
 sds <- process_sds(task_data)
 hearts_and_flowers <- process_hearts_and_flowers(task_data)
 mg <- process_mg(task_data)
+# egma <- process_egma(task_data)
+# tom <- process_tom(task_data)
 ```
 
+Re-bind data.
 
 ```{r}
-# egma needs special processing to identify items
-```
-
-```{r}
-# theory of mind is separated by assessment_stage +
-# has special processing to identify items +
-# hostile attribution correctness recoding
-# hostile_values <- read_csv(here("assessment/colombia/stage2/task_analyses/hostile-attribution-coding.csv"))
-
-
-# MUST BE UNCOMMENTED TO PROCESS TOM
-# tom <- task_data |>
-#   filter(task_id == "theory-of-mind", item!="") |>
-#   mutate(corpus_trial_type = str_remove_all(corpus_trial_type, "_question")) |>
-#   mutate(task_id = fct_collapse(corpus_trial_type,
-#                                 "theory-of-mind" = c("false_belief", "reality_check", "reference"),
-#                                 "hostile-attribution" = c("action", "attribution"),
-#                                 "emotion-reasoning" = "emotion_reasoning")) |> #count(task_id, corpus_trial_type)
-#   group_by(user_id, run_id, task_id, item, corpus_trial_type) |>
-#   mutate(i = 1:n(), n = n()) |> # sequentially number items
-#   ungroup() |>
-#   mutate(item_id = paste(item, corpus_trial_type),
-#          item_id = paste(item_id, i)) |>
-#   select(-i, -n)
-```
-
-
-```{r}
-# replace separated out data
 task_data_coded <- task_data |>
-  filter(!task_id %in% c("egma-math", "same-different-selection", "memory-game", "theory-of-mind", "trog", "vocab", "hearts-and-flowers")) |>
-  # bind_rows(egma) |> 
-  # bind_rows(tom) |> 
+  filter(!task_id %in% c("trog", "vocab", "same-different-selection","hearts-and-flowers",
+                        "memory-game","egma-math", "theory-of-mind")) |>
   # bind_rows(trog) |> 
   # bind_rows(vocab) |>
+  bind_rows(sds) |>
   bind_rows(hearts_and_flowers) |>
   bind_rows(mg) |>
-  bind_rows(sds) |>
+  # bind_rows(egma) |> 
+  # bind_rows(tom) |> 
   clean_item_ids() |>
-  select(matches("id"), trial_index, corpus_trial_type,
-         chance, correct, rt, response, server_timestamp)
+  get_final_variable_set()
 
 task_data_nested <- task_data_coded |>
-  # filter(is.na(rt_fast) | !rt_fast, is.na(rt_slow) | !rt_slow) |> # remove too slow/fast RTs
-  # select(-starts_with("rt")) |> # drop all RT columns
   nest(data = everything(), .by = task_id) # nest data by task
 
 write_rds(task_data_nested, here(glue("01_processed_data/{site}/task_data_nested.rds")))

@@ -81,7 +81,7 @@ task_scores <- task_best |>
   mutate(#item_type = fct_recode(item_type, "1PL" = "Rasch"),
          metric_type = glue("ability ({item_type}-{model_type})")) |>
   select(site, task_id, user_id, run_id, metric_type, metric_value = ability)
-
+  
 # save all data + models + results
 # save(task_results, file = "irt_models.RData")
 write_rds(task_results, here("02_scored_data/irt_outputs/task_results.rds"))
