@@ -25,6 +25,14 @@ clean_item_ids <- function(df) {
     mutate(item_id = item_id |> str_replace_all("-", "_"))
 }
 
+# final variable set
+# do some type conversion in case thetas are missing
+get_final_variable_set <- function(df) {
+  select(df, server_timestamp, matches("id"), trial_index, corpus_trial_type,
+         chance, correct, rt, response, theta_estimate, theta_se) |>
+    mutate(theta_estimate = as.numeric(theta_estimate), 
+           theta_se = as.numeric(theta_se))
+}
 # cleanup of task data
 
 # only relevant tasks + not missing item + has response or correct
@@ -69,6 +77,46 @@ load_grammar_items <- function() {
     rename(distractors = response_alternatives) |> 
     filter(!is.na(item)) |>
     select(-source, -task, -d, -d_sp, -assessment_stage, -prompt)
+}
+
+# ----------- LANGUAGE TASK CODE
+
+# trog processing
+process_grammar <- function(df) {
+  trog_items <- load_grammar_items()
+  
+  df |>
+    filter(task_id == "trog", item!="") |>
+    select(-item_id) |>
+    left_join(trog_items |> 
+                select(answer, item_id)) 
+}
+
+# vocab processing
+process_vocab <- function(df) {
+  df |>
+    filter(task_id == "vocab", corpus_trial_type=="test") |> # or assessment_stage=="test_response"
+    mutate(item_id = paste0("vocab-",item))
+  
+}
+
+#theory of mind is separated by assessment_stage +
+# has special processing to identify items 
+process_tom <- function(df) {
+    tom <- task_data |>
+      filter(task_id == "theory-of-mind", item!="") |>
+      mutate(corpus_trial_type = str_remove_all(corpus_trial_type, "_question")) |>
+      mutate(task_id = fct_collapse(corpus_trial_type,
+                                    "theory-of-mind" = c("false_belief", "reality_check", "reference"),
+                                    "hostile-attribution" = c("action", "attribution"),
+                                    "emotion-reasoning" = "emotion_reasoning")) |> #count(task_id, corpus_trial_type)
+      group_by(user_id, run_id, task_id, item, corpus_trial_type) |>
+      mutate(i = 1:n(), n = n()) |> # sequentially number items
+      ungroup() |>
+      mutate(item_id = paste(item, corpus_trial_type),
+             item_id = paste(item_id, i)) |>
+      select(-i, -n)
+
 }
 
 # ----------- EXECUTIVE FUNCTION PROCESSING CODE 
@@ -142,6 +190,8 @@ process_mg <- function(df) {
 
 # ----------- EGMA PROCESSING CODE
 process_egma <- function(df) {
+  math_items <- load_math_items()
+  
   egma <- df |>
     filter(task_id == "egma-math", item != "") |> 
     # select(-item_id, -corpus_trial_type) |>
@@ -162,6 +212,7 @@ process_egma <- function(df) {
       item=="0,1000" ~ "number line 4afc",
       str_detect(item, "/") ~ "fraction",
       str_detect(item, "x") ~ "multiplication",
+      is.na(corpus_trial_type) ~ "",
       .default = corpus_trial_type)
     ) 
   
@@ -191,5 +242,7 @@ process_egma <- function(df) {
            corpus_trial_type != "number line 4afc") |>
     bind_rows(numline4afc_trials) |>
     bind_rows(slider_trials)
+  
+  return(egma_numberline)
   
 }
