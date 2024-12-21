@@ -63,9 +63,9 @@ task_categories <- tribble(
 
 task_metrics <- tribble(
   ~task, ~metric_type,
-  "hearts-and-flowers", "prop_correct",
+  "hearts-and-flowers", "ability",
   "same-different-selection", "ability",
-  "memory-game", "longest_span",
+  "memory-game", "ability",
   "egma-math", "ability",
   "matrix-reasoning", "ability",
   "mental-rotation", "ability",

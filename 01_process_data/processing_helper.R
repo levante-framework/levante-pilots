@@ -8,11 +8,11 @@ dedict <- \(s) {
 }
 
 # adds trial indices
-add_trial_index <- function (df) {
+add_trial_number <- function (df) {
   df |>
     group_by(run_id) |>
     arrange(server_timestamp) |>
-    mutate(trial_index = 1:n()) |>
+    mutate(trial_number = 1:n()) |>
     ungroup() 
 }
 
@@ -28,7 +28,7 @@ clean_item_ids <- function(df) {
 # final variable set
 # do some type conversion in case thetas are missing
 get_final_variable_set <- function(df) {
-  select(df, server_timestamp, matches("id"), trial_index, corpus_trial_type,
+  select(df, server_timestamp, matches("id"), trial_number, corpus_trial_type,
          chance, correct, rt, response, theta_estimate, theta_se) |>
     mutate(theta_estimate = as.numeric(theta_estimate), 
            theta_se = as.numeric(theta_se))
@@ -47,7 +47,7 @@ get_final_variable_set <- function(df) {
 
 clean_trial_data <- function (df) {
   df |>
-    add_trial_index() |>
+    add_trial_number() |>
     mutate( # de-dictify distractors: Extract values after each colon and space, up to comma
       distractors_cln = str_extract_all(distractors, "(?<=: )([^,]+)") |>  
         map_chr(~ paste(.x, collapse = ", ")) |>
@@ -56,7 +56,7 @@ clean_trial_data <- function (df) {
     mutate(distractors_cln = ifelse(distractors_cln=="", NA, str_remove_all(distractors_cln, " "))) |>
     mutate(distractors = distractors |> str_count(":") |> na_if(0),
            chance = 1 / (distractors + 1)) |>
-    select(matches("_id"), trial_index, corpus_trial_type, assessment_stage, item,
+    select(matches("_id"), trial_number, trial_index, corpus_trial_type, assessment_stage, item,
            answer, chance, response, correct, rt, server_timestamp, distractors_cln, 
            theta_estimate, theta_se)
 }
@@ -79,7 +79,7 @@ load_grammar_items <- function() {
     select(-source, -task, -d, -d_sp, -assessment_stage, -prompt)
 }
 
-# ----------- LANGUAGE TASK CODE
+# ----------- LANGUAGE AND TOM TASK CODE
 
 # trog processing
 process_grammar <- function(df) {
@@ -103,20 +103,19 @@ process_vocab <- function(df) {
 #theory of mind is separated by assessment_stage +
 # has special processing to identify items 
 process_tom <- function(df) {
-    tom <- task_data |>
-      filter(task_id == "theory-of-mind", item!="") |>
-      mutate(corpus_trial_type = str_remove_all(corpus_trial_type, "_question")) |>
-      mutate(task_id = fct_collapse(corpus_trial_type,
-                                    "theory-of-mind" = c("false_belief", "reality_check", "reference"),
-                                    "hostile-attribution" = c("action", "attribution"),
-                                    "emotion-reasoning" = "emotion_reasoning")) |> #count(task_id, corpus_trial_type)
-      group_by(user_id, run_id, task_id, item, corpus_trial_type) |>
-      mutate(i = 1:n(), n = n()) |> # sequentially number items
-      ungroup() |>
-      mutate(item_id = paste(item, corpus_trial_type),
-             item_id = paste(item_id, i)) |>
-      select(-i, -n)
-
+  tom <- task_data |>
+    filter(task_id == "theory-of-mind", item!="") |>
+    mutate(corpus_trial_type = str_remove_all(corpus_trial_type, "_question")) |>
+    mutate(task_id = fct_collapse(corpus_trial_type,
+                                  "theory-of-mind" = c("false_belief", "reality_check", "reference"),
+                                  "hostile-attribution" = c("action", "attribution"),
+                                  "emotion-reasoning" = "emotion_reasoning")) |> #count(task_id, corpus_trial_type)
+    group_by(user_id, run_id, task_id, item, corpus_trial_type) |>
+    mutate(i = 1:n(), n = n()) |> # sequentially number items
+    ungroup() |>
+    mutate(item_id = paste(item, corpus_trial_type),
+           item_id = paste(item_id, i)) |>
+    select(-i, -n)
 }
 
 # ----------- EXECUTIVE FUNCTION PROCESSING CODE 
@@ -167,7 +166,9 @@ process_hearts_and_flowers <- function (df, add_corpus_trial_type = FALSE) {
     mutate(corpus_trial_type = case_when(
       corpus_trial_type == "1500" & trial_index < 56 ~ "hearts", 
       corpus_trial_type == "1500" & trial_index > 56 ~ "flowers", 
-      corpus_trial_type == "1500" & trial_index > 107 ~ "hearts and flowers",
+      # we don't know if there were ever any 1500s for H&F
+      # based on check on user_id S7gqxZoYQA0GJ7CTa2nG
+      #corpus_trial_type == "1500" & trial_index > 115 ~ "hearts and flowers",
       .default = corpus_trial_type)) |>
     select(-trial_index)
   
@@ -179,13 +180,18 @@ process_hearts_and_flowers <- function (df, add_corpus_trial_type = FALSE) {
 
 # processing code for memory game - mostly vanilla but a little cleanup
 process_mg <- function(df) {
-  # for memory game in DE-pilot
   df |>
     filter(task_id == "memory-game") |>
-    mutate(corpus_trial_type = case_when(
-      corpus_trial_type == "" & trial_index < 40 ~ "forward", # determine based on index/order
-      corpus_trial_type == "" & trial_index > 40 ~ "backward",
-      .default = corpus_trial_type))
+    # bug in DE where there are some trials with double rows for each
+    filter(!is.na(correct)) |>
+    # fix DE corpus_trial_type bug
+    mutate(corpus_trial_type = 
+             case_when(
+               corpus_trial_type == "" & trial_index < 40 ~ "forward", # determine based on index/order
+               corpus_trial_type == "" & trial_index > 40 ~ "backward",
+               .default = corpus_trial_type),
+           # compute item as the number of items in the answer
+           item_id =  as.character(str_count(answer, ":")))
 }
 
 # ----------- EGMA PROCESSING CODE
