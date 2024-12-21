@@ -12,6 +12,8 @@ irt_tasks <- c("egma-math",
                "mental-rotation",
                "same-different-selection",
                "theory-of-mind",
+               "hearts-and-flowers",
+               "memory-game",
                "trog",
                "vocab")
 
@@ -22,6 +24,56 @@ task_data_nested <- sites |>
   list_rbind(names_to = "site") |>
   filter(task_id %in% irt_tasks)
 ```
+
+Special case item IDs for executive function tasks. 
+
+```{r}
+parse_match_ids <- function (ii) {
+ sapply(str_split(ii," "), 
+      \(str) paste(str[1], str[3]))
+}
+
+# add forward/backward to span
+mg <- task_data_nested |>
+  filter(task_id == "memory-game") |>
+  mutate(data = map(data, \(df) { 
+    mutate(df, item_id = str_c(corpus_trial_type, "_", item_id))
+  }))
+
+# get rid of spaces and push block and trial type together
+hf <- task_data_nested |>
+  filter(task_id == "hearts-and-flowers") |>
+  mutate(data = map(data, \(df) { 
+    mutate(df, 
+           item_id = str_replace_all(
+             paste(item_id, corpus_trial_type), " ", "_"))
+  }))
+
+# group items by category and by number in the sequence
+sds <- task_data_nested |>
+  filter(task_id == "same-different-selection") |>
+  mutate(data = map(data, \(df) { 
+    mutate(df, 
+           item_id = case_when(
+             str_detect(item_id, "test_dimensions") ~ str_sub(item_id, 1, -3),
+             str_detect(item_id, "something_same_2") ~ str_sub(item_id, 1, -3),
+             str_detect(item_id, "match") ~ parse_match_ids(item_id),
+             .default = NA)) |>
+      mutate(item_id = str_replace_all(item_id, " ", "_"))
+    }))
+```
+
+
+
+```{r}
+task_data_nested <- task_data_nested |>
+  filter(!(task_id %in% c("memory-game","hearts-and-flowers", "same-different-selection"))) |>
+  bind_rows(mg) |>
+  bind_rows(hf) |>
+  bind_rows(sds)
+```
+
+
 
 ```{r}
 # transform each task's data for modeling by applying above functions

@@ -40,10 +40,17 @@ to_mirt_shape <- function(df) {
 }
 
 paste_c <- partial(paste, collapse = ",")
+
+# generates the mirt model strings
+# really important to note that item names cannot have spaces or hyphens because mirt
+# this will throw a "number of parameters doesn't match" error
 generate_model_str <- function(df, df_prepped, item_type, f) { # f = num factors
   params <- "d" # always have difficulty
   prior <- ""
+  
   items <- df |> pull(item_id) |> unique() # item ids
+  #items <- df_prepped |> colnames() # note if columns are dropped in prep, this fixes matters.
+  
   if (item_type != "Rasch") {
     # add slopes a[i] based on parameterization
     s <- as.numeric(str_extract(item_type, "^\\d")) - 1
