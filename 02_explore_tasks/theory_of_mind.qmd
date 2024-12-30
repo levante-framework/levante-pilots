@@ -94,7 +94,7 @@ ggplot(tom_items, aes(x = item_id, y = correct)) +
   coord_flip() + 
   facet_grid(site ~ .)
 
-# ggsave("~/Desktop/item_difficulties.png")
+
 ```
 
 
