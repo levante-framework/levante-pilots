@@ -79,7 +79,7 @@ fit_mirt <- function(i, df, item_type, model_str, model_type, task_id, guess, ve
   message(glue("fitting row {i}: {task_id} model {item_type} with {model_type} dims"))
   # TODO: temporarily disabled guessing params due to upstream data problem
   mirt(df, itemtype = item_type, model = model_str, #guess = guess,
-       technical = list(NCYCLES = 2000), verbose = verbose)
+       technical = list(NCYCLES = 5000), verbose = verbose)
 }
 
 # get item parameters of fitted mirt model
