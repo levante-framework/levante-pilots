@@ -1,0 +1,288 @@
+
+
+
+# Source the R code blocks from theory_of_mind.qmd
+
+
+```{r}
+library(knitr)
+library(here)
+temp_r_script <- tempfile(fileext = ".R")
+purl(here("02_explore_tasks", "theory_of_mind.qmd"), output = temp_r_script, quiet = TRUE)
+
+source(temp_r_script)
+
+# delete the temporary R script after sourcing
+unlink(temp_r_script)
+```
+
+
+
+
+# Simulation for model comparison
+
+
+## Generate empirical model string 
+
+Two-factor model with an unknown factor structure (exploratory): In this model, all items were allowed to load on both factors (e.g., "F1 = 1-59\nF2 = 1-59\n\n").
+
+Two-factor model with a known factor structure: The item-factor relationship was determined based on the task-to-item mapping, where each item loaded on one factor (e.g., "F1 = 25, 26, 27, 28, 30, 49, 50, 51, 52, 53, 54, 59\nF2 = 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11...").
+
+One-factor model
+
+
+```{r}
+f1_model_str = generate_model_str(tom_plus_er_prepped$data[[1]], tom_plus_er_prepped$data_prepped[[1]],"Rasch",1)
+f1_model_str
+
+f2_explore_model_str = generate_model_str(tom_plus_er_prepped$data[[1]], tom_plus_er_prepped$data_prepped[[1]],"Rasch",2)
+f2_explore_model_str
+
+# Match items and factors
+
+# name of all items
+col_names = colnames(tom_plus_er_prepped$data_prepped[[1]])
+
+
+# Match `item_id` to column positions
+generate_matched_items <- function(data, col_names) {
+  matched_items <- tibble(
+    task_id = character(),
+    col_name = character(),
+    position = integer()
+  )
+  
+  for (i in seq_along(col_names)) {
+    # Match the current column name with `tom_items$item_id`
+    match_row <- data %>%
+      filter(sapply(item_id, function(x) grepl(x, col_names[i]))) %>%  # Match item_id
+      distinct(task_id)   # Keep only unique task_id
+    
+    # If a match is found, add it to the result
+    if (nrow(match_row) == 1) {
+      matched_items <- matched_items %>%
+        add_row(
+          task_id = match_row$task_id,
+          col_name = col_names[i],
+          position = i
+        )
+    }
+  }
+  
+  return(matched_items)
+}
+
+matched_items <- generate_matched_items(tom_plus_er_prepped$data[[1]], col_names)
+table(matched_items$task_id) # number of items per factor
+
+
+generate_2_factor_model <- function(matched_items) {
+  # Group by `task_id` (factors) and collect unique, sorted item positions
+  factor_assignments <- matched_items %>%
+    group_by(task_id) %>%
+    summarise(
+      positions = paste(sort(unique(position)), collapse = ", ")  # Sort positions in ascending order
+    ) %>%
+    mutate(factor_str = paste("F", row_number(), " = ", positions, sep = ""))  # Add factor label
+  
+  # Combine factor strings into a single model definition
+  model_string <- paste(factor_assignments$factor_str, collapse = "\n")
+  model_string <- paste(model_string, "\n\n")
+  return(model_string)
+}
+
+f2_known_model_str = generate_2_factor_model(matched_items)
+f2_known_model_str
+```
+
+## Generate 2-factor model strings for simulation 
+
+Randomly selecting items for each factor, rather than matching items and factors based on task and item information (`f2_known_model_str`).
+
+```{r}
+# Function to generate random assignments for F1 and F2
+generate_random_f2_model <- function(matched_items, n_simulations = 100) {
+  simulation_results <- NA
+  total_items <- nrow(matched_items)
+  
+  # Number of items to assign to F1 from the table
+  n_f1_items <- table(matched_items$task_id)[1]
+  
+  for (sim in seq_len(n_simulations)) {
+    # Randomly select positions for F1
+    f1_positions <- sample(seq_len(total_items), n_f1_items, replace = FALSE)
+    # Remaining positions are assigned to F2
+    f2_positions <- setdiff(seq_len(total_items), f1_positions)
+    
+    # Create model string for F1 and F2
+    f1_str <- paste("F1 =", paste(f1_positions, collapse = ", "))
+    f2_str <- paste("F2 =", paste(f2_positions, collapse = ", "))
+    
+    # Combine F1 and F2 strings into a single model definition
+    model_string <- paste(f1_str, f2_str, "\n\n", sep = "\n")
+    simulation_results[sim] <- model_string
+  }
+  
+  return(simulation_results)
+}
+
+# Generate 100 simulation model strings
+set.seed(1)
+nrep = 100
+f2_simu_model_strings <- generate_random_f2_model(matched_items, n_simulations = nrep)
+```
+
+
+
+## Run the simulation
+
+```{r, message=F}
+
+item_types <- c("Rasch", "2PL") 
+#model_types <- c(1,2) #, 2) # set of dimensionalities
+model_str <- c(f1_model_str, f2_explore_model_str, f2_known_model_str, f2_simu_model_strings)
+condition <- c("F1", "F2 explore", "F2 known", rep("F2 simulation", nrep))
+model_condition_df <- tibble(
+  model_str = model_str,
+  condition = condition
+)
+# model_types <- c(1) # set of dimensionalities
+
+# add arguments for model fitting to data
+tom_plus_er_data_args_simu <- tom_plus_er_prepped |> 
+  # Duplicate rows per dimensionality x parameterization
+  expand_grid(item_type = item_types) |>
+  expand_grid(model_condition_df) 
+
+
+bic_simu <- tom_plus_er_data_args_simu |>
+  # Fit the models
+  mutate(mod = pmap(list(row_number(), data_prepped, item_type, model_str,
+                         model_type = NA, guess),
+                    fit_mirt)) |>
+  # Extract BIC values
+  mutate(bic = map_dbl(mod, mirt_bic)) |>
+  # Select relevant columns
+  select(model_str, item_type, condition, bic)
+
+#save(bic_simu, file='bic_simu.RData')
+```
+
+## Plot the simulation results
+```{r}
+# Extract BIC values for F1
+bic_f1 <- bic_simu %>%
+  filter(condition == "F1") %>%
+  select(item_type, bic)
+
+# Extract BIC values for F2 explore and F2 known
+bic_explore <- bic_simu %>%
+  filter(condition == "F2 explore") %>%
+  select(item_type, bic)
+
+bic_known <- bic_simu %>%
+  filter(condition == "F2 known") %>%
+  select(item_type, bic)
+
+# Filter data for F2 simulation condition
+bic_simulation <- bic_simu %>%
+  filter(condition == "F2 simulation")
+
+
+# Calculate percentiles for F1, F2 explore, and F2 known
+percentile_table <- bic_simu %>%
+  filter(condition == "F2 simulation") %>% # Focus on F2 simulation condition
+  group_by(item_type) %>% # Group by item_type to calculate percentiles separately
+  reframe(
+    Condition = c("F1", "F2 Explore", "F2 Known"),
+    Percentile = c(
+      sapply(bic_f1$bic[bic_f1$item_type == first(item_type)], function(x) mean(bic <= x) * 100),
+      sapply(bic_explore$bic[bic_explore$item_type == first(item_type)], function(x) mean(bic <= x) * 100),
+      sapply(bic_known$bic[bic_known$item_type == first(item_type)], function(x) mean(bic <= x) * 100)
+    )
+  )
+
+# Print the percentile table
+percentile_table
+
+
+# Plot the density of BIC for F2 simulation
+ggplot(bic_simulation, aes(x = bic, fill = item_type)) +
+  geom_density(alpha = 0.4, aes(color = item_type)) +
+  scale_x_continuous(limits = c(11900, max(bic_simulation$bic) + 50)) +
+  # Add vertical lines for F1, F2 Explore, and F2 Known
+  geom_vline(
+    data = bic_f1,
+    aes(xintercept = bic, linetype = item_types),
+    color = "black"
+  ) +
+  geom_vline(
+    data = bic_explore,
+    aes(xintercept = bic, linetype = item_types),
+    color = "red"
+  ) +
+  geom_vline(
+    data = bic_known,
+    aes(xintercept = bic, linetype = item_types),
+    color = "blue"
+  ) +
+  # Add text annotations only for item_type == "2PL"
+  geom_text(
+    data = bic_f1 %>% filter(item_type == "2PL"),
+    aes(
+      x = bic - 5,
+      y = 0.002,
+      label = paste0(
+        "F1: ", round(bic, 2),
+        " (", 
+        percentile_table %>% filter(Condition == "F1", item_type == "2PL") %>% pull(Percentile),
+        "th)"
+      )
+    ),
+    color = "black",
+    hjust = -0.2,
+    vjust = -1
+  ) +
+  geom_text(
+    data = bic_explore %>% filter(item_type == "2PL"),
+    aes(
+      x = bic - 50,
+      y = 0.005,
+      label = paste0(
+        "F2 Explore: ", round(bic, 2),
+        " (", 
+        percentile_table %>% filter(Condition == "F2 Explore", item_type == "2PL") %>% pull(Percentile),
+        "th)"
+      )
+    ),
+    color = "red",
+    hjust = -0.2,
+    vjust = -1
+  ) +
+  geom_text(
+    data = bic_known %>% filter(item_type == "2PL"),
+    aes(
+      x = bic - 50,
+      y = 0.004,
+      label = paste0(
+        "F2 Known: ", round(bic, 2),
+        " (", 
+        percentile_table %>% filter(Condition == "F2 Known", item_type == "2PL") %>% pull(Percentile),
+        "th)"
+      )
+    ),
+    color = "blue",
+    hjust = -0.2,
+    vjust = -1
+  ) +
+  labs(
+    title = "Density of BIC from Simulation",
+    x = "BIC",
+    y = "Density"
+  ) +
+  theme_classic()
+
+
+```
+
+
