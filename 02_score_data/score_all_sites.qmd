@@ -1,0 +1,13 @@
+```{r}
+library(tidyverse)
+library(knitr)
+library(glue)
+
+purl(here("03_score_data", "score_general.qmd"))
+source(here("03_score_data","score_general.R"))
+
+purl(here("03_score_data", "fit_irt.qmd"))
+source(here("03_score_data","fit_irt.R"))
+
+```
+

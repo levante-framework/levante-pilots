@@ -102,6 +102,8 @@ process_vocab <- function(df) {
 
 #theory of mind is separated by assessment_stage +
 # has special processing to identify items 
+
+# note that as of 1/17/24 we are collapsing emotion-reasoning into theory of mind
 process_tom <- function(df) {
   tom <- task_data |>
     filter(task_id == "theory-of-mind", item!="") |>
@@ -109,7 +111,7 @@ process_tom <- function(df) {
     mutate(task_id = fct_collapse(corpus_trial_type,
                                   "theory-of-mind" = c("false_belief", "reality_check", "reference"),
                                   "hostile-attribution" = c("action", "attribution"),
-                                  "emotion-reasoning" = "emotion_reasoning")) |> #count(task_id, corpus_trial_type)
+                                  "theory-of-mind" = "emotion_reasoning")) |> #count(task_id, corpus_trial_type)
     group_by(user_id, run_id, task_id, item, corpus_trial_type) |>
     mutate(i = 1:n(), n = n()) |> # sequentially number items
     ungroup() |>
