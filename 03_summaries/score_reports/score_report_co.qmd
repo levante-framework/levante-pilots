@@ -57,9 +57,11 @@ Merge in grade info. Note 1000 is used for missing in Year/Month data.
 grade_info <- read_csv(here("03_summaries","score_reports","data_co","grade_info_co.csv")) |>
   janitor::clean_names() |>
   mutate(month = ifelse(year == 1000, NA, month), 
-         year = ifelse(year == 1000, NA, year)) |>
+         year = ifelse(year == 1000, NA, year), 
+         school = group |> gsub(pattern="Coleg", replacement="Col") |> str_extract("Col.")) |>
   rename(user_id = uid) |>
-  select(user_id, grade, year, month) 
+  mutate(approx_age = as.numeric(ym("2024-06") - ym(paste(year, month)))/365) |>
+  select(user_id, school, grade, year, month, approx_age) 
 
 participants <- left_join(participants_info, grade_info)
 ```
@@ -359,29 +361,38 @@ percentile_scores <- scores |>
                           labels = c("0-20","20-40","40-60","60-80","80-100")), 
          fct_grade = as_factor(grade))
 
-percentile_summary <- percentile_scores |> 
+percentile_summary <- percentile_scores |>
   filter(task_category %in% c("Math", "Reading")) |>
-  filter(!is.na(percentile)) |> 
-  group_by(task_category, task, fct_grade, grade, percentile) |> 
+  filter(!is.na(percentile)) |>
+  group_by(task_category, task, school, fct_grade, grade, percentile) |>
   dplyr::count(.drop = FALSE) |>
-  group_by(task_category, task, grade) |>
-  mutate(proportion = n / sum(n)) 
-  
-  
-  ggplot(percentile_summary, aes(x = grade, y = percentile)) +
-  ggh4x::facet_nested_wrap(vars(task_category, task), nrow = 1,
-                           nest_line = element_line(), solo_line = TRUE,
-                           axes = "x",scales = "free_y") +
-  # geom_point(aes(colour = task_category), alpha = 0.8) +
-  geom_tile(aes(fill= proportion)) + 
-  # scale_colour_manual(values = task_pal) +
-  # coord_flip() + 
-  viridis::scale_fill_viridis() +
-  labs(y = "Percentile") +
-  guides(colour = "none") +
-  theme(axis.ticks.x = element_blank(),
-        axis.title.x = element_blank(),
-        strip.text = element_text(size = 10))
+  group_by(task_category, task, school, grade) |>
+  mutate(proportion = n / sum(n)) |>
+  select(-n) |>
+  pivot_wider(names_from = "percentile", values_from = "proportion", values_fill = 0)
+
+#   
+#   ggplot(percentile_summary, aes(x = grade, y = percentile)) +
+#   ggh4x::facet_nested_wrap(vars(task_category, task), nrow = 1,
+#                            nest_line = element_line(), solo_line = TRUE,
+#                            axes = "x",scales = "free_y") +
+#   # geom_point(aes(colour = task_category), alpha = 0.8) +
+#   geom_tile(aes(fill= proportion)) + 
+#   # scale_colour_manual(values = task_pal) +
+#   # coord_flip() + 
+#   viridis::scale_fill_viridis() +
+#   labs(y = "Percentile") +
+#   guides(colour = "none") +
+#   theme(axis.ticks.x = element_blank(),
+#         axis.title.x = element_blank(),
+#         strip.text = element_text(size = 10))
 ```
 
+```{r}
+knitr::kable(filter(percentile_summary, school == "ColB"), digits = 2)
+
+knitr::kable(filter(percentile_summary, school == "ColC"), digits = 2)
+
+knitr::kable(filter(percentile_summary, school == "ColD"), digits = 2)
+```
 
