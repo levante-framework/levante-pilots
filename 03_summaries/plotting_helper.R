@@ -15,13 +15,30 @@ task_plot_pooled <- \(scores, ylab, nr = NULL, nc = NULL, y_axis = seq(6, 14, 2)
                              nest_line = element_line(), solo_line = TRUE,
                              axes = "x",
                              scales = "free_y") +
-    geom_point(aes(colour = task_category), alpha = 0.5) +
+    geom_point(aes(colour = task_category), alpha = 0.3) +
     geom_smooth(aes(group = site), method = "gam", colour = "darkgrey", formula = y ~ s(x, bs = "re")) +
     scale_x_continuous(breaks = y_axis) +
     scale_colour_manual(values = task_pal) +
     labs(x = "Age (years)", y = ylab,
          caption = glue("Note: includes only tasks with at least {threshold_n} observations")) +
     guides(colour = "none")
+}
+
+
+task_plot_comparative <- \(scores, ylab, nr = NULL, nc = NULL, y_axis = seq(6, 14, 2)) {
+  ggplot(scores, aes(x = age, y = metric_value)) +
+    ggh4x::facet_nested_wrap(vars(task_category, task_label),
+                             nrow = nr, ncol = nc,
+                             nest_line = element_line(), solo_line = TRUE,
+                             axes = "x",
+                             scales = "free_y") +
+    geom_point(aes(colour = site), alpha = 0.3) +
+    geom_smooth(aes(group = site, color = site), method = "gam", formula = y ~ s(x, bs = "re")) +
+    scale_x_continuous(breaks = y_axis) +
+    ggthemes::scale_colour_solarized() +
+    labs(x = "Age (years)", y = ylab,
+         caption = glue("Note: includes only tasks with at least {threshold_n} observations")) +
+    theme(legend.position = "bottom")
 }
 
 task_plot_sites <- \(scores, ylab, nr = NULL, nc = NULL, y_axis = seq(6, 14, 2)) {
@@ -45,6 +62,7 @@ task_categories <- tribble(
   "hearts-and-flowers", "executive function",
   "same-different-selection", "executive function",
   "memory-game", "executive function",
+  "mefs", "executive function",
   "egma-math", "math",
   "matrix-reasoning", "reasoning",
   "mental-rotation", "spatial cognition",
@@ -56,7 +74,9 @@ task_categories <- tribble(
   "pa", "reading",
   "sre", "reading",
   "swr", "reading",
-  "emotion-reasoning", "social cognition",
+  "sre-de", "reading",
+  "swr-de", "reading",
+  # "emotion-reasoning", "social cognition",
   "theory-of-mind", "social cognition",
   "hostile-attribution", "social cognition"
 ) |> mutate(task_category = task_category |> str_to_sentence() |> fct_inorder())
@@ -66,6 +86,7 @@ task_metrics <- tribble(
   "hearts-and-flowers", "ability",
   "same-different-selection", "ability",
   "memory-game", "ability",
+  "mefs", "total_score",
   "egma-math", "ability",
   "matrix-reasoning", "ability",
   "mental-rotation", "ability",
@@ -77,7 +98,9 @@ task_metrics <- tribble(
   "pa", "prop_correct",
   "sre", "guessing_adjusted_number_correct",
   "swr", "prop_correct",
-  "emotion-reasoning", "prop_correct",
+  "sre-de", "guessing_adjusted_number_correct",
+  "swr-de", "prop_correct",
+  # "emotion-reasoning", "prop_correct",
   "theory-of-mind", "ability",
   "hostile-attribution", "prop_correct"
 )
