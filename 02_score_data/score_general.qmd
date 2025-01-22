@@ -69,8 +69,8 @@ Things look terrible across sites though.
 Let's debug what happened with SRE. Working hypothesis: 
 
 - we did the standard 3min version for DE
-- we did the 2 block 6min (360s) version in CO but with the “three wrong in a row” stopping rule that we used for other tasks there?
-- in canada we did the 2 block 6 min version?
+- we did the standard 3min version for CO and we have a lot of incomplete runs
+- in canada we did the 2 block 6 min version and need to select the first block.
 
 ```{r}
 tdc <- task_data_combined |>
@@ -97,13 +97,14 @@ ggplot(tdc_sub, aes(x = num_items)) +
 ```
 
 
-So - to score fairly, we need to divide by some kind of constant. Let's start by clipping to the first 180s, then doing (correct - incorrect) / 180 - "guessing-adjusted correct per second".
+So - to score fairly, we need to divide by some kind of constant. Let's start by clipping to the first 180s for Canada, then doing (correct - incorrect) / 180 - "guessing-adjusted correct per second".
 
 ```{r sre}
 sre <- task_data_combined |>
   filter(str_detect(task_id, "sre")) |>
   group_by(site, task_id, user_id, run_id) |> # corpus_trial_type
-  filter(server_timestamp < server_timestamp[min(trial_number)] + 180) |>
+  # take only the first block for Canada site
+  filter(site != "co_pilot" | server_timestamp < server_timestamp[min(trial_number)] + 180) |>
   summarise(metric_value = (sum(correct) - sum(!correct))/180) |>
   ungroup() |>
   mutate(metric_type = "guessing_adjusted_number_correct")
