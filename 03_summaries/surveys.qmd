@@ -1,0 +1,60 @@
+```{r}
+survey_coded <- read_rds(here("01_processed_data/survey_coded.rds"))
+
+get_item_alphas <- function(survey_coded_subset) {
+  scs <- survey_coded_subset |>
+    filter(!is.na(form_construct)) |>
+    # average over multiple responses to same question
+    group_by(site, user_id, form_construct, variable) |>
+    summarise(value = mean(value, na.rm = TRUE)) |>
+    ungroup() |>
+    filter(!is.nan(value)) |>
+    # nest by construct
+    nest(data = -c(site, form_construct)) |>
+    mutate(df_vals = map(data, function(df) {
+      df |>
+        pivot_wider(names_from = variable, values_from = value) |>
+        select(-user_id) #|>
+        # na.omit()
+    })) |>
+    filter(!map_lgl(df_vals, \(dfv) ncol(dfv) == 1)) |>
+    mutate(alpha = map(df_vals, \(dfv) cronbach.alpha(dfv, na.rm = TRUE) |>
+                         unclass() |> as_tibble()))
+} #CI = TRUE
+
+item_alphas <- map(survey_coded, get_item_alphas)
+
+# get_alphas <- function(item_alphas_subset) {
+#   item_alphas_subset |>
+#     select(form_construct, alpha) |>
+#     unnest(alpha) |>
+#     mutate(probs = probs |> as_factor() |> fct_recode(lower = "0.025", upper = "0.975")) |>
+#     pivot_wider(names_from = probs, values_from = ci, names_prefix = "ci_") |>
+#     mutate(form_construct = form_construct |> fct_inorder() |> fct_rev())
+# }
+# 
+# alphas <- map(item_alphas, get_alphas)
+
+alphas <- item_alphas |>
+  enframe(name = "survey_id", value = "data") |>
+  unnest(data) |>
+  select(survey_id, site, form_construct, alpha) |>
+  unnest(alpha)
+```
+
+```{r}
+ggplot(alphas, aes(x = alpha, y = form_construct)) +
+  facet_col(vars(survey_id), scales = "free_y", space = "free") +
+  # facet_col(facets = vars(form_construct), scales = "free_y", space = "free") +
+  # geom_vline(xintercept = 0, linetype = "dotted") +
+  geom_vline(xintercept = .7, colour = "lightgrey") +
+  # geom_linerange(aes(xmin = ci_lower, xmax = ci_upper), orientation = "y", colour = "grey") +
+  geom_crossbar(aes(xmin = alpha, xmax = alpha, color = site), orientation = "y") +
+  # geom_text(aes(label = paste(p, "items")), x = 0.05,
+  #           size = 3, family = .font, hjust = 1) +
+  expand_limits(x = 0) +
+  labs(x = "Cronbach's alpha", y = "Form construct")
+# labs(x = glue("Cronbach's alpha (N = {unique(alphas$n)})"), y = "Form construct")
+ggsave(here("03_summaries/plots/survey_alphas.png"), width = 7, height = 6)
+```
+
