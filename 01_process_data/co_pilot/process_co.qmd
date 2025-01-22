@@ -51,6 +51,8 @@ CO-specific
 # theory of mind is separated by groups of corpus_trial_type +
 # has special processing to identify items +
 # hostile attribution correctness are recoded
+# put emotion-reasoning into tom 1/17/25
+
 hostile_values <- read_csv(here("01_process_data/metadata/hostile-attribution-coding.csv"))
 tom <- task_data |>
   filter(task_id == "theory-of-mind", item!="") |>
@@ -58,7 +60,7 @@ tom <- task_data |>
   mutate(task_id = fct_collapse(corpus_trial_type,
                                 "theory-of-mind" = c("false_belief", "reality_check", "reference"),
                                 "hostile-attribution" = c("audio", "attribution", "action"),
-                                "emotion-reasoning" = "emotion_reasoning")) |>
+                                "theory-of-mind" = "emotion_reasoning")) |>
   group_by(user_id, run_id, task_id, item, corpus_trial_type) |>
   mutate(i = 1:n(), n = n()) |> # sequentially number items
   ungroup() |>

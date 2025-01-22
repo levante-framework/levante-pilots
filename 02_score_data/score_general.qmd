@@ -41,7 +41,9 @@ thetas <- task_data_combined |>
   select(site, task_id, user_id, run_id, metric_type, metric_value = theta_estimate)
 ```
 
-Custom scoring for memory game
+# Memory game
+
+Custom scoring for memory game - obviated by IRT models.
 
 ```{r mg}
 mg <- task_data_combined |>
@@ -54,27 +56,89 @@ mg <- task_data_combined |>
   mutate(metric_type = "longest_span")
 ```
 
+# SRE
+
 Custom scoring for SRE. 
 
 Scoring is per https://roar.stanford.edu/technical/intro-sre.html#sec-sre-scoring
 
 "ROAR-Sentence is a two alternative forced choice (2AFC) task and is scored as the total number of correct responses minus the total number of incorrect responses in the alloted (3 minute) time window. This scoring method controls for guessing by controlling for the number of incorrect responses in the calculation of the scores. Raw Scores: The student’s raw score will range between 0-130."
 
-We normalize. 
+Things look terrible across sites though. 
+
+Let's debug what happened with SRE. Working hypothesis: 
+
+- we did the standard 3min version for DE
+- we did the standard 3min version for CO and we have a lot of incomplete runs
+- in canada we did the 2 block 6 min version and need to select the first block.
+
+```{r}
+tdc <- task_data_combined |>
+  filter(str_detect(task_id, "sre")) |>
+  mutate(item_num = as.numeric(str_extract(item_id, "[:digit:]+")), 
+         ai = str_detect(item_id, "ai"))
+
+tdc_sub <- tdc |>
+  group_by(site, run_id) |>
+  summarise(num_items = length(unique(item_id)), 
+            num_non_ai_items = length(unique(item_id[!ai])), 
+            duration = server_timestamp[max(trial_number)] - server_timestamp[min(trial_number)], 
+            duration_noai = server_timestamp[max(trial_number[!ai])] - server_timestamp[min(trial_number[!ai])])
+
+  
+ggplot(tdc_sub, aes(x = num_items)) + 
+  geom_histogram() + 
+  facet_wrap(~site)
+
+ggplot(tdc_sub, aes(x = num_items)) + 
+   geom_histogram() + 
+  facet_wrap(~site)
+  
+```
+
+
+So - to score fairly, we need to divide by some kind of constant. Let's start by clipping to the first 180s for Canada, then doing (correct - incorrect) / 180 - "guessing-adjusted correct per second".
 
 ```{r sre}
 sre <- task_data_combined |>
   filter(str_detect(task_id, "sre")) |>
   group_by(site, task_id, user_id, run_id) |> # corpus_trial_type
-  summarise(metric_value = (sum(correct) - sum(!correct))/130) |>
+  # take only the first block for Canada site
+  filter(site != "co_pilot" | server_timestamp < server_timestamp[min(trial_number)] + 180) |>
+  summarise(metric_value = (sum(correct) - sum(!correct))/180) |>
   ungroup() |>
   mutate(metric_type = "guessing_adjusted_number_correct")
 ```
 
-
-Combine scores
+# MEFS
 
 ```{r}
-scores_combined <- bind_rows(sumscores, thetas, mg, sre)
+mefs_scores <- read_csv(here("02_scored_data","mefs_data","LEVANTE_20250122_0252.csv")) |>
+  janitor::clean_names() |>
+  select(child_id, a1_total_score, a1_standard_score) |>
+  rename(user_id = child_id, 
+         total_score = a1_total_score, 
+         standard_score = a1_standard_score) |>
+  pivot_longer(total_score:standard_score, names_to = "metric_type", values_to = "metric_value") |>
+  mutate(task_id = "mefs", run_id = NA) 
+```
+
+Figure out how many MEFS userids fit. 
+
+```{r}
+site_users <- task_data_combined |>
+  select(user_id, site) |>
+  distinct() 
+
+mefs <- left_join(mefs, site_users) |>
+  filter(!is.na(site))
+```
+
+
+
+#  Combine scores
+
+```{r}
+scores_combined <- bind_rows(sumscores, thetas, mg, sre, mefs)
 write_rds(scores_combined, here("02_scored_data/scores_general.rds"))
 ```
