@@ -12,6 +12,7 @@ sites |>
     # can we do this with quarto render?
     purl(here("01_process_data", glue("{site}_pilot"), glue("process_{site}.qmd")))
     source(here("01_process_data",glue("process_{site}.R")))
+    unlink(here("01_process_data",glue("process_{site}.R")))
   })
 ```
 
