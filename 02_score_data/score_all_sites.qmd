@@ -4,12 +4,13 @@ library(knitr)
 library(glue)
 
 purl(here("02_score_data", "score_general.qmd"), 
-     output = "temp.R")
-source("temp.R")
-unlink("temp.R")
+     output = "scoring_temp.R")
+source("scoring_temp.R")
+unlink("scoring_temp.R")
 
-purl(here("02_score_data", "fit_irt.qmd"))
-source("temp.R")
-unlink("temp.R")
+purl(here("02_score_data", "fit_irt.qmd"), 
+     output = "scoring_temp.R")
+source("scoring_temp.R")
+unlink("scoring_temp.R")
 ```
 
