@@ -7,11 +7,10 @@ pipeline_files <- c("00_prep_data/prep_all_sites.qmd",
                     "01_process_data/process_all_sites.qmd",
                     "02_score_data/score_all_sites.qmd")
 
-map(pipeline_files, \(file) {
-  temp_r_script <- tempfile(fileext = ".R")
-  purl(here(file), output = temp_r_script, quiet = TRUE)
-  source(temp_r_script)  
-  unlink(temp_r_script)
+map(pipeline_files, \(f) {
+  purl(here(f), output = "temp.R", quiet = TRUE)
+  source("temp.R")  
+  unlink("temp.R")
 })
 ```
 

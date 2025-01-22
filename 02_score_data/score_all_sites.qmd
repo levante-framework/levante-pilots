@@ -3,12 +3,13 @@ library(tidyverse)
 library(knitr)
 library(glue)
 
-purl(here("02_score_data", "score_general.qmd"))
-source(here("02_score_data","score_general.R"))
-unlink(here("02_score_data","score_general.R"))
+purl(here("02_score_data", "score_general.qmd"), 
+     output = "temp.R")
+source("temp.R")
+unlink("temp.R")
 
 purl(here("02_score_data", "fit_irt.qmd"))
-source(here("02_score_data","fit_irt.R"))
-unlink(here("02_score_data","fit_irt.R"))
+source("temp.R")
+unlink("temp.R")
 ```
 
