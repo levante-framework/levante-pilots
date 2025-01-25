@@ -1,0 +1,234 @@
+
+# EFA analysis for surveys for students
+
+## Data preparation
+```{r}
+source(here::here("03_summaries", "efa", "efa_helpers.R"))
+survey_coded <- read_rds(here::here("01_processed_data/survey_coded.rds"))
+
+student <- survey_coded[["student"]]
+table(student$site)
+
+student_tidy = student |>
+  select(user_id, site, survey_response_id, child_id, variable, value, form_construct) |>
+  filter(!is.na(form_construct), 
+         !is.na(value),
+         form_construct != 'Safety') |> # safety only have one item and cannot be used for EFA
+  nest(data = -c(site, form_construct)) |>
+  mutate(df_vals = map(data, function(df) {
+    df |>
+      pivot_wider(names_from = variable, values_from = value) |>
+      select(-c(user_id,survey_response_id,child_id))
+  })) 
+
+constructs = as.vector(unique(student_tidy$form_construct))
+sites = as.vector(unique(student_tidy$site))
+
+
+cat('sample size\n')
+for(i in sites){
+  cat(i)
+  cat('\t')
+  selected_site <- student_tidy |>
+    filter(site == i) 
+  cat(nrow(selected_site[['df_vals']][[1]]))
+  cat('\t')
+}
+
+### since number of sample size is too low for de_pilot and ca_pilot
+### currently we focus on co_pilot
+
+student_tidy_co = student_tidy |>
+    filter(site == 'co_pilot') 
+head(student_tidy_co)
+```
+
+## Correlation Heatmap
+```{r}
+
+for(formi in 1:nrow(student_tidy_co)){
+  subconstruct <- student_tidy_co[['df_vals']][[formi]]
+  cor_matrix <- cor(subconstruct, use = "pairwise.complete.obs")
+
+  corrplot(cor_matrix, method = "color", col = col, type = "upper", order = "original",
+          tl.pos = "l", 
+          tl.col = "black", 
+          title =  student_tidy_co[['form_construct']][[formi]], 
+          is.corr = FALSE,
+          mar=c(0,0,2,0),
+          col.lim = c(-1, 1)) 
+}
+
+```
+
+
+
+## EFA Analysis and Loading Matrix Plot
+
+### Teacher-student relationship
+
+Determine the number of factors
+```{r}
+formi = 1
+# standardization for following analysis (for better interpretation of loadings)
+subconstruct = student_tidy_co[['df_vals']][[formi]] |>
+  scale(center=TRUE, scale=TRUE) |> as.data.frame()
+
+# Parallel analysis
+fa.parallel(subconstruct, fa="both", n.iter=100, plot=FALSE)
+
+# Scree plot
+scree(subconstruct, factors=TRUE, pc=F, 
+      main =student_tidy_co[['form_construct']][[formi]])
+
+# Decision:
+# only one factor has enign value larger than 1, so we keep the number of factors at 1
+```
+
+EFA analysis
+```{r}
+EFAresult = factanal(~ ., data=subconstruct, factors = 1,
+  rotation = "promax", na.action = na.exclude)
+
+loadings_df <- loadmax(EFAresult$loadings, subconstruct)
+
+plot_load(loadings_df, student_tidy_co[['form_construct']][[formi]])
+```
+
+### Belongings
+
+Determine the number of factors
+```{r}
+formi = 2
+subconstruct = student_tidy_co[['df_vals']][[formi]] |>
+  scale(center=TRUE, scale=TRUE) |> as.data.frame()
+
+# Parallel analysis
+fa.parallel(subconstruct, fa="both", n.iter=100, plot=FALSE)
+
+# Scree plot
+scree(subconstruct, factors=TRUE, pc=F, 
+      main =student_tidy_co[['form_construct']][[formi]])
+```
+
+EFA analysis
+```{r}
+EFAresult = factanal(~ ., data=subconstruct, factors = 1,
+  rotation = "promax", na.action = na.exclude)
+
+loadings_df <- loadmax(EFAresult$loadings, subconstruct)
+
+plot_load(loadings_df, student_tidy_co[['form_construct']][[formi]])
+```
+
+
+### Peer Relationships
+
+Determine the number of factors
+```{r}
+formi = 3
+subconstruct = student_tidy_co[['df_vals']][[formi]] |>
+  scale(center=TRUE, scale=TRUE) |> as.data.frame()
+
+# Parallel analysis
+fa.parallel(subconstruct, fa="both", n.iter=100, plot=FALSE)
+
+# Scree plot
+scree(subconstruct, factors=TRUE, pc=F, 
+      main =student_tidy_co[['form_construct']][[formi]])
+```
+
+EFA analysis
+```{r}
+EFAresult = factanal(~ ., data=subconstruct, factors = 1,
+  rotation = "promax", na.action = na.exclude)
+
+loadings_df <- loadmax(EFAresult$loadings, subconstruct)
+plot_load(loadings_df, student_tidy_co[['form_construct']][[formi]])
+```
+
+
+
+### Academic Perception
+
+Determine the number of factors
+```{r}
+formi = 4
+subconstruct = student_tidy_co[['df_vals']][[formi]] |>
+  scale(center=TRUE, scale=TRUE) |> as.data.frame()
+
+# Parallel analysis
+fa.parallel(subconstruct, fa="both", n.iter=100, plot=FALSE)
+
+# Scree plot
+scree(subconstruct, factors=TRUE, pc=F, 
+      main =student_tidy_co[['form_construct']][[formi]])
+```
+
+EFA analysis
+```{r}
+EFAresult = factanal(~ ., data=subconstruct, factors = 1,
+  rotation = "promax", na.action = na.exclude)
+
+loadings_df <- loadmax(EFAresult$loadings, subconstruct)
+
+plot_load(loadings_df, student_tidy_co[['form_construct']][[formi]])
+```
+
+### Growth Mindset
+
+Determine the number of factors
+```{r}
+formi = 5
+subconstruct = student_tidy_co[['df_vals']][[formi]] |>
+  scale(center=TRUE, scale=TRUE) |> as.data.frame()
+
+# Parallel analysis
+fa.parallel(subconstruct, fa="both", n.iter=100, plot=FALSE)
+
+# Scree plot
+scree(subconstruct, factors=TRUE, pc=F, 
+      main =student_tidy_co[['form_construct']][[formi]])
+```
+
+EFA analysis
+```{r}
+EFAresult = factanal(~ ., data=subconstruct, factors = 1,
+  rotation = "promax", na.action = na.exclude)
+
+loadings_df <- loadmax(EFAresult$loadings, subconstruct)
+
+plot_load(loadings_df, student_tidy_co[['form_construct']][[formi]])
+```
+
+# Correlation and EFA on All Items
+```{r}
+student_wide <- student |>
+  select(user_id, site, survey_response_id, child_id, variable, value, form_construct) |>
+  filter(!is.na(form_construct), 
+         !is.na(value),
+         form_construct != 'Safety',
+         site == 'co_pilot') |>
+  pivot_wider(
+    id_cols = c(user_id, survey_response_id),
+    names_from = variable,
+    values_from = value
+  ) |>
+  select(-c(user_id, survey_response_id))
+
+cor_matrix <- cor(student_wide, use = "pairwise.complete.obs")
+
+corrplot(cor_matrix, method = "color", col = col, type = "upper", order = "original",
+        tl.pos = "l", 
+        tl.col = "black", 
+        title =  'Student Survey Data', 
+        is.corr = FALSE,
+        mar=c(0,0,2,0),
+        col.lim = c(-1, 1)) 
+```
+
+
+
+
+
+
