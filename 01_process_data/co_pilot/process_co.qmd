@@ -75,12 +75,28 @@ tom <- task_data |>
                            correct)) |>
   select(-value)
 ```
+CO bogota administration had a bug and some administrations ended up with only two practice trials and no real data. We remove these. 
+
+```{r}
+pa_all <- task_data |>
+  filter(task_id == "pa-es")
+
+more_than_two_trial_runs <- pa |>
+  group_by(run_id) |>
+  count() |>
+  filter(n > 2) |>
+  pull(run_id)
+
+pa <- pa_all |>
+  filter(run_id %in% more_than_two_trial_runs)
+```
 
 
 ```{r}
 task_data_coded <- task_data |>
   filter(!task_id %in% c("trog", "vocab", "same-different-selection","hearts-and-flowers",
-                        "memory-game","egma-math", "theory-of-mind")) |>
+                        "memory-game","egma-math", "theory-of-mind","pa-es")) |>
+  bind_rows(pa)
   bind_rows(trog) |> 
   bind_rows(vocab) |>
   bind_rows(sds) |>

@@ -4,7 +4,10 @@ library(here)
 library(glue)
 library(ggforce)
 library(ggthemes)
+library(ggh4x)
+
 source(here("03_summaries", "plotting_helper.R"))
+threshold_n <- 10
 ```
 
 First downward extension analysis. There's lots more to do here. 
