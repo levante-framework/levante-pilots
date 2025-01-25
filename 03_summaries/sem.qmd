@@ -45,7 +45,7 @@ scores <- score_list |>
   left_join(run_ages) |>
   filter(!is.na(age), age >= 5, age <= 12) |>
   left_join(task_categories) |>
-  mutate(task = str_replace(task, "-es", "")) |>
+  mutate(task = str_replace(str_replace(task, "-de", ""), "-es", "")) |>
   group_by(site, task) |>
   mutate(site_task_n = n_distinct(user_id),
          site_task_label = glue("{task}\n(n = {site_task_n})")) |>
@@ -241,13 +241,42 @@ ggsave(here("03_summaries/plots/sem_age_granular.png"), width = 14, height = 10)
 # Site specific
 
 ```{r}
-fit_age_de <- cfa(cfa_model_age, 
+
+cfa_model_age_de <-  "
+# measurement
+reasoning =~ matrix_reasoning + mental_rotation 
+ef =~ hearts_and_flowers + memory_game + same_different_selection
+social =~ theory_of_mind 
+language =~ trog + vocab + sre + swr
+math =~ egma_math
+
+# age regressions
+reasoning ~ age
+ef ~ age
+social ~ age
+language ~ age
+math ~ age
+"
+
+layout_age_de = matrix(nrow=7, ncol = 12, 
+                data = c(
+                  "matrix_reasoning", "mental_rotation", "hearts_and_flowers","memory_game", "same_different_selection", "theory_of_mind","trog","vocab","sre-de","swr-de",NA,"egma_math",
+                         NA, NA, NA, NA, NA, NA, NA, NA, NA, NA, NA, NA, 
+                         NA, NA, NA, NA, NA, NA, NA, NA, NA, NA, NA, NA, 
+                         "reasoning",NA, "ef", NA, NA, "social","language",NA, NA, NA, NA,
+                         "math",
+                         NA, NA, NA, NA, NA, NA, NA, NA,  NA, NA, NA, NA, 
+                         NA, NA, NA, NA, NA, NA, NA, NA,  NA, NA, NA, NA, 
+                  NA, NA, NA, NA, NA, NA, "age", NA, NA,  NA, NA, NA
+                         ), byrow = TRUE)
+
+fit_age_de <- cfa(cfa_model_age_de, 
                filter(scores_wide_mat, site == "de_pilot"),
                std.lv=TRUE, missing='fiml')
 # summary(fit_age, fit.measures=TRUE, standardize=TRUE)
 
 
-graph_sem(model = fit_age_de, text_size = 3, layout = t(layout_age)) + 
+graph_sem(model = fit_age_de, text_size = 3, layout = t(layout_age_de)) + 
   theme(panel.background = element_rect(fill = "white"))
 ggsave(here("03_summaries/plots/extra/sem_age_de.png"), width = 14, height = 10)
 ```

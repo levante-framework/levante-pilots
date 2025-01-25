@@ -2,6 +2,9 @@
 library(tidyverse)
 library(here)
 library(glue)
+
+source(here("03_summaries", "plotting_helper.R"))
+
 ```
 
 ```{r}
@@ -11,6 +14,11 @@ trials_coded <- sites |>
   set_names() |>
   map(\(s) read_rds(here(glue("00_prepped_data/{s}/trials_coded.rds")))) |>
   list_rbind(names_to = "site")
+
+participants <- sites |>
+  set_names() |>
+  map(\(s) read_rds(here(glue("00_prepped_data/{s}/participants.rds")))) |>
+  list_rbind(names_to = "site")
 ```
 
 Table of median task times
@@ -18,6 +26,8 @@ Table of median task times
 ```{r}
 time_summary <- trials_coded |>
   mutate(server_timestamp = as_datetime(server_timestamp)) |>
+  mutate(task_id = str_replace(task_id, "-es", ""),
+         task_id = str_replace(task_id, "-de", "")) |>
   arrange(user_id, run_id, server_timestamp) |>
   group_by(site, task_id, run_id, user_id) |>
   summarise(trials = n(),
@@ -56,3 +66,15 @@ user_summary <- time_summary |>
   ungroup() |>
   summarise(med = median(total))
 ```
+
+```{r}
+write_csv(task_time_summary, here("03_summaries","tables","task_time_summary.csv"))
+
+task_time_wide <- task_time_summary |>
+  select(-combined_diff, -min_diff, -max_diff) |>
+  pivot_wider(names_from = site, values_from = median_diff)
+
+write_csv(task_time_wide, here("03_summaries","tables","task_time_wide.csv"))
+
+```
+

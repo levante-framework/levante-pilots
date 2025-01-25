@@ -100,15 +100,25 @@ ggplot(tdc_sub, aes(x = num_items)) +
 So - to score fairly, we need to divide by some kind of constant. Let's start by clipping to the first 180s for Canada, then doing (correct - incorrect) / 180 - "guessing-adjusted correct per second".
 
 ```{r sre}
-sre <- task_data_combined |>
-  filter(str_detect(task_id, "sre")) |>
+sre_all <- task_data_combined |>
+  filter(str_detect(task_id, "sre")) 
+
+
+sre <- sre_all |>
   group_by(site, task_id, user_id, run_id) |> # corpus_trial_type
   # take only the first block for Canada site
-  filter(site != "co_pilot" | server_timestamp < server_timestamp[min(trial_number)] + 180) |>
+  filter(site != "ca_pilot" | server_timestamp < server_timestamp[min(trial_number)] + 180) |>
   summarise(metric_value = (sum(correct) - sum(!correct))/180) |>
   ungroup() |>
   mutate(metric_type = "guessing_adjusted_number_correct")
 ```
+
+```{r}
+ggplot(sre, aes(x = metric_value)) + 
+  geom_histogram() + 
+  facet_wrap(~site)
+```
+
 
 # MEFS
 
@@ -130,7 +140,7 @@ site_users <- task_data_combined |>
   select(user_id, site) |>
   distinct() 
 
-mefs <- left_join(mefs, site_users) |>
+mefs <- left_join(mefs_scores, site_users) |>
   filter(!is.na(site))
 ```
 
