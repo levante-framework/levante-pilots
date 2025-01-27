@@ -1,0 +1,13 @@
+task_category,task_id,ca_pilot,co_pilot,de_pilot
+Executive function,hearts-and-flowers,2.57,2.90,3.31
+,memory-game,3.57,1.76,2.97
+,same-different-selection,9.78,4.32,9.71
+Math,egma-math,14.37,14.40,14.39
+Reasoning,matrix-reasoning,5.11,1.09,12.18
+Spatial cognition,mental-rotation,7.35,1.88,8.87
+Language,trog,6.27,6.66,8.47
+,vocab,8.66,7.69,9.52
+Reading,pa,2.18,4.37,
+,sre,6.00,3.06,3.03
+,swr,5.46,8.02,6.88
+Social cognition,theory-of-mind,9.90,9.49,11.57

@@ -167,7 +167,13 @@ write_rds(item_coefs, here("02_scored_data/irt_outputs/item_coefs.rds"))
 ```{r}
 task_rxx <- task_best |>
   mutate(rxx = map_dbl(mod, marginal_rxx)) |>
-  select(site, task_id, rxx)
+  select(site, task_id, item_type, rxx)
+
+task_rxx_wide <- task_rxx |> 
+  select(-item_type) |> 
+  pivot_wider(names_from = "site", values_from = "rxx") 
 
 write_rds(task_rxx, here("02_scored_data/irt_outputs/task_rxx.rds"))
+write_csv(task_rxx, here("02_scored_data/irt_outputs/task_rxx.csv"))
+write_csv(task_rxx_wide, here("02_scored_data/irt_outputs/task_rxx_wide.csv"))
 ```
