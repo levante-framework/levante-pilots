@@ -1,60 +1,57 @@
 ```{r}
-survey_coded <- read_rds(here("01_processed_data/survey_coded.rds"))
+survey_measurement <- read_rds(here("01_processed_data/survey_measurement.rds"))
 
-get_item_alphas <- function(survey_coded_subset) {
-  scs <- survey_coded_subset |>
-    filter(!is.na(form_construct)) |>
-    # average over multiple responses to same question
-    group_by(site, user_id, form_construct, variable) |>
-    summarise(value = mean(value, na.rm = TRUE)) |>
-    ungroup() |>
-    filter(!is.nan(value)) |>
-    # nest by construct
-    nest(data = -c(site, form_construct)) |>
-    mutate(df_vals = map(data, function(df) {
-      df |>
-        pivot_wider(names_from = variable, values_from = value) |>
-        select(-user_id) #|>
-        # na.omit()
-    })) |>
-    filter(!map_lgl(df_vals, \(dfv) ncol(dfv) == 1)) |>
-    mutate(alpha = map(df_vals, \(dfv) cronbach.alpha(dfv, na.rm = TRUE) |>
-                         unclass() |> as_tibble()))
-} #CI = TRUE
+survey_wide <- survey_measurement |>
+  select(survey_type, site, form_construct, form_subconstruct, variable, value, survey_response_id) |>
+  # nest by construct
+  nest(.by = c(survey_type, site, contains("construct"))) |>
+  mutate(df_vals = map(data, function(df) {
+    df |>
+      pivot_wider(names_from = variable, values_from = value) |>
+      select(-survey_response_id) #|>
+    # na.omit()
+  }))
 
-item_alphas <- map(survey_coded, get_item_alphas)
+survey_alphas <- survey_wide |>
+  filter(!map_lgl(df_vals, \(dfv) ncol(dfv) == 1)) |>
+  filter(!map_lgl(data, \(d) all(d$value == 0))) |>
+  mutate(alpha = map(df_vals, \(dfv) cronbach.alpha(dfv, na.rm = TRUE) |>
+                       unclass() |> as_tibble()))
 
-# get_alphas <- function(item_alphas_subset) {
-#   item_alphas_subset |>
-#     select(form_construct, alpha) |>
-#     unnest(alpha) |>
-#     mutate(probs = probs |> as_factor() |> fct_recode(lower = "0.025", upper = "0.975")) |>
-#     pivot_wider(names_from = probs, values_from = ci, names_prefix = "ci_") |>
-#     mutate(form_construct = form_construct |> fct_inorder() |> fct_rev())
-# }
-# 
-# alphas <- map(item_alphas, get_alphas)
-
-alphas <- item_alphas |>
-  enframe(name = "survey_id", value = "data") |>
-  unnest(data) |>
-  select(survey_id, site, form_construct, alpha) |>
+alphas <- survey_alphas |>
+  select(survey_type, site, form_construct, form_subconstruct, alpha) |>
   unnest(alpha)
+
+# alphas |> filter(is.nan(alpha))
+
+survey_measurement |>
+  distinct(survey_type, site, survey_response_id) |>
+  count(survey_type, site)
 ```
 
 ```{r}
-ggplot(alphas, aes(x = alpha, y = form_construct)) +
-  facet_col(vars(survey_id), scales = "free_y", space = "free") +
-  # facet_col(facets = vars(form_construct), scales = "free_y", space = "free") +
-  # geom_vline(xintercept = 0, linetype = "dotted") +
-  geom_vline(xintercept = .7, colour = "lightgrey") +
-  # geom_linerange(aes(xmin = ci_lower, xmax = ci_upper), orientation = "y", colour = "grey") +
-  geom_crossbar(aes(xmin = alpha, xmax = alpha, color = site), orientation = "y") +
-  # geom_text(aes(label = paste(p, "items")), x = 0.05,
-  #           size = 3, family = .font, hjust = 1) +
-  expand_limits(x = 0) +
-  labs(x = "Cronbach's alpha", y = "Form construct")
-# labs(x = glue("Cronbach's alpha (N = {unique(alphas$n)})"), y = "Form construct")
-ggsave(here("03_summaries/plots/survey_alphas.png"), width = 7, height = 6)
+alphas_plot <- \(stype) {
+  plt <- alphas |> filter(survey_type == stype) |>
+    ggplot(aes(x = alpha, y = form_subconstruct)) +
+    geom_vline(xintercept = .7, colour = "lightgrey") +
+    geom_crossbar(aes(xmin = alpha, xmax = alpha, color = site), orientation = "y") +
+    ggthemes::scale_colour_solarized() +
+    expand_limits(x = 0) +
+    labs(x = "Cronbach's alpha", y = NULL)
+  
+  if (stype == "caregiver") {
+    plt <- plt + facet_col(vars(form_construct), scales = "free_y", space = "free")
+  }
+  plt
+}
+
+alphas_plot("caregiver")
+ggsave(here("03_summaries/plots/survey_alphas_caregiver.png"), width = 8, height = 10)
+
+alphas_plot("student")
+ggsave(here("03_summaries/plots/survey_alphas_student.png"), width = 8, height = 5)
+
+alphas_plot("teacher")
+ggsave(here("03_summaries/plots/survey_alphas_teacher.png"), width = 8, height = 5)
 ```
 

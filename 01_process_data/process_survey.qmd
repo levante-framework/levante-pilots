@@ -15,6 +15,7 @@ sites <- c("co_pilot", "de_pilot", "ca_pilot", "us_pilot")
 survey_data <- read_rds(here("00_prepped_data/survey_data.rds"))
 user_survey_data <- survey_data |>
   unnest(survey_data) |>
+  rename(survey_child_id = child_id) |>
   mutate(survey_date = date(created_at)) |>
   select(-is_complete, -created_at) |>
   nest(survey_data = -c(site, survey_id, survey_date, user_id))
@@ -27,6 +28,9 @@ participants <- sites |>
   mutate(across(c(birth_month, birth_year), \(x) na_if(x, 0))) |>
   rename(child_id = user_id)
 
+# check that each participant only has one teacher
+# participants |> group_by(child_id, teacher_id) |> filter(n() > 1)
+
 # student survey -- user_id is child
 survey_student <- user_survey_data |>
   filter(survey_id == "student") |>
@@ -35,16 +39,27 @@ survey_student <- user_survey_data |>
   mutate(child_id = user_id)
 
 # teacher survey -- user_id is teacher
+teachers <- participants |>
+  filter(teacher_id != "") |>
+  select(site, child_id, teacher_id, contains("birth")) |>
+  nest(children = -c(site, teacher_id))
+
 survey_teacher <- user_survey_data |>
   filter(survey_id == "teacher") |>
-  left_join(participants |> select(site, child_id, teacher_id, contains("birth")),
+  left_join(teachers,
             by = c("site", "user_id" = "teacher_id"))
 
 # caregiver survey -- user_id is caregiver
 # TODO: use second caregiver when applicable
+# TODO: isolate which survey from which child
+caregivers <- participants |>
+  filter(parent1_id != "") |>
+  select(site, child_id, parent1_id, contains("birth")) |>
+  nest(children = -c(site, parent1_id))
+
 survey_caregiver <- user_survey_data |>
   filter(survey_id == "caregiver") |>
-  left_join(participants |> select(site, child_id, parent1_id, contains("birth")),
+  left_join(caregivers,
             by = c("site", "user_id" = "parent1_id"))
 
 # recombine separated out survey types
@@ -52,6 +67,11 @@ survey_combined <- bind_rows(survey_student, survey_teacher, survey_caregiver) |
   mutate(birth_date = ym(paste(birth_year, birth_month, sep = "-")),
          age = as.numeric(difftime(survey_date, birth_date, units = "days")) / 365.25) |>
   select(-contains("birth_"))
+
+# user_survey_data |>
+#   left_join(participants |> select(site, child_id, contains("birth")),
+#             by = c("site", "child_id")) |>
+#   group_by(survey_id) |> count(is.na(child_id))
 ```
 
 ```{r}
@@ -67,12 +87,13 @@ code_survey <- function(survey_responses, survey_type) {
   # read in codesheet
   form <- read_sheet(codebook, sheet = codesheets[[survey_type]], na = c("", "NA"))
   form_variables <- form |>
-    filter(!is.na(variable_name)) |>
-    mutate(form_construct = fct_inorder(form_construct),
+    filter(!is.na(variable_name), !str_detect(item_text, "Instructions")) |>
+    mutate(#form_construct = fct_inorder(form_construct),
            variable_order = 1:n(),
            # TODO: throws coercion warnings that aren't actually a problem
            values = response_options |> str_split(", ") |> map(as.numeric)) |>
-    select(variable = variable_name, variable_order, form_construct, reverse_coded, values)
+    select(variable = variable_name, variable_order, contains("construct"),
+           question_type, reverse_coded, values)
 
   # get survey data for given survey type
   # survey_responses <- survey_combined |>
@@ -107,7 +128,38 @@ survey_coded <- survey_combined |>
   deframe() |>
   imap(code_survey)
 
+survey_measurement <- survey_coded |>
+  list_rbind(names_to = "survey_type") |>
+  group_by(survey_type) |>
+  mutate(form_subconstruct = if_else(is.na(form_subconstruct),
+                                     form_construct, form_subconstruct)) |>
+  ungroup() |>
+  filter(!is.na(form_construct), !is.na(question_type),
+         question_type == "Measurement") |>
+  # group_by(site, user_id, child_id, administration_id,
+  #          form_construct, form_subconstruct, variable) |>
+  # filter(n() == 7) |> View() #HomeNSCHi7a
+  # count(site, user_id, child_id, administration_id,
+  #          form_construct, form_subconstruct, variable) |>
+  # filter(n >= 4) |> View()
+  # count(n)
+  # average over multiple responses to same question
+  group_by(survey_type, site, user_id, child_id, survey_response_id, form_construct,
+           form_subconstruct, variable, age) |>
+  summarise(value = mean(value, na.rm = TRUE),
+            n_responses = n()) |>
+  ungroup() |>
+  filter(!is.nan(value)) |>
+  mutate(form_construct = as_factor(form_construct),
+         form_subconstruct = as_factor(form_subconstruct))
+
+# TODO: check why there are some duplicate responses
+survey_measurement |>
+  filter(n_responses > 1) |>
+  count(survey_type, site, n_responses)
+  
 write_rds(survey_coded, here("01_processed_data/survey_coded.rds"))
+write_rds(survey_measurement, here("01_processed_data/survey_measurement.rds"))
 
 # survey_student_coded <- code_survey("student", "Child Forms")
 # survey_caregiver_coded <- code_survey("caregiver", "Caregiver Forms")
