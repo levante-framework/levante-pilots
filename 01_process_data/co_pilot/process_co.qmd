@@ -21,6 +21,7 @@ hearts_and_flowers <- process_hearts_and_flowers(task_data,
 mg <- process_mg(task_data)
 egma <- process_egma(task_data)
 # tom <- process_tom(task_data)
+
 ```
 
 CO special cases
@@ -81,7 +82,7 @@ CO bogota administration had a bug and some administrations ended up with only t
 pa_all <- task_data |>
   filter(task_id == "pa-es")
 
-more_than_two_trial_runs <- pa |>
+more_than_two_trial_runs <- pa_all |>
   group_by(run_id) |>
   count() |>
   filter(n > 2) |>
@@ -96,7 +97,7 @@ pa <- pa_all |>
 task_data_coded <- task_data |>
   filter(!task_id %in% c("trog", "vocab", "same-different-selection","hearts-and-flowers",
                         "memory-game","egma-math", "theory-of-mind","pa-es")) |>
-  bind_rows(pa)
+  bind_rows(pa) |>
   bind_rows(trog) |> 
   bind_rows(vocab) |>
   bind_rows(sds) |>
