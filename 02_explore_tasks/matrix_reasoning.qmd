@@ -1,0 +1,73 @@
+```{r}
+library(tidyverse)
+library(glue)
+library(here)
+
+sites <- c("ca_pilot", "co_pilot", "de_pilot")
+
+task_data_nested <- sites |>
+  set_names() |>
+  map(\(s) read_rds(here(glue("01_processed_data/{s}/task_data_nested.rds")))) |>
+  list_rbind(names_to = "site")
+
+task_data_combined <- task_data_nested |>
+  select(-task_id) |>
+  unnest(data)
+
+mr <- filter(task_data_combined, 
+             task_id %in% c("matrix-reasoning"))
+```
+
+Get ages. 
+
+```{r}
+participants <- sites |>
+  set_names() |>
+  map(\(s) read_rds(here(glue("00_prepped_data/{s}/participants.rds")))) |>
+  list_rbind(names_to = "site")
+
+run_ages <- participants |>
+  select(user_id, ages) |>
+  unnest(ages)
+
+# this is useful below for various simplifications
+ages <- run_ages |>
+  group_by(user_id) |>
+  summarise(age = mean(age))
+
+mr <- left_join(mr, run_ages)
+```
+
+
+# Sumscores
+
+
+```{r}
+mr_runs <- mr |>
+  group_by(site, user_id, run_id) |>
+  summarise(correct = mean(correct), 
+            age = mean(age))
+
+mr_runs |> filter(age < 13) |>
+  ggplot(aes(x = age, y = correct)) + 
+  geom_point(alpha = .5) + 
+  geom_smooth(method = "loess", lambda = 1) +
+  facet_wrap(. ~ site)
+```
+
+# Response Times
+
+Median correct RT vs. number correct
+
+```{r}
+mr |> filter(correct==1) |>
+  mutate(rt = as.numeric(rt)) |>
+  group_by(site, user_id, run_id) |>
+  summarise(n_correct=n(), median_rt = median(rt, na.rm=T)) |>
+  ggplot(aes(x=n_correct, y=median_rt)) + 
+  geom_point(alpha = .5) + 
+  geom_smooth(method = "loess", lambda = 1) +
+  facet_wrap(. ~ site) + 
+  theme_classic()
+```
+

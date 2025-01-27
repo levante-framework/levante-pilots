@@ -5,9 +5,11 @@ library(knitr)
 
 pipeline_files <- c("00_prep_data/prep_all_sites.qmd",
                     "01_process_data/process_all_sites.qmd",
-                    "02_score_data/score_all_sites.qmd")
+                    "02_score_data/score_all_sites.qmd",
+                    "03_summaries/line_go_up.qmd")
 
 map(pipeline_files, \(f) {
+  print(f)
   purl(here(f), output = "temp.R", quiet = TRUE)
   source("temp.R")  
   unlink("temp.R")

@@ -20,7 +20,7 @@ add_trial_number <- function (df) {
 clean_item_ids <- function(df) {
   df |>
     # id other items as just item
-    mutate(item_id = if_else(!is.na(item_id) | item_id=="", item_id, item)) |>
+    mutate(item_id = if_else(!is.na(item_id) & item_id!="", item_id, item)) |>
     # hyphens in item names mess up mirt constraints (yes really)
     mutate(item_id = item_id |> str_replace_all("-", "_"))
 }
