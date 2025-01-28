@@ -1,92 +1,69 @@
 school,task_category,task,user_id,score
-ColA,Math,egma-math,OFeNyBR6nZUwylobspAs7kcPeY22,1.5922948462112023
-ColA,Executive function,hearts-and-flowers,4Hz32FS3tpf0LjKFFUAgLnBvoDd2,0.7670845358284709
-ColA,Reasoning,matrix-reasoning,SbDhDR52bkPDMeWbW185Q1gTOJT2,0.8434994740334386
+ColA,Math,egma-math,OFeNyBR6nZUwylobspAs7kcPeY22,1.927298151097928
+ColA,Executive function,hearts-and-flowers,4Hz32FS3tpf0LjKFFUAgLnBvoDd2,0.7671076899831496
+ColA,Reasoning,matrix-reasoning,SbDhDR52bkPDMeWbW185Q1gTOJT2,1.1218356599863941
 ColA,Executive function,mefs,4Hz32FS3tpf0LjKFFUAgLnBvoDd2,88
-ColA,Executive function,memory-game,4Hz32FS3tpf0LjKFFUAgLnBvoDd2,2.1672279329770943
-ColA,Spatial cognition,mental-rotation,SbDhDR52bkPDMeWbW185Q1gTOJT2,1.4091513533410933
-ColA,Reading,pa-es,FGq8H0BVdjQkTXbl4QhVL8aPiWp2,0.5
-ColA,Reading,pa-es,K0JVy3QcsBPPu2PJwUlHzzK8Mks1,0.5
-ColA,Reading,pa-es,gtss6GfKY9fC64sauilUci8Cms72,0.5
-ColA,Reading,pa-es,hzDxJ8g1DvMeK1HJxodpIqSUB0Z2,0.5
-ColA,Executive function,same-different-selection,4Hz32FS3tpf0LjKFFUAgLnBvoDd2,1.8061565090597922
+ColA,Executive function,memory-game,4Hz32FS3tpf0LjKFFUAgLnBvoDd2,2.1670559300098047
+ColA,Spatial cognition,mental-rotation,SbDhDR52bkPDMeWbW185Q1gTOJT2,2.118660813517221
+ColA,Executive function,same-different-selection,4Hz32FS3tpf0LjKFFUAgLnBvoDd2,1.806156510578237
 ColA,Reading,sre-es,vWiO6XaHwtP831X1Tst8FtwTDGG2,0.3
 ColA,Reading,swr-es,SbDhDR52bkPDMeWbW185Q1gTOJT2,2.0236427271399915
-ColA,Language,vocab,FGq8H0BVdjQkTXbl4QhVL8aPiWp2,1.065095146891405
-ColB,Math,egma-math,t814HH001agzwKalv8MIR2fu9eF2,1.8847320558929026
-ColB,Math,egma-math,j8KNRekorbWrpLoUaJrl7H2NSoz2,1.7781783615413433
-ColB,Math,egma-math,OqPlx2ZmPDUuAfuwodrc1gwwR5t1,1.6570904652263296
-ColB,Math,egma-math,cnmkz3WMgtZPUBUkofrY5BUebHQ2,1.6703151135760583
-ColB,Math,egma-math,ZBPpbxzvXEdyavMcFe6Q7N9uiXi2,1.8109939114066942
-ColB,Math,egma-math,UhYt40T8tyQZKZ1sy7Kr2jEohWX2,1.738125905547316
-ColB,Math,egma-math,bza62wSEd4UsgYWrvurMPvGZ0y52,1.8622314832024278
-ColB,Executive function,hearts-and-flowers,eT4wYiNATggCJYoMzKbP1UPqQzl2,1.288867778128834
-ColB,Executive function,hearts-and-flowers,cnmkz3WMgtZPUBUkofrY5BUebHQ2,1.594067305794644
-ColB,Executive function,hearts-and-flowers,PJZLUdfE10MK1B7UXBOnBZy033C2,1.594067305794644
+ColA,Language,vocab,FGq8H0BVdjQkTXbl4QhVL8aPiWp2,1.0652314592455638
+ColB,Math,egma-math,gxGIEPGtHuMANH9tS2sT1lxZ8Fu1,2.1174387426226566
+ColB,Math,egma-math,t814HH001agzwKalv8MIR2fu9eF2,2.253918969181957
+ColB,Math,egma-math,j8KNRekorbWrpLoUaJrl7H2NSoz2,2.1064986318904895
+ColB,Math,egma-math,OqPlx2ZmPDUuAfuwodrc1gwwR5t1,2.209482887096979
+ColB,Math,egma-math,cnmkz3WMgtZPUBUkofrY5BUebHQ2,2.247930167491355
+ColB,Math,egma-math,ZBPpbxzvXEdyavMcFe6Q7N9uiXi2,2.420539357190326
+ColB,Math,egma-math,bza62wSEd4UsgYWrvurMPvGZ0y52,2.195706220235688
+ColB,Executive function,hearts-and-flowers,eT4wYiNATggCJYoMzKbP1UPqQzl2,1.2888908784584276
+ColB,Executive function,hearts-and-flowers,cnmkz3WMgtZPUBUkofrY5BUebHQ2,1.5940866001895397
+ColB,Executive function,hearts-and-flowers,PJZLUdfE10MK1B7UXBOnBZy033C2,1.5940866001895397
 ColB,Social cognition,hostile-attribution,0dTcKwmvfjQKvgKcj7wjzQg8Fd33,0.8333333333333334
 ColB,Social cognition,hostile-attribution,9xxmKjFXKpbJLMQALGCp98962EP2,0.6666666666666666
 ColB,Social cognition,hostile-attribution,NVW4WBokDoZKHIReiND0gcAjvM22,0.8333333333333334
 ColB,Social cognition,hostile-attribution,y0xcxNqWI9YOVrjxSh4HxJLnMFq1,0.6666666666666666
-ColB,Reasoning,matrix-reasoning,fx6KWVXZ6rW2ZVghSW3cTNY3mAD3,0.8411085637988874
-ColB,Reasoning,matrix-reasoning,fJ03YCmXFqX3RT1ZxH2D71deK7z2,0.8310918910299988
-ColB,Reasoning,matrix-reasoning,ofcokQQ52pNDNMlOBPcrrIw0jf13,0.8411085644648256
+ColB,Reasoning,matrix-reasoning,pNZ0jHlsd9gNiaI5SfEIfeZIp8y2,1.2719483141869972
+ColB,Reasoning,matrix-reasoning,fx6KWVXZ6rW2ZVghSW3cTNY3mAD3,1.116669004434768
+ColB,Reasoning,matrix-reasoning,fJ03YCmXFqX3RT1ZxH2D71deK7z2,1.4164250554189304
 ColB,Executive function,mefs,aHnIyZpnqESKA2knuA6ipidfYm82,91
 ColB,Executive function,mefs,cnmkz3WMgtZPUBUkofrY5BUebHQ2,92
 ColB,Executive function,mefs,PJZLUdfE10MK1B7UXBOnBZy033C2,91
-ColB,Executive function,memory-game,DoieqIlrhpaMs7cNn5tKSPjJ0Oj1,2.5241864945350665
-ColB,Executive function,memory-game,PJZLUdfE10MK1B7UXBOnBZy033C2,2.339894263929278
-ColB,Executive function,memory-game,u4OnbRpDwZh4sAQTHOPiuUwoKb63,2.2741611313785497
-ColB,Spatial cognition,mental-rotation,dLLutj9sPXcUytyOKj8BzJyaoPi2,1.5639964382252958
-ColB,Spatial cognition,mental-rotation,BcwCPWr7FMawUWHiFrMwdscyvOg1,1.575804866220807
-ColB,Spatial cognition,mental-rotation,bdlSfDdcx9U3HNHXqMHWtoGDV4i2,1.5838547162871703
-ColB,Reading,pa-es,4CHx7CPq5dRCAq4q293zfkVESpg1,1
-ColB,Reading,pa-es,4wqlYmRfZzcMq0K9PdvAsD33EYp2,1
-ColB,Reading,pa-es,5OcV1ybSiQXiFzWG9Ifwc2TaraO2,1
-ColB,Reading,pa-es,Ae519QrloMUEAipq1MQ7aLvHiPr2,1
-ColB,Reading,pa-es,AiTNTNzEHtZLmIjEHPoUxdfg7kg2,1
-ColB,Reading,pa-es,BciajP0cn9ZSSBEPjHEZvIC83K03,1
-ColB,Reading,pa-es,EviISqFZuhNldRrMDE7NZwrXu3p2,1
-ColB,Reading,pa-es,Iw4FBY5nuccLsmrCHbQUFI4QBtC2,1
-ColB,Reading,pa-es,Qxtz9MNyt5alG7gZ5Vlv4blwGer2,1
-ColB,Reading,pa-es,Vh7Rjo81XpUhfe8VVSa7KQkjhid2,1
-ColB,Reading,pa-es,YlEufgNWmrQr9Wxx3Wxu3oCQjA82,1
-ColB,Reading,pa-es,aBvDcSMSVWfazcmBbeAAi0zK0Zk1,1
-ColB,Reading,pa-es,oEHZXEh9wxUfSf5nE1vwn2CtChY2,1
-ColB,Reading,pa-es,sdJtdQXoSigchndoy98XspGLNhu1,1
-ColB,Reading,pa-es,sq5DsRwQU1WZjeRMljxqf7OXWus1,1
-ColB,Reading,pa-es,tpSbtKQcyaOACOUTaAdbxsRCR6M2,1
-ColB,Reading,pa-es,tpSbtKQcyaOACOUTaAdbxsRCR6M2,1
-ColB,Reading,pa-es,tpSbtKQcyaOACOUTaAdbxsRCR6M2,1
-ColB,Reading,pa-es,xgZmkYyRj8UkC51ZCjfXqJVo47B2,1
-ColB,Executive function,same-different-selection,aHnIyZpnqESKA2knuA6ipidfYm82,1.9092475954713393
-ColB,Executive function,same-different-selection,u4OnbRpDwZh4sAQTHOPiuUwoKb63,2.134088156342254
-ColB,Executive function,same-different-selection,gqnl4sQMAhgqRVGsZCD8HVNh6bC3,1.9211792943645964
-ColB,Reading,sre-es,2VoHASFRmPQPMM9RUGjFEDnopNz1,0.3
-ColB,Reading,sre-es,YlEufgNWmrQr9Wxx3Wxu3oCQjA82,0.25555555555555554
-ColB,Reading,sre-es,eT4wYiNATggCJYoMzKbP1UPqQzl2,0.24444444444444444
-ColB,Reading,sre-es,tpSbtKQcyaOACOUTaAdbxsRCR6M2,0.31666666666666665
+ColB,Executive function,memory-game,DoieqIlrhpaMs7cNn5tKSPjJ0Oj1,2.523978171745736
+ColB,Executive function,memory-game,PJZLUdfE10MK1B7UXBOnBZy033C2,2.339699033907527
+ColB,Executive function,memory-game,u4OnbRpDwZh4sAQTHOPiuUwoKb63,2.2739586315094322
+ColB,Spatial cognition,mental-rotation,BcwCPWr7FMawUWHiFrMwdscyvOg1,2.641458053232205
+ColB,Spatial cognition,mental-rotation,fx6KWVXZ6rW2ZVghSW3cTNY3mAD3,2.512790166643132
+ColB,Spatial cognition,mental-rotation,bCZjduDwiHhDtZ6KW4v9K0OlliB2,2.5127901666179016
+ColB,Executive function,same-different-selection,aHnIyZpnqESKA2knuA6ipidfYm82,1.9092475951420864
+ColB,Executive function,same-different-selection,u4OnbRpDwZh4sAQTHOPiuUwoKb63,2.134088156864432
+ColB,Executive function,same-different-selection,gqnl4sQMAhgqRVGsZCD8HVNh6bC3,1.9211792914538992
+ColB,Reading,sre-es,cnmkz3WMgtZPUBUkofrY5BUebHQ2,0.3111111111111111
+ColB,Reading,sre-es,sq5DsRwQU1WZjeRMljxqf7OXWus1,0.3111111111111111
+ColB,Reading,sre-es,sq5DsRwQU1WZjeRMljxqf7OXWus1,0.3055555555555556
+ColB,Reading,sre-es,tpSbtKQcyaOACOUTaAdbxsRCR6M2,0.35555555555555557
 ColB,Reading,swr-es,gzZoMQIyHChDVTbvft69ETD7le73,2.943229271472506
 ColB,Reading,swr-es,pNZ0jHlsd9gNiaI5SfEIfeZIp8y2,3.364917473391659
 ColB,Reading,swr-es,YnhMGWMiAsXQIRD1kAhNlWPyM5Q2,2.9432292730983587
 ColB,Reading,swr-es,fJ03YCmXFqX3RT1ZxH2D71deK7z2,3.3649174723536324
 ColB,Reading,swr-es,pA9xNQ83AzcHMXOD8WfP523EDt73,2.9432292608691486
-ColB,Social cognition,theory-of-mind,U7tijhjqXje1P7UvCDY24KKVF0s2,1.9355094229636736
-ColB,Social cognition,theory-of-mind,UhYt40T8tyQZKZ1sy7Kr2jEohWX2,1.8386222730565434
-ColB,Social cognition,theory-of-mind,9VKWllepuXbr0vBopMUTxhfOlKa2,1.3231803116553882
-ColB,Language,trog,XYpOTtsolPRB36ty9sPDaYA1w332,1.6723809160512615
-ColB,Language,trog,qOZTahVM4cZxmmvma4Zm8vvhmqG2,1.5029525525540617
-ColB,Language,trog,PHP0rbGQxJg8yTWJvlzr6QIHF4C2,1.860063582943857
-ColC,Math,egma-math,HuZNBdZLAsQLAVeTMAjqtwbx1Vv1,1.3091345675564265
-ColC,Math,egma-math,AyQFtZQIfNbXR9t7W8ZaUwkeg8x1,1.4240607877787248
-ColC,Math,egma-math,ISAcYfW34DdmNM3fGySgSQtpoZR2,1.474161515478904
-ColC,Math,egma-math,uMZq8CrQmpcLH6bt0YVybaGOtgn2,1.5961817586259464
-ColC,Math,egma-math,9mdnR4cPioMm9qy6BawhmBsFwWt1,1.873145589771833
-ColC,Math,egma-math,AY19O1mPI5Te9ETaUyCFY3FTxgH3,1.3722447680212222
-ColC,Math,egma-math,LMITcffb9gSM21lxAwJC52CkHnI3,1.596181758162343
-ColC,Executive function,hearts-and-flowers,5EhkUj1kt2bNOySiuq0GUTn5Kj93,1.594067305794644
-ColC,Executive function,hearts-and-flowers,LYpDEAFU4mfpOv1sz98hVbIJO0E3,1.594067305794644
-ColC,Executive function,hearts-and-flowers,AY19O1mPI5Te9ETaUyCFY3FTxgH3,1.594067305794644
-ColC,Executive function,hearts-and-flowers,fNMYjH3WhORxq1pS67jBxBJayPD3,1.594067305794644
+ColB,Social cognition,theory-of-mind,U7tijhjqXje1P7UvCDY24KKVF0s2,1.935509424103024
+ColB,Social cognition,theory-of-mind,UhYt40T8tyQZKZ1sy7Kr2jEohWX2,1.838622273083067
+ColB,Social cognition,theory-of-mind,9VKWllepuXbr0vBopMUTxhfOlKa2,1.323180312224762
+ColB,Language,trog,XYpOTtsolPRB36ty9sPDaYA1w332,1.6723809096540465
+ColB,Language,trog,8V4OlSst3hUMsszICeLq478chkB2,1.5029525463245716
+ColB,Language,trog,PHP0rbGQxJg8yTWJvlzr6QIHF4C2,1.8600635756737938
+ColC,Math,egma-math,mKstrw3wpFQb67rg4Vwnqabl26C2,1.7744802070817534
+ColC,Math,egma-math,uMZq8CrQmpcLH6bt0YVybaGOtgn2,2.1562153990321105
+ColC,Math,egma-math,9mdnR4cPioMm9qy6BawhmBsFwWt1,2.4515391901195343
+ColC,Math,egma-math,AY19O1mPI5Te9ETaUyCFY3FTxgH3,1.8197824333954022
+ColC,Math,egma-math,WXtdKC14KSPOoBBzajETG6A5gmN2,1.721881696502475
+ColC,Math,egma-math,LMITcffb9gSM21lxAwJC52CkHnI3,2.156215400065849
+ColC,Math,egma-math,6hHwsIFgdhWdmH2AdCDxyPKH7eG2,2.0027677662210217
+ColC,Executive function,hearts-and-flowers,5EhkUj1kt2bNOySiuq0GUTn5Kj93,1.5940866001895397
+ColC,Executive function,hearts-and-flowers,LYpDEAFU4mfpOv1sz98hVbIJO0E3,1.5940866001895397
+ColC,Executive function,hearts-and-flowers,AY19O1mPI5Te9ETaUyCFY3FTxgH3,1.5940866001895397
+ColC,Executive function,hearts-and-flowers,fNMYjH3WhORxq1pS67jBxBJayPD3,1.5940866001895397
 ColC,Social cognition,hostile-attribution,0PwkIeRvCkbVHQh7w2JAZmAGccG3,0.3333333333333333
 ColC,Social cognition,hostile-attribution,I0Iz69mZ4rNF47H6ciafWPP1tgJ3,0.5
 ColC,Social cognition,hostile-attribution,IYlnAkuADKhotJ4geijJckJ1kVH3,0.3333333333333333
@@ -96,112 +73,97 @@ ColC,Social cognition,hostile-attribution,ZXIYETRq6zOEqKFyPVmBwSC6b9c2,0.3333333
 ColC,Social cognition,hostile-attribution,geW32fYBa6Wqtvmz3fzQgUCk4d02,0.3333333333333333
 ColC,Social cognition,hostile-attribution,lho2qw2CNAZ6DeEU3j8f1WJszAC2,0.3333333333333333
 ColC,Social cognition,hostile-attribution,mStjd19wHfP7s1DkwIa6jM6QoyR2,0.3333333333333333
-ColC,Reasoning,matrix-reasoning,jwLdZpKr3Ua6nLX1k3s7w2PV2Rx1,0.6200336192090884
-ColC,Reasoning,matrix-reasoning,4N3JOomQxNgzDECP03VG7xHaeao2,0.8434994750984682
+ColC,Reasoning,matrix-reasoning,jwLdZpKr3Ua6nLX1k3s7w2PV2Rx1,0.8975253237758375
+ColC,Reasoning,matrix-reasoning,4N3JOomQxNgzDECP03VG7xHaeao2,1.1218356600838932
 ColC,Executive function,mefs,DRJzbtUSegXILJqZ4M8Qia2Fiq22,89
 ColC,Executive function,mefs,AY19O1mPI5Te9ETaUyCFY3FTxgH3,90
-ColC,Executive function,memory-game,XOfZjjcyHwenbmNCh6hhEzh8zMM2,1.9866615666934369
-ColC,Executive function,memory-game,65d0xZzUHIZbrbWiyLpau4d26Im2,2.169238290003129
-ColC,Spatial cognition,mental-rotation,uMZq8CrQmpcLH6bt0YVybaGOtgn2,1.3379852724578376
-ColC,Spatial cognition,mental-rotation,q2Hhyg0ooPMaMfDvbKpfgdcSAhk1,1.3021792075998782
-ColC,Executive function,same-different-selection,DRJzbtUSegXILJqZ4M8Qia2Fiq22,1.3298333933903534
-ColC,Executive function,same-different-selection,ye7ayutHzZeZc1SRRkc2N7uLcBI3,1.1554121568300204
-ColC,Reading,sre-es,8sQk8ZsPsCcPc7UJ9b6btuoCRZW2,0.25
-ColC,Reading,sre-es,ULRPLSOTOTZFxPOLeyOwLDR6JEE2,0.25555555555555554
-ColC,Reading,sre-es,Xe2CcBmOWGU8m7nQ78ZDmAoJqow1,0.2611111111111111
+ColC,Executive function,memory-game,XOfZjjcyHwenbmNCh6hhEzh8zMM2,1.9865069288903812
+ColC,Executive function,memory-game,65d0xZzUHIZbrbWiyLpau4d26Im2,2.169063327078
+ColC,Spatial cognition,mental-rotation,9mdnR4cPioMm9qy6BawhmBsFwWt1,2.138571898575437
+ColC,Spatial cognition,mental-rotation,q2Hhyg0ooPMaMfDvbKpfgdcSAhk1,2.3922896578922765
+ColC,Executive function,same-different-selection,DRJzbtUSegXILJqZ4M8Qia2Fiq22,1.3298333919448995
+ColC,Executive function,same-different-selection,ye7ayutHzZeZc1SRRkc2N7uLcBI3,1.15541215325679
+ColC,Reading,sre-es,8sQk8ZsPsCcPc7UJ9b6btuoCRZW2,0.25555555555555554
+ColC,Reading,sre-es,ULRPLSOTOTZFxPOLeyOwLDR6JEE2,0.2611111111111111
+ColC,Reading,sre-es,Xe2CcBmOWGU8m7nQ78ZDmAoJqow1,0.26666666666666666
 ColC,Reading,sre-es,ye7ayutHzZeZc1SRRkc2N7uLcBI3,0.23333333333333334
 ColC,Reading,swr-es,g0vqcTVjXKaklfjn3EK0BZkQMcG2,2.397226814511523
 ColC,Reading,swr-es,IYlnAkuADKhotJ4geijJckJ1kVH3,2.1968423839493707
 ColC,Reading,swr-es,vnfkYncDiZTjquGhBGvFhrQAeD13,2.3972268152641796
 ColC,Reading,swr-es,VA2oUZ6OL9VhQl95T4Y2mMKrZEp1,2.3972268198540094
-ColC,Social cognition,theory-of-mind,mStjd19wHfP7s1DkwIa6jM6QoyR2,1.6494535847769616
-ColC,Social cognition,theory-of-mind,5R3uzbjbw8MM7S147veHAGIXl6k2,1.9049718182820423
-ColC,Language,trog,GU9aNHT6IvZhFdlCfUhc93MssJ23,1.5029525528796854
-ColC,Language,trog,dTpG4kgVsoSp0VPcfG9Khstj8383,1.3484577708985153
-ColC,Language,trog,wbnUV4EIx3MUwwSnQT7mI94o21J2,1.4915821367255058
-ColC,Language,trog,IYlnAkuADKhotJ4geijJckJ1kVH3,1.348457770911556
-ColC,Language,vocab,dPQbR2eU1CcJGehvIrcfNifCHSd2,1.2355845246593655
-ColC,Language,vocab,DAVgcPQZIUTHyWPngKfB50rmvvq1,1.2492744422143673
-ColD,Math,egma-math,grC0FIvxugTnfcWOikSeu2iD5R23,1.4267470140870164
-ColD,Math,egma-math,LCb24G5HmtSLlGgYtLCYguifOX73,1.289062083458484
-ColD,Math,egma-math,HnVblfc5NGX6w7x9U5aD00U2f7g1,2.322873902321195
-ColD,Math,egma-math,hfaB2damfYhxpGqqoWOH6jIn1Zi2,1.3425160373722542
-ColD,Math,egma-math,r2GP3PmkHnRv3MBIhvyCP7CJYrC3,1.360333234577778
-ColD,Math,egma-math,9b2a5bPhXmWz6gl4xad1L7sOW7c2,1.5415947031359938
-ColD,Math,egma-math,OqOKSy6oAKZ2GUEX2Fo6HqXhEzv2,1.2473052027302087
-ColD,Math,egma-math,wZipIKqFaqNSlOfBxXAt6oH952D2,1.2981816078983426
-ColD,Math,egma-math,kHTAQurDYXZ7dbwfwnX5EndVes02,1.4148849875451046
-ColD,Executive function,hearts-and-flowers,HnVblfc5NGX6w7x9U5aD00U2f7g1,1.594067305794644
-ColD,Executive function,hearts-and-flowers,mAvaj4eJeeXFXGndrtN5TIwKjyU2,1.594067305794644
-ColD,Executive function,hearts-and-flowers,E8SKMg75DWV6lXS8yi3UJf65mVm1,1.594067305794644
-ColD,Executive function,hearts-and-flowers,EdyyoUjuMMWpF0RUR7PX3Ba1CQ82,1.594067305794644
+ColC,Social cognition,theory-of-mind,mStjd19wHfP7s1DkwIa6jM6QoyR2,1.649453584372945
+ColC,Social cognition,theory-of-mind,5R3uzbjbw8MM7S147veHAGIXl6k2,1.9049718178723074
+ColC,Language,trog,GU9aNHT6IvZhFdlCfUhc93MssJ23,1.5029525465724747
+ColC,Language,trog,AyQFtZQIfNbXR9t7W8ZaUwkeg8x1,1.348457764462625
+ColC,Language,trog,wbnUV4EIx3MUwwSnQT7mI94o21J2,1.491582130905756
+ColC,Language,trog,IYlnAkuADKhotJ4geijJckJ1kVH3,1.3484577638524173
+ColC,Language,vocab,dPQbR2eU1CcJGehvIrcfNifCHSd2,1.2357218101884329
+ColC,Language,vocab,DAVgcPQZIUTHyWPngKfB50rmvvq1,1.2494113225378958
+ColD,Math,egma-math,grC0FIvxugTnfcWOikSeu2iD5R23,1.9832523340137316
+ColD,Math,egma-math,LCb24G5HmtSLlGgYtLCYguifOX73,1.8936268578836586
+ColD,Math,egma-math,HnVblfc5NGX6w7x9U5aD00U2f7g1,2.739240414898266
+ColD,Math,egma-math,JBnkgPRLC8dQGGAnLa69FE5gHVn2,1.8607825258195012
+ColD,Math,egma-math,hfaB2damfYhxpGqqoWOH6jIn1Zi2,1.8645597389860602
+ColD,Math,egma-math,r2GP3PmkHnRv3MBIhvyCP7CJYrC3,1.9715084864655301
+ColD,Math,egma-math,9b2a5bPhXmWz6gl4xad1L7sOW7c2,2.1037502884720656
+ColD,Math,egma-math,OqOKSy6oAKZ2GUEX2Fo6HqXhEzv2,1.7321088301953278
+ColD,Math,egma-math,kHTAQurDYXZ7dbwfwnX5EndVes02,1.8805215542790548
+ColD,Executive function,hearts-and-flowers,HnVblfc5NGX6w7x9U5aD00U2f7g1,1.5940866001895397
+ColD,Executive function,hearts-and-flowers,mAvaj4eJeeXFXGndrtN5TIwKjyU2,1.5940866001895397
+ColD,Executive function,hearts-and-flowers,E8SKMg75DWV6lXS8yi3UJf65mVm1,1.5940866001895397
+ColD,Executive function,hearts-and-flowers,EdyyoUjuMMWpF0RUR7PX3Ba1CQ82,1.5940866001895397
 ColD,Social cognition,hostile-attribution,DolqxYGVRfMV4lQbLSKbFCIVzwS2,0.8333333333333334
 ColD,Social cognition,hostile-attribution,GVGluPyMNdaYoJ0DehzlfJmEX2e2,0.8333333333333334
 ColD,Social cognition,hostile-attribution,H7uOO2lYARfZBVclZByY9qv7Wtf2,1
 ColD,Social cognition,hostile-attribution,V3EbvhhlzRWEBnFjVMynEZld1iE2,0.8333333333333334
-ColD,Reasoning,matrix-reasoning,xH4QOO4IMcUKcUEEYIgvMqQFqZs2,0.6099055053613107
-ColD,Reasoning,matrix-reasoning,ozQamYctCwduCFlZrC4d0vCgkT42,0.6289348200596632
-ColD,Reasoning,matrix-reasoning,t4hDSS7nZIfQQR2roKVC3sjjXsz1,0.6099055053613107
-ColD,Reasoning,matrix-reasoning,4A2BnGRf8IYE7pbsHp9rQwDWz7h1,0.7311919113935271
-ColD,Reasoning,matrix-reasoning,axh77jh6Rphh7YBwDbakJLuP1F73,0.6099055053613107
+ColD,Reasoning,matrix-reasoning,grC0FIvxugTnfcWOikSeu2iD5R23,0.673864549269901
+ColD,Reasoning,matrix-reasoning,xH4QOO4IMcUKcUEEYIgvMqQFqZs2,0.6636443950175187
+ColD,Reasoning,matrix-reasoning,ozQamYctCwduCFlZrC4d0vCgkT42,1.0439532298092429
+ColD,Reasoning,matrix-reasoning,t4hDSS7nZIfQQR2roKVC3sjjXsz1,0.6636443950175187
+ColD,Reasoning,matrix-reasoning,4A2BnGRf8IYE7pbsHp9rQwDWz7h1,0.9790776499973883
+ColD,Reasoning,matrix-reasoning,axh77jh6Rphh7YBwDbakJLuP1F73,0.6636443950175187
 ColD,Executive function,mefs,HnVblfc5NGX6w7x9U5aD00U2f7g1,92
 ColD,Executive function,mefs,E8SKMg75DWV6lXS8yi3UJf65mVm1,89
 ColD,Executive function,mefs,o0ql5wuvJsf55xzwSD6sOskXKGo1,89
 ColD,Executive function,mefs,Yc875AW2GDQaQ1sur5IVMbSaxCx1,91
-ColD,Executive function,memory-game,uXyUxqoiLBQ0ZOcfbujbyLJlqwc2,2.999134410846893
-ColD,Executive function,memory-game,HnVblfc5NGX6w7x9U5aD00U2f7g1,4.177067703566546
-ColD,Executive function,memory-game,9b2a5bPhXmWz6gl4xad1L7sOW7c2,2.559010104664939
-ColD,Executive function,memory-game,E8SKMg75DWV6lXS8yi3UJf65mVm1,2.500181613253724
-ColD,Spatial cognition,mental-rotation,xH4QOO4IMcUKcUEEYIgvMqQFqZs2,1.9803526936170666
-ColD,Spatial cognition,mental-rotation,LxpawLsN1zOE8a1W0b5xpiVgwc02,1.548233665602733
-ColD,Spatial cognition,mental-rotation,ozQamYctCwduCFlZrC4d0vCgkT42,1.8892130181694466
-ColD,Spatial cognition,mental-rotation,4A2BnGRf8IYE7pbsHp9rQwDWz7h1,1.619032037318669
-ColD,Reading,pa-es,1QxImuiGFmWn6lem8mPsECSpeos2,1
-ColD,Reading,pa-es,1sto9apFTvW3CL4CICje8WZZO9I2,1
-ColD,Reading,pa-es,CVDuEYYxKfgJtDvuxD8Yv5vRj952,1
-ColD,Reading,pa-es,Ein0Rip13HeKiQTS0z7H8dFQRvF3,1
-ColD,Reading,pa-es,FfrcP2IoGbeO42ZcBe7Dr8jgc4G2,1
-ColD,Reading,pa-es,I6m6o6bJmzWDBhRidc479EWhIPA3,1
-ColD,Reading,pa-es,I81GEGxndmWk6L4AOhH5x5Cbu6s1,1
-ColD,Reading,pa-es,Nr4T5w3e3TbL9Ay95jMHTQZkXoI2,1
-ColD,Reading,pa-es,VJpdrXYwQXXUO9pUMOA6sFboMEC3,1
-ColD,Reading,pa-es,XJVj23NsvCRM0D5mPLzbneUgZYy2,1
-ColD,Reading,pa-es,YSamyJ9s7ZaCMSLkjB9L6br9IFF2,1
-ColD,Reading,pa-es,dx916jC1LXN4PY5gRnh2bMH36463,1
-ColD,Reading,pa-es,gR6AMhzCjGW4I2GQ8ZaH3b0NmQh2,1
-ColD,Reading,pa-es,pwwWo9Je6LbHL41sxHkZryg8cYg2,1
-ColD,Reading,pa-es,z720HCtuoReRPk2H2CGkdGGCgak1,1
-ColD,Executive function,same-different-selection,E8SKMg75DWV6lXS8yi3UJf65mVm1,1.265887313607181
-ColD,Executive function,same-different-selection,0RCHpznPBJSW2zK5GAoisYlMVZC2,2.0837393170295946
-ColD,Executive function,same-different-selection,EdyyoUjuMMWpF0RUR7PX3Ba1CQ82,1.4554727276789237
-ColD,Executive function,same-different-selection,Ass2vBt5gsfG9zWl0akw6gb8Y3m2,1.8046964888519565
-ColD,Reading,sre-es,1QxImuiGFmWn6lem8mPsECSpeos2,0.22777777777777777
+ColD,Executive function,memory-game,uXyUxqoiLBQ0ZOcfbujbyLJlqwc2,2.998930500470123
+ColD,Executive function,memory-game,HnVblfc5NGX6w7x9U5aD00U2f7g1,4.17677138740979
+ColD,Executive function,memory-game,9b2a5bPhXmWz6gl4xad1L7sOW7c2,2.5588182549961886
+ColD,Executive function,memory-game,E8SKMg75DWV6lXS8yi3UJf65mVm1,2.5000035341706055
+ColD,Spatial cognition,mental-rotation,wgKdMEXVMjO8oBFHmF8yvD43mSU2,2.278657010002987
+ColD,Spatial cognition,mental-rotation,xH4QOO4IMcUKcUEEYIgvMqQFqZs2,2.2516966829579483
+ColD,Spatial cognition,mental-rotation,LxpawLsN1zOE8a1W0b5xpiVgwc02,2.2222258900168517
+ColD,Spatial cognition,mental-rotation,ozQamYctCwduCFlZrC4d0vCgkT42,2.302568241671946
+ColD,Executive function,same-different-selection,E8SKMg75DWV6lXS8yi3UJf65mVm1,1.2658873146911196
+ColD,Executive function,same-different-selection,0RCHpznPBJSW2zK5GAoisYlMVZC2,2.0837393161937583
+ColD,Executive function,same-different-selection,EdyyoUjuMMWpF0RUR7PX3Ba1CQ82,1.4554727264327842
+ColD,Executive function,same-different-selection,Ass2vBt5gsfG9zWl0akw6gb8Y3m2,1.8046964892666308
+ColD,Reading,sre-es,1QxImuiGFmWn6lem8mPsECSpeos2,0.23333333333333334
 ColD,Reading,sre-es,HnVblfc5NGX6w7x9U5aD00U2f7g1,0.25555555555555554
-ColD,Reading,sre-es,JBnkgPRLC8dQGGAnLa69FE5gHVn2,0.21666666666666667
+ColD,Reading,sre-es,nUZGfiePB4Qu7pUIMgI237SzlTI2,0.3055555555555556
 ColD,Reading,sre-es,nUZGfiePB4Qu7pUIMgI237SzlTI2,0.2833333333333333
-ColD,Reading,sre-es,uXyUxqoiLBQ0ZOcfbujbyLJlqwc2,0.21666666666666667
 ColD,Reading,swr-es,Dtn8lxqIhmWzXDfL7HixfcknvHS2,3.991499444427536
 ColD,Reading,swr-es,5b11DliB9MfvpKd2wixFxUV2wYo2,2.1968423781915902
 ColD,Reading,swr-es,r2GP3PmkHnRv3MBIhvyCP7CJYrC3,2.023642734849257
 ColD,Reading,swr-es,Iib5XFL2B9Pmx9DyFWEIRtntVLz2,2.397226821943491
 ColD,Reading,swr-es,qsy61TRlICb2550i1JZj9zLWUi43,2.0236427370319143
-ColD,Social cognition,theory-of-mind,hfaB2damfYhxpGqqoWOH6jIn1Zi2,1.3271954037107772
-ColD,Social cognition,theory-of-mind,wZipIKqFaqNSlOfBxXAt6oH952D2,1.5137930737646297
-ColD,Social cognition,theory-of-mind,1h4dct427rdDGo5grdZpfJIPHWJ3,1.412677758661126
-ColD,Social cognition,theory-of-mind,b9nAX7P34Mgw9PEXmlOJUGKPrC72,1.665747919526003
-ColD,Language,trog,r2GP3PmkHnRv3MBIhvyCP7CJYrC3,1.3484577701420657
-ColD,Language,trog,wZipIKqFaqNSlOfBxXAt6oH952D2,1.502952553598098
-ColD,Language,trog,kHTAQurDYXZ7dbwfwnX5EndVes02,1.5029525520077252
-ColD,Language,trog,tXEM7fNvhfWhNGfqgW0fNTJwucy2,1.502952552501625
-ColD,Language,vocab,BebM1ackKgWc3UUwz1quJaiFNK73,1.4076958252014764
-ColD,Language,vocab,I6m6o6bJmzWDBhRidc479EWhIPA3,1.2204589091427698
-ColE,Math,egma-math,iFf8GKfaE1UoRTS86aOL,2.2443635444846812
-ColE,Math,egma-math,LMsCuCRvHFc2ApKfTvfi,1.8337638032940973
-ColE,Math,egma-math,OByjKhK7DNCbU665keSe,1.5961817588338805
-ColE,Math,egma-math,V3OipcigVxhxla1WXbEv,1.7738779261908961
-ColE,Math,egma-math,fS5IpIOuP7XOap72paA1,1.5387224330812868
-ColE,Math,egma-math,OTD8MesPZgEIoDpn3De4,2.0476615600644226
-ColE,Math,egma-math,h4RSHm6wW9iFMsRYjyeU,1.5162404081961085
+ColD,Social cognition,theory-of-mind,hfaB2damfYhxpGqqoWOH6jIn1Zi2,1.327195404438692
+ColD,Social cognition,theory-of-mind,wZipIKqFaqNSlOfBxXAt6oH952D2,1.5137930730604605
+ColD,Social cognition,theory-of-mind,1h4dct427rdDGo5grdZpfJIPHWJ3,1.412677758831903
+ColD,Social cognition,theory-of-mind,b9nAX7P34Mgw9PEXmlOJUGKPrC72,1.6657479197654206
+ColD,Language,trog,r2GP3PmkHnRv3MBIhvyCP7CJYrC3,1.3484577644873428
+ColD,Language,trog,wZipIKqFaqNSlOfBxXAt6oH952D2,1.5029525455216712
+ColD,Language,trog,kHTAQurDYXZ7dbwfwnX5EndVes02,1.502952546273269
+ColD,Language,trog,tXEM7fNvhfWhNGfqgW0fNTJwucy2,1.5029525454790327
+ColD,Language,vocab,BebM1ackKgWc3UUwz1quJaiFNK73,1.4078347126539077
+ColD,Language,vocab,I6m6o6bJmzWDBhRidc479EWhIPA3,1.2205969641654753
+ColE,Math,egma-math,iFf8GKfaE1UoRTS86aOL,2.917980241815396
+ColE,Math,egma-math,LMsCuCRvHFc2ApKfTvfi,2.38304371655585
+ColE,Math,egma-math,OByjKhK7DNCbU665keSe,2.156215400377748
+ColE,Math,egma-math,V3OipcigVxhxla1WXbEv,2.1886543552923574
+ColE,Math,egma-math,fS5IpIOuP7XOap72paA1,1.9356810712241896
+ColE,Math,egma-math,OTD8MesPZgEIoDpn3De4,2.492954491359566
+ColE,Math,egma-math,h4RSHm6wW9iFMsRYjyeU,1.8691131821057012
 ColE,Social cognition,hostile-attribution,0DJn2EsZi9hnp7j5LcVT,0
 ColE,Social cognition,hostile-attribution,0DJn2EsZi9hnp7j5LcVT,0
 ColE,Social cognition,hostile-attribution,100k733SoFh21nRyLQ4N,0
@@ -235,34 +197,34 @@ ColE,Social cognition,hostile-attribution,rjwPHcSNhq00tajzLDm9,0
 ColE,Social cognition,hostile-attribution,tE02p94vnVSt1VOH52ox,0
 ColE,Social cognition,hostile-attribution,tjK7ZxiImCgbC0qXTdDf,0
 ColE,Social cognition,hostile-attribution,y6iUiz5EIDrIKKwzSV3r,0
-ColE,Reasoning,matrix-reasoning,s8tKWmU6NVWMpyKnzgfD,0.2767740830756914
-ColE,Reasoning,matrix-reasoning,NtIYqaV2dE0j3PVG5Zvt,0.172329875347499
+ColE,Reasoning,matrix-reasoning,hP529jOQKm1I3wqERq41,0.5157689583651954
+ColE,Reasoning,matrix-reasoning,NtIYqaV2dE0j3PVG5Zvt,0.6583448969974717
 ColE,Reading,pa-es,1IJTgNJKnSNJ9ArFNMg0,1
 ColE,Reading,pa-es,LMsCuCRvHFc2ApKfTvfi,0.95
 ColE,Reading,pa-es,OTD8MesPZgEIoDpn3De4,1
 ColE,Reading,pa-es,UnkLRWNDoCgVXpPoiWwz,0.95
 ColE,Reading,pa-es,ZozIkYP8g7GKw7wY53Bt,0.95
-ColE,Reading,pa-es,fS5IpIOuP7XOap72paA1,1
 ColE,Reading,pa-es,fS5IpIOuP7XOap72paA1,0.95
-ColE,Executive function,same-different-selection,T5ba0Cto41iwPjOgPOh6,-0.3713059701828897
-ColE,Executive function,same-different-selection,ZkJEElOhwvmLtiXIIW57,0.406294486297222
+ColE,Executive function,same-different-selection,T5ba0Cto41iwPjOgPOh6,-0.37130597489869865
+ColE,Executive function,same-different-selection,ZkJEElOhwvmLtiXIIW57,0.40629448438714194
 ColE,Reading,sre-es,1IJTgNJKnSNJ9ArFNMg0,0.2
-ColE,Reading,sre-es,Ue5zywfb639xJszAsDBl,0.20555555555555555
-ColE,Reading,sre-es,cEaw8J2FRzBCVdgCkiDP,0.2388888888888889
+ColE,Reading,sre-es,OTD8MesPZgEIoDpn3De4,0.20555555555555555
+ColE,Reading,sre-es,Ue5zywfb639xJszAsDBl,0.2111111111111111
+ColE,Reading,sre-es,cEaw8J2FRzBCVdgCkiDP,0.25
 ColE,Reading,sre-es,iFf8GKfaE1UoRTS86aOL,0.2
 ColE,Reading,swr-es,iFf8GKfaE1UoRTS86aOL,2.19684237705706
 ColE,Reading,swr-es,FuKGC3r5eyPQtLDePm8W,1.9455796448165663
 ColE,Reading,swr-es,hD3tkTNGtTjeZA4IFAEm,2.638379317993789
 ColE,Reading,swr-es,FuKGC3r5eyPQtLDePm8W,2.9432292622441842
 ColE,Reading,swr-es,OTD8MesPZgEIoDpn3De4,1.8715443071540856
-ColE,Social cognition,theory-of-mind,ToeMmuwhFkH3BbuBa0gi,1.3451153640084792
-ColE,Social cognition,theory-of-mind,ekM1GQSFgaq2DwQD2xec,0.47144153399843586
-ColE,Language,trog,UnkLRWNDoCgVXpPoiWwz,0.8765154496146003
-ColE,Language,trog,2ZXQZnKTl9LXKT2ctjSE,1.0882345660930473
-ColE,Language,trog,k5OoyvS8EdqjqgGoXzjb,1.203373382341947
-ColE,Language,trog,UkpRV1dV10nGT05q9Rbp,0.7784694244947389
-ColE,Language,vocab,Mz9M3fpdeLwmnmBDYS3R,0.9719849920439158
-ColE,Language,vocab,k5OoyvS8EdqjqgGoXzjb,0.8431568818338855
-ColE,Language,vocab,qqwpM1Camq1tpPXpB763,0.9707320468153262
-ColE,Language,vocab,oaV1nUlXLmf2iGNN0MmH,0.8269302606828567
-ColE,Language,vocab,vRTRwtSmeya9pUvXKh8H,0.8733533846388795
+ColE,Social cognition,theory-of-mind,ToeMmuwhFkH3BbuBa0gi,1.345115362725699
+ColE,Social cognition,theory-of-mind,ekM1GQSFgaq2DwQD2xec,0.47144153374252873
+ColE,Language,trog,UnkLRWNDoCgVXpPoiWwz,0.8765154422137799
+ColE,Language,trog,2ZXQZnKTl9LXKT2ctjSE,1.0882345597955971
+ColE,Language,trog,k5OoyvS8EdqjqgGoXzjb,1.2033733778462723
+ColE,Language,trog,UkpRV1dV10nGT05q9Rbp,0.7784694176162247
+ColE,Language,vocab,Mz9M3fpdeLwmnmBDYS3R,0.9721213025148663
+ColE,Language,vocab,k5OoyvS8EdqjqgGoXzjb,0.8432893049275627
+ColE,Language,vocab,qqwpM1Camq1tpPXpB763,0.9708625803349149
+ColE,Language,vocab,oaV1nUlXLmf2iGNN0MmH,0.827062290845355
+ColE,Language,vocab,vRTRwtSmeya9pUvXKh8H,0.8734880081951677
