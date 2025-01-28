@@ -82,10 +82,12 @@ threshold_scores <- scores |> filter(site_task_n >= threshold_n)
 sumscores <- threshold_scores |> filter(metric_type == "prop_correct")
 
 task_plot_pooled(sumscores, ylab = "Proportion correct", nr = 2)
-ggsave(here("03_summaries/plots/extra/sumscores_pooled.png"), width = 15, height = 6)
+ggsave(here("03_summaries/plots/extra/sumscores_pooled.png"), 
+       width = 15, height = 6, create.dir = TRUE)
 
 task_plot_sites(sumscores, ylab = "Proportion correct", nc = 7)
-ggsave(here("03_summaries/plots/extra/sumscores_sites.png"), width = 15, height = 15)
+ggsave(here("03_summaries/plots/extra/sumscores_sites.png"), 
+       width = 15, height = 15, create.dir = TRUE)
 ```
 
 ```{r}
@@ -93,10 +95,12 @@ irt_scores <- threshold_scores |>
   filter(str_detect(metric_type, "ability"))
 
 task_plot_pooled(irt_scores, ylab = "Ability", nr = 2)
-ggsave(here("03_summaries/plots/extra/abilities_pooled.png"), width = 9, height = 6)
+ggsave(here("03_summaries/plots/extra/abilities_pooled.png"), 
+       width = 9, height = 6, create.dir = TRUE)
 
 task_plot_sites(irt_scores, ylab = "Ability", nc = 4)
-ggsave(here("03_summaries/plots/extra/abilities_sites.png"), width = 9, height = 15)
+ggsave(here("03_summaries/plots/extra/abilities_sites.png"), 
+       width = 9, height = 15, create.dir = TRUE)
 
 
 ```
@@ -108,24 +112,29 @@ task_scores <- threshold_scores |>
   inner_join(task_metrics) 
 
 task_plot_pooled(task_scores, ylab = "Score", nr = 2)
-ggsave(here("03_summaries/plots/extra/scores_pooled.png"), width = 15, height = 6)
+ggsave(here("03_summaries/plots/extra/scores_pooled.png"), 
+       width = 15, height = 6, create.dir = TRUE)
 
 task_plot_comparative(task_scores, ylab = "Score", nr = 2)
-ggsave(here("03_summaries/plots/scores_comparative.png"), width = 15, height = 6)
+ggsave(here("03_summaries/plots/scores_comparative.png"), 
+       width = 15, height = 6, create.dir = TRUE)
 
 
 task_plot_sites(task_scores, ylab = "Score", nc = 6)
-ggsave(here("03_summaries/plots/extra/scores_sites.png"), width = 14, height = 15)
+ggsave(here("03_summaries/plots/extra/scores_sites.png"), 
+       width = 14, height = 15, create.dir = TRUE)
 ```
 
 ```{r}
 task_plot_pooled(filter(task_scores, site == "ca_pilot") |>
                    mutate(task_label = site_task_label), ylab = "Score", nr = 2)
-ggsave(here("03_summaries/plots/extra/scores_ca.png"), width = 10, height = 6)
+ggsave(here("03_summaries/plots/extra/scores_ca.png"), 
+       width = 10, height = 6, create.dir = TRUE)
 
 task_plot_pooled(filter(task_scores, site == "co_pilot") |>
                    mutate(task_label = site_task_label), ylab = "Score", nr = 2)
-ggsave(here("03_summaries/plots/extra/scores_co.png"), width = 14, height = 6)
+ggsave(here("03_summaries/plots/extra/scores_co.png"), 
+       width = 14, height = 6, create.dir = TRUE)
 
 task_plot_pooled(filter(task_scores, site == "de_pilot") |>
                    mutate(task_label = site_task_label), ylab = "Score", nr = 2)
@@ -151,6 +160,7 @@ ggplot(ages, aes(x = age, fill = site)) +
   guides(fill= "none") + 
   facet_wrap(~site)
 
-ggsave(here("03_summaries/plots/ages.png"), width = 8, height = 3)
+ggsave(here("03_summaries/plots/ages.png"), 
+       width = 8, height = 3, create.dir = TRUE)
 ```
 
