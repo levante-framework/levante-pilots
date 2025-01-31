@@ -1,1 +1,2 @@
-- us_downward_extension_pilot:a6kb:v1_1
+- name: us_downward_extension_pilot:a6kb
+  version: v2.0
