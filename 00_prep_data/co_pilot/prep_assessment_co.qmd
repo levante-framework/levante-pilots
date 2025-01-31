@@ -17,7 +17,7 @@ dataset_data <- rlevante::combine_datasets(dataset_tables)
 users <- rlevante::collect_users(dataset_data)
 participants <- users |>
   filter(user_type %in% c("guest", "student")) |>
-  select(user_id, birth_month, birth_year, sex, grade, matches("_id"), groups, ages)
+  select(dataset, user_id, birth_month, birth_year, sex, grade, matches("_id"), groups, ages)
 ```
 
 ```{r trials}
