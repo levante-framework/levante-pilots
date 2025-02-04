@@ -22,6 +22,8 @@ mg <- process_mg(task_data)
 egma <- process_egma(task_data)
 # tom <- process_tom(task_data)
 
+mr <- process_matrix_reasoning(task_data)
+
 ```
 
 CO special cases
@@ -96,7 +98,7 @@ pa <- pa_all |>
 ```{r}
 task_data_coded <- task_data |>
   filter(!task_id %in% c("trog", "vocab", "same-different-selection","hearts-and-flowers",
-                        "memory-game","egma-math", "theory-of-mind","pa-es")) |>
+                        "memory-game","egma-math", "theory-of-mind","pa-es", "matrix-reasoning")) |>
   bind_rows(pa) |>
   bind_rows(trog) |> 
   bind_rows(vocab) |>
@@ -105,6 +107,7 @@ task_data_coded <- task_data |>
   bind_rows(mg) |>
   bind_rows(egma) |> 
   bind_rows(tom) |> 
+  bind_rows(mr) |>
   clean_item_ids() |>
   get_final_variable_set()
 
