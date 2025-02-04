@@ -80,6 +80,28 @@ load_grammar_items <- function() {
     select(-source, -task, -d, -d_sp, -assessment_stage, -prompt)
 }
 
+
+# load matrix reasoning item bank
+load_matrix_reasoning_items <- function() {
+  read_csv(here("01_process_data/metadata/item_banks/matrix-reasoning-Mars-IB-v2-item-bank.csv")) |>
+    rename(distractors = response_alternatives) |> 
+    filter(!is.na(item)) |>
+    select(-source, -task, -orig_item_num)
+}
+
+# ----------- MATRIX REASONING
+
+# matrix reasoning processing
+process_matrix_reasoning <- function(df) {
+  mr_items <- load_matrix_reasoning_items()
+  df |>
+    filter(task_id == "matrix-reasoning", item!="") |>
+    select(-item_id) |>
+    left_join(mr_items |> 
+                select(answer, item_id)) 
+}
+
+
 # ----------- LANGUAGE AND TOM TASK CODE
 
 # trog processing
@@ -122,7 +144,6 @@ process_tom <- function(df) {
 }
 
 # ----------- EXECUTIVE FUNCTION PROCESSING CODE 
-
 
 # processing code for same-different-selection
 process_sds <- function(df) {
