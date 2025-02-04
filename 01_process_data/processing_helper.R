@@ -28,8 +28,9 @@ clean_item_ids <- function(df) {
 # final variable set
 # do some type conversion in case thetas are missing
 get_final_variable_set <- function(df) {
-  select(df, server_timestamp, matches("id"), trial_number, corpus_trial_type,
-         chance, correct, rt, response, theta_estimate, theta_se) |>
+  select(df, dataset, server_timestamp, matches("id"), trial_number,
+         corpus_trial_type, chance, correct, rt, response, theta_estimate,
+         theta_se) |>
     mutate(theta_estimate = as.numeric(theta_estimate), 
            theta_se = as.numeric(theta_se))
 }
@@ -56,7 +57,7 @@ clean_trial_data <- function (df) {
     mutate(distractors_cln = ifelse(distractors_cln=="", NA, str_remove_all(distractors_cln, " "))) |>
     mutate(distractors = distractors |> str_count(":") |> na_if(0),
            chance = 1 / (distractors + 1)) |>
-    select(matches("_id"), trial_number, trial_index, corpus_trial_type, assessment_stage, item,
+    select(dataset, matches("_id"), trial_number, trial_index, corpus_trial_type, assessment_stage, item,
            answer, chance, response, correct, rt, server_timestamp, distractors_cln, 
            theta_estimate, theta_se)
 }
