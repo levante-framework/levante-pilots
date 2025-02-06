@@ -4,7 +4,7 @@ library(mirtCAT)
 # Function to perform  CAT simulation 
 # created based on george's code, ref: https://github.com/levante-framework/cat-sims/blob/main/cat-sims.Rmd
 
-cat_simu <- function(item_difficulty_pool, a_vals, n = 2000, max_num = c(25, 50, 75)) {
+cat_simu <- function(item_difficulty_pool, a_vals, model = 'Rasch', n = 2000, max_num = c(25, 50, 75)) {
 # item_difficulty_pool: difficulty parameters
 # a_vals: discrimination parameters
 # n: sample size
@@ -20,7 +20,7 @@ cat_simu <- function(item_difficulty_pool, a_vals, n = 2000, max_num = c(25, 50,
                    itemtype = 'dich', sigma = matrix(1.5))
   
   # Fit Rasch model
-  mod <- mirt(pvdat, 1, 'Rasch', verbose = FALSE)
+  mod <- mirt(pvdat, 1, model, verbose = FALSE)
   
   # Function to run CAT
   doCAT <- function(dat, mod, max_items, true_theta) {
