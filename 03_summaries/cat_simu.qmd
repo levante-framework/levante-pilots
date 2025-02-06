@@ -91,7 +91,7 @@ Plot the simulation results
 # plot all conditions together
 p1 <- ggplot(sims, aes(x = thetaCAT, y = thetaCAT, group = as.factor(max_items))) +
   geom_point(alpha = 0.2) +
-  geom_ribbon(aes(ymin = thetaCAT - CAT_SE, ymax = thetaCAT + CAT_SE, fill = as.factor(max_items)), 
+  geom_ribbon(aes(ymin = thetaCAT - 1.96 * CAT_SE, ymax = thetaCAT + 1.96 * CAT_SE, fill = as.factor(max_items)), 
               alpha = 0.8) +  # Increase alpha to highlight differences
   #scale_fill_manual(values = blue_palette) +  # Use custom blue gradient
   labs(x = "Theta Estimate ", y = "Theta Estimate with SE",
