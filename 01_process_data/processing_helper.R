@@ -28,8 +28,9 @@ clean_item_ids <- function(df) {
 # final variable set
 # do some type conversion in case thetas are missing
 get_final_variable_set <- function(df) {
-  select(df, server_timestamp, matches("id"), trial_number, corpus_trial_type,
-         chance, correct, rt, response, theta_estimate, theta_se) |>
+  select(df, dataset, server_timestamp, matches("id"), trial_number,
+         corpus_trial_type, chance, correct, rt, response, theta_estimate,
+         theta_se) |>
     mutate(theta_estimate = as.numeric(theta_estimate), 
            theta_se = as.numeric(theta_se))
 }
@@ -56,7 +57,7 @@ clean_trial_data <- function (df) {
     mutate(distractors_cln = ifelse(distractors_cln=="", NA, str_remove_all(distractors_cln, " "))) |>
     mutate(distractors = distractors |> str_count(":") |> na_if(0),
            chance = 1 / (distractors + 1)) |>
-    select(matches("_id"), trial_number, trial_index, corpus_trial_type, assessment_stage, item,
+    select(dataset, matches("_id"), trial_number, trial_index, corpus_trial_type, assessment_stage, item,
            answer, chance, response, correct, rt, server_timestamp, distractors_cln, 
            theta_estimate, theta_se)
 }
@@ -78,6 +79,28 @@ load_grammar_items <- function() {
     filter(!is.na(item)) |>
     select(-source, -task, -d, -d_sp, -assessment_stage, -prompt)
 }
+
+
+# load matrix reasoning item bank
+load_matrix_reasoning_items <- function() {
+  read_csv(here("01_process_data/metadata/item_banks/matrix-reasoning-Mars-IB-v2-item-bank.csv")) |>
+    rename(distractors = response_alternatives) |> 
+    filter(!is.na(item)) |>
+    select(-source, -task, -orig_item_num)
+}
+
+# ----------- MATRIX REASONING
+
+# matrix reasoning processing
+process_matrix_reasoning <- function(df) {
+  mr_items <- load_matrix_reasoning_items()
+  df |>
+    filter(task_id == "matrix-reasoning", item!="") |>
+    select(-item_id) |>
+    left_join(mr_items |> 
+                select(answer, item_id)) 
+}
+
 
 # ----------- LANGUAGE AND TOM TASK CODE
 
@@ -121,7 +144,6 @@ process_tom <- function(df) {
 }
 
 # ----------- EXECUTIVE FUNCTION PROCESSING CODE 
-
 
 # processing code for same-different-selection
 process_sds <- function(df) {

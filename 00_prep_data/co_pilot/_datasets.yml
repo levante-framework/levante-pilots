@@ -1,2 +1,4 @@
-- co_bogota_pilot:3j4z:v4_1
-- co_rural_pilot:66d2:v3_0
+- name: co_bogota_pilot:3j4z
+  version: v4.9
+- name: co_rural_pilot:66d2
+  version: v3.0

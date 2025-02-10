@@ -7,9 +7,11 @@
 library(here)
 
 source(here::here("03_summaries", "efa", "efa_helpers.R"))
-survey_coded <- read_rds(here::here("01_processed_data/survey_coded.rds"))
+#survey_coded <- read_rds(here::here("01_processed_data/survey_coded.rds"))
+survey_measurement <- read_rds(here::here("01_processed_data/survey_measurement.rds"))
 
-student <- survey_coded[["student"]]
+student <- survey_measurement |>
+  filter(survey_type == 'student')
 table(student$site)
 
 student_tidy = student |>

@@ -4,16 +4,9 @@ library(here)
 library(glue)
 library(ggforce)
 library(ggthemes)
-source(here("03_summaries", "plotting_helper.R"))
 
-.font <- "Source Sans Pro"
-theme_set(theme_bw(base_size = 14, base_family = .font))
-theme_update(panel.grid = element_blank(),
-             strip.background = element_blank(),
-             legend.key = element_blank(),
-             panel.border = element_blank(),
-             axis.line = element_line(),
-             strip.text = element_text(face = "bold"))
+source(here("03_summaries/plotting_helper.R"))
+source(here("03_summaries/scores_helper.R"))
 ```
 
 ```{r}
@@ -28,48 +21,7 @@ participants <- sites |>
 Combine all task scores into one plot!
 
 ```{r}
-score_files <- list.files(here("02_scored_data"), pattern = "*.rds",
-                          full.names = TRUE)
-score_list <- score_files |> map(read_rds)
-# exclude_tasks <- c("hostile-attribution", "pa-es")
-# score_list <- read_rds("scores/combined_scores.rds")
-
-
-run_ages <- participants |>
-  select(user_id, ages) |>
-  unnest(ages)
-
-scores_noages <- score_list |>
-  bind_rows() |>
-  rename(task = task_id) 
-
-mefs_age_guesses <- scores_noages |>
-  filter(task == "mefs") |>
-  left_join(run_ages |> group_by(user_id) |> summarise(age = mean(age, na.rm=TRUE)))
-
-scores <- scores_noages |>
-  filter(task != "mefs") |> 
-  left_join(run_ages) |>
-  bind_rows(mefs_age_guesses) |> # add mefs back in. 
-  filter(!is.na(age), age >= 5, age <= 12) |>
-  left_join(task_categories) |>
-  mutate(task = str_replace(task, "-es", ""),
-         task = str_replace(task, "-de", "") )|>
-  group_by(site, task) |>
-  mutate(site_task_n = n_distinct(user_id),
-         site_task_label = glue("{task}\n(n = {site_task_n})")) |>
-  group_by(task) |>
-  mutate(task_label = glue("{task}\n(n = {n_distinct(user_id)})")) |>
-  ungroup() |>
-  mutate(site_label = site |>
-           # fct_relevel("co_pilot", "de_pilot", "ca_pilot") |>
-           fct_recode("Canada" = "ca_pilot",
-                      "Colombia" = "co_pilot",
-                      "Germany" = "de_pilot")) |>
-  group_by(site) |>
-  mutate(site_label = glue("{site_label} (n = {n_distinct(user_id)})")) |>
-  ungroup() 
-  # mutate(score_type = score_type |> str_remove(" \\(.*\\)"))
+scores <- combine_scores()
 
 task_categories_vec <- levels(scores$task_category)
 task_pal <- ptol_pal()(length(task_categories_vec)) |> set_names(task_categories_vec)
@@ -109,38 +61,54 @@ ggsave(here("03_summaries/plots/extra/scores_comparative_levante_only.png"), wid
 ```{r}
 
 task_plot_pooled(sumscores, ylab = "Proportion correct", nr = 2)
-ggsave(here("03_summaries/plots/extra/sumscores_pooled.png"), width = 15, height = 6)
+ggsave(here("03_summaries/plots/extra/sumscores_pooled.png"), 
+       width = 15, height = 6, create.dir = TRUE)
 
 task_plot_sites(sumscores, ylab = "Proportion correct", nc = 7)
-ggsave(here("03_summaries/plots/extra/sumscores_sites.png"), width = 15, height = 15)
+ggsave(here("03_summaries/plots/extra/sumscores_sites.png"), 
+       width = 15, height = 15, create.dir = TRUE)
 ```
 
 ```{r}
 task_plot_pooled(irt_scores, ylab = "Ability", nr = 2)
-ggsave(here("03_summaries/plots/extra/abilities_pooled.png"), width = 9, height = 6)
+ggsave(here("03_summaries/plots/extra/abilities_pooled.png"), 
+       width = 9, height = 6, create.dir = TRUE)
 
 task_plot_sites(irt_scores, ylab = "Ability", nc = 4)
-ggsave(here("03_summaries/plots/extra/abilities_sites.png"), width = 9, height = 15)
+ggsave(here("03_summaries/plots/extra/abilities_sites.png"), 
+       width = 9, height = 15, create.dir = TRUE)
 
 
 ```
 
 ```{r}
 task_plot_pooled(task_scores, ylab = "Score", nr = 2)
-ggsave(here("03_summaries/plots/extra/scores_pooled.png"), width = 15, height = 6)
+ggsave(here("03_summaries/plots/extra/scores_pooled.png"), 
+       width = 15, height = 6, create.dir = TRUE)
 
+<<<<<<< HEAD
+=======
+task_plot_comparative(task_scores, ylab = "Score", nr = 2)
+ggsave(here("03_summaries/plots/scores_comparative.png"), 
+       width = 15, height = 6, create.dir = TRUE)
+
+
+>>>>>>> f5ae04b8f3272136956ae4b40ce911c9a0f97ecb
 task_plot_sites(task_scores, ylab = "Score", nc = 6)
-ggsave(here("03_summaries/plots/extra/scores_sites.png"), width = 14, height = 15)
+ggsave(here("03_summaries/plots/extra/scores_sites.png"), 
+       width = 14, height = 15, create.dir = TRUE)
 ```
 
 ```{r}
 task_plot_pooled(filter(task_scores, site == "ca_pilot") |>
                    mutate(task_label = site_task_label), ylab = "Score", nr = 2)
-ggsave(here("03_summaries/plots/extra/scores_ca.png"), width = 10, height = 6)
+ggsave(here("03_summaries/plots/extra/scores_ca.png"), 
+       width = 10, height = 6, create.dir = TRUE)
 
 task_plot_pooled(filter(task_scores, site == "co_pilot") |>
                    mutate(task_label = site_task_label), ylab = "Score", nr = 2)
-ggsave(here("03_summaries/plots/extra/scores_co.png"), width = 14, height = 6)
+ggsave(here("03_summaries/plots/extra/scores_co.png"), 
+       width = 14, height = 6, create.dir = TRUE)
 
 task_plot_pooled(filter(task_scores, site == "de_pilot") |>
                    mutate(task_label = site_task_label), ylab = "Score", nr = 2)
@@ -166,6 +134,7 @@ ggplot(ages, aes(x = age, fill = site)) +
   guides(fill= "none") + 
   facet_wrap(~site)
 
-ggsave(here("03_summaries/plots/ages.png"), width = 8, height = 3)
+ggsave(here("03_summaries/plots/ages.png"), 
+       width = 8, height = 3, create.dir = TRUE)
 ```
 

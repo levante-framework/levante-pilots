@@ -60,14 +60,24 @@ mr_runs |> filter(age < 13) |>
 Median correct RT vs. number correct
 
 ```{r}
-mr |> filter(correct==1) |>
+med_rt <- mr |> #filter(correct==1) |>
   mutate(rt = as.numeric(rt)) |>
-  group_by(site, user_id, run_id) |>
-  summarise(n_correct=n(), median_rt = median(rt, na.rm=T)) |>
-  ggplot(aes(x=n_correct, y=median_rt)) + 
+  group_by(site, user_id, run_id, correct) |>
+  summarise(n=n(),
+            median_rt = median(rt, na.rm=T))
+
+med_rt |>
+  ggplot(aes(x=n, y=median_rt)) + 
   geom_point(alpha = .5) + 
   geom_smooth(method = "loess", lambda = 1) +
-  facet_wrap(. ~ site) + 
+  facet_grid(correct ~ site) + 
   theme_classic()
 ```
 
+Median correct RT per problem: 
+
+```{r}
+med_rt |> group_by(correct) |> summarise(mean_median_rt = mean(median_rt))
+```
+
+But notice there is huge variation per child (and presumably per problem).
