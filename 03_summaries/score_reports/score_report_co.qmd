@@ -23,9 +23,7 @@ sites <- c("co_pilot")
 
 participant_runs <- read_rds(here("00_prepped_data","co_pilot","participants.rds")) |>
   unnest(ages) |>
-  unnest(groups) |>
-  rename(group_name = name)
-
+  unnest(groups)
 ```
 
 

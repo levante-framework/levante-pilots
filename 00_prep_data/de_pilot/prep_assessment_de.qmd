@@ -17,14 +17,14 @@ dataset_data <- rlevante::combine_datasets(dataset_tables)
 users <- rlevante::collect_users(dataset_data)
 participants <- users |>
   filter(user_type %in% c("guest", "student")) |>
-  select(user_id, birth_month, birth_year, sex, grade, matches("_id"), groups, ages)
+  select(dataset, user_id, birth_month, birth_year, sex, grade, matches("_id"), groups, ages)
 ```
 
 ```{r trials}
 trials <- dataset_data$trials
 
 trials_coded <- trials |>
-  inner_join(participants, by = "user_id") |>
+  inner_join(participants, by = c("user_id", "dataset")) |>
   rlevante::remove_practice_trials() |>
   arrange(task_id, run_id, user_id, server_timestamp)
 
