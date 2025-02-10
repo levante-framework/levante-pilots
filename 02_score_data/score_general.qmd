@@ -56,6 +56,7 @@ mg <- task_data_combined |>
   mutate(metric_type = "longest_span")
 ```
 
+
 # SRE
 
 Custom scoring for SRE. 
@@ -149,6 +150,6 @@ mefs <- left_join(mefs_scores, site_users) |>
 #  Combine scores
 
 ```{r}
-scores_combined <- bind_rows(sumscores, thetas, mg, sre, mefs)
+scores_combined <- bind_rows(sumscores, thetas, mg, sre, mefs, pa)
 write_rds(scores_combined, here("02_scored_data/scores_general.rds"))
 ```

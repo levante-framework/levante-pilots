@@ -3,6 +3,9 @@
 
 ## Data preparation
 ```{r}
+
+library(here)
+
 source(here::here("03_summaries", "efa", "efa_helpers.R"))
 survey_coded <- read_rds(here::here("01_processed_data/survey_coded.rds"))
 
@@ -23,8 +26,11 @@ student_tidy = student |>
 
 constructs = as.vector(unique(student_tidy$form_construct))
 sites = as.vector(unique(student_tidy$site))
+```
 
+Sample sizes
 
+```{r}
 cat('sample size\n')
 for(i in sites){
   cat(i)
@@ -34,10 +40,12 @@ for(i in sites){
   cat(nrow(selected_site[['df_vals']][[1]]))
   cat('\t')
 }
+```
 
-### since number of sample size is too low for de_pilot and ca_pilot
-### currently we focus on co_pilot
+since number of sample size is too low for de_pilot and ca_pilot
+ currently we focus on co_pilot
 
+```{r}
 student_tidy_co = student_tidy |>
     filter(site == 'co_pilot') 
 head(student_tidy_co)
@@ -50,7 +58,7 @@ for(formi in 1:nrow(student_tidy_co)){
   subconstruct <- student_tidy_co[['df_vals']][[formi]]
   cor_matrix <- cor(subconstruct, use = "pairwise.complete.obs")
 
-  corrplot(cor_matrix, method = "color", col = col, type = "upper", order = "original",
+  corrplot::corrplot(cor_matrix, method = "color", col = col, type = "upper", order = "original",
           tl.pos = "l", 
           tl.col = "black", 
           title =  student_tidy_co[['form_construct']][[formi]], 
@@ -93,6 +101,7 @@ EFAresult = factanal(~ ., data=subconstruct, factors = 1,
 loadings_df <- loadmax(EFAresult$loadings, subconstruct)
 
 plot_load(loadings_df, student_tidy_co[['form_construct']][[formi]])
+ggsave(here("03_summaries","efa","plots","student_loadings.png"))
 ```
 
 ### Belongings
@@ -119,6 +128,7 @@ EFAresult = factanal(~ ., data=subconstruct, factors = 1,
 loadings_df <- loadmax(EFAresult$loadings, subconstruct)
 
 plot_load(loadings_df, student_tidy_co[['form_construct']][[formi]])
+ggsave(here("03_summaries","efa","plots","belonging_loadings.png"))
 ```
 
 
@@ -145,6 +155,7 @@ EFAresult = factanal(~ ., data=subconstruct, factors = 1,
 
 loadings_df <- loadmax(EFAresult$loadings, subconstruct)
 plot_load(loadings_df, student_tidy_co[['form_construct']][[formi]])
+ggsave(here("03_summaries","efa","plots","peer_loadings.png"))
 ```
 
 
@@ -173,6 +184,7 @@ EFAresult = factanal(~ ., data=subconstruct, factors = 1,
 loadings_df <- loadmax(EFAresult$loadings, subconstruct)
 
 plot_load(loadings_df, student_tidy_co[['form_construct']][[formi]])
+ggsave(here("03_summaries","efa","plots","academic_loadings.png"))
 ```
 
 ### Growth Mindset
@@ -199,6 +211,7 @@ EFAresult = factanal(~ ., data=subconstruct, factors = 1,
 loadings_df <- loadmax(EFAresult$loadings, subconstruct)
 
 plot_load(loadings_df, student_tidy_co[['form_construct']][[formi]])
+ggsave(here("03_summaries","efa","plots","growth_loadings.png"))
 ```
 
 # Correlation and EFA on All Items
@@ -218,13 +231,14 @@ student_wide <- student |>
 
 cor_matrix <- cor(student_wide, use = "pairwise.complete.obs")
 
-corrplot(cor_matrix, method = "color", col = col, type = "upper", order = "original",
+corrplot::corrplot(cor_matrix, method = "color", col = col, type = "upper", order = "original",
         tl.pos = "l", 
         tl.col = "black", 
         title =  'Student Survey Data', 
         is.corr = FALSE,
         mar=c(0,0,2,0),
         col.lim = c(-1, 1)) 
+ggsave(here("03_summaries","efa","plots","all_corrs.png"))
 ```
 
 
