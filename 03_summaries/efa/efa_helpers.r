@@ -1,8 +1,9 @@
-
+library(tidyverse)
 library(psych)
-library(corrplot)
-library(reshape2)
-library(plyr)
+# library(corrplot)
+library(here)
+# library(reshape2)
+# library(plyr)
 
 col <- colorRampPalette(c("red", "white", "blue"))(200) # Red to white to blue
 
@@ -10,12 +11,12 @@ col <- colorRampPalette(c("red", "white", "blue"))(200) # Red to white to blue
 
 
 loadmax <- function(loadings, m_data_subset){
-  loadings_df <- melt(as.matrix(loadings[1:ncol(m_data_subset),]))
+  loadings_df <- reshape2::melt(as.matrix(loadings[1:ncol(m_data_subset),]))
   colnames(loadings_df) = c('Item', 'Factor', 'Loading')
 
   loadings_df <- loadings_df %>%
     mutate(Factor = gsub("Factor", "F", Factor))
-  loadings_df <- plyr::ddply(loadings_df, .(Item), function(x) {
+  loadings_df <- plyr::ddply(loadings_df, plyr::.(Item), function(x) {
     x$Loading[-which.max(abs(x$Loading))] <- 0
     x
   })

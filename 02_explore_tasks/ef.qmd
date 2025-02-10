@@ -239,6 +239,23 @@ hf_scores <- hf_best |>
 
 ```
 
+```{r}
+hf_best$coefs[[1]] |>
+  mutate(condition = str_replace_all(item,"_[:digit:]+", "")) |>
+  group_by(condition)  |>
+  summarise(discrimination = mean(a1), 
+            difficulty = -mean(d)) |>
+  knitr::kable(digits = 2)
+
+hf_results$coefs[[1]] |>
+  mutate(condition = str_replace_all(item,"_[:digit:]+", "")) |>
+  group_by(condition)  |>
+  summarise(discrimination = mean(a1), 
+            difficulty = mean(d)) |>
+  knitr::kable(digits = 2)
+
+```
+
 Coefficients. 
 
 ```{r}
@@ -247,8 +264,9 @@ hf_mirt_items |>
   group_by(item_id) |>
   summarise(correct = mean(correct))
 
-View(hf_results$coefs[[2]])
+# View(hf_results$coefs[[2]])
 ```
+
 
 
 ```{r}
