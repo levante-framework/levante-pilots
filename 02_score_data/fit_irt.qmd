@@ -23,7 +23,6 @@ task_data_nested <- sites |>
   map(\(s) read_rds(here(glue("01_processed_data/{s}/task_data_nested.rds")))) |>
   list_rbind(names_to = "site") |>
   filter(task_id %in% irt_tasks)
-
 ```
 
 Special case item IDs for executive function tasks. 
@@ -64,17 +63,15 @@ sds <- task_data_nested |>
     }))
 ```
 
-
-
 ```{r}
 task_data_nested <- task_data_nested |>
   filter(!(task_id %in% c("memory-game","hearts-and-flowers", "same-different-selection"))) |>
   bind_rows(mg) |>
   bind_rows(hf) |>
   bind_rows(sds)
+
+write_rds(task_data_nested, here("02_scored_data/task_data_nested.rds"))
 ```
-
-
 
 ```{r}
 # transform each task's data for modeling by applying above functions
