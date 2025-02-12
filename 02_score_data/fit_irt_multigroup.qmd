@@ -13,18 +13,13 @@ library(here)
 source(here("assessment/colombia/stage2/scripts/_setup.R"))
 source(here("assessment/colombia/stage2/scripts/irt_helpers.R"))
 
-task_data_co <- read_rds("../colombia/stage2/task_analyses/data/task_data_nested.rds")
-task_data_de <- read_rds("../germany/task_analyses/data/task_data_nested.rds")
+task_data_nested <- read_rds(here("02_scored_data/task_data_nested.rds"))
 
-task_data_combined <- left_join(
-  task_data_co |> rename(data_co = data),
-  task_data_de |> rename(data_de = data)
-) |>
-  filter(task_id != "trog") |>
-  mutate(data = map2(data_co, data_de, \(df_co, df_de) {
-    bind_rows(df_co |> mutate(group = "CO"),
-              df_de |> mutate(group = "DE"))
-  }))
+task_data_combined <- task_data_nested |>
+  select(-task_id) |>
+  unnest(data) |>
+  rename(group = site) |>
+  nest(data = -task_id)
 
 # transform each task's data for modeling by applying above functions
 task_data_prepped <- task_data_combined |>
@@ -38,18 +33,35 @@ task_data_prepped <- task_data_combined |>
                      \(df) df |> distinct(item_inst, chance) |> pull(chance)))
 ```
 
+```{r}
+dataset_item_counts <- task_data_prepped |>
+  select(task_id, data_filtered) |>
+  unnest(data_filtered) |>
+  distinct(group, dataset, task_id, item_id) |>
+  group_by(task_id, item_id) |>
+  summarise(m_datasets = n(),
+            datasets = list(dataset)) |>
+  ungroup()
+
+write_csv(dataset_item_counts, "dataset_item_counts.csv")
+
+dataset_counts <- dataset_item_counts |>
+  count(task_id, m_datasets, name = "n_items_in_m_datasets") |>
+  arrange(task_id, desc(m_datasets))
+
+ggplot(dataset_counts, aes(x = m_datasets, y = n_items_in_m_datasets)) +
+  facet_wrap(vars(task_id), scales = "free_y") +
+  geom_col()
+
+ggsave("dataset_item_counts.png", width = 8, height = 6)
+```
 
 # Mental Rotation
 
 ```{r}
-d_mrot <- mrot$data[[1]]
+mrot <- task_data_prepped |> slice(1)
 
-d_mrot |>
-  group_by(group, user_id, run_id, age) |>
-  summarise(correct = mean(correct)) |>
-  ggplot(aes(x = age, y = correct, col = group)) + 
-  geom_point() + 
-  geom_smooth()
+d_mrot <- mrot$data[[1]]
 ```
 
 ```{r}
