@@ -163,8 +163,9 @@ process_sds <- function(df) {
                         "third" = "3", "fourth" = "4")) |>
     group_by(user_id, run_id, corpus_trial_type) |>
     mutate(trial = consecutive_id(trial_i)) |> # renumber trials sequentially
-    group_by(user_id, run_id, corpus_trial_type) |>
-    mutate(item_id = if (all(trial == 1)) paste(corpus_trial_type, i) else paste(corpus_trial_type, trial, response)) |>
+    #group_by(user_id, run_id, corpus_trial_type) |>
+    #mutate(item_id = if (all(trial == 1)) paste(corpus_trial_type, i) else paste(corpus_trial_type, trial, response)) |>
+    mutate(item_id = if_else(!str_detect(corpus_trial_type, "match|unique"), paste(corpus_trial_type, i), paste(corpus_trial_type, trial, response))) |>
     ungroup() |>
     select(-different, -trial_i, -i, -response, -trial)
 }
