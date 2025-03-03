@@ -10,7 +10,7 @@ dedict <- \(s) {
 # adds trial indices
 add_trial_number <- function (df) {
   df |>
-    group_by(run_id) |>
+    group_by(user_id, run_id) |>
     arrange(server_timestamp) |>
     mutate(trial_number = 1:n()) |>
     ungroup() 
@@ -34,17 +34,21 @@ get_final_variable_set <- function(df) {
     mutate(theta_estimate = as.numeric(theta_estimate), 
            theta_se = as.numeric(theta_se))
 }
-# cleanup of task data
 
-# only relevant tasks + not missing item + has response or correct
+
+
+# ----------- CLEANUP OF TRIAL DATA
+
+# cleanup of trial data
+# includes removing incomplete runs
+# ordering
+# sanitizing distractors, computing chance
+# TODO - add validation cleanup
+
 # filter(task_id %in% irt_tasks,
 #        !is.na(item),
 #        !is.na(response) | !is.na(correct)) |>
-# # chronological order
-# arrange(user_id, run_id, server_timestamp) |>
 # curly braces in items cause regex problems
-#mutate(item = item |> str_remove_all("[\\{\\}]")) |>
-# compute number of distractors + chance level
 
 clean_trial_data <- function (df) {
   df |>
@@ -59,7 +63,18 @@ clean_trial_data <- function (df) {
            chance = 1 / (distractors + 1)) |>
     select(dataset, matches("_id"), trial_number, trial_index, corpus_trial_type, assessment_stage, item,
            answer, chance, response, correct, rt, server_timestamp, distractors_cln, 
-           theta_estimate, theta_se)
+           theta_estimate, theta_se, completed) |>
+    arrange(user_id, run_id, server_timestamp)
+}
+
+# exclude_invalid_trial_data trial data 
+# remove incomplete runs
+# TODO - remove runs and trials that do not pass validation
+exclude_invalid_trial_data <- function (df) {
+ df |> 
+  filter(completed == TRUE) |>
+    select(-completed)
+    
 }
 
 # ----------- ITEM INFO LOADING
