@@ -149,7 +149,7 @@ process_tom <- function(df) {
 process_sds <- function(df) {
   df |>
     filter(task_id == "same-different-selection", item!="") |>
-    filter(corpus_trial_type != "something-same-1") |>
+    filter(corpus_trial_type != "something-same-1") |> # these have no answer (they are just an "information" trial)
     arrange(server_timestamp) |>
     mutate(different = str_extract(item, "different")) |> # trials are "different" or NA
     group_by(user_id, run_id, corpus_trial_type) |> # within subtask (e.g. 3-match)
