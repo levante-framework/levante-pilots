@@ -86,14 +86,10 @@ task_plot_pooled(task_scores, ylab = "Score", nr = 2)
 ggsave(here("03_summaries/plots/extra/scores_pooled.png"), 
        width = 15, height = 6, create.dir = TRUE)
 
-<<<<<<< HEAD
-=======
 task_plot_comparative(task_scores, ylab = "Score", nr = 2)
 ggsave(here("03_summaries/plots/scores_comparative.png"), 
        width = 15, height = 6, create.dir = TRUE)
 
-
->>>>>>> f5ae04b8f3272136956ae4b40ce911c9a0f97ecb
 task_plot_sites(task_scores, ylab = "Score", nc = 6)
 ggsave(here("03_summaries/plots/extra/scores_sites.png"), 
        width = 14, height = 15, create.dir = TRUE)
