@@ -66,12 +66,14 @@ participants <- sites |>
 
 ```{r}
 d_mrot <- task_data_nested$data[[5]] |>
-  left_join(run_ages)
+  left_join(run_ages, multiple = "first")
 
-d_mrot |>
+ms_mrot <- d_mrot |>
   group_by(site, user_id, run_id, age) |>
-  summarise(correct = mean(correct)) |>
-  ggplot(aes(x = age, y = correct, col = site)) + 
+  summarise(correct = mean(correct), 
+            n_trials = n()) 
+
+ggplot(ms_mrot, aes(x = age, y = correct, col = site)) + 
   geom_point() + 
   geom_smooth()
 ```
@@ -89,27 +91,200 @@ d_mrot |>
   facet_wrap(~site)
 ```
 
+Download the item match data. 
+
 ```{r}
-mrot <- task_data_prepped |> slice(1)
+library(googlesheets4)
+mrot_items <- read_sheet("https://docs.google.com/spreadsheets/d/1r9taZgU104yjmTxzYjGl_XbFiDKolT2iczx-eCujdH8/edit?gid=241786267#gid=241786267", sheet = "mental-rotation")
 
-# TODO: port item constraints? priors? guess?
-mrot_mod_rasch <- multipleGroup(
-  mrot$data_prepped[[1]], group = mrot$groups[[1]], itemtype = "Rasch", 
-  invariance = c("free_means","free_variances", "slopes", "intercepts"))
+mrot_items_mergeable <- mrot_items |>
+            unite(item_id_corrected, dims, angle, sep = "_") |>
+  select(site, item_id, item_id_corrected) |>
+  distinct()
 
-mrot_mod_2pl <- multipleGroup(
-  mrot$data_prepped[[1]], group = mrot$groups[[1]], itemtype = "2PL", 
-  invariance = c("free_means","free_variances", "slopes", "intercepts"))
+# join in the corrected and merged items
+d_mrot_items <- left_join(d_mrot, mrot_items_mergeable)
+```
+
+Prep for IRT models. 
+
+```{r}
+task_data_nested_mrot <- slice(task_data_nested, 5)
+
+task_data_nested_mrot$data[[1]] <- left_join(task_data_nested_mrot$data[[1]], 
+                                        mrot_items_mergeable) |>
+  select(-item_id) |>
+  rename(item_id = item_id_corrected, 
+         group = site)
+
+task_data_prepped <- task_data_nested_mrot |>
+  mutate(data_filtered = map(data, \(df) df |> filter_repeat_runs() |>
+                               dedupe_items() |> remove_no_var_items()),
+         data_wide = map(data_filtered, to_mirt_shape_grouped), 
+         data_prepped = map(data_wide, \(df) df |> select(-group)),
+         groups = map(data_wide, \(df) df |> pull(group))) |>
+  # pull out chance values
+  mutate(guess = map(data_filtered, # TODO: check that this gives correct order
+                     \(df) df |> distinct(item_inst, chance) |> pull(chance)))
+
+
+item_types <- c("Rasch", "2PL") #, "3PL") # set of parameterizations
+model_types <- c(1) #, 2) # set of dimensionalities
+# model_types <- c(1) # set of dimensionalities
+
+# add arguments for model fitting to data
+task_data_args <- task_data_prepped |>
+  # duplicate rows per dimensionality x parameterization
+  expand_grid(model_type = model_types, item_type = item_types) |>
+  # generate model string with item constraints + dimensionality
+  mutate(model_str = pmap_chr(list(data, data_prepped, item_type, model_type),
+                              generate_model_str_numeric))
+```
+
+## All site data in one model
+
+Joint model fitting. 
+
+```{r fit-models}
+set.seed(1234)
+
+# fit all the models!
+task_models <- task_data_args |>
+  mutate(mod = pmap(list(row_number(), data_prepped, item_type, model_str,
+                         model_type, task_id, guess),
+                    fit_mirt))
+
+# get each model's coefs, scores, BIC
+task_results <- task_models |>
+  mutate(coefs = map(mod, mirt_coefs),
+         scores = pmap(list(mod, data_filtered, data_prepped), mirt_scores),
+         bic = map_dbl(mod, mirt_bic))
+
+# best fitting model for each task
+task_best <- task_results |>
+  group_by(task_id) |>
+  filter(bic == min(bic)) |>
+  ungroup()
+  # select(site, task_id, item_type, model_type, coefs, scores)
+
+# scores from best fitting models
+task_scores <- task_best |>
+  select(task_id, item_type, model_type, scores) |>
+  unnest(scores) |>
+  mutate(#item_type = fct_recode(item_type, "1PL" = "Rasch"),
+         metric_type = glue("ability ({item_type}-{model_type})")) |>
+  select(task_id, user_id, run_id, metric_type, metric_value = ability)
+```
+
+Examine item parameters
+
+```{r}
+mrot_coefs <- task_best$coefs[[1]] |>
+  separate(item, into = c("dims","degrees","instance")) |>
+  select(-instance) |>
+  mutate(degrees = as.numeric(degrees)) 
+
+ggplot(mrot_coefs, aes(x = degrees, y = d, col = dims)) + 
+  geom_point() + 
+  geom_line()
+
+```
+
+
+
+```{r}
+mrot_scores <- left_join(task_scores, 
+          ms_mrot) |>
+  filter(n_trials > 10)
+
 ```
 
 ```{r}
+ggplot(mrot_scores, aes(x = age, y = metric_value, col = site)) + 
+  geom_point() + 
+  geom_smooth()
+
+ggplot(mrot_scores, aes(x = age, y = correct, col = site)) + 
+  geom_point() + 
+  geom_smooth()
+```
+
+
+
+## Multi-group models
+
+Syntax is confusing because "slopes" and "intercepts" means "make these the same" but "free means" and "free variances" means make these different. 
+
+```{r}
+
+
+# all item parameters are completely different between groups
+# each population assumed to be from a normal distribution mean zero
+mod_configural <- multipleGroup(task_data_args$task_data_prepped[[2]], 
+                                group = task_data_args$groups[[2]], 
+                                model = mirt.model(task_data_args$model_str[[2]]), 
+                                itemtype = "2PL", 
+                                verbose = TRUE)
+
+mod_metric <- multipleGroup(task_data_args$task_data_prepped[[2]], 
+                             group = task_data_args$groups[[2]], 
+                             model = mirt.model(task_data_args$model_str[[2]]), 
+                             itemtype = "2PL", 
+                             verbose = TRUE, 
+                             invariance = c("free_means","free_variances", "intercepts", "slopes"))
+
+mod_scalar1 <- multipleGroup(task_data_args$task_data_prepped[[2]], 
+                            group = task_data_args$groups[[2]], 
+                            model = mirt.model(task_data_args$model_str[[2]]), 
+                            itemtype = "2PL", 
+                            verbose = TRUE, 
+                            invariance = c("free_variances", "intercepts"), 
+                            technical = list(NCYCLES = 5000))
+
+
+mod_scalar2 <- multipleGroup(task_data_args$task_data_prepped[[2]], 
+                            group = task_data_args$groups[[2]], 
+                            model = mirt.model(task_data_args$model_str[[2]]), 
+                            itemtype = "2PL", 
+                            verbose = TRUE, 
+                            invariance = c("free_variances", "intercepts", "slopes"), 
+                            technical = list(NCYCLES = 5000))
+
+
+# everything is the same - one model for all data
+mod_fullconstrain <- multipleGroup(task_data_args$task_data_prepped[[2]], 
+                                   group = task_data_args$groups[[2]], 
+                                   model = mirt.model(task_data_args$model_str[[2]]), 
+                                   itemtype = "2PL", 
+                                   verbose = TRUE, 
+                                   invariance = c("intercepts", "slopes"))
+```
+
+```{r}
+anova(mod_configural, mod_metric, mod_scalar1, mod_scalar2, mod_fullconstrain) #equal slopes only
+```
+
+```{r}
+coefs_configural <- multigroup_coefs(mod_configural)
+coefs_metric <- multigroup_coefs(mod_metric)
+coefs_scalar2 <- multigroup_coefs(mod_scalar2)
+coefs_scalar1 <- multigroup_coefs(mod_scalar1)
+coefs_fullconstrain <- multigroup_coefs(mod_fullconstrain)
+```
+
+
+
+
+
+
+```{r}
 # extract submodels from multigroup models
-mrot_submods_rasch <- multigroup_extract_groups(mrot_mod_rasch)
-mrot_submods_2pl <- multigroup_extract_groups(mrot_mod_2pl)
+# mrot_submods_rasch <- multigroup_extract_groups(mrot_mod_rasch)
+mrot_submods_2pl <- multigroup_extract_groups(mod_scalar2)
 
 # get item coefs
-mrot_coefs_rasch <- multigroup_coefs(mrot_mod_rasch)
-mrot_coefs_2pl <- multigroup_coefs(mrot_mod_2pl)
+# mrot_coefs_rasch <- multigroup_coefs(mrot_mod_rasch)
+mrot_coefs_2pl <- multigroup_coefs(mod_scalar2)
 ```
 
 
@@ -136,12 +311,6 @@ ggplot(mrot_coefs_2pl,
 
 
 My understanding is that we want outfit (unweighted) for the Rasch model.
-
-
-```{r}
-mrot_infit_rasch <- multigroup_itemfit(mrot_submods_rasch, "infit")
-
-```
 
 
 
