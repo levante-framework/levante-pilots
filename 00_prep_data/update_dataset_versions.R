@@ -7,14 +7,14 @@ get_latest <- \(dataset_name) {
 }
 
 update_site <- \(site) {
-  ds_file <- glue("00_prep_data/{site}/_datasets.yml")
-  dataset_names <- yaml::read_yaml(here(ds_file))
+  ds_file <- glue::glue("00_prep_data/{site}/_datasets.yml")
+  dataset_names <- yaml::read_yaml(here::here(ds_file))
   
   dataset_latest <- dataset_names |>
-    modify(\(ds) ds |> assign_in("version", get_latest(ds$name)))
+    purrr::modify(\(ds) ds |> purrr::assign_in("version", get_latest(ds$name)))
   
   yaml::write_yaml(dataset_latest, ds_file)
 }
 
 sites <- c("co_pilot", "de_pilot", "ca_pilot", "us_pilot")
-walk(sites, update_site)
+purrr::walk(sites, update_site)
