@@ -10,7 +10,7 @@ source(here("03_summaries/scores_helper.R"))
 ```
 
 ```{r}
-sites <- c("ca_pilot", "co_pilot", "de_pilot")
+sites <- c("ca_pilot", "co_pilot", "de_pilot", "us_pilot")
 
 participants <- sites |>
   set_names() |>
@@ -51,8 +51,9 @@ ggsave(here("03_summaries/plots/scores_comparative.png"), width = 15, height = 6
 With just the LEVANTE original tasks. 
 
 ```{r}
-task_plot_comparative(filter(task_scores, task %in% c("hearts-and-flowers","memory-game","same-different-selection", "egma-math",
-                                                         "mental-rotation", "trog","vocab","theory-of-mind"))
+task_plot_comparative(filter(task_scores, task %in% 
+                               c("hearts-and-flowers","memory-game","same-different-selection", 
+                                 "egma-math", "mental-rotation", "trog","vocab","theory-of-mind"))
                                , ylab = "Score", nr = 2)
 ggsave(here("03_summaries/plots/extra/scores_comparative_levante_only.png"), width = 10, height = 6)
 ```
@@ -110,6 +111,9 @@ task_plot_pooled(filter(task_scores, site == "de_pilot") |>
                    mutate(task_label = site_task_label), ylab = "Score", nr = 2)
 ggsave(here("03_summaries/plots/extra/scores_de.png"), width = 14, height = 6)
 
+#task_plot_pooled(filter(task_scores, site == "us_pilot") |>
+#                   mutate(task_label = site_task_label), ylab = "Score", nr = 2)
+#ggsave(here("03_summaries/plots/extra/scores_us.png"), width = 14, height = 6)
 
 # task_plot(c("hearts-and-flowers", "memory-game", "same-different-selection"))
 # ggsave("plots/ef_scores.png", width = 9, height = 4)
