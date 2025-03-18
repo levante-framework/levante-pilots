@@ -6,7 +6,8 @@ library(here)
 site <- "ca_pilot"
 source(here("01_process_data", "processing_helper.R"))
 trials_coded <- read_rds(here(glue("00_prepped_data/{site}/trials_coded.rds")))
-task_data <- clean_trial_data(trials_coded)
+task_data <- clean_trial_data(trials_coded) |>
+  exclude_invalid_trial_data()
 # ToDo: fix matrix-reasoning item_id, which should be 'item' (e.g. tf1_1_M_ss3), not 'source' MarsIB-CB2-tf1)
 # task_data |> filter(task_id=="matrix-reasoning") |> select(item_id) |> distinct()
 # 
@@ -29,11 +30,18 @@ Re-bind data.
 
 ```{r}
 task_data_coded <- task_data |>
+  # remove pre-Feb 2025 PA data as this task incorrectly had only three trials per person
+  # due to a variant issue
+  # there was also a variant with SRE but it resulted in the task being twice as long. 
+  # this is dealt with in the `score_general` script
+  filter(!(task_id == "pa" & server_timestamp < ymd("2025-02-01"))) |>
   filter(!task_id %in% c("trog", "vocab", "same-different-selection","hearts-and-flowers",
                         "memory-game","egma-math", "theory-of-mind", "matrix-reasoning")) |>
   bind_rows(trog) |> 
   bind_rows(vocab) |>
-  bind_rows(sds) |>
+  # remove pre-march SDS data because there was a bug in which trial order was randomized, 
+  # causing data to be sadly meaningless for any multi-trial pieces
+  bind_rows(filter(sds, server_timestamp> ymd("2025-03-01"))) |>
   bind_rows(hearts_and_flowers) |>
   bind_rows(mg) |>
   bind_rows(egma) |> 

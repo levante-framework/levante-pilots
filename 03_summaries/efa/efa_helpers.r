@@ -1,12 +1,32 @@
-
+library(tidyverse)
 library(psych)
+<<<<<<< HEAD
+# library(corrplot)
+library(here)
+# library(reshape2)
+# library(plyr)
+=======
 library(corrplot)
 library(reshape2)
+>>>>>>> f5ae04b8f3272136956ae4b40ce911c9a0f97ecb
 
 col <- colorRampPalette(c("red", "white", "blue"))(200) # Red to white to blue
 
 
 
+<<<<<<< HEAD
+
+loadmax <- function(loadings, m_data_subset){
+  loadings_df <- reshape2::melt(as.matrix(loadings[1:ncol(m_data_subset),]))
+  colnames(loadings_df) = c('Item', 'Factor', 'Loading')
+
+  loadings_df <- loadings_df %>%
+    mutate(Factor = gsub("Factor", "F", Factor))
+  loadings_df <- plyr::ddply(loadings_df, plyr::.(Item), function(x) {
+    x$Loading[-which.max(abs(x$Loading))] <- 0
+    x
+  })
+=======
 loadmax <- function(loadings, m_data_subset) {
   # Melt the loadings into a long format
   loadings_df <- melt(as.matrix(loadings[1:ncol(m_data_subset), ]))
@@ -22,6 +42,7 @@ loadmax <- function(loadings, m_data_subset) {
     mutate(Loading = ifelse(abs(Loading) != max(abs(Loading)), 0, Loading)) |>
     ungroup()
   
+>>>>>>> f5ae04b8f3272136956ae4b40ce911c9a0f97ecb
   return(loadings_df)
 }
 

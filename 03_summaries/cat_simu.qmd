@@ -1,0 +1,122 @@
+```{r function}
+library(mirtCAT)
+
+# Function to perform  CAT simulation 
+# created based on george's code, ref: https://github.com/levante-framework/cat-sims/blob/main/cat-sims.Rmd
+
+cat_simu <- function(item_difficulty_pool, a_vals, model = 'Rasch', n = 2000, max_num = c(25, 50, 75)) {
+# item_difficulty_pool: difficulty parameters
+# a_vals: discrimination parameters
+# n: sample size
+  
+  # Generate theta for all participants (single group)
+  theta_all <- rnorm(n)
+  demo <- data.frame(theta = theta_all)
+  
+  # Simulated responses for each theta
+  pvdat <- simdata(a = matrix(a_vals), 
+                   d = matrix(item_difficulty_pool), 
+                   Theta = demo$theta, 
+                   itemtype = 'dich', sigma = matrix(1.5))
+  
+  # Fit Rasch model
+  mod <- mirt(pvdat, 1, model, verbose = FALSE)
+  
+  # Function to run CAT
+  doCAT <- function(dat, mod, max_items, true_theta) {
+    results <- mirtCAT(mo = mod, criteria = 'MI', start_item = 'MI', method = 'MAP', 
+                       local_pattern = dat, 
+                       design = list(max_items = max_items, min_SEM = .1)) # stopping rule, either min_SEM or max_items
+    
+    # save simulation results
+    parms <- do.call(rbind, lapply(seq_along(results), function(i) {
+      so <- summary(results[[i]])
+      c(thetaCAT = so$final_estimates, CAT_SE = so$final_estimates_se, Qs_asked = length(so$items_answered), 
+        true_theta = true_theta[i])  # Store true theta
+    }))
+    
+    parms <- as.data.frame(parms)  # Convert to data frame
+    colnames(parms) <- c("thetaCAT", "CAT_SE", "Qs_asked", "trueTheta")  
+    parms$max_items <- max_items  # Store test length
+    return(parms)
+  }
+  
+  # Run CAT for each max_items setting
+  sims <- map_dfr(max_num, ~ {
+    sim_result <- doCAT(pvdat, mod, max_items = .x, true_theta = demo$theta)
+    sim_result
+  })
+  
+  return(sims)
+}
+
+
+```
+
+
+Example usage of the egma-math task
+
+```{r}
+
+item_coefs <- readRDS(here("02_scored_data/irt_outputs/item_coefs.RDS"))
+
+item_coefs_nested <- item_coefs |>
+  nest(values = c(item, term, value))
+
+
+# select one condition for example
+# Filter for specific conditions and extract values
+co_math_rasch <- item_coefs_nested |>
+  filter(site == "co_pilot", task_id == "egma-math", model == "Rasch") |>
+  select(values) |>
+  unnest(values)
+
+difficulty_pool <- co_math_rasch %>%
+  filter(term == "difficulty") %>%
+  pull(value)
+
+length(difficulty_pool)
+
+sims <- cat_simu(difficulty_pool, 
+                 a_vals = rep(1, length(difficulty_pool)), 
+                 max_num = c(10, 25, 50, 75)) 
+
+```
+
+
+Plot the simulation results
+
+```{r}
+
+# plot all conditions together
+p1 <- ggplot(sims, aes(x = thetaCAT, y = thetaCAT, group = as.factor(max_items))) +
+  geom_point(alpha = 0.2) +
+  geom_ribbon(aes(ymin = thetaCAT - 1.96 * CAT_SE, ymax = thetaCAT + 1.96 * CAT_SE, fill = as.factor(max_items)), 
+              alpha = 0.8) +  # Increase alpha to highlight differences
+  #scale_fill_manual(values = blue_palette) +  # Use custom blue gradient
+  labs(x = "Theta Estimate ", y = "Theta Estimate with SE",
+       fill = "Max Items") +
+  theme_classic()
+
+p2 <- ggplot(sims, aes(x = thetaCAT, y = CAT_SE, color = as.factor(max_items))) +
+  geom_point(alpha = 0.5) +  # Individual estimates
+  #scale_color_manual(values = blue_palette) +  # Use custom blue gradient
+  geom_smooth(method = "loess", se = FALSE, linewidth = 1) +  # Trend line
+  labs(x = "thetaCAT", y = "SE",
+       color = "Max Items") +
+  theme_classic()
+
+library(patchwork)
+p1 + p2  
+
+
+# plot each max_item condition separately
+ggplot(sims, aes(x = trueTheta, y = thetaCAT)) +
+  geom_point(alpha = 0.2, color = 'red') +
+  geom_ribbon(aes(ymin = thetaCAT - 1.96 * CAT_SE, ymax = thetaCAT + 1.96 * CAT_SE), fill = 'blue', alpha = 0.3)+  # Increase alpha to highlight differences
+  #scale_fill_manual(values = blue_palette) +  # Use custom blue gradient
+  facet_grid(.~as.factor(max_items)) +
+  labs(x = "trueTheta", y = "Theta Estimate with SE") +
+  theme_classic()
+
+```
