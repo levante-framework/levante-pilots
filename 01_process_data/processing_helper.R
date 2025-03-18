@@ -71,10 +71,10 @@ clean_trial_data <- function (df) {
 # remove incomplete runs
 # TODO - remove runs and trials that do not pass validation
 exclude_invalid_trial_data <- function (df) {
+  
  df |> 
-  filter(completed == TRUE) |>
+  filter(completed) |>
     select(-completed)
-    
 }
 
 # ----------- ITEM INFO LOADING
