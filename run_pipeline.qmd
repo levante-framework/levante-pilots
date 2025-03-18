@@ -1,4 +1,4 @@
-```{r}
+```{r, warning=FALSE}
 library(here)
 library(tidyverse)
 library(knitr)
