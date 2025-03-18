@@ -10,7 +10,7 @@ dedict <- \(s) {
 # adds trial indices
 add_trial_number <- function (df) {
   df |>
-    group_by(run_id) |>
+    group_by(user_id, run_id) |>
     arrange(server_timestamp) |>
     mutate(trial_number = 1:n()) |>
     ungroup() 
@@ -34,17 +34,21 @@ get_final_variable_set <- function(df) {
     mutate(theta_estimate = as.numeric(theta_estimate), 
            theta_se = as.numeric(theta_se))
 }
-# cleanup of task data
 
-# only relevant tasks + not missing item + has response or correct
+
+
+# ----------- CLEANUP OF TRIAL DATA
+
+# cleanup of trial data
+# includes removing incomplete runs
+# ordering
+# sanitizing distractors, computing chance
+# TODO - add validation cleanup
+
 # filter(task_id %in% irt_tasks,
 #        !is.na(item),
 #        !is.na(response) | !is.na(correct)) |>
-# # chronological order
-# arrange(user_id, run_id, server_timestamp) |>
 # curly braces in items cause regex problems
-#mutate(item = item |> str_remove_all("[\\{\\}]")) |>
-# compute number of distractors + chance level
 
 clean_trial_data <- function (df) {
   df |>
@@ -59,7 +63,18 @@ clean_trial_data <- function (df) {
            chance = 1 / (distractors + 1)) |>
     select(dataset, matches("_id"), trial_number, trial_index, corpus_trial_type, assessment_stage, item,
            answer, chance, response, correct, rt, server_timestamp, distractors_cln, 
-           theta_estimate, theta_se)
+           theta_estimate, theta_se, completed) |>
+    arrange(user_id, run_id, server_timestamp)
+}
+
+# exclude_invalid_trial_data trial data 
+# remove incomplete runs
+# TODO - remove runs and trials that do not pass validation
+exclude_invalid_trial_data <- function (df) {
+ df |> 
+  filter(completed == TRUE) |>
+    select(-completed)
+    
 }
 
 # ----------- ITEM INFO LOADING
@@ -147,9 +162,9 @@ process_tom <- function(df) {
 
 # processing code for same-different-selection
 process_sds <- function(df) {
-  df |>
+  df_cleaned <- df |>
     filter(task_id == "same-different-selection", item!="") |>
-    filter(corpus_trial_type != "something-same-1") |>
+    filter(corpus_trial_type != "something-same-1") |> # these have no answer (they are just an "information" trial)
     arrange(server_timestamp) |>
     mutate(different = str_extract(item, "different")) |> # trials are "different" or NA
     group_by(user_id, run_id, corpus_trial_type) |> # within subtask (e.g. 3-match)
@@ -162,19 +177,27 @@ process_sds <- function(df) {
              fct_recode("first" = "1", "second" = "2",
                         "third" = "3", "fourth" = "4")) |>
     group_by(user_id, run_id, corpus_trial_type) |>
-    mutate(trial = consecutive_id(trial_i)) |> # renumber trials sequentially
-    group_by(user_id, run_id, corpus_trial_type) |>
-    mutate(item_id = if (all(trial == 1)) paste(corpus_trial_type, i) else paste(corpus_trial_type, trial, response)) |>
+    mutate(trial = consecutive_id(trial_i))  # renumber trials sequentially
+    
+  # make good item IDs for IRT modeling
+  # item_id is corpus_trial_type + response number for match and unique trials
+  df_ids <- df_cleaned |>  
+    mutate(item_id = str_replace_all(
+      if_else(!str_detect(corpus_trial_type, "match|unique"), 
+                             corpus_trial_type, 
+                             paste(corpus_trial_type, response)), 
+      "[- ]","_")) |>
     ungroup() |>
     select(-different, -trial_i, -i, -response, -trial)
+  
+  return(df_ids)
 }
 
 # processing code for filtering and scoring trials
 process_hearts_and_flowers <- function (df, add_corpus_trial_type = FALSE) {
   df <- df |>
     filter(task_id == "hearts-and-flowers") |>
-    mutate(item_id = item,
-           rt_num = as.numeric(rt), 
+    mutate(rt_num = as.numeric(rt), 
            response_fast = rt_num < 200, response_slow = rt_num > 2000) |>
     mutate(correct = !is.na(correct) & correct & !response_fast & !response_slow) |>
     select(-rt_num, -response_fast, -response_slow)
@@ -190,6 +213,7 @@ process_hearts_and_flowers <- function (df, add_corpus_trial_type = FALSE) {
     mutate(corpus_trial_type = case_when(
       corpus_trial_type == "1500" & trial_index < 56 ~ "hearts", 
       corpus_trial_type == "1500" & trial_index > 56 ~ "flowers", 
+      corpus_trial_type == "hearts and flowers" ~ "mixed",
       # we don't know if there were ever any 1500s for H&F
       # based on check on user_id S7gqxZoYQA0GJ7CTa2nG
       #corpus_trial_type == "1500" & trial_index > 115 ~ "hearts and flowers",
@@ -198,7 +222,8 @@ process_hearts_and_flowers <- function (df, add_corpus_trial_type = FALSE) {
   
   # there are some corpus_trial_types that don't fit.
   df <- filter(df,  
-               corpus_trial_type %in% c("hearts","flowers","hearts and flowers"))
+               corpus_trial_type %in% c("hearts","flowers","mixed")) |>
+    mutate(item_id = paste0(str_replace_all(corpus_trial_type, " ", "_"), "_", item))
   return(df)
 }
 
@@ -214,8 +239,8 @@ process_mg <- function(df) {
                corpus_trial_type == "" & trial_index < 40 ~ "forward", # determine based on index/order
                corpus_trial_type == "" & trial_index > 40 ~ "backward",
                .default = corpus_trial_type),
-           # compute item as the number of items in the answer
-           item_id =  as.character(str_count(answer, ":")))
+           # corpus_trial_type _ item as the number of items in the answer
+           item_id = paste0(corpus_trial_type, "_", as.character(str_count(answer, ":"))))
 }
 
 # ----------- EGMA PROCESSING CODE

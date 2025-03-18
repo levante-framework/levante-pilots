@@ -27,11 +27,38 @@ task_categories_vec <- levels(scores$task_category)
 task_pal <- ptol_pal()(length(task_categories_vec)) |> set_names(task_categories_vec)
 ```
 
+
 ```{r}
 threshold_n <- 10
 threshold_scores <- scores |> filter(site_task_n >= threshold_n)
 
 sumscores <- threshold_scores |> filter(metric_type == "prop_correct")
+
+irt_scores <- threshold_scores |>
+  filter(str_detect(metric_type, "ability"))
+
+task_scores <- threshold_scores |>
+  mutate(metric_type = if_else(str_detect(metric_type, "ability"), "ability", metric_type)) |>
+  filter(!is.na(metric_value)) |>
+  inner_join(task_metrics) 
+```
+
+```{r}
+task_plot_comparative(task_scores, ylab = "Score", nr = 2)
+ggsave(here("03_summaries/plots/scores_comparative.png"), width = 15, height = 6)
+```
+
+With just the LEVANTE original tasks. 
+
+```{r}
+task_plot_comparative(filter(task_scores, task %in% c("hearts-and-flowers","memory-game","same-different-selection", "egma-math",
+                                                         "mental-rotation", "trog","vocab","theory-of-mind"))
+                               , ylab = "Score", nr = 2)
+ggsave(here("03_summaries/plots/extra/scores_comparative_levante_only.png"), width = 10, height = 6)
+```
+
+
+```{r}
 
 task_plot_pooled(sumscores, ylab = "Proportion correct", nr = 2)
 ggsave(here("03_summaries/plots/extra/sumscores_pooled.png"), 
@@ -43,9 +70,6 @@ ggsave(here("03_summaries/plots/extra/sumscores_sites.png"),
 ```
 
 ```{r}
-irt_scores <- threshold_scores |>
-  filter(str_detect(metric_type, "ability"))
-
 task_plot_pooled(irt_scores, ylab = "Ability", nr = 2)
 ggsave(here("03_summaries/plots/extra/abilities_pooled.png"), 
        width = 9, height = 6, create.dir = TRUE)
@@ -58,11 +82,6 @@ ggsave(here("03_summaries/plots/extra/abilities_sites.png"),
 ```
 
 ```{r}
-task_scores <- threshold_scores |>
-  mutate(metric_type = if_else(str_detect(metric_type, "ability"), "ability", metric_type)) |>
-  filter(!is.na(metric_value)) |>
-  inner_join(task_metrics) 
-
 task_plot_pooled(task_scores, ylab = "Score", nr = 2)
 ggsave(here("03_summaries/plots/extra/scores_pooled.png"), 
        width = 15, height = 6, create.dir = TRUE)
@@ -70,7 +89,6 @@ ggsave(here("03_summaries/plots/extra/scores_pooled.png"),
 task_plot_comparative(task_scores, ylab = "Score", nr = 2)
 ggsave(here("03_summaries/plots/scores_comparative.png"), 
        width = 15, height = 6, create.dir = TRUE)
-
 
 task_plot_sites(task_scores, ylab = "Score", nc = 6)
 ggsave(here("03_summaries/plots/extra/scores_sites.png"), 

@@ -8,7 +8,8 @@ source(here("01_process_data", "processing_helper.R"))
 
 trials_coded <- read_rds(here(glue("00_prepped_data/{site}/trials_coded.rds")))
 
-task_data <- clean_trial_data(trials_coded)
+task_data <- clean_trial_data(trials_coded) |>
+  exclude_invalid_trial_data()
 ```
 
 Process tasks. 
