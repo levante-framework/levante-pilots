@@ -89,7 +89,7 @@ task_scores <- task_best |>
 write_rds(task_results, here("02_scored_data/irt_outputs/task_results.rds"))
 
 # save scores
-write_rds(task_scores, here("02_scored_data/scores_irt.rds"))
+write_rds(task_scores, here("02_scored_data/scores/scores_irt.rds"))
 ```
 
 ```{r}
