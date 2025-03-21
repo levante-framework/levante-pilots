@@ -27,8 +27,8 @@ participants <- sites |>
 Combine all task scores into one plot!
 
 ```{r}
-score_files <- list.files(here("02_scored_data"), pattern = "*.rds",
-                          full.names = TRUE)
+score_files <- list.files(here("02_scored_data/scores"), pattern = "*.rds",
+                          full.names = TRUE) 
 score_list <- score_files |> map(read_rds)
 # exclude_tasks <- c("hostile-attribution", "pa-es")
 # score_list <- read_rds("scores/combined_scores.rds")

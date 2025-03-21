@@ -11,4 +11,4 @@ scores_counts <- scores |>
                    n_distinct, .names = n_spec)) |>
   ungroup()
 
-write_rds(scores_counts, here(glue("02_scored_data/scores_counts.rds")))
+write_rds(scores_counts, here(glue("02_scored_data/scores/scores_counts.rds")))
