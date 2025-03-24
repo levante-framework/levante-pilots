@@ -50,10 +50,9 @@ task_plot_sites <- \(scores, ylab, nr = NULL, nc = NULL, y_axis = seq(6, 14, 2))
                              scales = "free_y") +
     geom_point(aes(colour = task_category), alpha = 0.5) +
     geom_smooth(aes(group = site), method = "gam", colour = "darkgrey", formula = y ~ s(x, bs = "re")) +
-    scale_x_continuous(breaks = y_axis) +
+    # scale_x_continuous(breaks = y_axis) +
     scale_colour_manual(values = task_pal) +
     labs(x = "Age (years)", y = ylab,
          caption = glue("Note: includes only tasks with at least {threshold_n} observations")) +
     guides(colour = "none")
 }
-

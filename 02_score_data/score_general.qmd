@@ -145,11 +145,10 @@ mefs <- left_join(mefs_scores, site_users) |>
   filter(!is.na(site))
 ```
 
-
-
 #  Combine scores
 
 ```{r}
-scores_combined <- bind_rows(sumscores, thetas, mg, sre, mefs, pa) # FIXME: pa not defined here..
+scores_combined <- bind_rows(sumscores, thetas, mg, sre, mefs)
+# scores_combined <- bind_rows(sumscores, thetas, mg, sre, mefs, pa) # FIXME: pa not defined here..
 write_rds(scores_combined, here("02_scored_data/scores/scores_general.rds"))
 ```

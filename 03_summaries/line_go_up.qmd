@@ -29,7 +29,8 @@ task_pal <- ptol_pal()(length(task_categories_vec)) |> set_names(task_categories
 
 
 ```{r}
-threshold_n <- 10
+# threshold_n <- 10
+threshold_n <- 1
 threshold_scores <- scores |> filter(site_task_n >= threshold_n)
 
 sumscores <- threshold_scores |> filter(metric_type == "prop_correct")
@@ -46,6 +47,11 @@ task_scores <- threshold_scores |>
 ```{r}
 task_plot_comparative(task_scores, ylab = "Score", nr = 2)
 ggsave(here("03_summaries/plots/scores_comparative.png"), width = 15, height = 6)
+```
+
+```{r}
+task_plot_sites(task_scores |> filter(site == "us_pilot"), ylab = "Score", nr = 1)
+ggsave(here("03_summaries/plots/scores_us.png"), width = 10, height = 4)
 ```
 
 With just the LEVANTE original tasks. 

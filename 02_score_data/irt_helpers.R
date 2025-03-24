@@ -123,7 +123,8 @@ mirt_coefs <- function(mod) {
 
 # get participant scores of fitted mirt model
 mirt_scores <- function(mod, df, df_prepped) {
-  scores <- fscores(mod, method = "MAP", verbose = FALSE)
+  # scores <- fscores(mod, method = "MAP", verbose = FALSE)
+  scores <- fscores(mod, method = "EAP", verbose = FALSE)
   user_scores <- tibble(user_id = rownames(df_prepped),
                         ability = scores[,1]) # TODO: check this gives correct order
   df |> distinct(user_id, run_id) |> # took out task ID here because of multi-task models
