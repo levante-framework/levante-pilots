@@ -17,7 +17,7 @@ irt_tasks <- c("egma-math",
                "trog",
                "vocab")
 
-sites <- c("ca_pilot", "co_pilot", "de_pilot")
+sites <- c("ca_pilot", "co_pilot", "de_pilot", "us_pilot")
 task_data_nested <- sites |>
   set_names() |>
   map(\(s) read_rds(here(glue("01_processed_data/{s}/task_data_nested.rds")))) |>
@@ -31,6 +31,7 @@ task_data_prepped <- task_data_nested |>
   mutate(data_filtered = map(data, \(df) df |> filter_repeat_runs() |>
                                dedupe_items() |> remove_no_var_items()),
          data_prepped = map(data_filtered, to_mirt_shape)) |>
+  filter(map_int(data_prepped, nrow) > 0) |>
   # pull out chance values
   mutate(guess = map(data_filtered, # TODO: check that this gives correct order
                      \(df) df |> distinct(item_inst, chance) |> pull(chance)))

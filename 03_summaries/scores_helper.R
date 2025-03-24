@@ -47,7 +47,7 @@ task_metrics <- tribble(
 )
 
 combine_scores <- \() {
-  score_files <- list.files(here("02_scored_data"), pattern = "*.rds",
+  score_files <- list.files(here("02_scored_data/scores"), pattern = "*.rds",
                             full.names = TRUE)
   score_list <- score_files |> map(read_rds)
   # exclude_tasks <- c("hostile-attribution", "pa-es")
@@ -66,10 +66,11 @@ combine_scores <- \() {
     left_join(run_ages |> group_by(user_id) |> summarise(age = mean(age, na.rm=TRUE)))
   
   scores <- scores_noages |>
-    filter(task != "mefs") |> 
+    filter(task != "mefs") |>
     left_join(run_ages) |>
-    bind_rows(mefs_age_guesses) |> # add mefs back in. 
-    filter(!is.na(age), age >= 5, age <= 12) |>
+    bind_rows(mefs_age_guesses) |> # add mefs back in
+    filter(!is.na(age)) |>
+    # filter(!is.na(age), age >= 5, age <= 12) |>
     left_join(task_categories) |>
     mutate(task = str_replace(task, "-es", ""),
            task = str_replace(task, "-de", "") )|>
@@ -83,7 +84,8 @@ combine_scores <- \() {
              # fct_relevel("co_pilot", "de_pilot", "ca_pilot") |>
              fct_recode("Canada" = "ca_pilot",
                         "Colombia" = "co_pilot",
-                        "Germany" = "de_pilot")) |>
+                        "Germany" = "de_pilot",
+                        "US" = "us_pilot")) |>
     group_by(site) |>
     mutate(site_label = glue("{site_label} (n = {n_distinct(user_id)})")) |>
     ungroup()

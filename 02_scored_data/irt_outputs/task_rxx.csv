@@ -26,3 +26,7 @@ de_pilot,memory-game,Rasch,0.9070608773916269
 de_pilot,egma-math,Rasch,0.873259242064808
 de_pilot,theory-of-mind,2PL,0.8382674504911961
 de_pilot,matrix-reasoning,Rasch,0.9638621965515526
+us_pilot,matrix-reasoning,2PL,0.39366053457048394
+us_pilot,mental-rotation,2PL,0.22423459414023592
+us_pilot,hearts-and-flowers,Rasch,0.928672923828624
+us_pilot,memory-game,Rasch,0.16700666490613736
