@@ -30,6 +30,17 @@ remove_no_var_items <- function(df, item_n_min = 1) {
     filter(item_mean > 0, item_mean < 1, item_n > item_n_min) # need to be between 0 and 1
 }
 
+# remove items that don't cross groups
+# could potentially be useful if there are missing data issues
+remove_singlegroup_items <- function(df, group_n_min = 2) {
+  df |>
+    group_by(item_id) |>
+    mutate(n_groups = n_distinct(group)) |>
+    ungroup() |>
+    filter(n_groups >= group_n_min) # need to be in N or more groups
+}
+
+
 # format data for mirt
 to_mirt_shape <- function(df) {
   df |>
@@ -115,6 +126,35 @@ fit_mirt <- function(i, df, item_type, model_str, model_type, task_id, guess, ve
   mirt(df, itemtype = item_type, model = model_str, #guess = guess,
        technical = list(NCYCLES = 5000), verbose = verbose)
 }
+
+# wrapper to fit multigroup mirt model with supplied arguments
+fit_multigroup <- function(i, df, item_type, group, model_str, 
+                           invariance, task_id, verbose = FALSE) {
+  message(glue("fitting row {i}: {task_id}, {item_type}  model, {invariance} invariance"))
+
+  # see https://docs.google.com/presentation/d/1OyQbOBhlOnuNpX9lgHKkp-xyTplo1JHdrNenUFyfZmI/edit?slide=id.p#slide=id.p 
+  # for an illustration of how these work
+  if (invariance == "metric") {
+    invariance_list <- c("free_means","free_variances", "intercepts", "slopes")
+  } else if (invariance == "configural") {
+    invariance_list <- ""
+  } else if (invariance == "scalar") {
+    invariance_list <- c("free_variances", "intercepts")
+  } else if (invariance == "full") {
+    invariance_list <- c("intercepts" , "slopes")
+  } else {
+    error("invariance type not recognized")
+  }
+      
+  multipleGroup(df, 
+                itemtype = item_type, 
+                group = group, 
+                model = mirt.model(model_str), 
+                verbose = TRUE, 
+                invariance = invariance_list,
+                technical = list(NCYCLES = 5000))
+}
+
 
 # get item parameters of fitted mirt model
 mirt_coefs <- function(mod) {
