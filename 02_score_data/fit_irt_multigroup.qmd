@@ -660,6 +660,17 @@ task_multigroup <- task_best |>
 ```{r}
 task_multigroup <- task_multigroup |>
   mutate(anova = pmap(list(mod_metric, mod_scalar, mod_full), anova)) 
+
+save(task_multigroup, 
+     file = here("02_scored_data/irt_outputs/multigroup_outputs.rds"))
+```
+
+```{r}
+best_multigroup <- task_multigroup |>
+  mutate(model_best_idx = map(anova, \(a) which(a$BIC == min(a$BIC))),
+         model_best = ifelse(model_best_idx == 1, model_metric,
+                             ifelse(model_best_idx == 2, model_scalar, model_full))) |>
+  
 ```
 
 
