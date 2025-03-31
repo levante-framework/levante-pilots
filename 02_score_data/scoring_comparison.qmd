@@ -1,0 +1,93 @@
+---
+title: "Scoring comparison"
+format: html
+---
+
+
+```{r}
+library(tidyverse)
+
+core_tasks <- c("mental-rotation","hearts-and-flowers","memory-game",
+                             "matrix-reasoning","same-different-selection",
+                             "theory-of-mind", "trog", "vocab", "egma-math")
+sites <- c("ca_pilot","co_pilot","de_pilot")
+
+scores_irt <- readRDS(here("02_scored_data","scores","scores_irt.rds")) |>
+  mutate(model = "no pooling IRT")
+scores_general <- readRDS(here("02_scored_data","scores","scores_general.rds")) |>
+  filter(metric_type == "total_correct") |>
+  mutate(model = "sumscore")
+scores_multigroup <- readRDS(here("02_scored_data","scores","scores_multigroup.rds")) |>
+  mutate(model = "partial pooling IRT")
+scores_fullpooling <- readRDS(here("02_scored_data","scores","scores_fullpooling.rds")) |>
+  mutate(model = "full pooling IRT")
+```
+
+```{r}
+all_scores <- bind_rows(scores_irt, scores_general, 
+                    scores_multigroup, scores_fullpooling)
+```
+
+Filter to our main tasks. 
+
+```{r}
+scores <- filter(all_scores, 
+                 task_id %in% core_tasks, 
+                 site %in% sites) |>
+  select(site, task_id, user_id, run_id, model, metric_type, metric_value)
+```
+
+
+Merge ages. 
+
+```{r}
+participants <- sites |>
+  set_names() |>
+  map(\(s) read_rds(here(glue("00_prepped_data/{s}/participants.rds")))) |>
+  list_rbind(names_to = "site")
+
+ run_ages <- participants |>
+    select(user_id, ages) |>
+    unnest(ages)
+
+ scores <- left_join(scores, run_ages)
+```
+
+
+
+```{r}
+for (task in core_tasks) {
+  
+  task_scores <- scores |>
+    filter(task_id == task) |>
+    mutate(model = fct_relevel(model, c("sumscore", "no pooling IRT", 
+                                        "partial pooling IRT", "full pooling IRT")), 
+           site = fct_relevel(site, "ca_pilot", "co_pilot", "de_pilot"))
+  
+  ggplot(task_scores, aes(x = age, y = metric_value, col = site)) +
+    geom_point(alpha = .1) + 
+    geom_smooth(method = "loess", span = 1) + 
+    xlab("Age (years)") + 
+    xlim(5,13)+ 
+    ylab("Score") + 
+    facet_wrap(~model, scales="free_y") + 
+    ggthemes::theme_few() +
+    ggthemes::scale_color_solarized() + 
+    theme(legend.position = "bottom")
+  ggsave(here("02_score_data","plots",glue("scores by age - {task}.png")))
+  
+  
+  task_scores_wide <- task_scores |>
+    pivot_wider(id_cols = c("site", "task_id", "user_id", "run_id", "age"), 
+                names_from = model, values_from = metric_value) 
+  
+  pairsplot <- GGally::ggpairs(task_scores_wide,
+                  columns = c("age", "sumscore","no pooling IRT", 
+                              "partial pooling IRT","full pooling IRT"), aes(col = site), 
+                  mapping = aes(col = site, alpha = .01)) + 
+    ggthemes::scale_color_solarized()
+  ggsave(plot = pairsplot, 
+         here("02_score_data","plots",glue("score correlations - {task}.png")))
+}
+```
+
