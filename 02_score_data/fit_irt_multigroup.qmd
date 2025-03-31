@@ -3,11 +3,14 @@ This notebook fits multigroup IRT models, in contrast to `fit_irt.qmd`, which is
 Our task-by-task strategy for looking at measurement invariance:
 
 * fit multigroup IRT model assuming scalar invariance - group mean and variance can vary but the item parameters are assumed to be the same
+
+(TODO items)
 * compare 1PL and 2PL (and eventually, 1D and 2D) models using IMV
 * look for outliers either on outfit or slopes in 2PL
 * uniform logistic DIF as a first step
 * compute marginal reliabilities using `marginal_rxx` 
-* use resulting item parameters for fitting CATs
+
+<!-- * use resulting item parameters for fitting CATs -->
 * use EAP fscores to get thetas for each child
 
 # General data loading
@@ -46,8 +49,27 @@ task_data_nested <- site_task_data_nested |>
     })) |>
   group_by(task_id) |>
   summarise(data = list(bind_rows(data)))
+
+task_data <- task_data_nested |>
+  select(-task_id) |>
+  unnest(cols = c(data))
 ```
 
+Get participants. 
+
+```{r}
+participants <- sites |>
+  set_names() |>
+  map(\(s) read_rds(here(glue("00_prepped_data/{s}/participants.rds")))) |>
+  list_rbind(names_to = "site")
+
+ run_ages <- participants |>
+    select(user_id, ages) |>
+    unnest(ages) |>
+   left_join(select(task_data, task_id, user_id, run_id) |> distinct())
+```
+
+Get IDs and merge.
 
 ```{r}
 id_map <- read_csv(here("02_score_data/item_metadata/pilot-item-ID mapping.csv"))
@@ -111,6 +133,9 @@ task_results <- task_models |>
          scores = pmap(list(mod, data_filtered, data_prepped), mirt_scores),
          bic = map_dbl(mod, mirt_bic))
 
+write_rds(task_results, here("02_scored_data/irt_outputs/joint_task_results.rds"))
+
+
 # best fitting model for each task
 task_best <- task_results |>
   group_by(task_id) |>
@@ -120,12 +145,18 @@ task_best <- task_results |>
 
 # scores from best fitting models
 task_scores <- task_best |>
-  select(task_id, item_type, model_type, scores) |>
-  unnest(scores) |>
+  select(task_id, item_type, model_type, scores, groups) |>
+  rename(site = groups) |>
+  unnest(cols = c(scores, site)) |>
   mutate(#item_type = fct_recode(item_type, "1PL" = "Rasch"),
-         metric_type = glue("ability ({item_type}-{model_type})")) |>
-  select(task_id, user_id, run_id, metric_type, metric_value = ability)
+         metric_type = glue("merged_data ability ({item_type}-{model_type})")) |>
+  select(site, task_id, user_id, run_id, metric_type, metric_value = ability)
+
+task_scores |>
+  saveRDS(here("02_scored_data","scores","scores_fullpooling.rds"))
 ```
+
+Now fit multigroup models.
 
 ```{r}
 task_multigroup <- task_best |>
@@ -147,7 +178,7 @@ save(task_multigroup,
 
 ```{r}
 best_multigroup <- task_multigroup |>
-  select(task_id, item_type, mod_metric, mod_scalar, mod_full) |>
+  select(task_id, item_type, groups, mod_metric, mod_scalar, mod_full) |>
   pivot_longer(cols = starts_with("mod"), 
                names_to = "model_type", values_to = "mod") |>
   filter(!(model_type == "mod_full" & item_type == "Rasch")) |>
@@ -173,10 +204,12 @@ groups <- task_multigroup |>
 
 
 all_fscores <- best_multigroup |>
-  select(task_id, model_type, fscore) |>
+  select(task_id, model_type, item_type, fscore) |>
+  mutate(metric_type = glue("multigroup ({item_type}-{model_type})")) |>
   unnest(fscore) |>
   bind_cols(select(groups, -task_id)) |>
-  rename(site = groups) |>
+  rename(site = groups, 
+         metric_value = fscore) |>
   left_join(run_ages)
 
 
@@ -184,7 +217,7 @@ all_fscores <- best_multigroup |>
 
 ```{r}
 ggplot(all_fscores,
-       aes(x = age, y = fscore, col = site)) + 
+       aes(x = age, y = metric_value, col = site)) + 
   geom_point(alpha = .05) + 
   geom_smooth(method = "loess", span = 1) + 
   xlab("Age (years)") + 
@@ -196,4 +229,32 @@ ggplot(all_fscores,
   theme(legend.position = "bottom")
 ```
 
+Save out scores. 
+
+```{r}
+all_fscores |>
+  select(site, task_id, user_id, run_id, metric_type, metric_value) |>
+  saveRDS(here("02_scored_data","scores","scores_multigroup.rds"))
+```
+
+# Marginal reliabilities
+
+Note, some of these look a little different than with the by-group models.
+
+```{r}
+task_rxx <- best_multigroup |>
+  mutate(site = map(mod, \(m) m@Data$groupNames),
+         group_models = map(mod, multigroup_extract_groups)) |>
+  select(-mod, -bic, -fscore) |>
+  unnest(cols = c("group_models", "site")) |>
+  mutate(rxx = map_dbl(group_models, marginal_rxx)) |>
+  select(site, task_id, item_type, model_type, rxx)
+
+task_rxx_wide <- task_rxx |> 
+  pivot_wider(names_from = "site", values_from = "rxx") 
+
+write_rds(task_rxx, here("02_scored_data/irt_outputs/multigroup_task_rxx.rds"))
+write_csv(task_rxx, here("02_scored_data/irt_outputs/multigroup_task_rxx.csv"))
+write_csv(task_rxx_wide, here("02_scored_data/irt_outputs/multigroup_task_rxx_wide.csv"))
+```
 
