@@ -50,8 +50,10 @@ ggsave(here("03_summaries/plots/scores_comparative.png"), width = 15, height = 6
 ```
 
 ```{r}
-task_plot_sites(task_scores |> filter(site == "us_pilot"), ylab = "Score", nr = 1)
-ggsave(here("03_summaries/plots/scores_us.png"), width = 10, height = 4)
+runs <- read_rds(here("00_prepped_data/us_pilot/runs.rds")) |> select(run_id, completed)
+scores_us <- task_scores |> filter(site == "us_pilot") |> left_join(runs)
+task_plot_completeness(scores_us, ylab = "Score", nr = 1)
+ggsave(here("03_summaries/plots/scores_us.png"), width = 12, height = 3.75)
 ```
 
 With just the LEVANTE original tasks. 
