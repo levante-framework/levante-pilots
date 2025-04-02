@@ -47,9 +47,24 @@ task_metrics <- tribble(
 )
 
 combine_scores <- \() {
-  score_files <- list.files(here("02_scored_data/scores"), pattern = "*.rds",
-                            full.names = TRUE)
-  score_list <- score_files |> map(read_rds)
+  # score_files <- list.files(here("02_scored_data/scores"), pattern = "*.rds",
+                            # full.names = TRUE)
+  
+  scores_irt <- readRDS(here("02_scored_data","scores","scores_irt.rds")) |>
+    mutate(model = "no pooling IRT")
+  scores_general <- readRDS(here("02_scored_data","scores","scores_general.rds")) |>
+    filter(metric_type == "total_correct") |>
+    mutate(model = "sumscore")
+  scores_multigroup <- readRDS(here("02_scored_data","scores","scores_multigroup.rds")) |>
+    mutate(model = "partial pooling IRT")
+  scores_fullpooling <- readRDS(here("02_scored_data","scores","scores_fullpooling.rds")) |>
+    mutate(model = "full pooling IRT")
+  
+  scores_noages <- bind_rows(scores_irt, scores_general, 
+                          scores_multigroup, scores_fullpooling)
+
+  
+  # score_list <- score_files |> map(read_rds)
   # exclude_tasks <- c("hostile-attribution", "pa-es")
   # score_list <- read_rds("scores/combined_scores.rds")
   
@@ -57,10 +72,10 @@ combine_scores <- \() {
     select(user_id, ages) |>
     unnest(ages)
   
-  scores_noages <- score_list |>
-    bind_rows() |>
-    rename(task = task_id) 
-  
+  # scores_noages <- score_list |>
+  #   bind_rows() |>
+  #   rename(task = task_id) 
+  # 
   mefs_age_guesses <- scores_noages |>
     filter(task == "mefs") |>
     left_join(run_ages |> group_by(user_id) |> summarise(age = mean(age, na.rm=TRUE)))

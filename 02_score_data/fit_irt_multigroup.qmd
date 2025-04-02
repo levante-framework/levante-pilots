@@ -92,8 +92,10 @@ task_data_nested$data_with_ids <- map(task_data_nested$data, \(df) {
   rename(item_id = item_uid, 
          group = site)})
 
+# now removes missing item ID data
 task_data_prepped <- task_data_nested |>
-  mutate(data_filtered = map(data_with_ids, \(df) df |> filter_repeat_runs() |>
+  mutate(data = map(data_with_ids, \(df) filter(df, !is.na(item_id))),
+         data_filtered = map(data_with_ids, \(df) df |> filter_repeat_runs() |>
                                dedupe_items() |> remove_no_var_items()),
          data_wide = map(data_filtered, to_mirt_shape_grouped), 
          data_prepped = map(data_wide, \(df) df |> select(-group)),
@@ -159,35 +161,60 @@ task_scores |>
 Now fit multigroup models.
 
 ```{r}
-task_multigroup <- task_best |>
-  mutate(mod_metric = pmap(list(row_number(), data_prepped, item_type, groups, model_str, 
-                                list("metric"), task_id), fit_multigroup),
-         mod_scalar = pmap(list(row_number(), data_prepped, item_type, groups, model_str, 
-                                list("scalar"), task_id), fit_multigroup),
-         mod_full = pmap(list(row_number(), data_prepped, item_type, groups, model_str, 
-                                list("full"), task_id), fit_multigroup))
-```
+model_types <- tribble(~item_type, ~invariance_type,
+                      "Rasch", "metric",
+                      "Rasch", "full",
+                      "2PL", "metric",
+                      "2PL", "scalar_intercepts",
+                      "2PL", "scalar_slopes_and_intercepts",
+                      "2PL", "full")
+multigroup_models <- task_results |>
+  full_join(model_types, relationship = "many-to-many") |>
+  mutate(mod = pmap(list(row_number(), data_prepped, item_type, groups, model_str, 
+                                invariance_type, task_id), fit_multigroup))
 
-```{r}
-task_multigroup <- task_multigroup |>
-  mutate(anova = pmap(list(mod_metric, mod_scalar, mod_full), anova)) 
-
-save(task_multigroup, 
+write_rds(multigroup_models, 
      file = here("02_scored_data/irt_outputs/multigroup_outputs.rds"))
 ```
 
 ```{r}
-best_multigroup <- task_multigroup |>
-  select(task_id, item_type, groups, mod_metric, mod_scalar, mod_full) |>
-  pivot_longer(cols = starts_with("mod"), 
-               names_to = "model_type", values_to = "mod") |>
-  filter(!(model_type == "mod_full" & item_type == "Rasch")) |>
-# get rid of full model for rasch
+# this is obviously terrible but somehow the following doesn't work 
+# do.call(anova, mod) 
+# even though anova(mod[[1]], mod[[2]]) works. 
+
+task_anova <- multigroup_models |>
+  group_by(task_id) |>
+  summarise(model_types = list(model_types), 
+            anova = list(anova(mod[1][[1]], mod[2][[1]], mod[3][[1]], mod[4][[1]], 
+                               mod[5][[1]], mod[6][[1]]))) |>
+  unnest(cols = c(model_types, anova)) |>
+  group_by(task_id) |>
+  mutate(delta_bic = BIC - min(BIC), 
+         model_type = fct_relevel(glue("{item_type}-{invariance_type}"), 
+                                  "2PL-full", "2PL-scalar_slopes_and_intercepts",
+                                  "2PL-scalar_intercepts", "2PL-metric",
+                                  "Rasch-full", "Rasch-metric"),
+         best = delta_bic == 0)
+
+
+ggplot(task_anova, aes(x = model_type, pch = best, 
+                       y = delta_bic, col = item_type)) + 
+  geom_point() + 
+  coord_flip() + 
+  facet_wrap(~task_id)
+ggsave(here("02_score_data", "plots","multigroup_anova.png"))
+```
+
+```{r}
+best_multigroup <- multigroup_models |>
   mutate(bic = map_dbl(mod, mirt_bic)) |>
   group_by(task_id) |>
   filter(bic == min(bic)) |>
   ungroup() |>
   mutate(fscore = map(mod, \(df) fscores(df)[,1]))
+
+write_rds(best_multigroup, 
+     file = here("02_scored_data/irt_outputs/multigroup_best_outputs.rds"))
 ```
 
 
@@ -196,7 +223,7 @@ best_multigroup <- task_multigroup |>
 ```{r}
 # this is terrible column alignment
 
-groups <- task_multigroup |> 
+groups <- multigroup_models |> 
   select(task_id, groups, data_wide) |> 
   mutate(user_id = map(data_wide, rownames)) |>
   select(-data_wide) |>
@@ -204,10 +231,11 @@ groups <- task_multigroup |>
 
 
 all_fscores <- best_multigroup |>
-  select(task_id, model_type, item_type, fscore) |>
-  mutate(metric_type = glue("multigroup ({item_type}-{model_type})")) |>
-  unnest(fscore) |>
-  bind_cols(select(groups, -task_id)) |>
+  mutate(ids = map(data_filtered, \(df) df |> select(user_id, run_id) |> 
+                     distinct())) |>
+  select(task_id, ids, invariance_type, item_type, fscore, groups) |>
+  mutate(metric_type = glue("multigroup ({item_type}-{invariance_type})")) |>
+  unnest(cols = c("groups", "fscore", "ids")) |>
   rename(site = groups, 
          metric_value = fscore) |>
   left_join(run_ages)

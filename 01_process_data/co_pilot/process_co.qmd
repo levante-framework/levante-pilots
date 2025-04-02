@@ -79,6 +79,7 @@ tom <- task_data |>
                            correct)) |>
   select(-value)
 ```
+
 CO bogota administration had a bug and some administrations ended up with only two practice trials and no real data. We remove these. 
 
 ```{r}
