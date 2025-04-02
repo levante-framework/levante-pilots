@@ -1,5 +1,4 @@
 site,task_id,item_type,model_type,rxx
-<<<<<<< HEAD
 ca_pilot,egma-math,Rasch,1,0.8629063886863834
 co_pilot,egma-math,Rasch,1,0.9309171080293545
 de_pilot,egma-math,Rasch,1,0.8798686425471782
@@ -27,32 +26,3 @@ de_pilot,trog,Rasch,1,0.9564546765066669
 ca_pilot,vocab,2PL,1,0.97514462087178
 co_pilot,vocab,2PL,1,0.9888910586063444
 de_pilot,vocab,2PL,1,0.9825191089820704
-=======
-ca_pilot,egma-math,2PL,mod_metric,0.9554363853639746
-co_pilot,egma-math,2PL,mod_metric,0.9648671344872927
-de_pilot,egma-math,2PL,mod_metric,0.9577450016116933
-ca_pilot,hearts-and-flowers,Rasch,mod_scalar,0.519427395334645
-co_pilot,hearts-and-flowers,Rasch,mod_scalar,0.7185606299533174
-de_pilot,hearts-and-flowers,Rasch,mod_scalar,0.6156157079710705
-ca_pilot,matrix-reasoning,Rasch,mod_metric,0.9600180726377974
-co_pilot,matrix-reasoning,Rasch,mod_metric,0.939610687238026
-de_pilot,matrix-reasoning,Rasch,mod_metric,0.8983061342706689
-ca_pilot,memory-game,Rasch,mod_metric,0.884789914685411
-co_pilot,memory-game,Rasch,mod_metric,0.8653633774225078
-de_pilot,memory-game,Rasch,mod_metric,0.9357598313534012
-ca_pilot,mental-rotation,2PL,mod_metric,0.8907399707528848
-co_pilot,mental-rotation,2PL,mod_metric,0.9169327930573621
-de_pilot,mental-rotation,2PL,mod_metric,0.7881893637746753
-ca_pilot,same-different-selection,Rasch,mod_metric,0.9032464719012505
-co_pilot,same-different-selection,Rasch,mod_metric,0.9429707052376658
-de_pilot,same-different-selection,Rasch,mod_metric,0.9439129322778028
-ca_pilot,theory-of-mind,2PL,mod_metric,0.7998056358161666
-co_pilot,theory-of-mind,2PL,mod_metric,0.9070688766444843
-de_pilot,theory-of-mind,2PL,mod_metric,0.6854123618668466
-ca_pilot,trog,Rasch,mod_metric,0.7181721123218622
-co_pilot,trog,Rasch,mod_metric,0.8825597734094017
-de_pilot,trog,Rasch,mod_metric,0.9564546765066669
-ca_pilot,vocab,2PL,mod_metric,0.97514462087178
-co_pilot,vocab,2PL,mod_metric,0.9888910586063444
-de_pilot,vocab,2PL,mod_metric,0.9825191089820704
->>>>>>> c0a6d46c9839e706a15388c1b44b41c3785f10d8

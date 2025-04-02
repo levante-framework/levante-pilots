@@ -134,7 +134,6 @@ fit_multigroup <- function(i, df, item_type, group, model_str,
 
   # see https://docs.google.com/presentation/d/1OyQbOBhlOnuNpX9lgHKkp-xyTplo1JHdrNenUFyfZmI/edit?slide=id.p#slide=id.p 
   # for an illustration of how these work
-<<<<<<< HEAD
   if (invariance == "configural") {
     invariance_list <- ""
   } else if (invariance == "metric") {
@@ -147,18 +146,6 @@ fit_multigroup <- function(i, df, item_type, group, model_str,
     invariance_list <- c("intercepts" , "slopes")
   } else {
     stop("invariance must be one of 'configural', 'metric', 'scalar_intercepts', 'scalar_slopes_and_intercepts', or 'full'")
-=======
-  if (invariance == "metric") {
-    invariance_list <- c("free_means","free_variances", "intercepts", "slopes")
-  } else if (invariance == "configural") {
-    invariance_list <- ""
-  } else if (invariance == "scalar") {
-    invariance_list <- c("free_variances", "intercepts")
-  } else if (invariance == "full") {
-    invariance_list <- c("intercepts" , "slopes")
-  } else {
-    error("invariance type not recognized")
->>>>>>> c0a6d46c9839e706a15388c1b44b41c3785f10d8
   }
       
   multipleGroup(df, 

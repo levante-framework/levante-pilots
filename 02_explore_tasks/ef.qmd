@@ -13,11 +13,7 @@ library(tidySEM)
 source(here("02_score_data","irt_helpers.R"))
 source(here("03_summaries", "plotting_helper.R"))
 
-<<<<<<< HEAD
 sites <- c("ca_pilot", "co_pilot", "de_pilot")
-=======
-sites <- c("co_pilot", "de_pilot")
->>>>>>> c0a6d46c9839e706a15388c1b44b41c3785f10d8
 
 task_data_nested <- sites |>
   set_names() |>
@@ -52,20 +48,15 @@ ages <- run_ages |>
 ef <- left_join(ef, run_ages)
 ```
 
-<<<<<<< HEAD
 # Load multigroup models
 
 
 ```{r}
-multigroup_best <- readRDS(here("02_scored_data", "irt_outputs", "multigroup_best_outputs.rds")) |>
-  mutate(coefs = map(mod, multigroup_coefs))
+best_multigroup <- readRDS(here("02_scored_data", "irt_outputs", "multigroup_best_outputs.rds")) 
 multigroup_scores <- readRDS(here("02_scored_data", "scores", "scores_multigroup.rds"))
 ```
 
 
-
-=======
->>>>>>> c0a6d46c9839e706a15388c1b44b41c3785f10d8
 # Sumscore approach
 
 First plot sumscores.
@@ -79,12 +70,8 @@ ef_runs <- ef |>
 ggplot(ef_runs, aes(x = age, y = correct)) + 
   geom_point(alpha = .5) + 
   geom_smooth(method = "loess", lambda = 1) +
-<<<<<<< HEAD
   facet_grid(site ~ task_id) + 
   ylim(0,1) 
-=======
-  facet_grid(site ~ task_id)
->>>>>>> c0a6d46c9839e706a15388c1b44b41c3785f10d8
 ```
 
 # Hearts and Flowers
@@ -100,17 +87,11 @@ Look at all phases.
 
 ```{r}
 hf_blocks <- hf |>
-<<<<<<< HEAD
   mutate(corpus_trial_type = fct_relevel(corpus_trial_type, "hearts", "flowers", "mixed")) |>
   group_by(site, user_id, run_id, task_id, corpus_trial_type) |>
   summarise(correct = mean(correct), 
             age = mean(age), 
             n = n())
-=======
-  group_by(site, user_id, run_id, task_id, corpus_trial_type) |>
-  summarise(correct = mean(correct), 
-            age = mean(age))
->>>>>>> c0a6d46c9839e706a15388c1b44b41c3785f10d8
 
 ggplot(hf_blocks,
        aes(x = age, y = correct)) + 
@@ -121,7 +102,6 @@ ggplot(hf_blocks,
   facet_grid(site ~ corpus_trial_type)
 ```
 
-<<<<<<< HEAD
 F notes that there are a lot of younger kids BELOW chance. Let's see if they are missing data. 
 
 ```{r}
@@ -133,8 +113,6 @@ ggplot(hf_blocks, aes(x = n, y = correct)) +
 
 NO - this is not because of missing data. Something else is happening. 
 
-=======
->>>>>>> c0a6d46c9839e706a15388c1b44b41c3785f10d8
 Averaged across everything. 
 
 ```{r}
@@ -147,13 +125,7 @@ hf_runs <- hf |>
             correct = mean(correct), 
             age = mean(age))
 
-<<<<<<< HEAD
 
-=======
-```
-
-```{r}
->>>>>>> c0a6d46c9839e706a15388c1b44b41c3785f10d8
 ggplot(hf_runs,
        aes(x = age, y = correct)) + 
   geom_point(alpha = .5) + 
@@ -220,7 +192,6 @@ ggplot(hf, aes(x = as.numeric(rt))) +
 
 ## IRT for H&F
 
-<<<<<<< HEAD
 We now use the multigroup IRT models. 
 
 ```{r}
@@ -236,157 +207,63 @@ ggplot(multigroup_scores_hf, aes(x = age, y = metric_value, col = site)) +
 Look at coefficients. 
 
 ```{r}
-hf_coefs <- filter(multigroup_best, task_id == "hearts-and-flowers")$coefs[[1]] |>
+hf_coefs <- filter(best_multigroup, task_id == "hearts-and-flowers")$coefs[[1]] |>
   separate(item, sep = "_", into = c("task","block","trial", "number")) |>
   select(-number) |>
   distinct()
 
-knitr::kable(hf_coefs, digits = 2)
-```
-=======
-```{r}
-hf |>
-  group_by(run_id, site) |>
-  count() |> 
-  arrange(n)
-
-```
-
-
-```{r}
-hf_mirt_items<- hf |>
-  mutate(item_id = str_replace_all(paste(item_id, corpus_trial_type), 
-                                   " ", "_")) 
-
-hf_data_prepped <- hf_mirt_items |>
-  nest() |>
-  mutate(data_filtered = map(data, \(df) df |> filter_repeat_runs() |>
-                               dedupe_items() |> remove_no_var_items(item_n_min = 1)),
-         data_prepped = map(data_filtered, to_mirt_shape)) |>
-  # pull out chance values
-  mutate(guess = map(data_filtered, # TODO: check that this gives correct order
-                     \(df) df |> distinct(item_inst, chance) |> pull(chance)))
-
-# generate model strings, using constraints for repeated items
-
-item_types <- c("Rasch", "2PL") #, "3PL") # set of parameterizations
-model_types <- c(1) #, 2) # set of dimensionalities
-# model_types <- c(1) # set of dimensionalities
-
-# add arguments for model fitting to data
-hf_data_args <- hf_data_prepped |>
-  # duplicate rows per dimensionality x parameterization
-  expand_grid(model_type = model_types, item_type = item_types) |>
-  # generate model string with item constraints + dimensionality
-  mutate(model_str = pmap_chr(list(data, data_prepped, item_type, model_type),
-                              generate_model_str))
-
-hf_models <- hf_data_args |>
-  mutate(mod = pmap(list(row_number(), data_prepped, item_type, model_str,
-                         model_type, guess),
-                    fit_mirt))
-```
-
-
-
-```{r}
-# get each model's coefs, scores, BIC
-hf_results <- hf_models |>
-  mutate(coefs = map(mod, mirt_coefs),
-         scores = pmap(list(mod, data_filtered, data_prepped), mirt_scores),
-         bic = map_dbl(mod, mirt_bic))
-
-# best fitting model for each task
-hf_best <- hf_results |>
-  filter(bic == min(bic)) |>
-  ungroup()
-# select(site, task_id, item_type, model_type, coefs, scores)
-
-# scores from best fitting models
-hf_scores <- hf_best |>
-  select(item_type, model_type, scores) |>
-  unnest(scores) |>
-  mutate(#item_type = fct_recode(item_type, "1PL" = "Rasch"),
-    metric_type = glue("ability ({item_type}-{model_type})")) |>
-  select(user_id, run_id, metric_type, metric_value = ability)
-
-```
-
-```{r}
-hf_best$coefs[[1]] |>
-  mutate(condition = str_replace_all(item,"_[:digit:]+", "")) |>
-  group_by(condition)  |>
-  summarise(discrimination = mean(a1), 
-            difficulty = -mean(d)) |>
-  knitr::kable(digits = 2)
-
-hf_results$coefs[[1]] |>
-  mutate(condition = str_replace_all(item,"_[:digit:]+", "")) |>
-  group_by(condition)  |>
-  summarise(discrimination = mean(a1), 
-            difficulty = mean(d)) |>
-  knitr::kable(digits = 2)
-
-```
-
-Coefficients. 
-
-```{r}
-
-hf_mirt_items |>
-  group_by(item_id) |>
-  summarise(correct = mean(correct))
-
-# View(hf_results$coefs[[2]])
-```
-
-
-
-```{r}
-hf_runs_score <- left_join(hf_runs, select(hf_scores, -metric_type) |> rename(two_pl = metric_value))
-ggplot(hf_runs_score, 
-       aes(x = age, y = two_pl)) + 
-  geom_point(alpha = .5) + 
-  geom_smooth(method = "lm") +
-  geom_smooth(method = "loess", col = "green") +
-  geom_hline(yintercept = 0, lty = 2) 
-```
-```{r}
-ggplot(hf_runs_score, aes(x = correct, y = two_pl)) + 
+ggplot(hf_coefs, aes(x = a1, y = -d, col = block, pch = trial)) + 
   geom_point() + 
-  geom_smooth()
+  geom_text_repel(aes(label = trial)) + 
+  xlab("Slope") + 
+  ylab("Difficulty") + 
+  facet_wrap(~site) 
 ```
->>>>>>> c0a6d46c9839e706a15388c1b44b41c3785f10d8
 
 
 # Memory game
 
+Merge in item ids. 
+
+```{r}
+id_map <- read_csv(here("02_score_data/item_metadata/pilot-item-ID mapping.csv"))
+
+trial_id_map <- id_map |>
+  mutate(trials = trials |> str_split(",")) |>
+  unnest(trials) |>
+  rename(trial_id = trials) |>
+  mutate(trial_id = str_trim(trial_id))
+
+```
+
 ```{r}
 mg <- ef |>
-  filter(task_id == "memory-game", 
-         corpus_trial_type != "") |>
-  mutate(span = as.numeric(item_id)) |>
-  group_by(run_id) |>
+  filter(task_id == "memory-game") |>
+  left_join(trial_id_map) |>
+  filter(!is.na(item_uid)) |>
+  separate(item_uid , into = c("task", "direction", "size", "span"), sep = "_") |>
+  mutate(span = as.numeric(str_replace(span, "len",""))) |>
+  group_by(run_id, direction) |>
   mutate(max_span = max(span))
 ```
 
 
 ```{r}
 mg_spans <- mg |>
-  group_by(site, span, corpus_trial_type) |>
+  group_by(site, span, size, direction) |>
   summarise(n = n(), 
             correct = mean(correct))
 
-ggplot(mg_spans, aes(x = span, y = correct, col = corpus_trial_type)) + 
+ggplot(mg_spans, aes(x = span, y = correct, col = direction, pch = size)) + 
   geom_point(aes(size = n)) + 
-  geom_line() + 
+  geom_line(aes(lty = size)) + 
   facet_wrap(~site)
 ```
 
 ```{r}
 
 mg |>
-  filter(corpus_trial_type == "forward", span > 1) |>
+  filter(direction == "forward", span > 1) |>
   mutate(age_rounded = as_factor(round(age))) |>
   group_by(age_rounded, span) |>
   summarise(correct = mean(correct), 
@@ -400,14 +277,15 @@ mg |>
 ```{r}
 
 mg |>
-  filter(corpus_trial_type == "forward", span > 1) |>
+  filter(direction == "forward", span > 1) |>
   mutate(max_span = as_factor(max_span)) |>
   group_by(max_span, span) |>
   summarise(correct = mean(correct), 
             n = n()) |>
   ggplot(aes(x = span, y = correct, col = max_span)) + 
   geom_point(aes(size = n)) + 
-  geom_smooth(method = "lm", se =FALSE)
+  geom_line()
+  # geom_smooth(method = "lm", se =FALSE)
 
 ```
 
@@ -416,111 +294,51 @@ mg |>
 ```{r}
 mg_runs <- mg |>
   filter(correct) |>
-  group_by(site, user_id, run_id, corpus_trial_type) |>
+  group_by(site, user_id, run_id, direction) |>
   summarise(max_span = max(span), 
             age = mean(age))
 ```
 
 
 ```{r}
-ggplot(mg_runs, aes(x = age, y = max_span, col = corpus_trial_type)) + 
+ggplot(mg_runs, aes(x = age, y = max_span, col = direction)) + 
   geom_jitter(alpha = .5, height = .1, width = 0) + 
   geom_smooth(method = "lm")+ 
-  facet_grid(corpus_trial_type~site, scales = "free_y")
+  facet_grid(direction~site, scales = "free_y")
 ```
 
 ## memory IRT
 
+We now use the multigroup IRT models. 
 
 ```{r}
-mg_data_prepped <- mg |>
-  ungroup() |>
-  # filter(corpus_trial_type == "forward") |>
-  mutate(item_id = str_c(corpus_trial_type, "_", as.character(span))) |>
-  nest() |>
-  mutate(data_filtered = map(data, \(df) df |> filter_repeat_runs() |>
-                               dedupe_items() |> remove_no_var_items()),
-         data_prepped = map(data_filtered, to_mirt_shape)) |>
-  # pull out chance values
-  mutate(guess = map(data_filtered, # TODO: check that this gives correct order
-                     \(df) df |> distinct(item_inst, chance) |> pull(chance)))
+multigroup_scores_mg <- multigroup_scores |>
+  filter(task_id == "memory-game") |>
+  select(site, task_id, user_id, run_id, metric_type, metric_value ) |>
+  left_join(run_ages)
 
-# generate model strings, using constraints for repeated items
-
-item_types <- c("Rasch", "2PL") #, "3PL") # set of parameterizations
-model_types <- c(1) #, 2) # set of dimensionalities
-# model_types <- c(1) # set of dimensionalities
-
-# add arguments for model fitting to data
-mg_data_args <- mg_data_prepped |>
-  # duplicate rows per dimensionality x parameterization
-  expand_grid(model_type = model_types, item_type = item_types) |>
-  # generate model string with item constraints + dimensionality
-  mutate(model_str = pmap_chr(list(data, data_prepped, item_type, model_type),
-                              generate_model_str))
-
-mg_models <- mg_data_args |>
-  mutate(mod = pmap(list(row_number(), data_prepped, item_type, model_str,
-                         model_type, guess),
-                    fit_mirt))
-```
-
-```{r}
-# get each model's coefs, scores, BIC
-mg_results <- mg_models |>
-  mutate(coefs = map(mod, mirt_coefs),
-         scores = pmap(list(mod, data_filtered, data_prepped), mirt_scores),
-         bic = map_dbl(mod, mirt_bic))
-
-# best fitting model for each task
-mg_best <- mg_results |>
-  filter(bic == min(bic)) |>
-  ungroup()
-# select(site, task_id, item_type, model_type, coefs, scores)
-
-# scores from best fitting models
-mg_scores <- mg_best |>
-  select(item_type, model_type, scores) |>
-  unnest(scores) |>
-  mutate(#item_type = fct_recode(item_type, "1PL" = "Rasch"),
-    metric_type = glue("ability ({item_type}-{model_type})")) |>
-  select(user_id, run_id, metric_type, metric_value = ability)
-
-```
-
-```{r}
-mg_coefs <- mg_best$coefs[[1]] |>
-  mutate(item = fct_reorder(item, d)) |>
-  separate(item, sep = "_", into = c("direction","span","number"))
-```
-
-```{r}
-ggplot(mg_coefs, 
-       aes(x = span, y = -d, col = direction)) + 
+ggplot(multigroup_scores_mg, aes(x = age, y = metric_value, col = site)) + 
   geom_point() + 
-  geom_smooth(aes(group = direction), method = "lm") + 
-  ylab("difficulty")
+  geom_smooth()
 ```
+Look at coefficients. 
 
 ```{r}
-ggplot(left_join(mg_best$scores[[1]], ages), 
-       aes(x = age, y = ability)) +
+mg_coefs <- filter(best_multigroup, task_id == "memory-game")$coefs[[1]] |>
+  separate(item, sep = "_", into = c("task", "direction", "size", "span", "number")) |>
+  mutate(span = as.numeric(str_replace(span, "len",""))) |>
+  select(-task, -number) |>
+  distinct()
+
+ggplot(mg_coefs, aes(x = span, y = -d, col = direction)) + 
   geom_point() + 
-  geom_smooth(method = "lm")
+  # geom_text_repel(aes(label = direction)) + 
+  xlab("Slope") + 
+  ylab("Difficulty") + 
+  facet_wrap(~site) 
 ```
 
 
-```{r}
-mg_runs_scores <- left_join(mg_runs, mg_best$scores[[1]]) |>
-  mutate(task_id = "memory-game") |>
-  filter(corpus_trial_type == "forward") |>
-  mutate(rasch = ability) 
-
-ggplot(mg_runs_scores,
-       aes(x = max_span, y = ability)) +
-  geom_point() + 
-  geom_smooth(method = "lm")
-```
 
 
 # SDS

@@ -10,12 +10,9 @@ unlink("scoring_temp.R")
 
 purl(here("02_score_data", "fit_irt.qmd"), 
      output = "scoring_temp.R")
-<<<<<<< HEAD
 
 purl(here("02_score_data", "fit_irt_multigroup.qmd"), 
      output = "scoring_temp.R")
-=======
->>>>>>> c0a6d46c9839e706a15388c1b44b41c3785f10d8
 source("scoring_temp.R")
 unlink("scoring_temp.R")
 ```

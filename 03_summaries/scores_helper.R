@@ -47,7 +47,6 @@ task_metrics <- tribble(
 )
 
 combine_scores <- \() {
-<<<<<<< HEAD
   # score_files <- list.files(here("02_scored_data/scores"), pattern = "*.rds",
                             # full.names = TRUE)
   
@@ -66,29 +65,18 @@ combine_scores <- \() {
 
   
   # score_list <- score_files |> map(read_rds)
-=======
   score_files <- list.files(here("02_scored_data/scores"), pattern = "*.rds",
                             full.names = TRUE)
   score_list <- score_files |> map(read_rds)
->>>>>>> c0a6d46c9839e706a15388c1b44b41c3785f10d8
-  # exclude_tasks <- c("hostile-attribution", "pa-es")
-  # score_list <- read_rds("scores/combined_scores.rds")
-  
+
   run_ages <- participants |>
     select(user_id, ages) |>
     unnest(ages)
   
-<<<<<<< HEAD
-  # scores_noages <- score_list |>
-  #   bind_rows() |>
-  #   rename(task = task_id) 
-  # 
-=======
   scores_noages <- score_list |>
     bind_rows() |>
     rename(task = task_id) 
   
->>>>>>> c0a6d46c9839e706a15388c1b44b41c3785f10d8
   mefs_age_guesses <- scores_noages |>
     filter(task == "mefs") |>
     left_join(run_ages |> group_by(user_id) |> summarise(age = mean(age, na.rm=TRUE)))
