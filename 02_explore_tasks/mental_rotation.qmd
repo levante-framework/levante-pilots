@@ -1,0 +1,152 @@
+```{r}
+library(tidyverse)
+library(glue)
+library(here)
+
+sites <- c("ca_pilot", "co_pilot", "de_pilot")
+
+task_data_nested <- sites |>
+  set_names() |>
+  map(\(s) read_rds(here(glue("01_processed_data/{s}/task_data_nested.rds")))) |>
+  list_rbind(names_to = "site")
+
+task_data_combined <- task_data_nested |>
+  select(-task_id) |>
+  unnest(data)
+```
+
+```{r}
+mrot <- filter(task_data_combined, 
+             task_id %in% c("mental-rotation"))
+```
+
+Get ages. 
+
+```{r}
+participants <- sites |>
+  set_names() |>
+  map(\(s) read_rds(here(glue("00_prepped_data/{s}/participants.rds")))) |>
+  list_rbind(names_to = "site")
+
+run_ages <- participants |>
+  select(user_id, ages) |>
+  unnest(ages)
+
+# this is useful below for various simplifications
+ages <- run_ages |>
+  group_by(user_id) |>
+  summarise(age = mean(age))
+
+mrot <- left_join(mrot, ages)
+```
+
+Get items
+
+```{r}
+id_map <- read_csv(here("02_score_data/item_metadata/pilot-item-ID mapping.csv"))
+
+trial_id_map <- id_map |>
+  mutate(trials = trials |> str_split(",")) |>
+  unnest(trials) |>
+  rename(trial_id = trials) |>
+  mutate(trial_id = str_trim(trial_id))
+```
+
+```{r}
+mrot <- mrot |>
+  left_join(trial_id_map) |>
+  filter(!is.na(item_uid)) |>
+  separate(item_uid , into = c("task","dims", "stimulus", "angle"), sep = "_") |>
+  mutate(angle = as.numeric(angle)) 
+```
+
+Load multigroup models
+
+
+```{r}
+best_multigroup <- readRDS(here("02_scored_data", "irt_outputs", "multigroup_best_outputs.rds")) 
+multigroup_scores <- readRDS(here("02_scored_data", "scores", "scores_multigroup.rds"))
+```
+
+
+# Sumscore approach
+
+First plot sumscores.
+
+```{r}
+mrot_runs <- mrot |>
+  group_by(site, user_id, run_id) |>
+  summarise(correct = mean(correct), 
+            age = mean(age))
+
+ggplot(mrot_runs, aes(x = age, y = correct)) + 
+  geom_point(alpha = .5) + 
+  geom_smooth(method = "loess", lambda = 1) +
+  ylim(0,1) +
+  facet_wrap(~site)
+```
+
+
+```{r}
+mrot_items <- mrot |>
+  group_by(site, stimulus, dims, angle) |>
+  summarise(correct = mean(correct)) |>
+  filter(stimulus %in% c("duck","rabbit","shape")) 
+
+ggplot(mrot_items, aes(x = angle, y = correct, col = stimulus, lty = dims)) + 
+  geom_point(alpha = .5) + 
+  geom_line() + 
+  geom_vline(xintercept = 180, lty = 2) + 
+  ylim(0,1) +
+  facet_wrap(~site)
+```
+```{r}
+mrot_items <- mrot_items |>
+  mutate(reflected_angle = if_else(angle > 180, 360 - angle, angle),
+         is_reflected = angle > 180) 
+  
+ggplot(mrot_items, aes(x = reflected_angle, y = correct, 
+                       col = stimulus, lty = is_reflected)) + 
+  geom_point(alpha = .5) + 
+  geom_line(aes(group = interaction(stimulus, is_reflected))) + 
+  ylim(0,1) +
+  facet_grid(stimulus~site)
+```
+
+# IRT approach
+
+```{r}
+multigroup_scores_mrot <- multigroup_scores |>
+  filter(task_id == "mental-rotation") |>
+  select(site, task_id, user_id, run_id, metric_type, metric_value ) |>
+  left_join(run_ages)
+
+ggplot(multigroup_scores_mrot, aes(x = age, y = metric_value, col = site)) + 
+  geom_point() + 
+  geom_smooth()
+```
+Look at coefficients. 
+
+```{r}
+mrot_coefs <- filter(best_multigroup, 
+                   task_id == "mental-rotation")$coefs[[1]] |>
+  separate(item , into = c("task","dims", "stimulus", "angle"), sep = "_") |>
+  filter(stimulus %in% c("duck","rabbit","shape")) |>
+  distinct()
+
+ggplot(mrot_coefs, aes(x = angle, y = -d, col = stimulus)) + 
+  geom_point() +
+  geom_line(aes(group = stimulus)) + 
+  coord_flip() + 
+  xlab("Angle") + 
+  ylab("Difficulty") + 
+  facet_wrap(~site) 
+
+ggplot(mrot_coefs, aes(x = angle, y = a1, col = stimulus)) + 
+  geom_point() +
+  geom_line(aes(group = stimulus)) + 
+  coord_flip() + 
+  xlab("Angle") + 
+  ylab("Discriminiation") + 
+  facet_wrap(~site) 
+```
