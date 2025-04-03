@@ -38,6 +38,32 @@ ages <- run_ages |>
 mr <- left_join(mr, run_ages)
 ```
 
+Get items
+
+```{r}
+id_map <- read_csv(here("02_score_data/item_metadata/pilot-item-ID mapping.csv"))
+
+trial_id_map <- id_map |>
+  mutate(trials = trials |> str_split(",")) |>
+  unnest(trials) |>
+  rename(trial_id = trials) |>
+  mutate(trial_id = str_trim(trial_id))
+```
+
+```{r}
+mr <- mr |>
+  left_join(trial_id_map) |>
+  filter(!is.na(item_uid)) 
+```
+
+Load multigroup models
+
+
+```{r}
+best_multigroup <- readRDS(here("02_scored_data", "irt_outputs", "multigroup_best_outputs.rds")) 
+multigroup_scores <- readRDS(here("02_scored_data", "scores", "scores_multigroup.rds"))
+```
+
 
 # Sumscores
 
@@ -52,8 +78,25 @@ mr_runs |> filter(age < 13) |>
   ggplot(aes(x = age, y = correct)) + 
   geom_point(alpha = .5) + 
   geom_smooth(method = "loess", lambda = 1) +
-  facet_wrap(. ~ site)
+  facet_wrap(~ site)
 ```
+Let's look at dates on these. 
+
+```{r}
+mr_runs <- mr |>
+  group_by(site, user_id, run_id) |>
+  summarise(correct = mean(correct), 
+            age = mean(age), 
+            date = min(server_timestamp))
+
+mr_runs |> filter(age < 13) |>
+  ggplot(aes(x = age, y = correct, col = date)) + 
+  geom_point(alpha = .5) + 
+  geom_smooth(method = "loess", lambda = 1) +
+  facet_wrap(~ site)
+```
+
+
 
 # Response Times
 
@@ -81,3 +124,34 @@ med_rt |> group_by(correct) |> summarise(mean_median_rt = mean(median_rt))
 ```
 
 But notice there is huge variation per child (and presumably per problem).
+
+# IRT approach
+
+```{r}
+multigroup_scores_mr <- multigroup_scores |>
+  filter(task_id == "matrix-reasoning") |>
+  select(site, task_id, user_id, run_id, metric_type, metric_value ) |>
+  left_join(run_ages)
+
+ggplot(multigroup_scores_mr, aes(x = age, y = metric_value, col = site)) + 
+  geom_point() + 
+  geom_smooth()
+```
+Look at coefficients. 
+
+```{r}
+mr_coefs <- filter(best_multigroup, 
+                   task_id == "matrix-reasoning")$coefs[[1]]  |>
+  mutate(item = fct_reorder(item, d))
+  
+ggplot(mr_coefs, aes(x = item, y = -d)) + 
+  geom_point() +
+  coord_flip() + 
+  facet_wrap(~site) 
+```
+
+```{r}
+mr_coefs |>
+  pivot_wider(names_from = site, values_from = d) |>
+  GGally::ggpairs(columns = c("ca_pilot", "co_pilot", "de_pilot"))
+```
