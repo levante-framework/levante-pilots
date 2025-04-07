@@ -124,7 +124,7 @@ ggplot(sre, aes(x = metric_value)) +
 # MEFS
 
 ```{r}
-mefs_scores <- read_csv(here("02_scored_data","mefs_data","LEVANTE_20250122_0252.csv")) |>
+mefs_scores <- read_csv(here("02_scored_data","mefs_data","LEVANTE_20250403_1132.csv")) |>
   janitor::clean_names() |>
   select(child_id, a1_total_score, a1_standard_score) |>
   rename(user_id = child_id, 

@@ -330,120 +330,76 @@ mg_coefs <- filter(best_multigroup, task_id == "memory-game")$coefs[[1]] |>
   select(-task, -number) |>
   distinct()
 
-ggplot(mg_coefs, aes(x = span, y = -d, col = direction)) + 
+ggplot(mg_coefs, aes(x = span, y = -d, col = direction, pch = size)) + 
   geom_point() + 
+  geom_line() + 
   # geom_text_repel(aes(label = direction)) + 
   xlab("Slope") + 
   ylab("Difficulty") + 
   facet_wrap(~site) 
 ```
 
-
+Note that we have used grid3 very little and so it's getting dropped from most analysis. 
 
 
 # SDS
 
 ```{r}
-sds <- filter(ef, task_id == "same-different-selection")
+sds <- filter(ef, task_id == "same-different-selection") |>
+  left_join(trial_id_map) |>
+  filter(!is.na(item_uid)) |>
+  separate(item_uid , into = c("task", "block", "trial"), sep = "_") 
+```
 
+```{r}
 sds_runs <- sds |>
   group_by(site, user_id, run_id, task_id) |>
   summarise(correct = mean(correct), 
             age = mean(age))
 
+
 sds_runs_block <- sds |>
-  group_by(site, user_id, run_id, task_id, corpus_trial_type) |>
+  filter(block != "3unique") |>
+  mutate(block = fct_relevel(block, "dimensions","same")) |>
+  group_by(site, user_id, run_id, task_id, block) |>
   summarise(correct = mean(correct), 
             age = mean(age))
 
 
 ggplot(sds_runs_block, aes(x = age, y = correct)) + 
   geom_point(alpha = .5) + 
-  geom_smooth(method = "loess", lambda = 1) + 
-  facet_wrap(~corpus_trial_type)
+  geom_smooth(method = "lm", se=FALSE) + 
+  facet_grid(site ~ block)
 ```
 
+## SDS IRT
 
 ```{r}
-parse_match_ids <- function (ii) {
- sapply(str_split(ii," "), 
-      \(str) paste(str[1], str[3]))
-}
+multigroup_scores_sds <- multigroup_scores |>
+  filter(task_id == "same-different-selection") |>
+  select(site, task_id, user_id, run_id, metric_type, metric_value ) |>
+  left_join(run_ages)
 
-
-sds_data_prepped <- sds |>
-  mutate(item_id = case_when(
-    str_detect(item_id, "test_dimensions") ~ str_sub(item_id, 1, -3),
-    str_detect(item_id, "something_same_2") ~ str_sub(item_id, 1, -3),
-    str_detect(item_id, "match") ~ parse_match_ids(item_id),
-    .default = NA)) |>
-  mutate(item_id = str_replace_all(item_id, " ", "_")) |>
-  ungroup() |>
-  # filter(corpus_trial_type == "forward") |>
-  # mutate(item_id = str_c(corpus_trial_type, "_", as.character(span))) |>
-  nest() |>
-  mutate(data_filtered = map(data, \(df) df |> filter_repeat_runs() |>
-                               dedupe_items() |> remove_no_var_items()),
-         data_prepped = map(data_filtered, to_mirt_shape)) |>
-  # pull out chance values
-  mutate(guess = map(data_filtered, # TODO: check that this gives correct order
-                     \(df) df |> distinct(item_inst, chance) |> pull(chance)))
-
-# generate model strings, using constraints for repeated items
-
-item_types <- c("Rasch", "2PL") #, "3PL") # set of parameterizations
-model_types <- c(1) #, 2) # set of dimensionalities
-# model_types <- c(1) # set of dimensionalities
-
-# add arguments for model fitting to data
-sds_data_args <- sds_data_prepped |>
-  # duplicate rows per dimensionality x parameterization
-  expand_grid(model_type = model_types, item_type = item_types) |>
-  # generate model string with item constraints + dimensionality
-  mutate(model_str = pmap_chr(list(data, data_prepped, item_type, model_type),
-                              generate_model_str))
-
-sds_models <- sds_data_args |>
-  mutate(mod = pmap(list(row_number(), data_prepped, item_type, model_str,
-                         model_type, guess),
-                    fit_mirt))
+ggplot(multigroup_scores_sds, aes(x = age, y = metric_value, col = site)) + 
+  geom_point() + 
+  geom_smooth()
 ```
+Look at coefficients. 
 
 ```{r}
-# get each model's coefs, scores, BIC
-sds_results <- sds_models |>
-  mutate(coefs = map(mod, mirt_coefs),
-         scores = pmap(list(mod, data_filtered, data_prepped), mirt_scores),
-         bic = map_dbl(mod, mirt_bic))
+sds_coefs <- filter(best_multigroup, task_id == "same-different-selection")$coefs[[1]] |>
+  separate(item, sep = "_", into = c("task", "block","trial")) |>
+  filter(block != "3unique") |>
+  mutate(block = fct_relevel(block, "dimensions","same")) |>
+  distinct()
 
-# best fitting model for each task
-sds_best <- sds_results |>
-  filter(bic == min(bic)) |>
-  ungroup()
-# select(site, task_id, item_type, model_type, coefs, scores)
-
-# scores from best fitting models
-sds_scores <- sds_best |>
-  select(item_type, model_type, scores) |>
-  unnest(scores) |>
-  mutate(#item_type = fct_recode(item_type, "1PL" = "Rasch"),
-    metric_type = glue("ability ({item_type}-{model_type})")) |>
-  select(user_id, run_id, metric_type, metric_value = ability)
-
-```
-
-```{r}
-sds_coefs <- sds_best$coefs[[1]] |>
-  mutate(item = fct_reorder(item, d)) 
-```
-
-
-```{r}
-sds_runs_scores <- left_join(sds_scores, sds_runs)
-ggplot(sds_runs_scores, aes(x = age, y = metric_value)) + 
-  geom_point(alpha = .5) + 
-  geom_smooth(method = "lm") + 
-  facet_wrap(~site)
+ggplot(sds_coefs, aes(x = block, y = -d, col = trial)) + 
+  geom_point() + 
+  geom_line(aes(group = trial)) + 
+  coord_flip() +
+  # geom_text_repel(aes(label = direction)) + 
+  xlab("block") + 
+  ylab("Difficulty") 
 ```
 
 
@@ -452,59 +408,18 @@ ggplot(sds_runs_scores, aes(x = age, y = metric_value)) +
 # EF factor analysis
 
 ```{r}
-mg_scores_cleaned <- mg_runs_scores |> 
-  filter(corpus_trial_type == "forward") |>
-  pivot_longer(c(max_span,ability), 
-               names_to = "metric_type", values_to = "metric_value") |>
-  select(site, task_id, user_id, run_id, metric_type,  metric_value)
 
-sds_scores_cleaned <- sds_runs_scores |> 
-  select(site, task_id, user_id, run_id, metric_value, correct) |>
-  rename(ability = metric_value) |>
-  pivot_longer(c(correct, ability), names_to = "metric_type", values_to = "metric_value")
-
-hf_scores_cleaned <- bind_rows(hf_runs_score |>
-              pivot_longer(c(correct, logit, bayeslogit, two_pl), names_to = "metric_type", 
-                           values_to = "metric_value") |>
-              select(site, task_id, user_id, run_id, metric_type, metric_value), 
-              hf_scores |>
-              left_join(select(participants, site, user_id)) |>
-              mutate(task_id = "hearts-and-flowers"))
-
-ef_scores <- bind_rows(mg_scores_cleaned, sds_scores_cleaned) |>
-  bind_rows(hf_scores_cleaned) 
-```
-
-```{r}
-ungroup(ef_scores) |>
-  select(task_id, metric_type) |> 
-  distinct()
-```
-
-
-```{r}
-ef_scores_sumscore <- ef_scores |>
-  filter(metric_type %in% c("max_span","correct")) |>
-  group_by(site, task_id, user_id) |>
-  summarise(metric_value = mean(metric_value, na.rm=TRUE)) |>
-  ungroup() |>
-  select(site, task_id, metric_value, user_id) |>
-  pivot_wider(names_from = "task_id", values_from = "metric_value",
-              id_cols = c("user_id","site")) |>
-  janitor:::clean_names() |>
-  mutate(across(same_different_selection:hearts_and_flowers, ~ scale(.x)[,1])) |>
-  left_join(ages)
+ef_scores <- filter(multigroup_scores, 
+                    task_id %in% c("hearts-and-flowers", "memory-game", "same-different-selection"))
 
 ef_scores_irt <- ef_scores |>
-  filter(str_detect(metric_type, "ability")) |>
-  group_by(site, task_id, user_id) |>
-  summarise(metric_value = mean(metric_value, na.rm=TRUE)) |>
-  ungroup() |>
   select(site, task_id, metric_value, user_id) |>
   pivot_wider(names_from = "task_id", values_from = "metric_value", 
               id_cols = c("user_id", "site")) |>
   janitor:::clean_names() |>
-  mutate(across(same_different_selection:hearts_and_flowers, ~ scale(.x)[,1])) |>
+  mutate(across(hearts_and_flowers:same_different_selection, ~ scale(.x)[,1]), 
+         ca_site = site == "ca_pilot",
+         de_site = site == "de_pilot") |>
   left_join(ages)
 ```
 
@@ -514,7 +429,62 @@ ef =~ hearts_and_flowers + memory_game + same_different_selection
 ef ~ age
 "
 
-fit <- cfa(cfa_model, ef_scores_sumscore, std.lv=TRUE, missing='fiml')
+fit <- cfa(cfa_model, ef_scores_irt, std.lv=TRUE, missing='fiml')
+summary(fit, fit.measures=TRUE, standardize=TRUE)
+
+graph_sem(model = fit, text_size = 3) + 
+  theme(panel.background = element_rect(fill = "white"))
+```
+
+Multi-group model
+
+```{r}
+# configural invariance
+fit1 <- cfa(cfa_model, ef_scores_irt, std.lv=TRUE, missing='fiml', 
+           group = "site")
+
+# weak invariance
+fit2 <- cfa(cfa_model, ef_scores_irt, std.lv=TRUE, missing='fiml', 
+           group = "site", group.equal = "loadings")
+
+# strong invariance
+fit3 <- cfa(cfa_model, ef_scores_irt, std.lv=TRUE, missing='fiml', 
+           group = "site", group.equal = c("intercepts","loadings"))
+
+# model comparison tests
+lavTestLRT(fit1, fit2, fit3)
+```
+
+```{r}
+graph_sem(model = fit1, text_size = 3) + 
+  theme(panel.background = element_rect(fill = "white"))
+```
+
+# Add MEFS
+
+```{r}
+mefs_scores <- read_csv(here("02_scored_data","mefs_data","LEVANTE_20250403_1132.csv")) |>
+  janitor::clean_names() |>
+  select(child_id, a1_total_score, a1_standard_score) |>
+  rename(user_id = child_id, 
+         mefs_total = a1_total_score,
+         mefs_standard = a1_standard_score
+         ) 
+
+ef_scores_irt <- ef_scores_irt |>
+  left_join(mefs_scores) |>
+  mutate(mefs_total = scale(mefs_total)[,1],
+         mefs_standard = scale(mefs_standard)[,1])
+
+```
+
+```{r}
+cfa_model_mefs <-  "
+ef =~ hearts_and_flowers + memory_game + same_different_selection + mefs_standard
+ef ~ age
+"
+
+fit <- cfa(cfa_model_mefs, ef_scores_irt, std.lv=TRUE, missing='fiml')
 summary(fit, fit.measures=TRUE, standardize=TRUE)
 
 graph_sem(model = fit, text_size = 3) + 
@@ -523,14 +493,24 @@ graph_sem(model = fit, text_size = 3) +
 
 
 ```{r}
-cfa_model <-  "
-ef =~ hearts_and_flowers + memory_game + same_different_selection
-ef ~ age
-"
+# configural invariance
+fit1 <- cfa(cfa_model_mefs, ef_scores_irt, std.lv=TRUE, missing='fiml', 
+           group = "site")
 
-fit_irt <- cfa(cfa_model, ef_scores_irt, std.lv=TRUE, missing='fiml')
-summary(fit_irt, fit.measures=TRUE, standardize=TRUE)
+# weak invariance
+fit2 <- cfa(cfa_model_mefs, ef_scores_irt, std.lv=TRUE, missing='fiml', 
+           group = "site", group.equal = "loadings")
 
-graph_sem(model = fit_irt, text_size = 3) + 
+# strong invariance
+fit3 <- cfa(cfa_model_mefs, ef_scores_irt, std.lv=TRUE, missing='fiml', 
+           group = "site", group.equal = c("intercepts","loadings"))
+
+# model comparison tests
+lavTestLRT(fit1, fit2, fit3)
+```
+
+
+```{r}
+graph_sem(model = fit1, text_size = 3) + 
   theme(panel.background = element_rect(fill = "white"))
 ```
