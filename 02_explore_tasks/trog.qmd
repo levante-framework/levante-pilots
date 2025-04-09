@@ -192,7 +192,41 @@ ggplot(trog_runs, aes(x = age, y = correct, col = site)) +
 
 ```
 
+Exploratory
 
 ```{r}
+
+# Examining corpus trial type
+
+trog_type <- trog |>
+  group_by(site, user_id, run_id, corpus_trial_type) |>
+  summarise(correct = mean(correct, na.rm = TRUE),
+            age = mean(age, na.rm = TRUE))
+
+ggplot(trog_type, aes(x = age, y = correct, col = corpus_trial_type)) +
+  geom_smooth(method = "loess") +
+  facet_wrap(~site)
+
+ggplot(trog_type, aes(x = age, y = correct, col = corpus_trial_type)) +
+  geom_smooth(method = "loess") +
+  geom_rug(aes(x = age), sides = "b", alpha = 0.2) +
+  facet_wrap(~site)
+
+# Difficulty patterns across countries
+
+item_difficulty <- trog |>
+  group_by(site, item_uid) |>
+  summarise(p_correct = mean(correct, na.rm = TRUE)) |>
+  pivot_wider(names_from = site, values_from = p_correct)
+
+
+install.packages("GGally")
+library(GGally)
+
+item_difficulty |>
+  select(-item_uid) |>
+  ggpairs(title = "Pairwise Site-Level Item Difficulties")
+
+
 
 ```
