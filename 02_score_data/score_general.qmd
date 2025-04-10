@@ -3,23 +3,17 @@ library(tidyverse)
 library(glue)
 library(here)
 
-sites <- c("ca_pilot", "co_pilot", "de_pilot", "us_pilot")
+task_data_nested <- read_rds(here(glue("01_fetched_data/task_data_nested.rds")))
+task_data_combined <- task_data_nested |> unnest(data)
 
-task_data_nested <- sites |>
-  set_names() |>
-  map(\(s) read_rds(here(glue("01_processed_data/{s}/task_data_nested.rds")))) |>
-  list_rbind(names_to = "site")
-
-task_data_combined <- task_data_nested |>
-  select(-task_id) |>
-  unnest(data)
+run_data_combined <- read_rds(here("refactor/01_fetched_data/run_data.rds"))
 ```
 
 Sumscores for all tasks
 
 ```{r sumscores}
 sumscores <- task_data_combined |>
-  filter(corpus_trial_type != "Number Line Slider") |> # TODO
+  # filter(corpus_trial_type != "Number Line Slider") |> # TODO
   group_by(site, task_id, user_id, run_id) |>
   summarise(prop_correct =  mean(correct),
             total_correct = sum(correct),
@@ -27,35 +21,22 @@ sumscores <- task_data_combined |>
   ungroup() |>
   pivot_longer(-c("site", ends_with("_id")),
                names_to = "metric_type", values_to = "metric_value")
+write_rds(sumscores, here("02_scored_data/scores/sumscores.rds"))
 ```
 
 Thetas for tasks that have them
 
 ```{r thetas}
-thetas <- task_data_combined |>
-  filter(!is.na(theta_estimate)) |>
-  group_by(site, task_id, user_id, run_id) |>
-  filter(server_timestamp == max(server_timestamp)) |>
-  ungroup() |>
+thetas <- run_data_combined |>
+  filter(!is.na(test_comp_theta_estimate)) |>
+  # group_by(site, task_id, user_id, run_id) |>
+  # filter(server_timestamp == max(server_timestamp)) |>
+  # ungroup() |>
   mutate(metric_type = "ability (CAT)") |>
-  select(site, task_id, user_id, run_id, metric_type, metric_value = theta_estimate)
+  select(site, task_id, user_id, run_id, metric_type,
+         metric_value = test_comp_theta_estimate)
+write_rds(scores_combined, here("02_scored_data/scores/scores_thetas.rds"))
 ```
-
-# Memory game
-
-Custom scoring for memory game - obviated by IRT models.
-
-```{r mg}
-mg <- task_data_combined |>
-  filter(task_id == "memory-game") |>
-  mutate(span = str_count(response, ":")) |>
-  filter(correct) |>
-  group_by(site, task_id, user_id, run_id) |> # corpus_trial_type
-  summarise(metric_value = max(span)) |>
-  ungroup() |>
-  mutate(metric_type = "longest_span")
-```
-
 
 # SRE
 
@@ -74,6 +55,8 @@ Let's debug what happened with SRE. Working hypothesis:
 - in canada we did the 2 block 6 min version and need to select the first block.
 
 ```{r}
+#| eval: false
+
 tdc <- task_data_combined |>
   filter(str_detect(task_id, "sre")) |>
   mutate(item_num = as.numeric(str_extract(item_id, "[:digit:]+")), 
@@ -101,6 +84,8 @@ ggplot(tdc_sub, aes(x = num_items)) +
 So - to score fairly, we need to divide by some kind of constant. Let's start by clipping to the first 180s for Canada, then doing (correct - incorrect) / 180 - "guessing-adjusted correct per second".
 
 ```{r sre}
+#| eval: false
+
 sre_all <- task_data_combined |>
   filter(str_detect(task_id, "sre")) 
 
@@ -115,6 +100,8 @@ sre <- sre_all |>
 ```
 
 ```{r}
+#| eval: false
+
 ggplot(sre, aes(x = metric_value)) + 
   geom_histogram() + 
   facet_wrap(~site)
@@ -124,6 +111,8 @@ ggplot(sre, aes(x = metric_value)) +
 # MEFS
 
 ```{r}
+#| eval: false
+
 mefs_scores <- read_csv(here("02_scored_data","mefs_data","LEVANTE_20250403_1132.csv")) |>
   janitor::clean_names() |>
   select(child_id, a1_total_score, a1_standard_score) |>
@@ -137,6 +126,8 @@ mefs_scores <- read_csv(here("02_scored_data","mefs_data","LEVANTE_20250403_1132
 Figure out how many MEFS userids fit. 
 
 ```{r}
+#| eval: false
+
 site_users <- task_data_combined |>
   select(user_id, site) |>
   distinct() 
@@ -148,7 +139,8 @@ mefs <- left_join(mefs_scores, site_users) |>
 #  Combine scores
 
 ```{r}
-scores_combined <- bind_rows(sumscores, thetas, mg, sre, mefs)
+# scores_combined <- bind_rows(sumscores, thetas)
+# scores_combined <- bind_rows(sumscores, thetas, mg, sre, mefs)
 # scores_combined <- bind_rows(sumscores, thetas, mg, sre, mefs, pa) # FIXME: pa not defined here..
-write_rds(scores_combined, here("02_scored_data/scores/scores_general.rds"))
+# write_rds(scores_combined, here("02_scored_data/scores/scores_general.rds"))
 ```
