@@ -32,6 +32,9 @@ task_data_prepped <- task_data_nested |>
   mutate(guess = NA) # TODO
   # mutate(guess = map(data_filtered, # TODO: check that this gives correct order
   #                    \(df) df |> distinct(item_inst, chance) |> pull(chance)))
+
+write_rds(task_data_prepped, here("02_scoring_outputs/irt_data/task_data_prepped.rds"),
+          compress = "gz")
 ```
 
 ```{r setup-models}
@@ -48,6 +51,8 @@ task_data_args <- task_data_prepped |>
   # generate model string with item constraints + dimensionality
   mutate(model_str = pmap_chr(list(data, data_prepped, item_type, model_type),
                               generate_model_str))
+write_rds(task_data_args, here("02_scoring_outputs/irt_data/task_data_args.rds"),
+          compress = "gz")
 ```
 
 ### Fit models
