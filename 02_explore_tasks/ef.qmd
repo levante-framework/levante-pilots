@@ -18,7 +18,6 @@ library(glue)
 library(here)
 library(mirt)
 library(ggrepel)
-# require(arm)
 library(lavaan)
 library(tidySEM)
 
@@ -27,30 +26,16 @@ source(here("03_summaries", "plotting_helper.R"))
 
 sites <- c("ca_pilot", "co_pilot", "de_pilot")
 
-task_data_nested <- sites |>
-  set_names() |>
-  map(\(s) read_rds(here(glue("01_processed_data/{s}/task_data_nested.rds")))) |>
-  list_rbind(names_to = "site")
-
-task_data_combined <- task_data_nested |>
-  select(-task_id) |>
-  unnest(data) 
-
-ef <- filter(task_data_combined, 
-             task_id %in% c("hearts-and-flowers","same-different-selection","memory-game"))
+ef <- read_rds(here(glue("01_fetched_data/task_data_nested.rds"))) |>
+  unnest(data) |>
+  filter(task_id %in% c("hearts-and-flowers","same-different-selection","memory-game"))
 ```
 
 Get ages. 
 
 ```{r}
-participants <- sites |>
-  set_names() |>
-  map(\(s) read_rds(here(glue("00_prepped_data/{s}/participants.rds")))) |>
-  list_rbind(names_to = "site")
-
-run_ages <- participants |>
-  select(user_id, ages) |>
-  unnest(ages)
+run_ages <- read_rds(here(glue("01_fetched_data/run_data.rds"))) |>
+  select(site, run_id, user_id, age)
 
 # this is useful below for various simplifications
 ages <- run_ages |>
@@ -60,18 +45,16 @@ ages <- run_ages |>
 ef <- left_join(ef, run_ages)
 ```
 
-## Load multigroup models
+Load multigroup models
 
 
 ```{r}
 best_multigroup <- readRDS(here("02_scored_data", "irt_outputs", "multigroup_best_outputs.rds")) 
-multigroup_scores <- readRDS(here("02_scored_data", "scores", "scores_multigroup.rds"))
+multigroup_scores <- readRDS(here("02_scoring_outputs", "scores", "scores_multigroup.rds"))
 ```
 
 
-## Overall sumscores
-
-First plot sumscores.
+First plot sumscores
 
 ```{r}
 ef_runs <- ef |>
@@ -103,8 +86,7 @@ Look at all phases.
 
 ```{r}
 hf_blocks <- hf |>
-  mutate(corpus_trial_type = fct_relevel(corpus_trial_type, "hearts", "flowers", "mixed")) |>
-  group_by(site, user_id, run_id, task_id, corpus_trial_type) |>
+  group_by(site, user_id, run_id, task_id, item_group) |>
   summarise(correct = mean(correct), 
             age = mean(age), 
             n = n())
@@ -115,7 +97,7 @@ ggplot(hf_blocks,
   geom_smooth(method = "glm", method.args = list(family = "binomial")) +
   geom_hline(yintercept = .5, lty = 2) + 
   ylim(0,1) + 
-  facet_grid(site ~ corpus_trial_type)
+  facet_grid(site ~ item_group)
 ```
 
 F notes that there are a lot of younger kids BELOW chance. Let's see if they are missing data. 
@@ -124,56 +106,19 @@ F notes that there are a lot of younger kids BELOW chance. Let's see if they are
 ggplot(hf_blocks, aes(x = n, y = correct)) + 
   geom_point() + 
   geom_smooth(method = "lm") + 
-  facet_grid(site ~ corpus_trial_type)
+  facet_grid(site ~ item_group)
 ```
 
 NO - this is not because of missing data. Something else is happening. 
 
-<!-- Averaged across everything.  -->
-
 ```{r}
 hf_runs <- hf |>
   group_by(site, user_id, run_id, task_id) |>
-  summarise(logit = coef(glm(correct ~ 1, family = "binomial"))[1],
-            bayeslogit = coef(arm::bayesglm(correct ~ 1, family = "binomial",
-                                            prior.scale.for.intercept = .1))[1],
-            correct_rt = mean(as.numeric(rt[correct]), na.rm=TRUE),
+  summarise(correct_rt = mean(as.numeric(rt[correct]), na.rm=TRUE),
             correct = mean(correct),
             age = mean(age))
 
 ```
-
-<!-- ggplot(hf_runs, -->
-<!--        aes(x = age, y = correct)) +  -->
-<!--   geom_point(alpha = .5) +  -->
-<!--   geom_smooth(method = "glm", method.args = list(family = "binomial")) + -->
-<!--   geom_hline(yintercept = .5, lty = 2) +  -->
-<!--   ylim(0,1) +  -->
-<!--   facet_grid(site ~ task_id) -->
-<!-- ``` -->
-<!-- Logit scoring.  -->
-
-<!-- ```{r} -->
-<!-- ggplot(hf_runs, -->
-<!--        aes(x = age, y = logit)) +  -->
-<!--   geom_point(alpha = .5) +  -->
-<!--   geom_smooth(method = "glm", method.args = list(family = "binomial")) + -->
-<!--   geom_hline(yintercept = 0, lty = 2) +  -->
-<!--   # ylim(0,1) +  -->
-<!--   facet_grid(site ~ task_id) -->
-<!-- ``` -->
-
-<!-- Bayesian logit.  -->
-
-<!-- ```{r} -->
-<!-- ggplot(hf_runs, -->
-<!--        aes(x = age, y = bayeslogit)) +  -->
-<!--   geom_point(alpha = .5) +  -->
-<!--   geom_smooth(method = "lm") + -->
-<!--   geom_hline(yintercept = 0, lty = 2) +  -->
-<!--   # ylim(0,1) +  -->
-<!--   facet_grid(site ~ task_id) -->
-<!-- ``` -->
 
 Histograms. 
 
@@ -240,24 +185,9 @@ ggplot(hf_coefs, aes(x = a1, y = -d, col = block, pch = trial)) +
 
 # Memory game
 
-Merge in item ids. 
-
-```{r}
-id_map <- read_csv(here("02_score_data/item_metadata/pilot-item-ID mapping.csv"))
-
-trial_id_map <- id_map |>
-  mutate(trials = trials |> str_split(",")) |>
-  unnest(trials) |>
-  rename(trial_id = trials) |>
-  mutate(trial_id = str_trim(trial_id))
-
-```
-
 ```{r}
 mg <- ef |>
   filter(task_id == "memory-game") |>
-  left_join(trial_id_map) |>
-  filter(!is.na(item_uid)) |>
   separate(item_uid , into = c("task", "direction", "size", "span"), sep = "_") |>
   mutate(span = as.numeric(str_replace(span, "len",""))) |>
   group_by(run_id, direction) |>
@@ -364,8 +294,6 @@ Note that we have used grid3 very little and so it's getting dropped from most a
 
 ```{r}
 sds <- filter(ef, task_id == "same-different-selection") |>
-  left_join(trial_id_map) |>
-  filter(!is.na(item_uid)) |>
   separate(item_uid , into = c("task", "block", "trial"), sep = "_") 
 ```
 
