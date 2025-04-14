@@ -1,0 +1,33 @@
+```{r}
+library(tidyverse)
+library(glue)
+library(here)
+
+sites <- c("co_pilot", "de_pilot", "ca_pilot", "us_pilot")
+
+dataset_names <- sites |>
+  set_names() |>
+  map(\(site) yaml::read_yaml(here(glue("00_prep_data/{site}/_datasets.yml"))))
+
+org <- redivis::organization("levante")
+
+surveys <- dataset_names |>
+  imap(\(datasets, site) {
+    datasets |>
+      map(\(ds) {
+        tbl <- org$dataset(ds)$table("survey_responses")
+        if (tbl$exists()) tbl$to_tibble()
+      }) |>
+      list_rbind()
+  })
+
+survey_data <- surveys |> enframe(name = "site", value = "survey_data")
+
+write_rds(survey_data, here(glue("00_prepped_data/survey_data.rds")), compress = "gz")
+```
+
+```{r}
+# dataset <- org$dataset("us_downward_extension_pilot")
+# dataset$get()
+# dataset$version
+```

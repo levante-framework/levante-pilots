@@ -52,7 +52,7 @@ combine_scores <- \() {
   
   scores_irt <- readRDS(here("02_scored_data","scores","scores_irt.rds")) |>
     mutate(model = "no pooling IRT")
-  scores_general <- readRDS(here("02_scored_data","scores","scores_general.rds")) |>
+  scores_general <- readRDS(here("02_scored_data","scores","sumscores.rds")) |>
     filter(metric_type == "total_correct") |>
     mutate(model = "sumscore")
   scores_multigroup <- readRDS(here("02_scored_data","scores","scores_multigroup.rds")) |>
@@ -61,21 +61,21 @@ combine_scores <- \() {
     mutate(model = "full pooling IRT")
   
   scores_noages <- bind_rows(scores_irt, scores_general, 
-                          scores_multigroup, scores_fullpooling)
-
+                             scores_multigroup, scores_fullpooling) |>
+    rename(task = task_id)
   
   # score_list <- score_files |> map(read_rds)
-  score_files <- list.files(here("02_scored_data/scores"), pattern = "*.rds",
-                            full.names = TRUE)
-  score_list <- score_files |> map(read_rds)
+  # score_files <- list.files(here("02_scored_data/scores"), pattern = "*.rds",
+  #                           full.names = TRUE)
+  # score_list <- score_files |> map(read_rds)
 
-  run_ages <- participants |>
-    select(user_id, ages) |>
-    unnest(ages)
+  # run_ages <- participants |>
+  #   select(user_id, ages) |>
+  #   unnest(ages)
   
-  scores_noages <- score_list |>
-    bind_rows() |>
-    rename(task = task_id) 
+  # scores_noages <- score_list |>
+  #   bind_rows() |>
+  #   rename(task = task_id) 
   
   mefs_age_guesses <- scores_noages |>
     filter(task == "mefs") |>

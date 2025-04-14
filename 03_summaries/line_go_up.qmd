@@ -10,12 +10,14 @@ source(here("03_summaries/scores_helper.R"))
 ```
 
 ```{r}
-sites <- c("ca_pilot", "co_pilot", "de_pilot", "us_pilot")
-
-participants <- sites |>
-  set_names() |>
-  map(\(s) read_rds(here(glue("00_prepped_data/{s}/participants.rds")))) |>
-  list_rbind(names_to = "site")
+# sites <- c("ca_pilot", "co_pilot", "de_pilot", "us_pilot")
+# 
+# participants <- sites |>
+#   set_names() |>
+#   map(\(s) read_rds(here(glue("00_prepped_data/{s}/participants.rds")))) |>
+#   list_rbind(names_to = "site")
+run_ages <- read_rds(here(glue("01_fetched_data/run_data.rds"))) |>
+  select(site, task_id, user_id, run_id, age)
 ```
 
 Combine all task scores into one plot!
@@ -50,10 +52,10 @@ ggsave(here("03_summaries/plots/scores_comparative.png"), width = 15, height = 6
 ```
 
 ```{r}
-runs <- read_rds(here("00_prepped_data/us_pilot/runs.rds")) |> select(run_id, completed)
-scores_us <- task_scores |> filter(site == "us_pilot") |> left_join(runs)
-task_plot_completeness(scores_us, ylab = "Score", nr = 1)
-ggsave(here("03_summaries/plots/scores_us.png"), width = 12, height = 3.75)
+# runs <- read_rds(here("00_prepped_data/us_pilot/runs.rds")) |> select(run_id, completed)
+# scores_us <- task_scores |> filter(site == "us_pilot") |> left_join(runs)
+# task_plot_completeness(scores_us, ylab = "Score", nr = 1)
+# ggsave(here("03_summaries/plots/scores_us.png"), width = 12, height = 3.75)
 ```
 
 With just the LEVANTE original tasks. 

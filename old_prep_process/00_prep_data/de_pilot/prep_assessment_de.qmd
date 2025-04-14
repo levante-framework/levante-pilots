@@ -1,0 +1,44 @@
+```{r setup}
+library(tidyverse)
+library(glue)
+library(here)
+```
+
+```{r datasets}
+site <- "de_pilot"
+dataset_names <- yaml::read_yaml(here(glue("00_prep_data/{site}/_datasets.yml")))
+tbls <- c("groups", "runs", "trials", "user_groups", "users")
+
+dataset_tables <- rlevante::get_datasets(dataset_names, tables = tbls)
+dataset_data <- rlevante::combine_datasets(dataset_tables)
+```
+
+```{r participants}
+users <- rlevante::collect_users(dataset_data)
+participants <- users |>
+  filter(user_type %in% c("guest", "student")) |>
+  select(dataset, user_id, birth_month, birth_year, sex, grade, matches("_id"), groups, ages)
+```
+
+```{r runs}
+runs <- dataset_data$runs 
+
+# we will want to add valid_run and validator_msg_run once these exist
+run_info <- runs |>
+  select(user_id, run_id, completed)
+```
+
+
+```{r trials}
+trials <- dataset_data$trials
+
+trials_coded <- trials |>
+  inner_join(participants, by = c("user_id", "dataset")) |>
+  rlevante::remove_practice_trials() |>
+  left_join(run_info) |>
+  arrange(task_id, run_id, user_id, server_timestamp)
+
+write_rds(trials_coded, here(glue("00_prepped_data/{site}/trials_coded.rds")), compress = "gz")
+write_rds(participants, here(glue("00_prepped_data/{site}/participants.rds")), compress = "gz")
+write_rds(runs, here(glue("00_prepped_data/{site}/runs.rds")), compress = "gz")
+```

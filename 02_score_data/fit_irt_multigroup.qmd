@@ -34,75 +34,86 @@ irt_tasks <- c("egma-math",
                "trog",
                "vocab")
 
-sites <- c("ca_pilot", "co_pilot", "de_pilot")
-site_task_data_nested <- sites |>
-  set_names() |>
-  map(\(s) read_rds(here(glue("01_processed_data/{s}/task_data_nested.rds")))) |>
-  list_rbind(names_to = "site") |>
+# sites <- c("ca_pilot", "co_pilot", "de_pilot")
+# site_task_data_nested <- sites |>
+#   set_names() |>
+#   map(\(s) read_rds(here(glue("01_processed_data/{s}/task_data_nested.rds")))) |>
+#   list_rbind(names_to = "site") |>
+#   filter(task_id %in% irt_tasks)
+# 
+# # now bind site data
+# task_data_nested <- site_task_data_nested |>
+#   mutate(data = pmap(list(data, site), function(d,s) {
+#     d$site <- s
+#     return(d) 
+#     })) |>
+#   group_by(task_id) |>
+#   summarise(data = list(bind_rows(data)))
+# 
+# task_data <- task_data_nested |>
+#   select(-task_id) |>
+#   unnest(cols = c(data))
+
+site_task_data_nested <- read_rds(here(glue("01_fetched_data/task_data_nested.rds"))) |>
   filter(task_id %in% irt_tasks)
 
-# now bind site data
 task_data_nested <- site_task_data_nested |>
-  mutate(data = pmap(list(data, site), function(d,s) {
-    d$site <- s
-    return(d) 
-    })) |>
-  group_by(task_id) |>
-  summarise(data = list(bind_rows(data)))
-
-task_data <- task_data_nested |>
-  select(-task_id) |>
-  unnest(cols = c(data))
+  unnest(data) |>
+  rename(group = site, item_id = item_uid) |>
+  filter(!is.na(item_id)) |>
+  nest(data = -task_id)
 ```
 
 Get participants. 
 
 ```{r}
-participants <- sites |>
-  set_names() |>
-  map(\(s) read_rds(here(glue("00_prepped_data/{s}/participants.rds")))) |>
-  list_rbind(names_to = "site")
-
- run_ages <- participants |>
-    select(user_id, ages) |>
-    unnest(ages) |>
-   left_join(select(task_data, task_id, user_id, run_id) |> distinct())
+# participants <- sites |>
+#   set_names() |>
+#   map(\(s) read_rds(here(glue("00_prepped_data/{s}/participants.rds")))) |>
+#   list_rbind(names_to = "site")
+# 
+# run_ages <- participants |>
+#   select(user_id, ages) |>
+#   unnest(ages) |>
+#   left_join(select(task_data, task_id, user_id, run_id) |> distinct())
+run_ages <- read_rds(here(glue("01_fetched_data/run_data.rds"))) |>
+  select(site, task_id, user_id, run_id, age)
 ```
 
 Get IDs and merge.
 
 ```{r}
-id_map <- read_csv(here("02_score_data/item_metadata/pilot-item-ID mapping.csv"))
-
-trial_id_map <- id_map |>
-  mutate(trials = trials |> str_split(",")) |>
-  unnest(trials) |>
-  rename(trial_id = trials) |>
-  mutate(trial_id = str_trim(trial_id))
+# id_map <- read_csv(here("02_score_data/item_metadata/pilot-item-ID mapping.csv"))
+# 
+# trial_id_map <- id_map |>
+#   mutate(trials = trials |> str_split(",")) |>
+#   unnest(trials) |>
+#   rename(trial_id = trials) |>
+#   mutate(trial_id = str_trim(trial_id))
 ```
 
 
 # Model fitting
 
 ```{r}
-
-task_data_nested$data_with_ids <- map(task_data_nested$data, \(df) {
-  left_join(df, trial_id_map)  |>
-  select(-item_id) |>
-  rename(item_id = item_uid, 
-         group = site)})
+# task_data_nested$data_with_ids <- map(task_data_nested$data, \(df) {
+#   left_join(df, trial_id_map)  |>
+#   select(-item_id) |>
+#   rename(item_id = item_uid, 
+#          group = site)})
 
 # now removes missing item ID data
 task_data_prepped <- task_data_nested |>
-  mutate(data = map(data_with_ids, \(df) filter(df, !is.na(item_id))),
+  mutate(#data = map(data_with_ids, \(df) filter(df, !is.na(item_id))),
          data_filtered = map(data, \(df) df |> filter_repeat_runs() |>
                                dedupe_items() |> remove_no_var_items()),
          data_wide = map(data_filtered, to_mirt_shape_grouped), 
          data_prepped = map(data_wide, \(df) df |> select(-group)),
          groups = map(data_wide, \(df) df |> pull(group))) |>
   # pull out chance values
-  mutate(guess = map(data_filtered, # TODO: check that this gives correct order
-                     \(df) df |> distinct(item_inst, chance) |> pull(chance)))
+  mutate(guess = NA) # TODO
+  # mutate(guess = map(data_filtered, # TODO: check that this gives correct order
+  #                    \(df) df |> distinct(item_inst, chance) |> pull(chance)))
 
 
 item_types <- c("Rasch", "2PL") #, "3PL") # set of parameterizations
@@ -135,7 +146,8 @@ task_results <- task_models |>
          scores = pmap(list(mod, data_filtered, data_prepped), mirt_scores),
          bic = map_dbl(mod, mirt_bic))
 
-write_rds(task_results, here("02_scored_data/irt_outputs/joint_task_results.rds"))
+write_rds(task_results, here("02_scored_data/irt_outputs/joint_task_results.rds"),
+          compress = "gz")
 
 
 # best fitting model for each task
@@ -154,8 +166,8 @@ task_scores <- task_best |>
          metric_type = glue("merged_data ability ({item_type}-{model_type})")) |>
   select(site, task_id, user_id, run_id, metric_type, metric_value = ability)
 
-task_scores |>
-  saveRDS(here("02_scored_data","scores","scores_fullpooling.rds"))
+write_rds(task_scores, here("02_scored_data","scores","scores_fullpooling.rds"),
+          compress = "gz")
 ```
 
 Now fit multigroup models.
@@ -168,13 +180,15 @@ model_types <- tribble(~item_type, ~invariance_type,
                       "2PL", "scalar_intercepts",
                       "2PL", "scalar_slopes_and_intercepts",
                       "2PL", "full")
+
 multigroup_models <- task_results |>
   full_join(model_types, relationship = "many-to-many") |>
   mutate(mod = pmap(list(row_number(), data_prepped, item_type, groups, model_str, 
                                 invariance_type, task_id), fit_multigroup))
 
-write_rds(multigroup_models, 
-     file = here("02_scored_data/irt_outputs/multigroup_outputs.rds"))
+write_rds(multigroup_models,
+          here("02_scored_data/irt_outputs/multigroup_outputs.rds"),
+          compress = "gz")
 ```
 
 ```{r}
@@ -215,7 +229,7 @@ best_multigroup <- multigroup_models |>
          coefs = map(mod, multigroup_coefs))
 
 write_rds(best_multigroup, 
-     file = here("02_scored_data/irt_outputs/multigroup_best_outputs.rds"))
+          here("02_scored_data/irt_outputs/multigroup_best_outputs.rds"))
 ```
 
 
@@ -240,8 +254,6 @@ all_fscores <- best_multigroup |>
   rename(site = groups, 
          metric_value = fscore) |>
   left_join(run_ages)
-
-
 ```
 
 ```{r}
@@ -263,7 +275,8 @@ Save out scores.
 ```{r}
 all_fscores |>
   select(site, task_id, user_id, run_id, metric_type, metric_value) |>
-  saveRDS(here("02_scored_data","scores","scores_multigroup.rds"))
+  write_rds(here("02_scored_data","scores","scores_multigroup.rds"),
+            compress = "gz")
 ```
 
 # Marginal reliabilities
@@ -282,8 +295,11 @@ task_rxx <- best_multigroup |>
 task_rxx_wide <- task_rxx |> 
   pivot_wider(names_from = "site", values_from = "rxx") 
 
-write_rds(task_rxx, here("02_scored_data/irt_outputs/multigroup_task_rxx.rds"))
-write_csv(task_rxx, here("02_scored_data/irt_outputs/multigroup_task_rxx.csv"))
-write_csv(task_rxx_wide, here("02_scored_data/irt_outputs/multigroup_task_rxx_wide.csv"))
+write_rds(task_rxx, here("02_scored_data/irt_outputs/multigroup_task_rxx.rds"),
+          compress = "gz")
+write_csv(task_rxx, here("02_scored_data/irt_outputs/multigroup_task_rxx.csv"),
+          compress = "gz")
+write_csv(task_rxx_wide,
+          here("02_scored_data/irt_outputs/multigroup_task_rxx_wide.csv"),
+          compress = "gz")
 ```
-

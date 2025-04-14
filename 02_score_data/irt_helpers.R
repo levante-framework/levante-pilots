@@ -4,7 +4,8 @@
 filter_repeat_runs <- function(df) {
   df |>
     group_by(user_id) |>
-    filter(server_timestamp == min(server_timestamp)) |> # user's earliest trial
+    # filter(server_timestamp == min(server_timestamp)) |> # user's earliest trial
+    filter(timestamp == min(timestamp)) |> # user's earliest trial
     ungroup() |>
     distinct(user_id, run_id) |> # corresponding run id
     inner_join(df) # filter join

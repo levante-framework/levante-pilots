@@ -1,0 +1,19 @@
+```{r}
+library(tidyverse)
+library(knitr)
+library(glue)
+
+sites <- c("co","de","ca","us")
+
+sites |>
+  map(function(site) {
+    print(site)
+    
+    # can we do this with quarto render?
+    purl(here("00_prep_data", glue("{site}_pilot"), glue("prep_assessment_{site}.qmd")), 
+         output = "prep_temp.R")
+    source("prep_temp.R")
+    unlink("prep_temp.R")
+  })
+```
+

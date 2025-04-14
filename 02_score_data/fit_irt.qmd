@@ -17,11 +17,7 @@ irt_tasks <- c("egma-math",
                "trog",
                "vocab")
 
-sites <- c("ca_pilot", "co_pilot", "de_pilot", "us_pilot")
-task_data_nested <- sites |>
-  set_names() |>
-  map(\(s) read_rds(here(glue("01_processed_data/{s}/task_data_nested.rds")))) |>
-  list_rbind(names_to = "site") |>
+task_data_nested <- read_rds(here(glue("01_fetched_data/task_data_nested.rds"))) |>
   filter(task_id %in% irt_tasks)
 ```
 
@@ -33,8 +29,12 @@ task_data_prepped <- task_data_nested |>
          data_prepped = map(data_filtered, to_mirt_shape)) |>
   filter(map_int(data_prepped, nrow) > 0) |>
   # pull out chance values
-  mutate(guess = map(data_filtered, # TODO: check that this gives correct order
-                     \(df) df |> distinct(item_inst, chance) |> pull(chance)))
+  mutate(guess = NA) # TODO
+  # mutate(guess = map(data_filtered, # TODO: check that this gives correct order
+  #                    \(df) df |> distinct(item_inst, chance) |> pull(chance)))
+
+write_rds(task_data_prepped, here("02_scoring_outputs/irt_data/task_data_prepped.rds"),
+          compress = "gz")
 ```
 
 ```{r setup-models}
@@ -51,6 +51,8 @@ task_data_args <- task_data_prepped |>
   # generate model string with item constraints + dimensionality
   mutate(model_str = pmap_chr(list(data, data_prepped, item_type, model_type),
                               generate_model_str))
+write_rds(task_data_args, here("02_scoring_outputs/irt_data/task_data_args.rds"),
+          compress = "gz")
 ```
 
 ### Fit models
@@ -87,10 +89,12 @@ task_scores <- task_best |>
   
 # save all data + models + results
 # save(task_results, file = "irt_models.RData")
-write_rds(task_results, here("02_scored_data/irt_outputs/task_results.rds"))
+write_rds(task_results, here("02_scored_data/irt_outputs/task_results.rds"),
+          compress = "gz")
 
 # save scores
-write_rds(task_scores, here("02_scored_data/scores/scores_irt.rds"))
+write_rds(task_scores, here("02_scored_data/scores/scores_irt.rds"),
+          compress = "gz")
 ```
 
 ```{r}
@@ -111,7 +115,8 @@ item_coefs <- task_results |>
   filter(!all(value == 1)) |>
   ungroup()
 
-write_rds(item_coefs, here("02_scored_data/irt_outputs/item_coefs.rds"))
+write_rds(item_coefs, here("02_scored_data/irt_outputs/item_coefs.rds"),
+          compress = "gz")
 ```
 
 ```{r}
@@ -123,7 +128,8 @@ task_rxx_wide <- task_rxx |>
   select(-item_type) |> 
   pivot_wider(names_from = "site", values_from = "rxx") 
 
-write_rds(task_rxx, here("02_scored_data/irt_outputs/task_rxx.rds"))
+write_rds(task_rxx, here("02_scored_data/irt_outputs/task_rxx.rds"),
+          compress = "gz")
 write_csv(task_rxx, here("02_scored_data/irt_outputs/task_rxx.csv"))
 write_csv(task_rxx_wide, here("02_scored_data/irt_outputs/task_rxx_wide.csv"))
 ```
