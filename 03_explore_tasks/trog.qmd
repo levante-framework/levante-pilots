@@ -3,91 +3,32 @@ library(tidyverse)
 library(glue)
 library(here)
 
-sites <- c("ca_pilot", "co_pilot", "de_pilot")
-
-task_data_nested <- sites |>
-  set_names() |>
-  map(\(s) read_rds(here(glue("01_processed_data/{s}/task_data_nested.rds")))) |>
-  list_rbind(names_to = "site")
-
-task_data_combined <- task_data_nested |>
-  select(-task_id) |>
-  unnest(data)
+source(here("03_explore_tasks/explore_helper.R"))
 ```
 
 Get trog data
 
 ```{r}
-
-trog <- filter(task_data_combined, 
-             task_id %in% c("trog"))
-
+trog <- load_task_data("trog")
 trog
-
-```
-
-Get ages
-
-```{r}
-participants <- sites |>
-  set_names() |>
-  map(\(s) read_rds(here(glue("00_prepped_data/{s}/participants.rds")))) |>
-  list_rbind(names_to = "site")
-
-run_ages <- participants |>
-  select(user_id, ages) |>
-  unnest(ages)
-
-ages <- run_ages |>
-  group_by(user_id) |>
-  summarise(age = mean(age))
-
-trog <- left_join(trog, ages)
-
-colnames(trog)
-
-
-```
-
-Linking trial-level data to item-level metadata
-
-```{r}
-
-id_map <- read_csv(here("02_score_data/item_metadata/pilot-item-ID mapping.csv"))
-
-trial_id_map <- id_map |>
-  mutate(trials = trials |> str_split(",")) |>
-  unnest(trials) |>
-  rename(trial_id = trials) |>
-  mutate(trial_id = str_trim(trial_id))
-
-# Join trial-level data to IRT item IDs
-
-trog <- trog |>
-  left_join(trial_id_map, by = "trial_id") |>
-  filter(!is.na(item_uid))
-
-trog
-
 ```
 
 Exploring item types
 
 ```{r}
-
-table(trog$corpus_trial_type)
-sort(unique(trog$corpus_trial_type))
+base::table(trog$item_group)
+sort(unique(trog$item_group))
 
 # Dupicate of 'post modified subject - update
 trog <- trog |>
-  mutate(corpus_trial_type = case_when(
-    corpus_trial_type == "post modified subject" ~ "postmodified subject",
-    TRUE ~ corpus_trial_type
+  mutate(item_group = case_when(
+    item_group == "post modified subject" ~ "postmodified subject",
+    TRUE ~ item_group
   ))
 
-sort(unique(trog$corpus_trial_type))
-sort(unique(trog$item_id))
-length(unique(trog$item_id)) # must be using Trog2 (2003 version) as Trog1 only has 80 items
+sort(unique(trog$item_group))
+sort(unique(trog$item_uid))
+length(unique(trog$item_uid)) # must be using Trog2 (2003 version) as Trog1 only has 80 items
 
 ```
 
@@ -140,35 +81,35 @@ Categorizing corpus type into smaller groups
 
 trog_grouped <- trog |>
   mutate(grammar_group = case_when(
-    corpus_trial_type %in% c(
+    item_group %in% c(
       "noun", "verb", "adjective", 
       "singular/plural noun inflection", 
       "singular/plural personal pronoun"
     ) ~ "basic_grammar",
 
-    corpus_trial_type %in% c(
+    item_group %in% c(
       "two element combination", "three element combination",
       "prepositional phrase", "additive",
       "in and on", "above and below", "comparative/absolute"
     ) ~ "simple_constructions",
 
-    corpus_trial_type %in% c(
+    item_group %in% c(
       "reversible active", "reversible passive",
       "negative", "temporal", "causal", "conditional"
     ) ~ "basic_sentences",
 
-    corpus_trial_type %in% c(
+    item_group %in% c(
       "relative clause", "embedded sentence",
       "dependent clause", "postmodified subject",
       "gerund phrase"
     ) ~ "complex_sentences",
 
-    corpus_trial_type %in% c(
+    item_group %in% c(
       "disjunctive", "neither X nor Y",
       "not only X but also Y", "X but not Y"
     ) ~ "logical_structures",
 
-    corpus_trial_type == "stimulus" ~ "stimulus"
+    item_group == "stimulus" ~ "stimulus"
   ))
 
 
@@ -214,7 +155,7 @@ ggplot(trog_blocks, aes(x = age, y = correct)) +
 
 trog_grouped |> 
   filter(site == "ca_pilot") |> 
-  count(corpus_trial_type, sort = TRUE)
+  count(item_group, sort = TRUE)
 
 
 
@@ -224,8 +165,8 @@ IRT model
 
 ```{r}
 
-best_multigroup <- readRDS(here("02_scored_data", "irt_outputs", "multigroup_best_outputs.rds"))
-multigroup_scores <- readRDS(here("02_scored_data", "scores", "scores_multigroup.rds"))
+best_multigroup <- readRDS(here("02_scoring_outputs", "irt_outputs", "multigroup_best_outputs.rds"))
+multigroup_scores <- readRDS(here("02_scoring_outputs", "scores", "scores_multigroup.rds"))
 
 ```
 
@@ -298,7 +239,7 @@ ggplot(trog_difficulty_blocks,
   geom_hline(yintercept = .5, lty = 2) + 
   ylim(0,1) + 
   theme_minimal(base_family = "sans") +
-  facet_grid(site ~ corpus_trial_type)
+  facet_grid(site ~ item_group)
 
 
 ```
@@ -308,15 +249,15 @@ Examining by corpus trial type
 ```{r}
 
 trog_type <- trog |>
-  group_by(site, user_id, run_id, corpus_trial_type) |>
+  group_by(site, user_id, run_id, item_group) |>
   summarise(correct = mean(correct, na.rm = TRUE),
             age = mean(age, na.rm = TRUE))
 
-ggplot(trog_type, aes(x = age, y = correct, col = corpus_trial_type)) +
+ggplot(trog_type, aes(x = age, y = correct, col = item_group)) +
   geom_smooth(method = "loess") +
   facet_wrap(~site)
 
-ggplot(trog_type, aes(x = age, y = correct, col = corpus_trial_type)) +
+ggplot(trog_type, aes(x = age, y = correct, col = item_group)) +
   geom_smooth(method = "loess") +
   geom_rug(aes(x = age), sides = "b", alpha = 0.2) +
   facet_wrap(~site)

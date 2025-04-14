@@ -25,47 +25,16 @@ library(tidySEM)
 source(here("02_score_data","irt_helpers.R"))
 source(here("03_summaries", "plotting_helper.R"))
 
-sites <- c("ca_pilot", "co_pilot", "de_pilot")
-
-task_data_nested <- sites |>
-  set_names() |>
-  map(\(s) read_rds(here(glue("01_processed_data/{s}/task_data_nested.rds")))) |>
-  list_rbind(names_to = "site")
-
-task_data_combined <- task_data_nested |>
-  select(-task_id) |>
-  unnest(data) 
-
-ef <- filter(task_data_combined, 
-             task_id %in% c("hearts-and-flowers","same-different-selection","memory-game"))
-```
-
-Get ages. 
-
-```{r}
-participants <- sites |>
-  set_names() |>
-  map(\(s) read_rds(here(glue("00_prepped_data/{s}/participants.rds")))) |>
-  list_rbind(names_to = "site")
-
-run_ages <- participants |>
-  select(user_id, ages) |>
-  unnest(ages)
-
-# this is useful below for various simplifications
-ages <- run_ages |>
-  group_by(user_id) |>
-  summarise(age = mean(age))
-
-ef <- left_join(ef, run_ages)
+source(here("03_explore_tasks/explore_helper.R"))
+ef <- load_task_data(c("hearts-and-flowers","same-different-selection","memory-game"))
 ```
 
 ## Load multigroup models
 
 
 ```{r}
-best_multigroup <- readRDS(here("02_scored_data", "irt_outputs", "multigroup_best_outputs.rds")) 
-multigroup_scores <- readRDS(here("02_scored_data", "scores", "scores_multigroup.rds"))
+best_multigroup <- readRDS(here("02_scoring_outputs", "irt_outputs", "multigroup_best_outputs.rds")) 
+multigroup_scores <- readRDS(here("02_scoring_outputs", "scores", "scores_multigroup.rds"))
 ```
 
 
