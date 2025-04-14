@@ -1,0 +1,292 @@
+---
+title: "vocab"
+format: html
+editor: visual
+---
+
+Packages
+
+```{r}
+library(tidyverse)
+library(glue)
+library(here)
+
+```
+
+Create sites
+
+```{r}
+
+sites <- c("ca_pilot", "co_pilot", "de_pilot")
+
+task_data_nested <- sites |>
+  set_names() |>
+  map(\(s) read_rds(here(glue("01_processed_data/{s}/task_data_nested.rds")))) |>
+  list_rbind(names_to = "site")
+
+task_data_combined <- task_data_nested |>
+  select(-task_id) |>
+  unnest(data)
+
+
+```
+
+Get vocab data
+
+```{r}
+unique(task_data_combined$task_id)
+
+
+vocab <- filter(task_data_combined, 
+             task_id %in% c("vocab"))
+
+vocab
+```
+
+Get ages
+
+```{r}
+
+participants <- sites |>
+  set_names() |>
+  map(\(s) read_rds(here(glue("00_prepped_data/{s}/participants.rds")))) |>
+  list_rbind(names_to = "site")
+
+run_ages <- participants |>
+  select(user_id, ages) |>
+  unnest(ages)
+
+ages <- run_ages |>
+  group_by(user_id) |>
+  summarise(age = mean(age))
+
+vocab <- left_join(vocab, ages)
+
+colnames(vocab)
+
+```
+
+Linking trial-level data to item-level metadata
+
+```{r}
+
+id_map <- read_csv(here("02_score_data/item_metadata/pilot-item-ID mapping.csv"))
+
+trial_id_map <- id_map |>
+  mutate(trials = trials |> str_split(",")) |>
+  unnest(trials) |>
+  rename(trial_id = trials) |>
+  mutate(trial_id = str_trim(trial_id))
+
+# Join trial-level data to IRT item IDs
+
+vocab <- vocab |>
+  left_join(trial_id_map, by = "trial_id") |>
+  filter(!is.na(item_uid))
+
+colnames(vocab)
+
+```
+
+Get sum scores
+
+```{r}
+
+vocab_runs <- vocab |>
+  group_by(site, user_id, run_id) |>
+  summarise(
+    correct = mean(correct, na.rm = TRUE),  # mean accuracy per run
+    age = mean(age, na.rm = TRUE),          # average age
+    n_items = n_distinct(item_uid)          # how many unique items were completed
+  )
+
+ggplot(vocab_runs, aes(x = age, y = correct)) +
+  geom_point(alpha = 0.5) +
+  geom_smooth(method = "loess") +
+  ylim(0, 1) +
+  facet_wrap(~site)
+
+
+```
+
+Item completion patterns across countries
+
+```{r}
+
+ggplot(vocab_runs, aes(x = n_items)) +
+  geom_histogram(binwidth = 1) +
+  facet_wrap(~site)
+
+```
+
+Examining least and most difficult items
+
+```{r}
+# Calculate item-level accuracy
+item_accuracy <- vocab |>
+  group_by(item_uid) |>
+  summarise(proportion_correct = mean(correct, na.rm = TRUE)) |>
+  arrange(proportion_correct) |>
+  mutate(item_rank = row_number())
+
+# Plot all items
+ggplot(item_accuracy, aes(x = reorder(item_uid, proportion_correct), y = proportion_correct)) +
+  geom_col() +
+  coord_flip() +
+  labs(
+    title = "Proportion Correct by Vocabulary Item (All Items)",
+    x = "Vocabulary Item",
+    y = "Proportion Correct"
+  ) +
+  theme_minimal()
+
+# Filter every 10th item
+sampled_items <- item_accuracy |>
+  filter(item_rank %% 10 == 0)
+
+# Plot sampled items
+ggplot(sampled_items, aes(x = reorder(item_uid, proportion_correct), y = proportion_correct)) +
+  geom_col() +
+  coord_flip() +
+  labs(
+    title = "Proportion Correct (Sampled Vocabulary Items)",
+    x = "Vocabulary Item (every 10th)",
+    y = "Proportion Correct"
+  ) +
+  theme_minimal()
+
+# Add in age
+
+
+```
+
+By age
+
+```{r}
+
+# Create age brackets
+vocab_binned <- vocab |>
+  mutate(age_bracket = case_when(
+    age <= 5 ~ "0–5",
+    age >= 6 & age <= 9 ~ "6–9",
+    age >= 10 & age <= 12 ~ "10–12",
+    TRUE ~ NA_character_
+  )) |>
+  filter(!is.na(age_bracket))
+
+# Accuracy by age
+item_accuracy_by_bracket <- vocab_binned |>
+  group_by(age_bracket, item_uid) |>
+  summarise(
+    proportion_correct = mean(correct, na.rm = TRUE),
+    n = n(),  # sample size
+    .groups = "drop"
+  )
+
+# Top 10 easiest and 10 hardest per age bin 
+easiest_hardest_by_bracket <- item_accuracy_by_bracket |>
+  group_by(age_bracket) |>
+  arrange(proportion_correct) |>
+  mutate(rank = row_number()) |>
+  filter(rank <= 10 | rank > (n() - 10))  # keep bottom and top 10
+
+# Plot with sample size labels
+ggplot(easiest_hardest_by_bracket, aes(x = reorder(item_uid, proportion_correct), y = proportion_correct, fill = age_bracket)) +
+  geom_col(show.legend = FALSE) +
+  geom_text(aes(label = glue::glue("n = {n}")), hjust = -0.1, size = 2.3) +
+  coord_flip() +
+  facet_wrap(~ age_bracket, scales = "free_y") +
+  labs(
+    title = "Easiest and Hardest Vocabulary Items by Age Bracket",
+    x = "Vocabulary Item",
+    y = "Proportion Correct"
+  ) +
+  ylim(0, 1.1) +
+  theme_minimal()
+
+
+```
+
+By country
+
+```{r}
+
+# Accuracy per item by site
+item_accuracy_by_site <- vocab |>
+  filter(site %in% c("ca_pilot", "co_pilot", "de_pilot")) |>
+  group_by(site, item_uid) |>
+  summarise(
+    proportion_correct = mean(correct, na.rm = TRUE),
+    n = n(),  # sample size
+    .groups = "drop"
+  )
+
+# Top 10 easiest and hardest items per site
+easiest_hardest_by_site <- item_accuracy_by_site |>
+  group_by(site) |>
+  arrange(proportion_correct) |>
+  mutate(rank = row_number()) |>
+  filter(rank <= 10 | rank > (n() - 10))
+
+# Plot 
+ggplot(easiest_hardest_by_site, aes(x = reorder(item_uid, proportion_correct), y = proportion_correct, fill = site)) +
+  geom_col(show.legend = FALSE) +
+  geom_text(aes(label = glue::glue("{n}")),
+            hjust = -0.1, size = 1.5) +
+  coord_flip() +
+  facet_wrap(~ site, scales = "free_y") +
+  labs(
+    title = "Easiest and Hardest Vocabulary Items by Country",
+    x = "Vocabulary Item",
+    y = "Proportion Correct"
+  ) +
+  ylim(0, 1.05) +
+  theme_minimal()
+
+
+
+```
+
+Extract coefficeints from IRT model
+
+```{r}
+
+# Load multigroup IRT model outputs
+best_multigroup <- readRDS(here("02_scored_data", "irt_outputs", "multigroup_best_outputs.rds"))
+multigroup_scores <- readRDS(here("02_scored_data", "scores", "scores_multigroup.rds"))
+
+View (multigroup_scores)
+
+
+multigroup_scores_vocab <- multigroup_scores |>
+  filter(task_id == "vocab") |>
+  select(site, task_id, user_id, run_id, metric_type, metric_value ) |>
+  left_join(run_ages)
+
+ggplot(multigroup_scores_vocab, aes(x = age, y = metric_value, col = site)) + 
+  geom_point() + 
+  geom_smooth()
+
+
+
+
+
+```
+
+
+```{r}
+
+vocab_coefs <- filter(best_multigroup, 
+                   task_id == "vocab")$coefs[[1]]
+
+
+
+# Plot difficulty by, age of acquisition
+ggplot(vocab_coefs, aes(x = age, y = -d)) +
+  geom_point() +
+  geom_smooth(method = "lm") +
+  ylab("Difficulty") +
+  xlab("Age")
+
+
+
