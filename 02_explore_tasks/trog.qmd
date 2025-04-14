@@ -45,9 +45,7 @@ ages <- run_ages |>
 trog <- left_join(trog, ages)
 
 colnames(trog)
-View (trog)
 
-# ISSUE 1 : For one trog item, the question is written out e.g., the pencil is neither long nor red. #  Note use 'item_uid' field only for now not 'item_id'.
 
 ```
 
@@ -102,16 +100,27 @@ colnames(trog)
 trog_runs <- trog |>
   group_by(site, user_id, run_id) |>
   summarise(
-    correct = mean(correct, na.rm = TRUE),  # mean accuracy per run
-    age = mean(age, na.rm = TRUE),          # average age
-    n_items = n_distinct(item_uid)          # how many unique items were completed
+    correct = mean(correct, na.rm = TRUE),  
+    age = mean(age, na.rm = TRUE),          
+    n_items = n_distinct(item_uid) # how many unique items were completed
   )
 
 ggplot(trog_runs, aes(x = age, y = correct)) +
   geom_point(alpha = 0.5) +
   geom_smooth(method = "loess") +
+  theme_minimal(base_family = "sans") +
   ylim(0, 1) +
   facet_wrap(~site)
+
+# What's going on with Canada
+
+trog_grouped |> 
+  filter(site == "ca_pilot") |> 
+  summarise(
+    n_participants = n_distinct(user_id),
+    n_trials = n() #23 participants
+  )
+
 
 ```
 
@@ -125,15 +134,104 @@ ggplot(trog_runs, aes(x = n_items)) +
 
 ```
 
-Extract coefficeints from IRT model
+Categorizing corpus type into smaller groups
 
 ```{r}
 
-# Load multigroup IRT model outputs
+trog_grouped <- trog |>
+  mutate(grammar_group = case_when(
+    corpus_trial_type %in% c(
+      "noun", "verb", "adjective", 
+      "singular/plural noun inflection", 
+      "singular/plural personal pronoun"
+    ) ~ "basic_grammar",
+
+    corpus_trial_type %in% c(
+      "two element combination", "three element combination",
+      "prepositional phrase", "additive",
+      "in and on", "above and below", "comparative/absolute"
+    ) ~ "simple_constructions",
+
+    corpus_trial_type %in% c(
+      "reversible active", "reversible passive",
+      "negative", "temporal", "causal", "conditional"
+    ) ~ "basic_sentences",
+
+    corpus_trial_type %in% c(
+      "relative clause", "embedded sentence",
+      "dependent clause", "postmodified subject",
+      "gerund phrase"
+    ) ~ "complex_sentences",
+
+    corpus_trial_type %in% c(
+      "disjunctive", "neither X nor Y",
+      "not only X but also Y", "X but not Y"
+    ) ~ "logical_structures",
+
+    corpus_trial_type == "stimulus" ~ "stimulus"
+  ))
+
+
+```
+
+
+```{r}
+library(forcats)
+
+trog_blocks <- trog_grouped |>
+  group_by(site, user_id, run_id, grammar_group) |>
+  summarise(
+    correct = mean(correct, na.rm = TRUE),
+    age = mean(age, na.rm = TRUE),
+    .groups = "drop"
+  ) |>
+  mutate(grammar_group = fct_recode(grammar_group,
+    "BG" = "basic_grammar",
+    "SC" = "simple_constructions",
+    "BS" = "basic_sentences",
+    "CS" = "complex_sentences",
+    "LS" = "logical_structures",
+    "Stimulus" = "stimulus"
+  )) |>
+  filter(!is.na(grammar_group))
+
+
+ggplot(trog_blocks, aes(x = age, y = correct)) + 
+  geom_point(alpha = 0.4, size = 1) + 
+  geom_smooth(method = "loess", se = TRUE, colour = "blue") + 
+  geom_hline(yintercept = 0.5, lty = 2, colour = "black") + 
+  ylim(0, 1) +
+  theme_minimal(base_family = "sans") +
+  theme(
+    strip.text = element_text(size = 10, face = "bold"),
+    axis.text.x = element_text(size = 9),
+    axis.text.y = element_text(size = 9)
+  ) +
+  facet_grid(site ~ grammar_group)
+
+
+# All Canada data in the 'stimulus' category
+
+trog_grouped |> 
+  filter(site == "ca_pilot") |> 
+  count(corpus_trial_type, sort = TRUE)
+
+
+
+```
+
+IRT model
+
+```{r}
+
 best_multigroup <- readRDS(here("02_scored_data", "irt_outputs", "multigroup_best_outputs.rds"))
 multigroup_scores <- readRDS(here("02_scored_data", "scores", "scores_multigroup.rds"))
 
-View(best_multigroup)
+```
+
+Extract coefficients
+
+```{r}
 
 trog_models <- best_multigroup$coefs[[which(best_multigroup$task_id == "trog")]]
 length(trog_models)
@@ -149,7 +247,7 @@ trog_difficulty_overall <- trog_coefs |>
   summarise(mean_d = mean(d, na.rm = TRUE), .groups = "drop") |>
   arrange(mean_d)
 
-# Assign block numbers (4 items per block, 25 blocks total)
+# Assign block numbers (4 items per block, 25 blocks total) 
 trog_difficulty_blocks <- trog_difficulty_overall |>
   mutate(block = ceiling(row_number() / 4))
 
@@ -167,6 +265,8 @@ View(trog_difficulty)
 Plot item difficulty (mean across sites)
 
 ```{r}
+
+# Accuracy
 
 ggplot(trog_difficulty_blocks, aes(x = reorder(item, mean_d), y = mean_d)) +
   geom_point() +
@@ -189,14 +289,23 @@ ggplot(trog_runs, aes(x = age, y = correct, col = site)) +
   ) +
   theme_minimal()
 
+# Accuracy by grammatical structure ##### code not working - return to this. ####
+
+ggplot(trog_difficulty_blocks,
+       aes(x = age, y = correct)) + 
+  geom_point(alpha = .5) + 
+  geom_smooth(method = "glm", method.args = list(family = "binomial")) +
+  geom_hline(yintercept = .5, lty = 2) + 
+  ylim(0,1) + 
+  theme_minimal(base_family = "sans") +
+  facet_grid(site ~ corpus_trial_type)
+
 
 ```
 
-Exploratory
+Examining by corpus trial type
 
 ```{r}
-
-# Examining corpus trial type
 
 trog_type <- trog |>
   group_by(site, user_id, run_id, corpus_trial_type) |>
@@ -218,7 +327,6 @@ item_difficulty <- trog |>
   group_by(site, item_uid) |>
   summarise(p_correct = mean(correct, na.rm = TRUE)) |>
   pivot_wider(names_from = site, values_from = p_correct)
-
 
 install.packages("GGally")
 library(GGally)
