@@ -1,3 +1,15 @@
+---
+title: "LEVANTE EF Tasks - Interim Report"
+author: "Mike Frank"
+toc: true
+number-sections: true
+highlight-style: pygments
+format:
+  html: 
+    code-fold: true
+---
+
+
 # Data loading
 
 ```{r}
@@ -48,7 +60,7 @@ ages <- run_ages |>
 ef <- left_join(ef, run_ages)
 ```
 
-# Load multigroup models
+## Load multigroup models
 
 
 ```{r}
@@ -57,7 +69,7 @@ multigroup_scores <- readRDS(here("02_scored_data", "scores", "scores_multigroup
 ```
 
 
-# Sumscore approach
+## Overall sumscores
 
 First plot sumscores.
 
@@ -74,6 +86,8 @@ ggplot(ef_runs, aes(x = age, y = correct)) +
   ylim(0,1) 
 ```
 
+Now go to task analysis. 
+
 # Hearts and Flowers
 
 Zoom in on HF. 
@@ -84,6 +98,8 @@ hf <- ef |>
 ```
 
 Look at all phases. 
+
+## Sumscore
 
 ```{r}
 hf_blocks <- hf |>
@@ -113,50 +129,51 @@ ggplot(hf_blocks, aes(x = n, y = correct)) +
 
 NO - this is not because of missing data. Something else is happening. 
 
-Averaged across everything. 
+<!-- Averaged across everything.  -->
 
 ```{r}
 hf_runs <- hf |>
   group_by(site, user_id, run_id, task_id) |>
   summarise(logit = coef(glm(correct ~ 1, family = "binomial"))[1],
-            bayeslogit = coef(arm::bayesglm(correct ~ 1, family = "binomial", 
+            bayeslogit = coef(arm::bayesglm(correct ~ 1, family = "binomial",
                                             prior.scale.for.intercept = .1))[1],
             correct_rt = mean(as.numeric(rt[correct]), na.rm=TRUE),
-            correct = mean(correct), 
+            correct = mean(correct),
             age = mean(age))
 
-
-ggplot(hf_runs,
-       aes(x = age, y = correct)) + 
-  geom_point(alpha = .5) + 
-  geom_smooth(method = "glm", method.args = list(family = "binomial")) +
-  geom_hline(yintercept = .5, lty = 2) + 
-  ylim(0,1) + 
-  facet_grid(site ~ task_id)
-```
-Logit scoring. 
-
-```{r}
-ggplot(hf_runs,
-       aes(x = age, y = logit)) + 
-  geom_point(alpha = .5) + 
-  geom_smooth(method = "glm", method.args = list(family = "binomial")) +
-  geom_hline(yintercept = 0, lty = 2) + 
-  # ylim(0,1) + 
-  facet_grid(site ~ task_id)
 ```
 
-Bayesian logit. 
+<!-- ggplot(hf_runs, -->
+<!--        aes(x = age, y = correct)) +  -->
+<!--   geom_point(alpha = .5) +  -->
+<!--   geom_smooth(method = "glm", method.args = list(family = "binomial")) + -->
+<!--   geom_hline(yintercept = .5, lty = 2) +  -->
+<!--   ylim(0,1) +  -->
+<!--   facet_grid(site ~ task_id) -->
+<!-- ``` -->
+<!-- Logit scoring.  -->
 
-```{r}
-ggplot(hf_runs,
-       aes(x = age, y = bayeslogit)) + 
-  geom_point(alpha = .5) + 
-  geom_smooth(method = "lm") +
-  geom_hline(yintercept = 0, lty = 2) + 
-  # ylim(0,1) + 
-  facet_grid(site ~ task_id)
-```
+<!-- ```{r} -->
+<!-- ggplot(hf_runs, -->
+<!--        aes(x = age, y = logit)) +  -->
+<!--   geom_point(alpha = .5) +  -->
+<!--   geom_smooth(method = "glm", method.args = list(family = "binomial")) + -->
+<!--   geom_hline(yintercept = 0, lty = 2) +  -->
+<!--   # ylim(0,1) +  -->
+<!--   facet_grid(site ~ task_id) -->
+<!-- ``` -->
+
+<!-- Bayesian logit.  -->
+
+<!-- ```{r} -->
+<!-- ggplot(hf_runs, -->
+<!--        aes(x = age, y = bayeslogit)) +  -->
+<!--   geom_point(alpha = .5) +  -->
+<!--   geom_smooth(method = "lm") + -->
+<!--   geom_hline(yintercept = 0, lty = 2) +  -->
+<!--   # ylim(0,1) +  -->
+<!--   facet_grid(site ~ task_id) -->
+<!-- ``` -->
 
 Histograms. 
 
@@ -190,7 +207,7 @@ ggplot(hf, aes(x = as.numeric(rt))) +
 ```
 
 
-## IRT for H&F
+## IRT
 
 We now use the multigroup IRT models. 
 
@@ -247,6 +264,7 @@ mg <- ef |>
   mutate(max_span = max(span))
 ```
 
+## Sumscore
 
 ```{r}
 mg_spans <- mg |>
@@ -307,7 +325,7 @@ ggplot(mg_runs, aes(x = age, y = max_span, col = direction)) +
   facet_grid(direction~site, scales = "free_y")
 ```
 
-## memory IRT
+## IRT
 
 We now use the multigroup IRT models. 
 
@@ -351,6 +369,8 @@ sds <- filter(ef, task_id == "same-different-selection") |>
   separate(item_uid , into = c("task", "block", "trial"), sep = "_") 
 ```
 
+## Sumscore
+
 ```{r}
 sds_runs <- sds |>
   group_by(site, user_id, run_id, task_id) |>
@@ -372,7 +392,7 @@ ggplot(sds_runs_block, aes(x = age, y = correct)) +
   facet_grid(site ~ block)
 ```
 
-## SDS IRT
+## IRT
 
 ```{r}
 multigroup_scores_sds <- multigroup_scores |>
@@ -406,6 +426,8 @@ ggplot(sds_coefs, aes(x = block, y = -d, col = trial)) +
 
 
 # EF factor analysis
+
+## Only LEVANTE tasks
 
 ```{r}
 
@@ -460,7 +482,7 @@ graph_sem(model = fit1, text_size = 3) +
   theme(panel.background = element_rect(fill = "white"))
 ```
 
-# Add MEFS
+## Add MEFS
 
 ```{r}
 mefs_scores <- read_csv(here("02_scored_data","mefs_data","LEVANTE_20250403_1132.csv")) |>
