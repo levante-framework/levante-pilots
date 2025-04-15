@@ -1,3 +1,14 @@
+---
+title: "LEVANTE Trog"
+author: "Fionnuala O'Reilly"
+toc: true
+number-sections: true
+highlight-style: pygments
+format:
+  html: 
+    code-fold: true
+---
+
 ```{r}
 library(tidyverse)
 library(glue)
@@ -53,16 +64,6 @@ ggplot(trog_runs, aes(x = age, y = correct)) +
   ylim(0, 1) +
   facet_wrap(~site)
 
-# What's going on with Canada
-
-trog_grouped |> 
-  filter(site == "ca_pilot") |> 
-  summarise(
-    n_participants = n_distinct(user_id),
-    n_trials = n() #23 participants
-  )
-
-
 ```
 
 Item completion patterns across countries
@@ -113,6 +114,13 @@ trog_grouped <- trog |>
   ))
 
 
+# Checking Canada
+trog_grouped |> 
+  filter(site == "ca_pilot") |> 
+  summarise(
+    n_participants = n_distinct(user_id),
+    n_trials = n() #27 participants
+  )
 ```
 
 
@@ -151,17 +159,12 @@ ggplot(trog_blocks, aes(x = age, y = correct)) +
   facet_grid(site ~ grammar_group)
 
 
-# All Canada data in the 'stimulus' category
-
-trog_grouped |> 
-  filter(site == "ca_pilot") |> 
-  count(item_group, sort = TRUE)
-
-
 
 ```
 
 IRT model
+
+# Note multigroup_best_outputs is too large to store. Mike sent it via slack. Upload via terminal.
 
 ```{r}
 
@@ -230,21 +233,10 @@ ggplot(trog_runs, aes(x = age, y = correct, col = site)) +
   ) +
   theme_minimal()
 
-# Accuracy by grammatical structure ##### code not working - return to this. ####
-
-ggplot(trog_difficulty_blocks,
-       aes(x = age, y = correct)) + 
-  geom_point(alpha = .5) + 
-  geom_smooth(method = "glm", method.args = list(family = "binomial")) +
-  geom_hline(yintercept = .5, lty = 2) + 
-  ylim(0,1) + 
-  theme_minimal(base_family = "sans") +
-  facet_grid(site ~ item_group)
-
 
 ```
 
-Examining by corpus trial type
+Examining by item group (previously "corpus trial type")
 
 ```{r}
 
@@ -275,7 +267,6 @@ library(GGally)
 item_difficulty |>
   select(-item_uid) |>
   ggpairs(title = "Pairwise Site-Level Item Difficulties")
-
 
 
 ```
