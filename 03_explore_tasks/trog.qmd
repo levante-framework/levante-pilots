@@ -14,14 +14,14 @@ library(tidyverse)
 library(glue)
 library(here)
 
-source(here("03_explore_tasks/explore_helper.R"))
+invisible(source(here("03_explore_tasks/explore_helper.R")))
 ```
 
 Get trog data
 
 ```{r}
 trog <- load_task_data("trog")
-trog
+invisible(trog)
 ```
 
 Exploring item types
@@ -37,9 +37,9 @@ trog <- trog |>
     TRUE ~ item_group
   ))
 
-sort(unique(trog$item_group))
-sort(unique(trog$item_uid))
-length(unique(trog$item_uid)) # must be using Trog2 (2003 version) as Trog1 only has 80 items
+invisible(sort(unique(trog$item_group)))
+invisible(sort(unique(trog$item_uid)))
+invisible(length(unique(trog$item_uid))) # must be using Trog2 (2003 version) as Trog1 only has 80 items
 
 ```
 
@@ -72,11 +72,26 @@ Item completion patterns across countries
 
 ggplot(trog_runs, aes(x = n_items)) +
   geom_histogram(binwidth = 1) +
+  theme_minimal(base_family = "sans") +
   facet_wrap(~site)
 
 ```
+Examining by item group
 
-Categorizing corpus type into smaller groups
+```{r}
+
+trog_type <- trog |>
+  group_by(site, user_id, run_id, item_group) |>
+  summarise(correct = mean(correct, na.rm = TRUE),
+            age = mean(age, na.rm = TRUE))
+
+ggplot(trog_type, aes(x = age, y = correct, col = item_group)) +
+  geom_smooth(method = "loess") +
+  theme_minimal(base_family = "sans") +
+  facet_wrap(~site)
+
+```
+Grouping items by grammatical structure
 
 ```{r}
 
@@ -113,7 +128,6 @@ trog_grouped <- trog |>
     item_group == "stimulus" ~ "stimulus"
   ))
 
-
 # Checking Canada
 trog_grouped |> 
   filter(site == "ca_pilot") |> 
@@ -123,6 +137,7 @@ trog_grouped |>
   )
 ```
 
+Across grammar groups
 
 ```{r}
 library(forcats)
@@ -159,33 +174,65 @@ ggplot(trog_blocks, aes(x = age, y = correct)) +
   facet_grid(site ~ grammar_group)
 
 
-
 ```
 
-IRT model
-
-# Note multigroup_best_outputs is too large to store. Mike sent it via slack. Upload via terminal.
+Difficulty patterns across sites
 
 ```{r}
 
+item_difficulty <- trog |>
+  group_by(site, item_uid) |>
+  summarise(p_correct = mean(correct, na.rm = TRUE)) |>
+  pivot_wider(names_from = site, values_from = p_correct)
+
+library(GGally)
+item_difficulty |>
+  select(-item_uid) |>
+  ggpairs(title = "Pairwise Site-Level Item Difficulties") +
+  theme_minimal(base_family = "sans")
+
+```
+
+Load results from IRT model
+
+```{r}
 best_multigroup <- readRDS(here("02_scoring_outputs", "irt_outputs", "multigroup_best_outputs.rds"))
 multigroup_scores <- readRDS(here("02_scoring_outputs", "scores", "scores_multigroup.rds"))
 
 ```
 
-Extract coefficients
+Multigroup models
+
+Developmental Trends in TROG Ability Estimates by Site
+
+This plot shows how IRT-derived ability estimates (theta scores, i.e. estimated latent ability) from the TROG task vary with age across different sites.
+```{r}
+# Theta scores (computed per person, per task, per site), plotted against age
+
+multigroup_scores_trog <- multigroup_scores |>
+  filter(task_id == "trog") |>
+  select(site, task_id, user_id, run_id, metric_type, metric_value) |>
+  left_join(run_ages) # not working
+
+ggplot(multigroup_scores_trog, aes(x = age, y = metric_value, col = site)) + 
+  geom_point() + 
+  theme_minimal(base_family = "sans") +
+  geom_smooth()
+
+```
+
+Organizing trog items into difficulty-based blocks using IRT parameters
 
 ```{r}
 
+# Pull item level IRT parameters for trog
 trog_models <- best_multigroup$coefs[[which(best_multigroup$task_id == "trog")]]
-length(trog_models)
-str(trog_models)
 
-# Assign site labels and flatten
+# Keep only rows where the item ID starts with "trog_"
 trog_coefs <- trog_models |> 
   filter(str_detect(item, "^trog_"))  
 
-# Calculate mean difficulty (d) per item across sites
+# Calculate mean difficulty (d) per item across sites. Averages the difficulty parameter d across sites for each item (may be problematic)
 trog_difficulty_overall <- trog_coefs |>
   group_by(item) |>
   summarise(mean_d = mean(d, na.rm = TRUE), .groups = "drop") |>
@@ -200,17 +247,13 @@ trog_difficulty <- trog_coefs |>
   left_join(trog_difficulty_blocks |> select(item, mean_d, block), by = "item")
 
 # Check
-trog_difficulty |> count(block)
-View(trog_difficulty)
-
+invisible(trog_difficulty |> count(block))
 
 ```
 
-Plot item difficulty (mean across sites)
+IRT-estimated mean d for each item, averaged across sites
 
 ```{r}
-
-# Accuracy
 
 ggplot(trog_difficulty_blocks, aes(x = reorder(item, mean_d), y = mean_d)) +
   geom_point() +
@@ -223,50 +266,5 @@ ggplot(trog_difficulty_blocks, aes(x = reorder(item, mean_d), y = mean_d)) +
   theme_minimal() +
   theme(axis.text.y = element_text(size = 6))
 
-ggplot(trog_runs, aes(x = age, y = correct, col = site)) +
-  geom_point(alpha = 0.5) +
-  geom_smooth() +
-  labs(
-    x = "Age",
-    y = "Accuracy",
-    title = "TROG Accuracy by Age and Site"
-  ) +
-  theme_minimal()
-
-
 ```
 
-Examining by item group (previously "corpus trial type")
-
-```{r}
-
-trog_type <- trog |>
-  group_by(site, user_id, run_id, item_group) |>
-  summarise(correct = mean(correct, na.rm = TRUE),
-            age = mean(age, na.rm = TRUE))
-
-ggplot(trog_type, aes(x = age, y = correct, col = item_group)) +
-  geom_smooth(method = "loess") +
-  facet_wrap(~site)
-
-ggplot(trog_type, aes(x = age, y = correct, col = item_group)) +
-  geom_smooth(method = "loess") +
-  geom_rug(aes(x = age), sides = "b", alpha = 0.2) +
-  facet_wrap(~site)
-
-# Difficulty patterns across countries
-
-item_difficulty <- trog |>
-  group_by(site, item_uid) |>
-  summarise(p_correct = mean(correct, na.rm = TRUE)) |>
-  pivot_wider(names_from = site, values_from = p_correct)
-
-install.packages("GGally")
-library(GGally)
-
-item_difficulty |>
-  select(-item_uid) |>
-  ggpairs(title = "Pairwise Site-Level Item Difficulties")
-
-
-```

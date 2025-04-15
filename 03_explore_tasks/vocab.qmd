@@ -1,7 +1,12 @@
 ---
-title: "vocab"
-format: html
-editor: visual
+title: "LEVANTE Vocab"
+author: "Fionnuala O'Reilly"
+toc: true
+number-sections: true
+highlight-style: pygments
+format:
+  html: 
+    code-fold: true
 ---
 
 Packages
@@ -11,81 +16,15 @@ library(tidyverse)
 library(glue)
 library(here)
 
-```
-
-Create sites
-
-```{r}
-
-sites <- c("ca_pilot", "co_pilot", "de_pilot")
-
-task_data_nested <- sites |>
-  set_names() |>
-  map(\(s) read_rds(here(glue("01_processed_data/{s}/task_data_nested.rds")))) |>
-  list_rbind(names_to = "site")
-
-task_data_combined <- task_data_nested |>
-  select(-task_id) |>
-  unnest(data)
-
+invisible(source(here("03_explore_tasks/explore_helper.R")))
 
 ```
 
 Get vocab data
 
 ```{r}
-unique(task_data_combined$task_id)
-
-
-vocab <- filter(task_data_combined, 
-             task_id %in% c("vocab"))
-
-vocab
-```
-
-Get ages
-
-```{r}
-
-participants <- sites |>
-  set_names() |>
-  map(\(s) read_rds(here(glue("00_prepped_data/{s}/participants.rds")))) |>
-  list_rbind(names_to = "site")
-
-run_ages <- participants |>
-  select(user_id, ages) |>
-  unnest(ages)
-
-ages <- run_ages |>
-  group_by(user_id) |>
-  summarise(age = mean(age))
-
-vocab <- left_join(vocab, ages)
-
-colnames(vocab)
-
-```
-
-Linking trial-level data to item-level metadata
-
-```{r}
-
-id_map <- read_csv(here("02_score_data/item_metadata/pilot-item-ID mapping.csv"))
-
-trial_id_map <- id_map |>
-  mutate(trials = trials |> str_split(",")) |>
-  unnest(trials) |>
-  rename(trial_id = trials) |>
-  mutate(trial_id = str_trim(trial_id))
-
-# Join trial-level data to IRT item IDs
-
-vocab <- vocab |>
-  left_join(trial_id_map, by = "trial_id") |>
-  filter(!is.na(item_uid))
-
-colnames(vocab)
-
+vocab <- load_task_data("vocab")
+invisible(vocab)
 ```
 
 Get sum scores
@@ -103,9 +42,9 @@ vocab_runs <- vocab |>
 ggplot(vocab_runs, aes(x = age, y = correct)) +
   geom_point(alpha = 0.5) +
   geom_smooth(method = "loess") +
+  theme_minimal(base_family = "sans") +
   ylim(0, 1) +
   facet_wrap(~site)
-
 
 ```
 
@@ -155,9 +94,6 @@ ggplot(sampled_items, aes(x = reorder(item_uid, proportion_correct), y = proport
   ) +
   theme_minimal()
 
-# Add in age
-
-
 ```
 
 By age
@@ -204,7 +140,6 @@ ggplot(easiest_hardest_by_bracket, aes(x = reorder(item_uid, proportion_correct)
   ylim(0, 1.1) +
   theme_minimal()
 
-
 ```
 
 By country
@@ -243,20 +178,21 @@ ggplot(easiest_hardest_by_site, aes(x = reorder(item_uid, proportion_correct), y
   ylim(0, 1.05) +
   theme_minimal()
 
-
-
 ```
 
-Extract coefficeints from IRT model
+Load IRT results
 
 ```{r}
 
 # Load multigroup IRT model outputs
-best_multigroup <- readRDS(here("02_scored_data", "irt_outputs", "multigroup_best_outputs.rds"))
-multigroup_scores <- readRDS(here("02_scored_data", "scores", "scores_multigroup.rds"))
+best_multigroup <- readRDS(here("02_scoring_outputs", "irt_outputs", "multigroup_best_outputs.rds"))
+multigroup_scores <- readRDS(here("02_scoring_outputs", "scores", "scores_multigroup.rds"))
 
-View (multigroup_scores)
+```
 
+Multigroup models
+
+```{r}
 
 multigroup_scores_vocab <- multigroup_scores |>
   filter(task_id == "vocab") |>
@@ -265,28 +201,75 @@ multigroup_scores_vocab <- multigroup_scores |>
 
 ggplot(multigroup_scores_vocab, aes(x = age, y = metric_value, col = site)) + 
   geom_point() + 
+  theme_minimal(base_family = "sans") +
   geom_smooth()
-
-
-
-
 
 ```
 
+Look at the coefficients
 
 ```{r}
 
-vocab_coefs <- filter(best_multigroup, 
-                   task_id == "vocab")$coefs[[1]]
+vocab_items <- filter(best_multigroup, task_id == "vocab")$coefs[[1]]$item
+head(vocab_items, 10) 
+table(vocab_coefs$site, useNA = "always")
 
+vocab_coefs <- filter(best_multigroup, task_id == "vocab")$coefs[[1]] |>
+  separate(item, into = c("task", "empty", "trial", "number"), sep = "_") |>
+  select(-number, -empty) |>
+  distinct()
 
+# Difficulty vs. discrimination (slope) plot 
 
-# Plot difficulty by, age of acquisition
-ggplot(vocab_coefs, aes(x = age, y = -d)) +
-  geom_point() +
-  geom_smooth(method = "lm") +
-  ylab("Difficulty") +
-  xlab("Age")
+library(ggrepel)
 
+ggplot(vocab_coefs, aes(x = a1, y = -d, label = trial, col = site)) + 
+  geom_point(size = 3) +
+  geom_text_repel(size = 3, max.overlaps = 15) +
+  xlab("Discrimination (Slope, a1)") + 
+  ylab("Difficulty (-d)") + 
+  ggtitle("Item Parameters for Vocab") +
+  theme_minimal(base_family = "sans") +
+  theme(legend.position = "bottom")
+
+```
+Examine 'tourniquet' - like that IRT model not fitting it correctly
+
+```{r}
+
+"vocab__tourniquet_1" %in% vocab_items
+
+vocab_coef_tourniquet <- filter(best_multigroup, task_id == "vocab")$coefs[[1]] |>
+  filter(str_detect(item, "tourniquet")) |>
+  separate(item, into = c("task", "empty", "trial", "number"), sep = "_") |>
+  select(-number, -empty)
+print(vocab_coef_tourniquet)
+
+# Plot of discrimination and difficulty by site
+vocab_coef_tourniquet_long <- vocab_coef_tourniquet %>%
+  pivot_longer(cols = c(a1, d), names_to = "parameter", values_to = "value")
+
+# Plot
+ggplot(vocab_coef_tourniquet_long, aes(x = site, y = value, fill = parameter)) +
+  geom_col(position = "dodge") +
+  geom_hline(yintercept = 0, linetype = "dashed") +
+  facet_wrap(~parameter, scales = "free_y") +
+  labs(title = "IRT Parameters for 'tourniquet' by Site",
+       y = "Value", x = "Site") +
+  theme_minimal()
+
+```
+
+Items with a1<0
+
+```{r}
+
+low_a1 <- vocab_coefs %>%
+  filter(a1 < 0)
+print(low_a1)
+
+invisible(low_a1 %>%
+  count(site))
+```
 
 
