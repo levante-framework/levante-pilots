@@ -1,8 +1,6 @@
 
 # EFA analysis for surveys for students
 
-# EFA analysis for surveys for caregiver
-
 ## Data preparation
 ```{r}
 source(here::here("03_summaries", "efa", "efa_helpers.R"))
