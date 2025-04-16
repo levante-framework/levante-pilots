@@ -1,0 +1,188 @@
+---
+title: "LEVANTE Egma"
+author: "Fionnuala O'Reilly"
+toc: true
+number-sections: true
+highlight-style: pygments
+format:
+  html: 
+    code-fold: true
+---
+
+```{r}
+library(tidyverse)
+library(glue)
+library(here)
+
+invisible(source(here("03_explore_tasks/explore_helper.R")))
+```
+
+Get egma data
+
+```{r}
+egma <- load_task_data("egma-math")
+invisible(egma)
+```
+
+Exploring item types
+
+```{r}
+base::table(egma$item_group)
+sort(unique(egma$item_group))
+
+```
+Sum scores
+
+```{r}
+
+# 94 items
+
+colnames(egma)
+
+egma_runs <- egma |>
+  group_by(site, user_id, run_id) |>
+  summarise(
+    correct = mean(correct, na.rm = TRUE),  
+    age = mean(age, na.rm = TRUE),          
+    n_items = n_distinct(item_uid) # how many unique items were completed
+  )
+
+ggplot(egma_runs, aes(x = age, y = correct)) +
+  geom_point(alpha = 0.5) +
+  geom_smooth(method = "loess") +
+  theme_minimal(base_family = "sans") +
+  ylim(0, 1) +
+  facet_wrap(~site)
+
+```
+
+Accuracy on item groups
+
+```{r}
+egma_cat_runs <- egma |>
+  group_by(site, user_id, run_id, item_group) |>
+  summarise(
+    correct = mean(correct, na.rm = TRUE),
+    age = mean(age, na.rm = TRUE),
+    n_items = n_distinct(item_uid),
+    .groups = "drop"
+  )
+
+egma_counts <- egma_cat_runs |>
+  group_by(site, item_group) |>
+  summarise(n = n(), .groups = "drop")
+
+ggplot(egma_cat_runs, aes(x = age, y = correct)) +
+  geom_point(alpha = 0.3) +
+  geom_smooth(method = "loess") +
+  geom_text(data = egma_counts,
+          aes(x = Inf, y = Inf, label = paste0("n = ", n)),
+          hjust = 1.1, vjust = 1.5,
+          size = 4,  # Adjust this to match strip label font
+          inherit.aes = FALSE) +
+  theme_minimal(base_family = "sans") +
+  ylim(0, 1) +
+  facet_grid(site ~ item_group) +
+  labs(title = "EGMA Accuracy by Age, Site, and Category",
+       x = "Age (years)",
+       y = "Proportion Correct")
+
+```
+
+Reaction times
+
+```{r}
+summary(egma$rt)
+View(egma$rt)
+egma$rt <- as.numeric(egma$rt)
+
+egma_rt <- egma |>
+  group_by(site, user_id, run_id) |>
+  summarise(
+    n = n(),
+    rt_mean = mean(rt, na.rm = TRUE),
+    age = mean(age, na.rm = TRUE),
+    .groups = "drop"
+  )
+
+# Get sample sizes
+site_counts <- egma_rt |>
+  group_by(site) |>
+  summarise(n = n(), .groups = "drop")
+
+ggplot(egma_rt, aes(x = age, y = rt_mean)) +
+  geom_point(alpha = 0.4) +
+  geom_smooth(method = "loess") +
+  geom_text(data = site_counts,
+            aes(x = Inf, y = Inf, label = paste0("n = ", n)),
+            hjust = 1.1, vjust = 1.5, inherit.aes = FALSE) +
+  theme_minimal(base_family = "sans") +
+  facet_wrap(~site) +
+  labs(title = "Reaction Time by Age",
+       x = "Age (years)",
+       y = "Mean Reaction Time (ms)")
+
+```
+
+Load IRT results
+
+```{r}
+
+best_multigroup <- readRDS(here("02_scoring_outputs", "irt_outputs", "multigroup_best_outputs.rds"))
+multigroup_scores <- readRDS(here("02_scoring_outputs", "scores", "scores_multigroup.rds"))
+
+```
+
+Multigroup models
+
+Developmental trends in egma math ability estimates by site
+
+This plot shows how IRT-derived ability estimates (theta scores, i.e. estimated latent ability) from the TROG task vary with age across different sites.
+```{r}
+
+multigroup_scores_egma <- multigroup_scores |>
+  filter(task_id == "emga-math") |>
+  select(site, task_id, user_id, run_id, metric_type, metric_value) |>
+  left_join(run_ages)
+
+ggplot(multigroup_scores_egma, aes(x = age, y = metric_value, col = site)) + 
+  geom_point() + 
+  theme_minimal(base_family = "sans") +
+  geom_smooth()
+
+```
+
+Get the coefficients
+
+```{r}
+
+colnames(egma_models)
+head(egma_models$item)
+
+# Pull item level IRT parameters for egma-math
+egma_models <- best_multigroup$coefs[[which(best_multigroup$task_id == "egma-math")]]
+
+# Keep only rows where the item ID starts with "math"
+egma_coefs <- egma_models |> 
+  filter(str_detect(item, "^math_"))
+
+ggplot(egma_coefs, aes(x = d, y = reorder(item, d))) +
+  geom_point(alpha = 0.7) +
+  facet_wrap(~site) +
+  theme_minimal(base_family = "sans") +
+  labs(title = "EGMA-Math Item Difficulties by Site",
+       x = "Difficulty (d)",
+       y = "Item") +
+  theme(axis.text.y = element_text(size = 6))
+
+```
+
+```{r}
+
+```
+
+```{r}
+
+```
+
+
