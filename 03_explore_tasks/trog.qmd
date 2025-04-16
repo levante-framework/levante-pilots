@@ -14,7 +14,9 @@ library(tidyverse)
 library(glue)
 library(here)
 
-invisible(source(here("03_explore_tasks/explore_helper.R")))
+source(here("02_score_data","irt_helpers.R"))
+source(here("03_summaries", "plotting_helper.R"))
+source(here("03_explore_tasks/explore_helper.R"))
 ```
 
 Get trog data
@@ -37,9 +39,9 @@ trog <- trog |>
     TRUE ~ item_group
   ))
 
-invisible(sort(unique(trog$item_group)))
-invisible(sort(unique(trog$item_uid)))
-invisible(length(unique(trog$item_uid))) # must be using Trog2 (2003 version) as Trog1 only has 80 items
+sort(unique(trog$item_group))
+sort(unique(trog$item_uid))
+length(unique(trog$item_uid)) # must be using Trog2 (2003 version) as Trog1 only has 80 items
 
 ```
 
@@ -95,84 +97,57 @@ Grouping items by grammatical structure
 
 ```{r}
 
+unique(trog$item_group)
+
 trog_grouped <- trog |>
   mutate(grammar_group = case_when(
     item_group %in% c(
       "noun", "verb", "adjective", 
-      "singular/plural noun inflection", 
-      "singular/plural personal pronoun"
+      "pluralmorph", "pluralpronoun"
     ) ~ "basic_grammar",
 
     item_group %in% c(
-      "two element combination", "three element combination",
-      "prepositional phrase", "additive",
-      "in and on", "above and below", "comparative/absolute"
+      "2combo", "3combo", "prepphrase", "additive",
+      "inon", "abovebelow", "comparative"
     ) ~ "simple_constructions",
 
     item_group %in% c(
-      "reversible active", "reversible passive",
+      "revactive", "revpassive",
       "negative", "temporal", "causal", "conditional"
     ) ~ "basic_sentences",
 
     item_group %in% c(
-      "relative clause", "embedded sentence",
-      "dependent clause", "postmodified subject",
-      "gerund phrase"
+      "relclause", "embedding",
+      "depclause", "postmod", "gerund"
     ) ~ "complex_sentences",
 
     item_group %in% c(
-      "disjunctive", "neither X nor Y",
-      "not only X but also Y", "X but not Y"
+      "disjunctive", "neither", "notonly", "xnoty"
     ) ~ "logical_structures",
 
     item_group == "stimulus" ~ "stimulus"
   ))
 
-# Checking Canada
-trog_grouped |> 
-  filter(site == "ca_pilot") |> 
-  summarise(
-    n_participants = n_distinct(user_id),
-    n_trials = n() #27 participants
-  )
-```
-
-Across grammar groups
-
-```{r}
-library(forcats)
+trog_grouped |>
+  count(grammar_group)
 
 trog_blocks <- trog_grouped |>
   group_by(site, user_id, run_id, grammar_group) |>
   summarise(
-    correct = mean(correct, na.rm = TRUE),
+    correct = ifelse(all(is.na(correct)), NA_real_, mean(correct, na.rm = TRUE)),
     age = mean(age, na.rm = TRUE),
     .groups = "drop"
   ) |>
-  mutate(grammar_group = fct_recode(grammar_group,
-    "BG" = "basic_grammar",
-    "SC" = "simple_constructions",
-    "BS" = "basic_sentences",
-    "CS" = "complex_sentences",
-    "LS" = "logical_structures",
-    "Stimulus" = "stimulus"
-  )) |>
   filter(!is.na(grammar_group))
 
-
 ggplot(trog_blocks, aes(x = age, y = correct)) + 
-  geom_point(alpha = 0.4, size = 1) + 
-  geom_smooth(method = "loess", se = TRUE, colour = "blue") + 
+  geom_point(aes(alpha = !is.na(correct)), size = 1) +
+  scale_alpha_discrete(guide = "none") +
+  geom_smooth(data = trog_blocks |> filter(!is.na(correct)), method = "loess", se = TRUE, colour = "blue") +
   geom_hline(yintercept = 0.5, lty = 2, colour = "black") + 
   ylim(0, 1) +
   theme_minimal(base_family = "sans") +
-  theme(
-    strip.text = element_text(size = 10, face = "bold"),
-    axis.text.x = element_text(size = 9),
-    axis.text.y = element_text(size = 9)
-  ) +
   facet_grid(site ~ grammar_group)
-
 
 ```
 
@@ -203,7 +178,7 @@ multigroup_scores <- readRDS(here("02_scoring_outputs", "scores", "scores_multig
 
 Multigroup models
 
-Developmental Trends in TROG Ability Estimates by Site
+Developmental trends in trog ability estimates by site
 
 This plot shows how IRT-derived ability estimates (theta scores, i.e. estimated latent ability) from the TROG task vary with age across different sites.
 ```{r}
