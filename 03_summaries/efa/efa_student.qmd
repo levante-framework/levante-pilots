@@ -426,5 +426,5 @@ ggsave(here::here(paste0("03_summaries/efa/", gsub("[/\"']", "_", formi), ".png"
 # save factor scores
 
 ```{r}
-#saveRDS(student_tidy, here::here("03_summaries/efa/student_tidy"))
+#saveRDS(student_tidy, here::here("03_summaries/efa/student_tidy.rds"))
 ```
