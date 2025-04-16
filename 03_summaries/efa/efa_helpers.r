@@ -1,12 +1,11 @@
-library(tidyverse)
+
 library(psych)
-# library(corrplot)
-library(here)
-# library(reshape2)
-# library(plyr)
+library(corrplot)
+library(reshape2)
+library(patchwork) 
+library(gtools)  # natural sorting
 
 col <- colorRampPalette(c("red", "white", "blue"))(200) # Red to white to blue
-
 
 
 
@@ -30,8 +29,15 @@ loadmax <- function(loadings, m_data_subset) {
 
 
 
-plot_load <- function(loadings_df, title, lowlimit = -1, uplimit = 1){
-    ggplot(loadings_df, aes(Factor,  Item, fill = Loading)) +
+plot_load <- function(loadings_df, title, lowlimit = -1, uplimit = 1.2){
+   # order items to make the y-axis consistent across sites
+  loadings_df <- loadings_df %>%
+    mutate(Item = factor(Item, levels = gtools::mixedsort(as.character(unique(Item))))) %>%
+    arrange(Item)
+  
+  
+  
+    p <- ggplot(loadings_df, aes(Factor,  Item, fill = Loading)) +
     geom_tile() +
     geom_text(aes(label = ifelse(Loading != 0, sprintf("%.2f", Loading), "")), 
               color = "black", vjust = 0.5, hjust = 0.5) + # Add non-zero loadings as text
@@ -43,5 +49,9 @@ plot_load <- function(loadings_df, title, lowlimit = -1, uplimit = 1){
       hjust=1)) +
     labs(x = "", y = "Item", title = title) +
     coord_fixed(ratio = 1) 
+    
+    return(p)
+    print(p)
 }
+
 
