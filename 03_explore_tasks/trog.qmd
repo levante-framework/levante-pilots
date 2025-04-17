@@ -39,6 +39,8 @@ trog <- trog |>
     TRUE ~ item_group
   ))
 
+# fct_relevel(item_group,  `postmodified subject` = "post modified subject")
+
 sort(unique(trog$item_group))
 sort(unique(trog$item_uid))
 length(unique(trog$item_uid)) # must be using Trog2 (2003 version) as Trog1 only has 80 items
@@ -71,13 +73,12 @@ ggplot(trog_runs, aes(x = age, y = correct)) +
 Item completion patterns across countries
 
 ```{r}
-
 ggplot(trog_runs, aes(x = n_items)) +
   geom_histogram(binwidth = 1) +
   theme_minimal(base_family = "sans") +
   facet_wrap(~site)
-
 ```
+
 Examining by item group
 
 ```{r}
@@ -88,8 +89,9 @@ trog_type <- trog |>
             age = mean(age, na.rm = TRUE))
 
 ggplot(trog_type, aes(x = age, y = correct, col = item_group)) +
-  geom_smooth(method = "loess") +
+  geom_smooth(method = "lm", se = FALSE) +
   theme_minimal(base_family = "sans") +
+  viridis::scale_color_viridis(discrete=TRUE) +
   facet_wrap(~site)
 
 ```
@@ -102,28 +104,34 @@ unique(trog$item_group)
 trog_grouped <- trog |>
   mutate(grammar_group = case_when(
     item_group %in% c(
-      "noun", "verb", "adjective", 
+      "noun", "verb", "adjective"
+    ) ~ "single words",
+    
+    item_group %in% c(
       "pluralmorph", "pluralpronoun"
-    ) ~ "basic_grammar",
+    ) ~ "morphology",
 
     item_group %in% c(
       "2combo", "3combo", "prepphrase", "additive",
       "inon", "abovebelow", "comparative"
-    ) ~ "simple_constructions",
+    ) ~ "composition and prepositions",
 
     item_group %in% c(
-      "revactive", "revpassive",
       "negative", "temporal", "causal", "conditional"
-    ) ~ "basic_sentences",
+    ) ~ "basic sentences",
+    
+    item_group %in% c(
+      "revactive", "revpassive"
+    ) ~ "reversible constructions",
 
     item_group %in% c(
       "relclause", "embedding",
       "depclause", "postmod", "gerund"
-    ) ~ "complex_sentences",
+    ) ~ "complex sentences",
 
     item_group %in% c(
       "disjunctive", "neither", "notonly", "xnoty"
-    ) ~ "logical_structures",
+    ) ~ "logical structures",
 
     item_group == "stimulus" ~ "stimulus"
   ))
@@ -138,16 +146,18 @@ trog_blocks <- trog_grouped |>
     age = mean(age, na.rm = TRUE),
     .groups = "drop"
   ) |>
-  filter(!is.na(grammar_group))
+  filter(!is.na(grammar_group)) |>
+  mutate(grammar_group = fct_reorder(grammar_group, correct, .desc = TRUE)) 
 
-ggplot(trog_blocks, aes(x = age, y = correct)) + 
+ggplot(trog_blocks, aes(x = age, y = correct, col = site)) + 
   geom_point(aes(alpha = !is.na(correct)), size = 1) +
   scale_alpha_discrete(guide = "none") +
-  geom_smooth(data = trog_blocks |> filter(!is.na(correct)), method = "loess", se = TRUE, colour = "blue") +
-  geom_hline(yintercept = 0.5, lty = 2, colour = "black") + 
+  geom_smooth(data = trog_blocks |> filter(!is.na(correct)), 
+              method = "lm", se = FALSE, span = 2) +
+  geom_hline(yintercept = 0.25, lty = 2, colour = "black") + 
+  ggthemes::scale_color_solarized() + 
   ylim(0, 1) +
-  theme_minimal(base_family = "sans") +
-  facet_grid(site ~ grammar_group)
+  facet_wrap(~grammar_group) 
 
 ```
 
@@ -182,6 +192,10 @@ Developmental trends in trog ability estimates by site
 
 This plot shows how IRT-derived ability estimates (theta scores, i.e. estimated latent ability) from the TROG task vary with age across different sites.
 ```{r}
+run_ages <- trog |>
+  select(site, run_id, user_id, age) |>
+  distinct()
+
 # Theta scores (computed per person, per task, per site), plotted against age
 
 multigroup_scores_trog <- multigroup_scores |>
@@ -228,9 +242,18 @@ invisible(trog_difficulty |> count(block))
 
 IRT-estimated mean d for each item, averaged across sites
 
-```{r}
+```{r fig.height =8, fig.width = 6}
 
-ggplot(trog_difficulty_blocks, aes(x = reorder(item, mean_d), y = mean_d)) +
+trog_groups <- trog_grouped |>
+  select(item_uid, item_group, grammar_group) |>
+  distinct() |>
+  mutate(item = glue("{item_uid}_1")) |>
+  select(item, grammar_group)
+
+trog_difficulty_blocks <- left_join(trog_difficulty_blocks, trog_groups)
+
+ggplot(trog_difficulty_blocks, aes(x = reorder(item, mean_d), 
+                                   y = -mean_d, col = grammar_group)) +
   geom_point() +
   coord_flip() +
   labs(
