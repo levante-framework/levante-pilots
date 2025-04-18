@@ -15,16 +15,18 @@ Packages
 library(tidyverse)
 library(glue)
 library(here)
+library(viridis)
 
-invisible(source(here("03_explore_tasks/explore_helper.R")))
-
+source(here("02_score_data","irt_helpers.R"))
+source(here("03_summaries", "plotting_helper.R"))
+source(here("03_explore_tasks/explore_helper.R"))
 ```
 
 Get vocab data
 
 ```{r}
 vocab <- load_task_data("vocab")
-invisible(vocab)
+vocab
 ```
 
 Get sum scores
@@ -41,7 +43,7 @@ vocab_runs <- vocab |>
 
 ggplot(vocab_runs, aes(x = age, y = correct)) +
   geom_point(alpha = 0.5) +
-  geom_smooth(method = "loess") +
+  geom_smooth(method = "gam") +
   theme_minimal(base_family = "sans") +
   ylim(0, 1) +
   facet_wrap(~site)
@@ -54,7 +56,8 @@ Item completion patterns across countries
 
 ggplot(vocab_runs, aes(x = n_items)) +
   geom_histogram(binwidth = 1) +
-  facet_wrap(~site)
+  facet_wrap(~site) + 
+  theme_minimal()
 
 ```
 
@@ -68,6 +71,12 @@ item_accuracy <- vocab |>
   arrange(proportion_correct) |>
   mutate(item_rank = row_number())
 
+```
+
+Plot
+
+```{r fig.height =14, fig.width = 8}
+
 # Plot all items
 ggplot(item_accuracy, aes(x = reorder(item_uid, proportion_correct), y = proportion_correct)) +
   geom_col() +
@@ -78,18 +87,22 @@ ggplot(item_accuracy, aes(x = reorder(item_uid, proportion_correct), y = proport
     y = "Proportion Correct"
   ) +
   theme_minimal()
+```
 
-# Filter every 10th item
+Subset of items
+
+```{r}
+# Filter every 5th item
 sampled_items <- item_accuracy |>
-  filter(item_rank %% 10 == 0)
+  filter(item_rank %% 5 == 0)
 
 # Plot sampled items
 ggplot(sampled_items, aes(x = reorder(item_uid, proportion_correct), y = proportion_correct)) +
   geom_col() +
   coord_flip() +
-  labs(
+    labs(
     title = "Proportion Correct (Sampled Vocabulary Items)",
-    x = "Vocabulary Item (every 10th)",
+    x = "Vocabulary Item (every 5th)",
     y = "Proportion Correct"
   ) +
   theme_minimal()
@@ -103,9 +116,9 @@ By age
 # Create age brackets
 vocab_binned <- vocab |>
   mutate(age_bracket = case_when(
-    age <= 5 ~ "0–5",
-    age >= 6 & age <= 9 ~ "6–9",
-    age >= 10 & age <= 12 ~ "10–12",
+    floor(age) <= 5 ~ "2–5",
+    floor(age) >= 6 & floor(age) <= 9 ~ "6–9",
+    floor(age) >= 10 & floor(age) <= 12 ~ "10–12",
     TRUE ~ NA_character_
   )) |>
   filter(!is.na(age_bracket))
@@ -115,7 +128,7 @@ item_accuracy_by_bracket <- vocab_binned |>
   group_by(age_bracket, item_uid) |>
   summarise(
     proportion_correct = mean(correct, na.rm = TRUE),
-    n = n(),  # sample size
+    n = n(),
     .groups = "drop"
   )
 
@@ -124,12 +137,17 @@ easiest_hardest_by_bracket <- item_accuracy_by_bracket |>
   group_by(age_bracket) |>
   arrange(proportion_correct) |>
   mutate(rank = row_number()) |>
-  filter(rank <= 10 | rank > (n() - 10))  # keep bottom and top 10
+  filter(rank <= 10 | rank > (n() - 10)) |>
+  distinct(age_bracket, item_uid, .keep_all = TRUE)
 
-# Plot with sample size labels
+# Set age bracket order for consistent facet layout
+easiest_hardest_by_bracket <- easiest_hardest_by_bracket |>
+  mutate(age_bracket = factor(age_bracket, levels = c("2–5", "6–9", "10–12")))
+
+# Plot (without sample size labels)
 ggplot(easiest_hardest_by_bracket, aes(x = reorder(item_uid, proportion_correct), y = proportion_correct, fill = age_bracket)) +
   geom_col(show.legend = FALSE) +
-  geom_text(aes(label = glue::glue("n = {n}")), hjust = -0.1, size = 2.3) +
+  scale_fill_viridis_d() +
   coord_flip() +
   facet_wrap(~ age_bracket, scales = "free_y") +
   labs(
@@ -140,9 +158,20 @@ ggplot(easiest_hardest_by_bracket, aes(x = reorder(item_uid, proportion_correct)
   ylim(0, 1.1) +
   theme_minimal()
 
+
 ```
 
-By country
+Check the 2-5 year category
+
+```{r}
+
+item_accuracy_by_bracket |> 
+  group_by(age_bracket) |> 
+  summarise(n_items = n_distinct(item_uid))
+
+```
+
+By site
 
 ```{r}
 
@@ -169,6 +198,7 @@ ggplot(easiest_hardest_by_site, aes(x = reorder(item_uid, proportion_correct), y
   geom_text(aes(label = glue::glue("{n}")),
             hjust = -0.1, size = 1.5) +
   coord_flip() +
+  scale_fill_viridis_d() +
   facet_wrap(~ site, scales = "free_y") +
   labs(
     title = "Easiest and Hardest Vocabulary Items by Country",
@@ -194,6 +224,10 @@ Multigroup models
 
 ```{r}
 
+run_ages <- vocab |>
+  select(site, run_id, user_id, age) |>
+  distinct()
+
 multigroup_scores_vocab <- multigroup_scores |>
   filter(task_id == "vocab") |>
   select(site, task_id, user_id, run_id, metric_type, metric_value ) |>
@@ -211,9 +245,7 @@ Look at the coefficients
 ```{r}
 
 vocab_items <- filter(best_multigroup, task_id == "vocab")$coefs[[1]]$item
-head(vocab_items, 10) 
-table(vocab_coefs$site, useNA = "always")
-
+ 
 vocab_coefs <- filter(best_multigroup, task_id == "vocab")$coefs[[1]] |>
   separate(item, into = c("task", "empty", "trial", "number"), sep = "_") |>
   select(-number, -empty) |>
@@ -222,18 +254,23 @@ vocab_coefs <- filter(best_multigroup, task_id == "vocab")$coefs[[1]] |>
 # Difficulty vs. discrimination (slope) plot 
 
 library(ggrepel)
-
-ggplot(vocab_coefs, aes(x = a1, y = -d, label = trial, col = site)) + 
-  geom_point(size = 3) +
-  geom_text_repel(size = 3, max.overlaps = 15) +
-  xlab("Discrimination (Slope, a1)") + 
-  ylab("Difficulty (-d)") + 
-  ggtitle("Item Parameters for Vocab") +
+ggplot(vocab_coefs, aes(x = a1, y = -d, label = trial, colour = site)) + 
+  geom_point(size = 2) +
+  geom_text_repel(size = 2, max.overlaps = 10) +
+  scale_colour_viridis_d() +
+  facet_wrap(~site) +
+  labs(
+    x = "Discrimination (a1)",
+    y = "Difficulty (-d)",
+    title = "Item Parameters for Vocabulary by Site"
+  ) +
   theme_minimal(base_family = "sans") +
-  theme(legend.position = "bottom")
+  theme(legend.position = "none")  # optional: remove redundant legend
+
 
 ```
-Examine 'tourniquet' - like that IRT model not fitting it correctly
+
+Examining 'tourniquet'
 
 ```{r}
 
@@ -251,16 +288,21 @@ vocab_coef_tourniquet_long <- vocab_coef_tourniquet %>%
 
 # Plot
 ggplot(vocab_coef_tourniquet_long, aes(x = site, y = value, fill = parameter)) +
-  geom_col(position = "dodge") +
+  geom_col(position = position_dodge(width = 0.5)) +
   geom_hline(yintercept = 0, linetype = "dashed") +
+  scale_fill_viridis_d() +
   facet_wrap(~parameter, scales = "free_y") +
-  labs(title = "IRT Parameters for 'tourniquet' by Site",
-       y = "Value", x = "Site") +
-  theme_minimal()
+  labs(
+    title = "IRT Parameters for 'tourniquet' by Site",
+    y = "Value", x = "Site", fill = "Parameter"
+  ) +
+  theme_minimal(base_family = "sans")
+
+# Note: suggests "Tourniquet" is a very difficult and poorly discriminating item across all three countries.
 
 ```
 
-Items with a1<0
+Items with low discrimination [a1<0]
 
 ```{r}
 
@@ -268,8 +310,8 @@ low_a1 <- vocab_coefs %>%
   filter(a1 < 0)
 print(low_a1)
 
-invisible(low_a1 %>%
-  count(site))
+low_a1 %>%
+  count(site)
 ```
 
 

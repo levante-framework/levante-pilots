@@ -9,10 +9,13 @@ format:
     code-fold: true
 ---
 
+Packages
+
 ```{r}
 library(tidyverse)
 library(glue)
 library(here)
+library(viridis)
 
 source(here("02_score_data","irt_helpers.R"))
 source(here("03_summaries", "plotting_helper.R"))
@@ -23,7 +26,7 @@ Get trog data
 
 ```{r}
 trog <- load_task_data("trog")
-invisible(trog)
+trog
 ```
 
 Exploring item types
@@ -31,19 +34,8 @@ Exploring item types
 ```{r}
 base::table(trog$item_group)
 sort(unique(trog$item_group))
-
-# Dupicate of 'post modified subject - update
-trog <- trog |>
-  mutate(item_group = case_when(
-    item_group == "post modified subject" ~ "postmodified subject",
-    TRUE ~ item_group
-  ))
-
-# fct_relevel(item_group,  `postmodified subject` = "post modified subject")
-
-sort(unique(trog$item_group))
 sort(unique(trog$item_uid))
-length(unique(trog$item_uid)) # must be using Trog2 (2003 version) as Trog1 only has 80 items
+length(unique(trog$item_uid)) 
 
 ```
 
@@ -58,15 +50,24 @@ trog_runs <- trog |>
   summarise(
     correct = mean(correct, na.rm = TRUE),  
     age = mean(age, na.rm = TRUE),          
-    n_items = n_distinct(item_uid) # how many unique items were completed
+    n_items = n_distinct(item_uid),  # number of unique items completed
+    .groups = "drop"
   )
 
 ggplot(trog_runs, aes(x = age, y = correct)) +
   geom_point(alpha = 0.5) +
-  geom_smooth(method = "loess") +
+  geom_smooth(method = "gam", formula = y ~ s(x, bs = "re")) +
   theme_minimal(base_family = "sans") +
   ylim(0, 1) +
-  facet_wrap(~site)
+  facet_wrap(~site) + 
+  labs(
+    x = "Age (years)",
+    y = "Proportion correct",
+    caption = "Note: Each point represents a participant run; smoothed trend by site"
+  )
+
+# Note: The lab theme in plotting_helper.R sets "Source Sans Pro" as the base font,
+# which isn't available on my system. Overriding with theme_minimal() for compatibility.
 
 ```
 
@@ -77,6 +78,7 @@ ggplot(trog_runs, aes(x = n_items)) +
   geom_histogram(binwidth = 1) +
   theme_minimal(base_family = "sans") +
   facet_wrap(~site)
+
 ```
 
 Examining by item group
@@ -90,11 +92,12 @@ trog_type <- trog |>
 
 ggplot(trog_type, aes(x = age, y = correct, col = item_group)) +
   geom_smooth(method = "lm", se = FALSE) +
-  theme_minimal(base_family = "sans") +
+  theme_minimal(base_family = "sans") + # note over-writing the theme. 
   viridis::scale_color_viridis(discrete=TRUE) +
   facet_wrap(~site)
 
 ```
+
 Grouping items by grammatical structure
 
 ```{r}
@@ -139,7 +142,7 @@ trog_grouped <- trog |>
 trog_grouped |>
   count(grammar_group)
 
-trog_blocks <- trog_grouped |>
+trog_grammar_blocks <- trog_grouped |>
   group_by(site, user_id, run_id, grammar_group) |>
   summarise(
     correct = ifelse(all(is.na(correct)), NA_real_, mean(correct, na.rm = TRUE)),
@@ -149,19 +152,20 @@ trog_blocks <- trog_grouped |>
   filter(!is.na(grammar_group)) |>
   mutate(grammar_group = fct_reorder(grammar_group, correct, .desc = TRUE)) 
 
-ggplot(trog_blocks, aes(x = age, y = correct, col = site)) + 
+ggplot(trog_grammar_blocks, aes(x = age, y = correct, col = site)) + 
   geom_point(aes(alpha = !is.na(correct)), size = 1) +
   scale_alpha_discrete(guide = "none") +
-  geom_smooth(data = trog_blocks |> filter(!is.na(correct)), 
+  geom_smooth(data = trog_grammar_blocks |> filter(!is.na(correct)), 
               method = "lm", se = FALSE, span = 2) +
   geom_hline(yintercept = 0.25, lty = 2, colour = "black") + 
   ggthemes::scale_color_solarized() + 
+  theme_minimal(base_family = "sans") +
   ylim(0, 1) +
   facet_wrap(~grammar_group) 
 
 ```
 
-Difficulty patterns across sites
+Now grouping items by difficulty (instead of grammar group).
 
 ```{r}
 
@@ -169,6 +173,53 @@ item_difficulty <- trog |>
   group_by(site, item_uid) |>
   summarise(p_correct = mean(correct, na.rm = TRUE)) |>
   pivot_wider(names_from = site, values_from = p_correct)
+
+# Calculate mean difficulty across sites
+item_difficulty <- item_difficulty |>
+  mutate(mean_accuracy = rowMeans(across(-item_uid), na.rm = TRUE))
+
+# Arrange by difficulty and assign blocks
+trog_difficulty_raw <- item_difficulty |>
+  arrange(mean_accuracy) |>
+  mutate(block = ceiling(row_number() / 4))
+
+```
+
+Bar plot
+
+```{r}
+
+trog_difficulty_raw_summary <- trog_difficulty_raw |>
+  group_by(block) |>
+  summarise(mean_difficulty = mean(mean_accuracy, na.rm = TRUE))
+
+ggplot(trog_difficulty_raw_summary, aes(x = block, y = mean_difficulty)) +
+  geom_line() +
+  geom_point() +
+  labs(x = "Block", y = "Average Item Accuracy",
+       title = "Average difficulty by block, (based on proportion correct across all sites)") +
+  theme_minimal()
+
+```
+
+Examining difficulty block v grammar group [Bar chart showing how items from different grammar groups are distributed across difficulty blocks]
+
+```{r}
+trog_difficulty_raw <- trog_difficulty_raw |>
+  left_join(trog_grouped, by = "item_uid")
+
+ggplot(trog_difficulty_raw, aes(x = factor(block), fill = grammar_group)) +
+  geom_bar(position = "fill") +
+  scale_fill_viridis_d() +
+  labs(x = "Block", y = "Proportion", fill = "Grammar Group",
+       title = "Grammar Group Composition Across Difficulty Blocks") +
+  theme_minimal()
+
+```
+
+Difficulty patterns across sites
+
+```{r}
 
 library(GGally)
 item_difficulty |>
@@ -192,6 +243,7 @@ Developmental trends in trog ability estimates by site
 
 This plot shows how IRT-derived ability estimates (theta scores, i.e. estimated latent ability) from the TROG task vary with age across different sites.
 ```{r}
+
 run_ages <- trog |>
   select(site, run_id, user_id, age) |>
   distinct()
@@ -201,7 +253,8 @@ run_ages <- trog |>
 multigroup_scores_trog <- multigroup_scores |>
   filter(task_id == "trog") |>
   select(site, task_id, user_id, run_id, metric_type, metric_value) |>
-  left_join(run_ages) # not working
+  left_join(run_ages)
+colnames(multigroup_scores_trog)
 
 ggplot(multigroup_scores_trog, aes(x = age, y = metric_value, col = site)) + 
   geom_point() + 
@@ -219,50 +272,76 @@ trog_models <- best_multigroup$coefs[[which(best_multigroup$task_id == "trog")]]
 
 # Keep only rows where the item ID starts with "trog_"
 trog_coefs <- trog_models |> 
-  filter(str_detect(item, "^trog_"))  
+  filter(str_detect(item, "^trog_"))
 
-# Calculate mean difficulty (d) per item across sites. Averages the difficulty parameter d across sites for each item (may be problematic)
-trog_difficulty_overall <- trog_coefs |>
-  group_by(item) |>
-  summarise(mean_d = mean(d, na.rm = TRUE), .groups = "drop") |>
-  arrange(mean_d)
+# Calculate mean IRT difficulty (d) for each item across groups
+irt_difficulty <- trog_coefs |> 
+  group_by(item) |> 
+  summarise(mean_d = mean(d, na.rm = TRUE)) 
 
-# Assign block numbers (4 items per block, 25 blocks total) 
-trog_difficulty_blocks <- trog_difficulty_overall |>
-  mutate(block = ceiling(row_number() / 4))
-
-# Join block info back into full site-level IRT data
-trog_difficulty <- trog_coefs |>
-  left_join(trog_difficulty_blocks |> select(item, mean_d, block), by = "item")
-
-# Check
-invisible(trog_difficulty |> count(block))
-
-```
-
-IRT-estimated mean d for each item, averaged across sites
-
-```{r fig.height =8, fig.width = 6}
-
+# Bring back in grammar groups for comparison
 trog_groups <- trog_grouped |>
   select(item_uid, item_group, grammar_group) |>
   distinct() |>
   mutate(item = glue("{item_uid}_1")) |>
   select(item, grammar_group)
 
-trog_difficulty_blocks <- left_join(trog_difficulty_blocks, trog_groups)
+# Combine
+trog_difficulty_irt <- left_join(trog_groups, irt_difficulty, by = "item")
 
-ggplot(trog_difficulty_blocks, aes(x = reorder(item, mean_d), 
-                                   y = -mean_d, col = grammar_group)) +
+```
+
+Plot
+
+```{r fig.height =8, fig.width = 10}
+
+ggplot(trog_difficulty_irt, aes(x = reorder(item, mean_d), 
+                                y = mean_d, col = grammar_group)) +
   geom_point() +
   coord_flip() +
+  scale_color_viridis_d() +  # same palette as the bar chart
   labs(
     x = "Item (ordered by mean difficulty)",
     y = "Mean Difficulty (d)",
-    title = "TROG Item Difficulty (Mean Across Sites)"
+    title = "TROG Item Difficulty (Mean Across Sites)",
+    colour = "Grammar Group"
   ) +
   theme_minimal() +
   theme(axis.text.y = element_text(size = 6))
 
 ```
+
+Comparing IRT and raw difficulty
+
+```{r}
+
+difficulty_compare <- trog_difficulty_raw |>
+  mutate(item = glue("{item_uid}_1")) |>
+  left_join(trog_difficulty_irt, by = "item")
+
+ggplot(difficulty_compare, aes(x = mean_accuracy, y = mean_d, colour = grammar_group.y)) +
+  geom_point() +
+  scale_color_viridis_d() +
+  geom_smooth(method = "lm") +
+  labs(
+    x = "Raw Accuracy",
+    y = "IRT Difficulty",
+    title = "Raw vs IRT Difficulty",
+    colour = "Grammar Group"
+  ) +
+  theme_minimal()
+
+colnames(difficulty_compare)
+
+# Check correlation
+cor(difficulty_compare$mean_accuracy, difficulty_compare$mean_d, use = "complete.obs")
+
+
+
+```
+
+```{r}
+
+```
+
 
