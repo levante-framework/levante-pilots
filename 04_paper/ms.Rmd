@@ -1,0 +1,105 @@
+---
+title             : "Creating LEVANTE, the Learning Variability Network Exchange: A global framework for measuring children’s learning variability through collaborative data sharing"
+shorttitle        : "LEVANTE"
+
+author: 
+  - name          : ""
+    affiliation   : "1"
+    corresponding : yes    # Define only one corresponding author
+    address       : "Postal address"
+    email         : ""
+    role: # Contributorship roles (e.g., CRediT, https://credit.niso.org/)
+      - "Conceptualization"
+      - "Writing - Original Draft Preparation"
+      - "Writing - Review & Editing"
+  - name          : "Michael C. Frank"
+    affiliation   : "1"
+    role:
+      - "Conceptualization"
+      - "Writing - Original Draft Preparation"
+      - "Writing - Review & Editing"
+      - "Supervision"
+
+affiliation:
+  - id            : "1"
+    institution   : "Stanford University"
+
+authornote: |
+  Add complete departmental affiliations for each author here. Each new line herein must be indented, like this line.
+
+  Enter author note here.
+
+abstract: |
+  We present the Learning Variability Network Exchange (LEVANTE) core tasks, which are designed to assess literacy, numeracy, and a number of core cognitive skills (reasoning, executive function, spatial cognition, social cognition, and language), as well as social constructs related to the home and school environment. We focus on the design, psychometric properties and factor structure of the instruments in an initial sample of Colombian, German, and Canadian children, 5-12 years of age. We address the challenges of choosing, translating, and revising the instruments, and demontrate the promise of using them as adaptive assessments in order to collect a global longitudinal dataset to capture variability in children's development.
+  
+  
+keywords          : "cognitive development"
+wordcount         : "X"
+
+bibliography      : "r-references.bib"
+
+floatsintext      : no
+linenumbers       : yes
+draft             : no
+mask              : no
+
+figurelist        : no
+tablelist         : no
+footnotelist      : no
+
+classoption       : "man"
+output            : papaja::apa6_pdf
+---
+
+```{r setup, include = FALSE}
+library("papaja")
+r_refs("r-references.bib")
+```
+
+```{r analysis-preferences}
+# Seed for random number generation
+set.seed(42)
+knitr::opts_chunk$set(cache.extra = knitr::rand_seed)
+```
+
+Variability is a common denominator in the study of learning and development, but currently dominant methods tend to favor group averages, short snapshots of time, and single environments. Studying variability could facilitate our understanding of why variability might be especially prevalent in specific groups or contextual circumstances, however, and researchers also must investigate individual variability to promote more effective customized learning interventions. Yet studying variability requires large datasets and diverse samples. 
+
+We introduce the Learning Variability Network Exchange (LEVANTE), a framework for collecting and sharing developmental data with the aim of understanding the nature of developmental variability. LEVANTE aims to provide researchers worldwide with a framework for examining these topics that includes a set of core constructs and measures, while also allowing for some flexibility in data collection procedures. Our goal is to gather a large, rich, multi-context dataset with global scope that measures developmental change over time in children ages 2 – 12 years. LEVANTE embraces open science values, aiming to create measures and data that are permissively licensed and reusable by the international research community. 
+
+LEVANTE includes direct assessments of children's learning and cognition. These aspects of individual children will be examined in light of contextual constructs at the level of the self, the home and family, the school, and the community, measured through parent report and teacher report. 
+To create our direct assessment suite, we selected pre-existing measures from the literature that tapped each of these constructs, when possible prioritizing measures with strong psychometric properties, previous use across a broad range of cultures, applicability across a broad range of ages, and lack of commercial or licensing constraints. This process yielded a series of measures in an open source web platform, including:
+Language and literacy: vocabulary, grammar, phoneme awareness, single word reading, and sentence reading efficiency (based on the Rapid Online Assessment of Reading platform);
+Math: number knowledge, arithmetic, and fractions (based on upward extension of the RTI EGMA);
+Social and emotional processes: theory of mind, emotional reasoning, and hostile attribution;
+Reasoning and spatial cognition: mental rotation and matrix reasoning;
+Executive function: hearts and flowers, spatial sequence working memory, and the same-different selection task. 
+
+Thus far, data has been collected on these tasks with over 500 students 5-12 years of age in Bogota, Colombia; Leipzig, Germany; and Ottawa, Canada. The psychometric properties and factor structure of the tasks will be discussed, as well as criteria for revising the item banks. Finally, we will discuss the process by which each task is made adaptive using item response theory models and computer adaptive testing techniques. 
+
+LEVANTE will yield a large, open access longitudinal dataset for long-term research use, as well as a set of psychometrically normed, open access measures. These tools will not only facilitate the science of learning variability, but also constitute the backbone of a larger multidisciplinary research network working toward improving children's learning and development globally.
+
+
+# Methods
+We report how we determined our sample size, all data exclusions (if any), all manipulations, and all measures in the study. <!-- 21-word solution (Simmons, Nelson & Simonsohn, 2012; retrieved from http://ssrn.com/abstract=2160588) -->
+
+## Participants
+
+## Material
+
+## Procedure
+
+## Data analysis
+We used `r cite_r("r-references.bib")` for all our analyses.
+
+
+# Results
+
+# Discussion
+
+
+\newpage
+
+# References
+
+::: {#refs custom-style="Bibliography"}
+:::
