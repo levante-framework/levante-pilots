@@ -24,7 +24,8 @@ task_data_nested <- read_rds(here(glue("01_fetched_data/task_data_nested.rds")))
 ```{r}
 # transform each task's data for modeling by applying above functions
 task_data_prepped <- task_data_nested |>
-  mutate(data_filtered = map(data, \(df) df |> filter_repeat_runs() |>
+  mutate(data = map(data, \(df) rename(df, item_id = item_uid)),
+    data_filtered = map(data, \(df) df |> filter_repeat_runs() |>
                                dedupe_items() |> remove_no_var_items()),
          data_prepped = map(data_filtered, to_mirt_shape)) |>
   filter(map_int(data_prepped, nrow) > 0) |>
@@ -33,7 +34,7 @@ task_data_prepped <- task_data_nested |>
   # mutate(guess = map(data_filtered, # TODO: check that this gives correct order
   #                    \(df) df |> distinct(item_inst, chance) |> pull(chance)))
 
-write_rds(task_data_prepped, here("02_scoring_outputs/irt_data/task_data_prepped.rds"),
+write_rds(task_data_prepped, here("02_scoring_outputs/irt_data/independent_task_data_prepped.rds"),
           compress = "gz")
 ```
 
@@ -51,7 +52,7 @@ task_data_args <- task_data_prepped |>
   # generate model string with item constraints + dimensionality
   mutate(model_str = pmap_chr(list(data, data_prepped, item_type, model_type),
                               generate_model_str))
-write_rds(task_data_args, here("02_scoring_outputs/irt_data/task_data_args.rds"),
+write_rds(task_data_args, here("02_scoring_outputs/irt_data/independent_task_data_args.rds"),
           compress = "gz")
 ```
 
@@ -89,11 +90,11 @@ task_scores <- task_best |>
   
 # save all data + models + results
 # save(task_results, file = "irt_models.RData")
-write_rds(task_results, here("02_scored_data/irt_outputs/task_results.rds"),
+write_rds(task_results, here("02_scoring_outputs/irt_outputs/independent_task_results.rds"),
           compress = "gz")
 
 # save scores
-write_rds(task_scores, here("02_scored_data/scores/scores_irt.rds"),
+write_rds(task_scores, here("02_scoring_outputs/scores/independent_scores_irt.rds"),
           compress = "gz")
 ```
 
@@ -115,7 +116,7 @@ item_coefs <- task_results |>
   filter(!all(value == 1)) |>
   ungroup()
 
-write_rds(item_coefs, here("02_scored_data/irt_outputs/item_coefs.rds"),
+write_rds(item_coefs, here("02_scoring_outputs/irt_outputs/independent_item_coefs.rds"),
           compress = "gz")
 ```
 
@@ -128,8 +129,8 @@ task_rxx_wide <- task_rxx |>
   select(-item_type) |> 
   pivot_wider(names_from = "site", values_from = "rxx") 
 
-write_rds(task_rxx, here("02_scored_data/irt_outputs/task_rxx.rds"),
+write_rds(task_rxx, here("02_scoring_outputs/irt_outputs/independent_task_rxx.rds"),
           compress = "gz")
-write_csv(task_rxx, here("02_scored_data/irt_outputs/task_rxx.csv"))
-write_csv(task_rxx_wide, here("02_scored_data/irt_outputs/task_rxx_wide.csv"))
+write_csv(task_rxx, here("02_scoring_outputs/irt_outputs/independent_task_rxx.csv"))
+write_csv(task_rxx_wide, here("02_scoring_outputs/irt_outputs/independent_task_rxx_wide.csv"))
 ```
