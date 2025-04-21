@@ -32,7 +32,7 @@ task_pal <- ptol_pal()(length(task_categories_vec)) |> set_names(task_categories
 
 ```{r}
 # threshold_n <- 10
-threshold_n <- 1
+threshold_n <- 10
 threshold_scores <- scores |> filter(site_task_n >= threshold_n)
 
 sumscores <- threshold_scores |> filter(metric_type == "prop_correct")
@@ -46,10 +46,37 @@ task_scores <- threshold_scores |>
   inner_join(task_metrics) 
 ```
 
+
+With just the LEVANTE original tasks. 
+
 ```{r}
-task_plot_comparative(task_scores, ylab = "Score", nr = 2)
-ggsave(here("03_summaries/plots/scores_comparative.png"), width = 15, height = 6)
+task_plot_comparative(filter(task_scores, 
+                             model == "full pooling IRT",
+                             # site != "us_pilot", 
+                             task %in% 
+                               c("hearts-and-flowers","memory-game","same-different-selection", 
+                                 "egma-math", "mental-rotation", "trog","vocab","theory-of-mind"))
+                               , ylab = "Score", nr = 2)
+ggsave(here("03_summaries/plots/levante_tasks_full_pooling.png"), width = 10, height = 6)
 ```
+
+```{r}
+task_plot_comparative(filter(task_scores, 
+                             model == "no pooling IRT",
+                             site != "us_pilot",
+                             task %in% 
+                               c("hearts-and-flowers","memory-game","same-different-selection", 
+                                 "egma-math", "mental-rotation", "trog","vocab","theory-of-mind"))
+                               , ylab = "Score", nr = 2)
+ggsave(here("03_summaries/plots/levante_tasks_no_pooling.png"), width = 10, height = 6)
+```
+
+
+
+<!-- ```{r} -->
+<!-- task_plot_comparative(task_scores, ylab = "Score", nr = 2) -->
+<!-- ggsave(here("03_summaries/plots/scores_comparative.png"), width = 15, height = 6) -->
+<!-- ``` -->
 
 ```{r}
 # runs <- read_rds(here("00_prepped_data/us_pilot/runs.rds")) |> select(run_id, completed)
@@ -58,76 +85,45 @@ ggsave(here("03_summaries/plots/scores_comparative.png"), width = 15, height = 6
 # ggsave(here("03_summaries/plots/scores_us.png"), width = 12, height = 3.75)
 ```
 
-With just the LEVANTE original tasks. 
-
-```{r}
-task_plot_comparative(filter(task_scores, task %in% 
-                               c("hearts-and-flowers","memory-game","same-different-selection", 
-                                 "egma-math", "mental-rotation", "trog","vocab","theory-of-mind"))
-                               , ylab = "Score", nr = 2)
-ggsave(here("03_summaries/plots/extra/scores_comparative_levante_only.png"), width = 10, height = 6)
-```
 
 
-```{r}
 
-task_plot_pooled(sumscores, ylab = "Proportion correct", nr = 2)
-ggsave(here("03_summaries/plots/extra/sumscores_pooled.png"), 
-       width = 15, height = 6, create.dir = TRUE)
+<!-- ```{r} -->
+<!-- task_plot_pooled(task_scores, ylab = "Score", nr = 2) -->
+<!-- ggsave(here("03_summaries/plots/extra/scores_pooled.png"),  -->
+<!--        width = 15, height = 6, create.dir = TRUE) -->
 
-task_plot_sites(sumscores, ylab = "Proportion correct", nc = 7)
-ggsave(here("03_summaries/plots/extra/sumscores_sites.png"), 
-       width = 15, height = 15, create.dir = TRUE)
-```
+<!-- task_plot_comparative(task_scores, ylab = "Score", nr = 2) -->
+<!-- ggsave(here("03_summaries/plots/scores_comparative.png"),  -->
+<!--        width = 15, height = 6, create.dir = TRUE) -->
 
-```{r}
-task_plot_pooled(irt_scores, ylab = "Ability", nr = 2)
-ggsave(here("03_summaries/plots/extra/abilities_pooled.png"), 
-       width = 9, height = 6, create.dir = TRUE)
+<!-- task_plot_sites(task_scores, ylab = "Score", nc = 6) -->
+<!-- ggsave(here("03_summaries/plots/extra/scores_sites.png"),  -->
+<!--        width = 14, height = 15, create.dir = TRUE) -->
+<!-- ``` -->
 
-task_plot_sites(irt_scores, ylab = "Ability", nc = 4)
-ggsave(here("03_summaries/plots/extra/abilities_sites.png"), 
-       width = 9, height = 15, create.dir = TRUE)
+<!-- ```{r} -->
+<!-- task_plot_pooled(filter(task_scores, site == "ca_pilot") |> -->
+<!--                    mutate(task_label = site_task_label), ylab = "Score", nr = 2) -->
+<!-- ggsave(here("03_summaries/plots/extra/scores_ca.png"),  -->
+<!--        width = 10, height = 6, create.dir = TRUE) -->
 
+<!-- task_plot_pooled(filter(task_scores, site == "co_pilot") |> -->
+<!--                    mutate(task_label = site_task_label), ylab = "Score", nr = 2) -->
+<!-- ggsave(here("03_summaries/plots/extra/scores_co.png"),  -->
+<!--        width = 14, height = 6, create.dir = TRUE) -->
 
-```
+<!-- task_plot_pooled(filter(task_scores, site == "de_pilot") |> -->
+<!--                    mutate(task_label = site_task_label), ylab = "Score", nr = 2) -->
+<!-- ggsave(here("03_summaries/plots/extra/scores_de.png"), width = 14, height = 6) -->
 
-```{r}
-task_plot_pooled(task_scores, ylab = "Score", nr = 2)
-ggsave(here("03_summaries/plots/extra/scores_pooled.png"), 
-       width = 15, height = 6, create.dir = TRUE)
+<!-- #task_plot_pooled(filter(task_scores, site == "us_pilot") |> -->
+<!-- #                   mutate(task_label = site_task_label), ylab = "Score", nr = 2) -->
+<!-- #ggsave(here("03_summaries/plots/extra/scores_us.png"), width = 14, height = 6) -->
 
-task_plot_comparative(task_scores, ylab = "Score", nr = 2)
-ggsave(here("03_summaries/plots/scores_comparative.png"), 
-       width = 15, height = 6, create.dir = TRUE)
-
-task_plot_sites(task_scores, ylab = "Score", nc = 6)
-ggsave(here("03_summaries/plots/extra/scores_sites.png"), 
-       width = 14, height = 15, create.dir = TRUE)
-```
-
-```{r}
-task_plot_pooled(filter(task_scores, site == "ca_pilot") |>
-                   mutate(task_label = site_task_label), ylab = "Score", nr = 2)
-ggsave(here("03_summaries/plots/extra/scores_ca.png"), 
-       width = 10, height = 6, create.dir = TRUE)
-
-task_plot_pooled(filter(task_scores, site == "co_pilot") |>
-                   mutate(task_label = site_task_label), ylab = "Score", nr = 2)
-ggsave(here("03_summaries/plots/extra/scores_co.png"), 
-       width = 14, height = 6, create.dir = TRUE)
-
-task_plot_pooled(filter(task_scores, site == "de_pilot") |>
-                   mutate(task_label = site_task_label), ylab = "Score", nr = 2)
-ggsave(here("03_summaries/plots/extra/scores_de.png"), width = 14, height = 6)
-
-#task_plot_pooled(filter(task_scores, site == "us_pilot") |>
-#                   mutate(task_label = site_task_label), ylab = "Score", nr = 2)
-#ggsave(here("03_summaries/plots/extra/scores_us.png"), width = 14, height = 6)
-
-# task_plot(c("hearts-and-flowers", "memory-game", "same-different-selection"))
-# ggsave("plots/ef_scores.png", width = 9, height = 4)
-```
+<!-- # task_plot(c("hearts-and-flowers", "memory-game", "same-different-selection")) -->
+<!-- # ggsave("plots/ef_scores.png", width = 9, height = 4) -->
+<!-- ``` -->
 Ages. 
 
 ```{r}

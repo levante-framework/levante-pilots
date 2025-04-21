@@ -50,14 +50,14 @@ combine_scores <- \() {
   # score_files <- list.files(here("02_scored_data/scores"), pattern = "*.rds",
                             # full.names = TRUE)
   
-  scores_irt <- readRDS(here("02_scored_data","scores","scores_irt.rds")) |>
+  scores_irt <- readRDS(here("02_scoring_outputs","scores","independent_scores_irt.rds")) |>
     mutate(model = "no pooling IRT")
-  scores_general <- readRDS(here("02_scored_data","scores","sumscores.rds")) |>
+  scores_general <- readRDS(here("02_scoring_outputs","scores","sumscores.rds")) |>
     filter(metric_type == "total_correct") |>
     mutate(model = "sumscore")
-  scores_multigroup <- readRDS(here("02_scored_data","scores","scores_multigroup.rds")) |>
+  scores_multigroup <- readRDS(here("02_scoring_outputs","scores","scores_multigroup.rds")) |>
     mutate(model = "partial pooling IRT")
-  scores_fullpooling <- readRDS(here("02_scored_data","scores","scores_fullpooling.rds")) |>
+  scores_fullpooling <- readRDS(here("02_scoring_outputs","scores","scores_fullpooling.rds")) |>
     mutate(model = "full pooling IRT")
   
   scores_noages <- bind_rows(scores_irt, scores_general, 
