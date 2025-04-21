@@ -34,8 +34,7 @@ caregiver_tidy <- caregiver_data %>%
       pivot_wider(
         names_from = variable,
         values_from = value
-      ) |>
-      select(-c(user_id,child_id))
+      )
   }))
 
 
@@ -56,9 +55,13 @@ for(i in sites){
 ### since number of sample size is too low for ca_pilot
 ### currently we focus on co_pilot and de_pilot
 caregiver_tidy = caregiver_tidy |>
-    filter(site != 'ca_pilot') |>
-    mutate(df_scaled = map(df_vals, ~ as.data.frame(scale(.x, center=TRUE, scale=TRUE))))
-    #scaled data
+  filter(site != 'ca_pilot') %>%
+  mutate(df_scaled = map(df_vals, ~ {
+    .x %>%
+      select(-user_id, -child_id) %>%
+      scale(center = TRUE, scale = TRUE) %>%
+      as.data.frame()
+  }))
 
 sites = sites[sites != "ca_pilot"]
 
@@ -72,7 +75,7 @@ for(formi in constructs){
   for(sitei in unique(pull(caregiver_tidy, site))){
   
     subconstruct <- caregiver_tidy %>%
-      filter(form_construct == formi, site == sitei) |> pull(df_vals)  %>% .[[1]]
+      filter(form_construct == formi, site == sitei) |> pull(df_scaled)  %>% .[[1]]
     
     cor_matrix <- cor(subconstruct, use = "pairwise.complete.obs")
 
@@ -92,6 +95,7 @@ for(formi in constructs){
 
 
 ## EFA Analysis and Loading Matrix Plot
+
 
 ### Parenting
 
@@ -128,9 +132,8 @@ nfactors <- c(
 for(sitei in sites){
   # data preparation
   row_index <- which(caregiver_tidy$form_construct == formi & caregiver_tidy$site == sitei)
-  ids <- caregiver_tidy$data[[row_index]] %>% 
-      select(user_id, child_id) %>% 
-      distinct()
+  ids <- caregiver_tidy$df_vals[[row_index]] %>% 
+      select(user_id, child_id) 
     
   subconstruct = caregiver_tidy$df_scaled[[row_index]]
   subconstruct <- subconstruct[, !colnames(subconstruct) %in% "SelfParentStressNSCHh8"]
@@ -199,9 +202,8 @@ nfactors <- c(
 for(sitei in sites){
   # data preparation
   row_index <- which(caregiver_tidy$form_construct == formi & caregiver_tidy$site == sitei)
-  ids <- caregiver_tidy$data[[row_index]] %>% 
-      select(user_id, child_id) %>% 
-      distinct()
+  ids <- caregiver_tidy$df_vals[[row_index]] %>% 
+      select(user_id, child_id) 
     
   subconstruct = caregiver_tidy$df_scaled[[row_index]]
   
@@ -266,9 +268,8 @@ nfactors <- c(
 for(sitei in sites){
   # data preparation
   row_index <- which(caregiver_tidy$form_construct == formi & caregiver_tidy$site == sitei)
-  ids <- caregiver_tidy$data[[row_index]] %>% 
-      select(user_id, child_id) %>% 
-      distinct()
+  ids <- caregiver_tidy$df_vals[[row_index]] %>% 
+      select(user_id, child_id) 
     
   subconstruct = caregiver_tidy$df_scaled[[row_index]]
   
@@ -338,9 +339,8 @@ nfactors <- c(
 for(sitei in sites){
   # data preparation
   row_index <- which(caregiver_tidy$form_construct == formi & caregiver_tidy$site == sitei)
-  ids <- caregiver_tidy$data[[row_index]] %>% 
-      select(user_id, child_id) %>% 
-      distinct()
+  ids <- caregiver_tidy$df_vals[[row_index]] %>% 
+      select(user_id, child_id) 
     
   subconstruct = caregiver_tidy$df_scaled[[row_index]]
   subconstruct <- subconstruct[, grepl("Jukes", names(subconstruct))] 
@@ -403,9 +403,8 @@ nfactors <- c(
 for(sitei in sites){
   # data preparation
   row_index <- which(caregiver_tidy$form_construct == formi & caregiver_tidy$site == sitei)
-  ids <- caregiver_tidy$data[[row_index]] %>% 
-      select(user_id, child_id) %>% 
-      distinct()
+  ids <- caregiver_tidy$df_vals[[row_index]] %>% 
+      select(user_id, child_id) 
     
   subconstruct = caregiver_tidy$df_scaled[[row_index]]
   subconstruct <- subconstruct[, !grepl("Jukes", names(subconstruct))]
@@ -475,9 +474,8 @@ nfactors <- c(
 for(sitei in sites){
   # data preparation
   row_index <- which(caregiver_tidy$form_construct == formi & caregiver_tidy$site == sitei)
-  ids <- caregiver_tidy$data[[row_index]] %>% 
-      select(user_id, child_id) %>% 
-      distinct()
+  ids <- caregiver_tidy$df_vals[[row_index]] %>% 
+      select(user_id, child_id) 
     
   subconstruct = caregiver_tidy$df_scaled[[row_index]]
   subconstruct <- subconstruct[, !grepl("SelfLifeChanges", colnames(subconstruct))]
@@ -509,10 +507,4 @@ p_co_pilot + p_de_pilot +
 
 #ggsave(here::here(paste0("03_summaries/efa/", gsub("[/\"']", "_", formi), ".png")), width = 8, height = 8, dpi = 300)
 
-```
-
-# save factor scores
-
-```{r}
-#saveRDS(caregiver_tidy, here::here("03_summaries/efa/caregiver_tidy.rds"))
 ```

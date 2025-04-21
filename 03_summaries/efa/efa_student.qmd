@@ -34,9 +34,9 @@ student_tidy <- student_data %>%
       pivot_wider(
         names_from = variable,
         values_from = value
-      ) |>
-      select(-c(user_id,child_id))
+      )
   }))
+
 
 
 constructs = as.vector(unique(student_tidy$form_construct))
@@ -55,10 +55,15 @@ for(i in sites){
 
 ### since number of sample size is too low for ca_pilot
 ### currently we focus on co_pilot and de_pilot
-student_tidy = student_tidy |>
-    filter(site != 'ca_pilot') |>
-    mutate(df_scaled = map(df_vals, ~ as.data.frame(scale(.x, center=TRUE, scale=TRUE))))
-    #scaled data
+student_tidy <- student_tidy %>%
+  filter(site != 'ca_pilot') %>%
+  mutate(df_scaled = map(df_vals, ~ {
+    .x %>%
+      select(-user_id, -child_id) %>%
+      scale(center = TRUE, scale = TRUE) %>%
+      as.data.frame()
+  }))
+
 
 sites = sites[sites != "ca_pilot"]
 
@@ -73,7 +78,7 @@ for(formi in constructs){
   for(sitei in unique(pull(student_tidy, site))){
   
     subconstruct <- student_tidy %>%
-      filter(form_construct == formi, site == sitei) |> pull(df_vals)  %>% .[[1]]
+      filter(form_construct == formi, site == sitei) |> pull(df_scaled)  %>% .[[1]]
     
     cor_matrix <- cor(subconstruct, use = "pairwise.complete.obs")
 
@@ -123,9 +128,8 @@ nfactors <- c(
 for(sitei in sites){
   # data preparation
   row_index <- which(student_tidy$form_construct == formi & student_tidy$site == sitei)
-  ids <- student_tidy$data[[row_index]] %>% 
-      select(user_id, child_id) %>% 
-      distinct()
+  ids <- student_tidy$df_vals[[row_index]] %>% 
+      select(user_id, child_id) 
     
   subconstruct = student_tidy$df_scaled[[row_index]]
   # efa
@@ -188,9 +192,8 @@ nfactors <- c(
 for(sitei in sites){
   # data preparation
   row_index <- which(student_tidy$form_construct == formi & student_tidy$site == sitei)
-  ids <- student_tidy$data[[row_index]] %>% 
-      select(user_id, child_id) %>% 
-      distinct()
+  ids <- student_tidy$df_vals[[row_index]] %>% 
+      select(user_id, child_id) 
     
   subconstruct = student_tidy$df_scaled[[row_index]]
   # efa
@@ -255,9 +258,8 @@ nfactors <- c(
 for(sitei in sites){
   # data preparation
   row_index <- which(student_tidy$form_construct == formi & student_tidy$site == sitei)
-  ids <- student_tidy$data[[row_index]] %>% 
-      select(user_id, child_id) %>% 
-      distinct()
+  ids <- student_tidy$df_vals[[row_index]] %>% 
+      select(user_id, child_id) 
     
   subconstruct = student_tidy$df_scaled[[row_index]]
   # efa
@@ -322,9 +324,8 @@ nfactors <- c(
 for(sitei in sites){
   # data preparation
   row_index <- which(student_tidy$form_construct == formi & student_tidy$site == sitei)
-  ids <- student_tidy$data[[row_index]] %>% 
-      select(user_id, child_id) %>% 
-      distinct()
+  ids <- student_tidy$df_vals[[row_index]] %>% 
+      select(user_id, child_id) 
     
   subconstruct = student_tidy$df_scaled[[row_index]]
   # efa
@@ -387,9 +388,8 @@ nfactors <- c(
 for(sitei in sites){
   # data preparation
   row_index <- which(student_tidy$form_construct == formi & student_tidy$site == sitei)
-  ids <- student_tidy$data[[row_index]] %>% 
-      select(user_id, child_id) %>% 
-      distinct()
+  ids <- student_tidy$df_vals[[row_index]] %>% 
+      select(user_id, child_id) 
     
   subconstruct = student_tidy$df_scaled[[row_index]]
   # efa
@@ -426,5 +426,20 @@ ggsave(here::here(paste0("03_summaries/efa/", gsub("[/\"']", "_", formi), ".png"
 # save factor scores
 
 ```{r}
-#saveRDS(student_tidy, here::here("03_summaries/efa/student_tidy.rds"))
+
+student_fscore_long <- student_tidy %>%
+  dplyr::filter(!purrr::map_lgl(fscore, is.null)) %>%
+  purrr::pmap_dfr(function(site, form_construct, ..., fscore) {
+    # Extract only user_id and first factor column
+    factor_col <- setdiff(colnames(fscore), c("user_id", "child_id"))
+    
+    tibble::tibble(
+      site = site,
+      user_id = fscore$user_id,
+      form_construct = form_construct,
+      score = fscore[[factor_col]]
+    )
+  })
+
+saveRDS(student_fscore_long, here::here("03_summaries/efa/student_fscore.rds"))
 ```

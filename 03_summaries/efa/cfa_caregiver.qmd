@@ -1,0 +1,244 @@
+
+# EFA analysis for surveys for students
+
+## Data preparation
+```{r}
+source(here::here("03_summaries", "efa", "cfa_helpers.R"))
+survey_data_nested <- read_rds(here::here("01_fetched_data/survey_data_nested.rds"))
+
+get_survey_data <- function(survey_data_nested, type) {
+  survey_data_nested %>%
+    filter(survey_type == type) %>%
+    pull(data) %>%
+    .[[1]] %>%
+    collect()
+}
+
+caregiver_data <- get_survey_data(survey_data_nested, "caregiver")
+
+
+caregiver_filtered <- caregiver_data %>%
+  filter(site %in% c("co_pilot", "de_pilot")) %>%
+  filter(!is.na(form_subconstruct), !is.na(value)) %>%
+  filter(!is.na(form_construct)) %>%
+  filter(form_construct != "Home Environment")%>%
+  filter(form_construct != "Education History")%>%
+  filter(variable != "SelfParentStressNSCHh8")%>%
+  mutate(
+    form_construct = case_when(
+      form_construct == "Social Emotional" & grepl("Jukes", variable) ~ "ChildJukes",
+      form_construct == "Social Emotional" & !grepl("Jukes", variable) ~ "Social Emotional",
+      TRUE ~ form_construct
+    ),
+    form_subconstruct = case_when(
+      form_subconstruct %in% c("Prosocial Behavior", "Prosocial-Communication") ~ "Prosocial Behavior Communication",
+      TRUE ~ form_subconstruct
+    ),
+    form_subconstruct = case_when(
+      form_subconstruct %in% c("Inhibitory Control - Interference Suppression", "Inhibitory Control - Response Inhibition") ~ "Inhibitory Control",
+      TRUE ~ form_subconstruct
+    ),
+    form_subconstruct = case_when(
+      form_subconstruct %in% c("Working Memory", "Attentional Focus, Engagement, & Persistence") ~ "Attentional Focus and Working Memory",
+      TRUE ~ form_subconstruct
+    )
+  ) %>%
+  filter(
+    !(form_construct == "Child Health/Well-Being" & !grepl("SDQ", variable, ignore.case = TRUE)),
+    !(form_construct == "Caregiver Well-Being" & grepl("SelfLifeChanges", variable, ignore.case = TRUE))
+  )
+
+
+
+caregiver_filtered %>%
+  filter(!is.na(form_construct)) %>%
+  group_by(form_construct) %>%
+  filter(!all(is.na(value))) %>%  
+  summarise(
+    min = min(value, na.rm = TRUE),
+    max = max(value, na.rm = TRUE),
+    .groups = "drop"
+  )
+
+
+# currently we focus on co_pilot and de_pilot
+caregiver_tidy <- caregiver_filtered %>%
+  filter(site %in% c("co_pilot", "de_pilot")) %>%
+  select(site, user_id, child_id, form_construct, form_subconstruct, variable, value) %>%
+  filter(!is.na(form_subconstruct), !is.na(value)) %>%
+  group_by(site, form_construct, form_subconstruct, user_id, variable) %>%
+  filter(n() == 1) %>%
+  ungroup() %>%
+  nest(data = c(site, user_id, child_id, form_subconstruct, variable, value)) %>%
+  mutate(
+    df_vals = map(data, ~ .x %>%
+                    select(site, user_id, child_id, variable, value) %>%
+                    pivot_wider(names_from = variable, values_from = value))
+  ) 
+
+
+
+constructs = as.vector(unique(caregiver_tidy$form_construct))
+#student_tidy$fscore <- vector("list", nrow(student_tidy))
+```
+
+
+
+
+
+## CFA and Measurement Invariance
+
+### Configural Model
+
+Determine the number of factors
+```{r}
+caregiver_tidy <- caregiver_tidy %>%
+  mutate(fit_configural = pmap(
+    list(form_construct, df_vals, data),
+    ~ fit_invariance_model_mf(..1, ..2, ..3, group_equal = NULL)
+  ))
+
+# warning: childbullied has negative residual variance
+
+```
+
+```{r}
+caregiver_tidy <- caregiver_tidy %>%
+  mutate(
+    params_configural = map2(fit_configural, data, ~ extract_parameters_multiF(.x, .y)),
+  )
+
+for (i in seq_len(nrow(caregiver_tidy))) {
+  formi <- caregiver_tidy$form_construct[i]
+  params_df <- caregiver_tidy$params_configural[[i]]
+  
+  if (is.null(params_df)) next
+  
+  params_df <- params_df %>%
+    filter(!is.na(form_subconstruct)) %>%
+    mutate(form_subconstruct = substr(form_subconstruct, 1, 10)) 
+  
+  if (nrow(params_df) == 0) next
+  
+  p <-   ggplot(params_df, aes(y = reorder(item, value), x = value, color = site)) +
+  geom_segment(aes(x = 0, xend = value, y = reorder(item, value), yend = reorder(item, value)),
+               position = position_dodge(width = 0.8), linewidth = 0.4) +
+  geom_point(position = position_dodge(width = 0.8), size = 2) +
+  facet_grid(form_subconstruct ~ type, scales = "free") +
+  theme_classic() +
+  labs(
+    x = "Estimate",
+    y = "Item",
+    color = "Site",
+    title = formi
+  ) +
+  theme(
+    strip.text = element_text(face = "bold", size = 10),
+    axis.text.y = element_text(size = 7),
+    plot.title = element_text(hjust = 0.5, face = "bold", size = 14)
+  )
+
+  
+  print(p)
+  
+  #ggsave(here::here(paste0("03_summaries/efa/fig/cfa_", gsub("[/\"']", "_", formi), ".png")), width = 7, height = 8, dpi = 300)
+}
+
+```
+
+
+
+### Metric and Scalar Invariance Model
+```{r}
+caregiver_tidy <- caregiver_tidy %>%
+  mutate(
+    # Metric: only constrain loadings
+    fit_metric = pmap(list(form_construct, df_vals, data),
+                      ~ fit_invariance_model_mf(..1, ..2, ..3, group_equal = "loadings")),
+
+    # Scalar: constrain loadings + thresholds (WLSMV) or intercepts (ML)
+    fit_scalar = pmap(list(form_construct, df_vals, data),
+                      ~ fit_invariance_model_mf(..1, ..2, ..3, group_equal = c("loadings", "intercepts")))
+  )
+
+
+```
+
+### Factor Score
+
+```{r}
+caregiver_tidy <- caregiver_tidy %>%
+  mutate(
+    fscore_configural = map2(fit_configural, df_vals, extract_fscore_mf),
+    fscore_metric     = map2(fit_metric,     df_vals, extract_fscore_mf),
+    fscore_scalar     = map2(fit_scalar,     df_vals, extract_fscore_mf)
+  )
+
+
+
+
+# save 
+extract_long_fscore <- function(fscore_df, model_name, form_name) {
+  if (is.null(fscore_df)) return(NULL)
+
+  fscore_df %>%
+    pivot_longer(
+      cols = -c(site, user_id, child_id),
+      names_to = "form_subconstruct",
+      values_to = "value"
+    ) %>%
+    mutate(
+      model = model_name,
+      form_construct = form_name
+    )
+}
+
+
+
+caregiver_fscore_all <- pmap_dfr(caregiver_tidy, function(form_construct, ..., fscore_configural, fscore_metric, fscore_scalar) {
+  bind_rows(
+    extract_long_fscore(fscore_configural, "configural", form_construct),
+    extract_long_fscore(fscore_metric,     "metric",     form_construct),
+    extract_long_fscore(fscore_scalar,     "scalar",     form_construct)
+  )
+})
+
+
+#saveRDS(caregiver_fscore_all, here::here("03_summaries/efa/caregiver_fscore_all.rds"))
+```
+
+```{r}
+for (formi in caregiver_tidy$form_construct) {
+  row <- caregiver_tidy %>% filter(form_construct == formi)
+  fs_c <- row$fscore_configural[[1]]
+  fs_m <- row$fscore_metric[[1]]
+  fs_s <- row$fscore_scalar[[1]]
+  
+  if (is.null(fs_c) || is.null(fs_m) || is.null(fs_s)) next
+  
+  factor_names <- setdiff(colnames(fs_c), c("site", "user_id", "child_id"))
+  
+  for (f in factor_names) {
+    df <- list(
+      fs_c %>% select(site, user_id, !!f) %>% rename(Configural = !!f),
+      fs_m %>% select(site, user_id, !!f) %>% rename(Metric = !!f),
+      fs_s %>% select(site, user_id, !!f) %>% rename(Scalar = !!f)
+    ) %>%
+      reduce(full_join, by = c("site", "user_id")) %>%
+      drop_na()
+  
+    df_plot <- df %>% select(Configural, Metric, Scalar)
+  
+    p <- ggpairs(
+      df_plot,
+      upper = list(continuous = wrap("cor", size = 4)),
+      title = paste0(formi, " - ", f)
+    ) + theme_classic()
+  
+    print(p)
+  }
+
+}
+```
+
+

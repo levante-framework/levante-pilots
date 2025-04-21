@@ -1,0 +1,259 @@
+
+# EFA analysis for surveys for students
+
+## Data preparation
+```{r}
+source(here::here("03_summaries", "efa", "cfa_helpers.R"))
+survey_data_nested <- read_rds(here::here("01_fetched_data/survey_data_nested.rds"))
+
+get_survey_data <- function(survey_data_nested, type) {
+  survey_data_nested %>%
+    filter(survey_type == type) %>%
+    pull(data) %>%
+    .[[1]] %>%
+    collect()
+}
+
+student_data   <- get_survey_data(survey_data_nested, "student")
+
+
+student_data %>%
+  filter(!is.na(form_construct)) %>%
+  group_by(form_construct) %>%
+  filter(!all(is.na(value))) %>%  
+  summarise(
+    min = min(value, na.rm = TRUE),
+    max = max(value, na.rm = TRUE),
+    .groups = "drop"
+  )
+
+
+# currently we focus on co_pilot and de_pilot
+student_tidy <- student_data %>%
+  filter(site %in% c("co_pilot", "de_pilot")) %>%  
+  select(site, user_id, variable, value, form_construct) %>%
+  filter(!is.na(form_construct),
+         !is.na(value),
+         form_construct != 'Safety') %>%
+  group_by(site, form_construct, user_id, variable) %>%
+  filter(n() == 1) %>% 
+  ungroup() %>%
+  nest(data = c(site, user_id, variable, value)) %>% 
+  mutate(df_vals = map(data, function(df) {
+    df %>%
+      pivot_wider(
+        names_from = variable,
+        values_from = value
+      ) 
+  })) 
+
+```
+
+
+
+
+
+## CFA and Measurement Invariance
+
+### Configural Model
+
+Determine the number of factors
+```{r}
+# Fit configural model
+student_tidy <- student_tidy %>%
+  mutate(fit_configural = pmap(
+    list(df_vals, form_construct),
+    ~ fit_invariance_model_1f(..1, ..2, group_equal = NULL)
+  ))
+
+
+
+student_tidy <- student_tidy %>%
+  mutate(params_confi = map(fit_configural, extract_parameters_1F))
+
+
+
+params_all_plot <- student_tidy %>%
+  select(form_construct, params_confi) %>%
+  filter(!map_lgl(params_confi, is.null)) %>%
+  unnest(params_confi) %>%
+  mutate(
+    form_construct = substr(as.character(form_construct), 1, 9)  
+  )
+
+
+
+ggplot(params_all_plot, aes(x = type, y = item, fill = value)) +
+    geom_tile(color = "white") +
+    geom_text(aes(label = sprintf("%.2f", value)), size = 4) +
+    scale_fill_gradient2(
+        low = "blue", mid = "white", high = "red",
+        midpoint = 0, space = "Lab", name = "Estimate"
+    ) +
+    facet_grid(form_construct ~ site, scales = "free_y", space = "free_y") +
+    theme_classic() +
+    labs(
+        x = "Parameter Type",
+        y = "Item",
+        title = "Multi-group Factor Analysis Parameters"
+    ) +
+    theme(
+        axis.text.x = element_text( hjust = 1),
+        axis.text.y = element_text(size = 9),
+        strip.text = element_text(face = "bold", size = 14),
+        plot.title = element_text(hjust = 0.5, face = "bold", size = 14)
+    )
+
+ggsave(here::here("03_summaries/efa/fig/cfa_student.png"), width = 10, height = 10, dpi = 300)
+```
+
+
+### Metric and Scalar Invariance Model
+```{r}
+student_tidy <- student_tidy  %>%
+  mutate(fit_metric = pmap(
+    list(df_vals, form_construct),
+    ~ fit_invariance_model_1f(..1, ..2, group_equal = "loadings")
+  ))
+
+student_tidy <- student_tidy %>%
+  mutate(fit_scalar = pmap(
+    list(df_vals, form_construct),
+    ~ fit_invariance_model_1f(..1, ..2, group_equal = c("loadings", "thresholds"))
+  ))
+
+```
+
+
+
+### Model Comparison
+
+```{r}
+student_tidy <- student_tidy %>%
+  mutate(
+    invariance_cfi = pmap_chr(
+      list(fit_configural, fit_metric, fit_scalar),
+      function(fit_c, fit_m, fit_s) {
+        get_cfi <- function(fit) {
+          if (is.null(fit)) return(NA_real_)
+          fitMeasures(fit, "cfi")
+        }
+        cfi_c <- get_cfi(fit_c)
+        cfi_m <- get_cfi(fit_m)
+        cfi_s <- get_cfi(fit_s)
+
+        if ((cfi_c - cfi_m) > 0.01) {
+          "fit_configural"
+        } else if ((cfi_m - cfi_s) > 0.01) {
+          "fit_metric"
+        } else {
+          "fit_scalar"
+        }
+      }
+    )
+  )
+
+
+student_tidy <- student_tidy %>%
+  mutate(
+    invariance_chisq = pmap_chr(
+      list(fit_configural, fit_metric, fit_scalar),
+      function(fit_c, fit_m, fit_s) {
+        # Helper: safe Chi-square test
+        safe_compare <- function(fit1, fit2) {
+          if (is.null(fit1) || is.null(fit2)) return(NA_real_)
+          suppressWarnings(anova(fit1, fit2)[["Pr(>Chisq)"]][2])
+        }
+
+        p_metric <- safe_compare(fit_c, fit_m)
+        p_scalar <- safe_compare(fit_m, fit_s)
+
+        if (is.na(p_metric) || p_metric < 0.05) {
+          "fit_configural"
+        } else if (is.na(p_scalar) || p_scalar < 0.05) {
+          "fit_metric"
+        } else {
+          "fit_scalar"
+        }
+      }
+    )
+  )
+
+
+
+```
+
+
+
+### Factor Score
+```{r}
+student_tidy <- student_tidy %>%
+  mutate(
+    fscore_configural = map2(fit_configural, df_vals, extract_fscore_1f),
+    fscore_metric     = map2(fit_metric,     df_vals, extract_fscore_1f),
+    fscore_scalar     = map2(fit_scalar,     df_vals, extract_fscore_1f)
+  )
+
+# Helper: attach model and construct labels to fscore_1f output
+extract_long_fscore_1f <- function(fscore_df, model_name, form_name) {
+  if (is.null(fscore_df)) return(NULL)
+
+  fscore_df %>%
+    mutate(
+      model = model_name,
+      form_construct = form_name
+    )
+}
+
+# Combine all factor scores for student_tidy
+student_fscore_all <- pmap_dfr(student_tidy, function(form_construct, ..., fscore_configural, fscore_metric, fscore_scalar) {
+  bind_rows(
+    extract_long_fscore_1f(fscore_configural, "configural", form_construct),
+    extract_long_fscore_1f(fscore_metric,     "metric",     form_construct),
+    extract_long_fscore_1f(fscore_scalar,     "scalar",     form_construct)
+  )
+})
+
+
+saveRDS(student_fscore_all, here::here("03_summaries/efa/student_fscore_all.rds"))
+```
+
+
+
+```{r}
+for (formi in as.vector(unique(student_tidy$form_construct))) {
+  row <- student_tidy %>% filter(form_construct == formi)
+
+  fs_c <- row$fscore_configural[[1]]
+  fs_m <- row$fscore_metric[[1]]
+  fs_s <- row$fscore_scalar[[1]]
+
+
+  df <- reduce(
+    list(
+      fs_c %>% rename(Configural = fscore),
+      fs_m %>% rename(Metric = fscore),
+      fs_s %>% rename(Scalar = fscore)
+    ),
+    full_join,
+    by = c("site", "user_id")
+  ) %>%
+    drop_na()
+  
+  df <- df %>% select(Configural, Metric, Scalar)
+
+  p <- ggpairs(
+    df,
+    upper = list(continuous = wrap("cor", size = 4)),
+    title = paste(formi, "- Factor Score")
+  ) + theme_classic()
+
+  print(p)
+  
+#  ggsave(here::here(paste0("03_summaries/efa/fig/cfa_fscore_", gsub("[/\"']", "_", formi), ".png")), width = 4, height = 4, dpi = 300)
+}
+
+
+
+
+```
