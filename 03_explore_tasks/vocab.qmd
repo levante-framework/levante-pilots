@@ -36,9 +36,9 @@ Get sum scores
 vocab_runs <- vocab |>
   group_by(site, user_id, run_id) |>
   summarise(
-    correct = mean(correct, na.rm = TRUE),  # mean accuracy per run
-    age = mean(age, na.rm = TRUE),          # average age
-    n_items = n_distinct(item_uid)          # how many unique items were completed
+    correct = mean(correct, na.rm = TRUE),  
+    age = mean(age, na.rm = TRUE),          
+    n_items = n_distinct(item_uid)          
   )
 
 ggplot(vocab_runs, aes(x = age, y = correct)) +
@@ -209,6 +209,24 @@ ggplot(easiest_hardest_by_site, aes(x = reorder(item_uid, proportion_correct), y
   theme_minimal()
 
 ```
+
+RT by age
+
+```{r}
+ggplot(vocab, aes(x = age, y = rt_numeric)) +
+  geom_point(alpha = 0.3) +
+  geom_smooth(method = "gam") +
+  facet_wrap(~site) +
+  labs(
+    title = "Reaction Time by Age",
+    x = "Age (years)",
+    y = "Reaction Time (s)"
+  ) +
+  theme_minimal()
+
+
+```
+
 
 Load IRT results
 
