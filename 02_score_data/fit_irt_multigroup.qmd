@@ -146,7 +146,7 @@ task_results <- task_models |>
          scores = pmap(list(mod, data_filtered, data_prepped), mirt_scores),
          bic = map_dbl(mod, mirt_bic))
 
-write_rds(task_results, here("02_scored_data/irt_outputs/joint_task_results.rds"),
+write_rds(task_results, here("02_scored_data/irt_outputs/multigroup_task_results.rds"),
           compress = "gz")
 
 
