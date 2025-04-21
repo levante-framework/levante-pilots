@@ -36,7 +36,7 @@ abstract: |
 keywords          : "cognitive development"
 wordcount         : "X"
 
-bibliography      : "r-references.bib"
+bibliography      : "library.bib"
 
 floatsintext      : no
 linenumbers       : yes
@@ -80,21 +80,63 @@ LEVANTE will yield a large, open access longitudinal dataset for long-term resea
 
 
 # Methods
-We report how we determined our sample size, all data exclusions (if any), all manipulations, and all measures in the study. <!-- 21-word solution (Simmons, Nelson & Simonsohn, 2012; retrieved from http://ssrn.com/abstract=2160588) -->
+
+### Math.
+EGMA + fraction arithmetic + number line slider (number-to-line) and numberline-to-number
+
+
+
+### Matrix Reasoning.
+MarsIB
+
+
+### Mental Rotation.
+
+
+### Hearts & Flowers.
+
+
+### Memory Game. 
+(i.e. Corsi Block Task)
+
+
+### Same-Different Selection (SDS).
+
+
+### Theory of Mind.
+
+
+### Hostile Attribution.
+
+
+### Phoneme Awareness.
+
+
+### Lexical Decision.
+
+
+### Syntax.
+77 4AFC items from the Test of Reception of Grammar (TROG) and 23 novel items.
+
+
+### Vocabulary.
+170 4AFC items
+
 
 ## Participants
 
-## Material
+## Materials & Procedure
 
-## Procedure
+
 
 ## Data analysis
-We used `r cite_r("r-references.bib")` for all our analyses.
 
 
 # Results
 
 # Discussion
+
+
 
 
 \newpage
