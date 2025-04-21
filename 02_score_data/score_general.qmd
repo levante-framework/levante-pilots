@@ -6,7 +6,7 @@ library(here)
 task_data_nested <- read_rds(here(glue("01_fetched_data/task_data_nested.rds")))
 task_data_combined <- task_data_nested |> unnest(data)
 
-run_data_combined <- read_rds(here("refactor/01_fetched_data/run_data.rds"))
+run_data_combined <- read_rds(here("01_fetched_data/run_data.rds"))
 ```
 
 Sumscores for all tasks
@@ -35,7 +35,7 @@ thetas <- run_data_combined |>
   mutate(metric_type = "ability (CAT)") |>
   select(site, task_id, user_id, run_id, metric_type,
          metric_value = test_comp_theta_estimate)
-write_rds(scores_combined, here("02_scored_data/scores/scores_thetas.rds"))
+write_rds(thetas, here("02_scored_data/scores/scores_thetas.rds"))
 ```
 
 # SRE
