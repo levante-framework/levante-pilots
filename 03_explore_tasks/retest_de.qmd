@@ -1,0 +1,27 @@
+---
+title: "Germany Retest"
+format: html
+editor: visual
+format:
+  html: 
+    code-fold: true
+---
+
+Packages
+
+```{r}
+library(tidyverse)
+library(glue)
+library(here)
+library(viridis)
+
+source(here("02_score_data","irt_helpers.R"))
+source(here("03_summaries", "plotting_helper.R"))
+source(here("03_explore_tasks/explore_helper.R"))
+```
+
+Examine test/retest reliability in German data.
+
+```{r}
+
+```

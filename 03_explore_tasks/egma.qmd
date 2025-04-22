@@ -112,7 +112,6 @@ ggplot(egma_type, aes(x = age, y = correct, col = item_group)) +
   viridis::scale_color_viridis(discrete=TRUE) +
   facet_wrap(~site)
 
-
 ```
 
 Difficulty
@@ -151,6 +150,8 @@ ggplot(egma_difficulty_raw, aes(x = item_uid, y = mean_accuracy, fill = mean_acc
   ) +
   ylim(0, 1) +
   theme_minimal(base_family = "sans")
+
+# Note: The 'easiest' items are based on the proportion of correct responses, which can be misleading if only a few participants attempted them. For example, two fraction items appear among the easiest, even though fractions are generally the most difficult category—this is because the few participants who saw those items answered them correctly. IRT model accounts for this as it estimates item difficulty and discrimination while adjusting for participant ability.
 
 ```
 
@@ -209,37 +210,27 @@ ggplot(egma_difficulty_grouped, aes(x = fct_reorder(item_group, mean_accuracy), 
 ```
 
 Reaction times
-
 ```{r}
-summary(egma$rt)
-View(egma$rt)
-egma$rt <- as.numeric(egma$rt)
 
-egma_rt <- egma |>
-  group_by(site, user_id, run_id) |>
-  summarise(
-    n = n(),
-    rt_mean = mean(rt, na.rm = TRUE),
-    age = mean(age, na.rm = TRUE),
-    .groups = "drop"
+summary(egma$rt_numeric)
+
+egma_trimmed <- egma |> 
+  filter(rt_numeric > 200, rt_numeric < 5000)
+
+ggplot(egma_trimmed, aes(x = rt_numeric)) +
+  geom_histogram(binwidth = 100, fill = "steelblue", colour = "white") +
+  facet_wrap(~site, scales = "free_y") +
+  theme_minimal(base_family = "sans") +
+  labs(
+    title = "Histogram of Reaction Times by Site",
+    x = "Reaction Time (ms)",
+    y = "Count"
   )
 
-# Get sample sizes
-site_counts <- egma_rt |>
-  group_by(site) |>
-  summarise(n = n(), .groups = "drop")
+# Check outliers
+summary(egma$rt_numeric)
+summary(egma_trimmed$rt_numeric)
 
-ggplot(egma_rt, aes(x = age, y = rt_mean)) +
-  geom_point(alpha = 0.4) +
-  geom_smooth(method = "gam") +
-  geom_text(data = site_counts,
-            aes(x = Inf, y = Inf, label = paste0("n = ", n)),
-            hjust = 1.1, vjust = 1.5, inherit.aes = FALSE) +
-  theme_minimal(base_family = "sans") +
-  facet_wrap(~site) +
-  labs(title = "Reaction Time by Age",
-       x = "Age (years)",
-       y = "Mean Reaction Time (ms)")
 
 ```
 
@@ -267,6 +258,8 @@ multigroup_scores_egma <- multigroup_scores |>
   filter(task_id == "egma-math") |>
   select(site, task_id, user_id, run_id, metric_type, metric_value) |>
   left_join(run_ages)
+
+glimpse(multigroup_scores_egma)
 
 ggplot(multigroup_scores_egma, aes(x = age, y = metric_value, col = site)) + 
   geom_point() + 

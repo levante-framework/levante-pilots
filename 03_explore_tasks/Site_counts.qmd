@@ -1,0 +1,92 @@
+---
+title: "LEVANTE Tasks - sample size report"
+author: "Fionnuala O'Reilly"
+toc: true
+number-sections: true
+highlight-style: pygments
+format:
+  html: 
+    code-fold: true
+---
+
+Packages
+
+```{r}
+
+#| echo: false
+
+load_or_install <- function(pkg) {
+  if (!require(pkg, character.only = TRUE)) {
+    install.packages(pkg)
+    library(pkg, character.only = TRUE)
+  }
+}
+
+load_or_install("tidyverse")
+load_or_install("glue")
+load_or_install("here")
+load_or_install("viridis")
+load_or_install("purrr")
+load_or_install("readr")
+load_or_install("dplyr")
+load_or_install("tidyr")
+load_or_install("quarto")
+
+```
+
+Helper functions
+
+```{r}
+
+#| echo: false
+
+source(here("02_score_data","irt_helpers.R"))
+source(here("03_summaries", "plotting_helper.R"))
+source(here("03_explore_tasks/explore_helper.R"))
+```
+
+Getting counts per task per site
+
+```{r}
+# Function
+summarise_task_participants <- function(task_name) {
+  task_data <- load_task_data(task_name)
+  
+  task_summary <- task_data |>
+    distinct(site, user_id) |>
+    count(site, name = "n_participants") |>
+    mutate(task = task_name)
+  
+  return(task_summary)
+}
+
+egma_summary <- summarise_task_participants("egma-math")
+vocab_summary <- summarise_task_participants("vocab")
+trog_summary <- summarise_task_participants("trog")
+mrot_summary <- summarise_task_participants("mental-rotation")
+tom_summary  <- summarise_task_participants("theory-of-mind")
+mr_summary   <- summarise_task_participants("matrix-reasoning")
+hf_summary   <- summarise_task_participants("hearts-and-flowers")
+mg_summary   <- summarise_task_participants("memory-game")
+sds_summary  <- summarise_task_participants("same-different-selection")
+
+```
+
+Combine into table
+
+```{r}
+all_summaries <- bind_rows(
+  egma_summary, vocab_summary, trog_summary, mrot_summary, tom_summary,
+  mr_summary, hf_summary, mg_summary, sds_summary
+)
+print(all_summaries)
+
+# Group by site
+all_summaries_by_site <- all_summaries |>
+  arrange(site, task)
+print(all_summaries_by_site)
+knitr::kable(all_summaries_by_site)
+
+
+```
+
