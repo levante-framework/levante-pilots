@@ -29,6 +29,15 @@ vocab <- load_task_data("vocab")
 vocab
 ```
 
+Checking n's
+
+```{r}
+vocab |> 
+  distinct(site, user_id) |> 
+  count(site)
+
+```
+
 Get sum scores
 
 ```{r}
@@ -115,13 +124,8 @@ By age
 
 # Create age brackets
 vocab_binned <- vocab |>
-  mutate(age_bracket = case_when(
-    floor(age) <= 5 ~ "2–5",
-    floor(age) >= 6 & floor(age) <= 9 ~ "6–9",
-    floor(age) >= 10 & floor(age) <= 12 ~ "10–12",
-    TRUE ~ NA_character_
-  )) |>
-  filter(!is.na(age_bracket))
+  mutate(age_bracket = cut(age, c(4,7,9,13)))
+
 
 # Accuracy by age
 item_accuracy_by_bracket <- vocab_binned |>
@@ -139,10 +143,6 @@ easiest_hardest_by_bracket <- item_accuracy_by_bracket |>
   mutate(rank = row_number()) |>
   filter(rank <= 10 | rank > (n() - 10)) |>
   distinct(age_bracket, item_uid, .keep_all = TRUE)
-
-# Set age bracket order for consistent facet layout
-easiest_hardest_by_bracket <- easiest_hardest_by_bracket |>
-  mutate(age_bracket = factor(age_bracket, levels = c("2–5", "6–9", "10–12")))
 
 # Plot (without sample size labels)
 ggplot(easiest_hardest_by_bracket, aes(x = reorder(item_uid, proportion_correct), y = proportion_correct, fill = age_bracket)) +
@@ -169,6 +169,18 @@ item_accuracy_by_bracket |>
   group_by(age_bracket) |> 
   summarise(n_items = n_distinct(item_uid))
 
+colnames(item_accuracy_by_bracket)
+summary(item)
+
+item_accuracy_by_bracket |> 
+  group_by(age_bracket) |> 
+  
+n_kids <- count(item_accuracy_by_bracket)
+
+
+
+
+
 ```
 
 By site
@@ -189,9 +201,12 @@ item_accuracy_by_site <- vocab |>
 easiest_hardest_by_site <- item_accuracy_by_site |>
   group_by(site) |>
   arrange(proportion_correct) |>
-  mutate(rank = row_number()) |>
-  filter(rank <= 10 | rank > (n() - 10))
+  mutate(rank = row_number())
+  #filter(rank <= 10 | rank > (n() - 10))
 
+```
+
+```{r fig.height =14, fig.width = 8}
 # Plot 
 ggplot(easiest_hardest_by_site, aes(x = reorder(item_uid, proportion_correct), y = proportion_correct, fill = site)) +
   geom_col(show.legend = FALSE) +
@@ -226,7 +241,6 @@ ggplot(vocab, aes(x = age, y = rt_numeric)) +
 
 
 ```
-
 
 Load IRT results
 
@@ -284,6 +298,8 @@ ggplot(vocab_coefs, aes(x = a1, y = -d, label = trial, colour = site)) +
   ) +
   theme_minimal(base_family = "sans") +
   theme(legend.position = "none")  # optional: remove redundant legend
+
+# Note: IRT models are constrained to make each group the same on the items.
 
 
 ```

@@ -1,0 +1,57 @@
+---
+title: "LEVANTE Tasks - sample size report"
+author: "Fionnuala O'Reilly"
+toc: true
+number-sections: true
+highlight-style: pygments
+format:
+  html: 
+    code-fold: true
+---
+
+Getting counts per task per site
+
+```{r}
+# Function
+summarise_task_participants <- function(task_name) {
+  task_data <- load_task_data(task_name)
+  
+  task_summary <- task_data |>
+    distinct(site, user_id) |>
+    count(site, name = "n_participants") |>
+    mutate(task = task_name)
+  
+  return(task_summary)
+}
+
+egma_summary <- summarise_task_participants("egma-math")
+vocab_summary <- summarise_task_participants("vocab")
+trog_summary <- summarise_task_participants("trog")
+mrot_summary <- summarise_task_participants("mental-rotation")
+tom_summary  <- summarise_task_participants("theory-of-mind")
+mr_summary   <- summarise_task_participants("matrix-reasoning")
+hf_summary   <- summarise_task_participants("hearts-and-flowers")
+mg_summary   <- summarise_task_participants("memory-game")
+sds_summary  <- summarise_task_participants("same-different-selection")
+
+```
+
+Combine into table
+
+```{r}
+all_summaries <- bind_rows(
+  egma_summary, vocab_summary, trog_summary, mrot_summary, tom_summary,
+  mr_summary, hf_summary, mg_summary, sds_summary
+)
+knitr::kable(all_summaries)
+
+# Grpoup by site
+
+all_summaries_by_site <- all_summaries |>
+  arrange(site, task)
+print(all_summaries_by_site)
+knitr::kable(all_summaries_by_site)
+
+
+
+```
