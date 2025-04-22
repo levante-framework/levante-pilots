@@ -238,7 +238,10 @@ Load IRT results
 
 ```{r}
 
-best_multigroup <- readRDS(here("02_scoring_outputs", "irt_outputs", "multigroup_best_outputs.rds"))
+# best_multigroup <- readRDS(here("02_scoring_outputs", "irt_outputs", "multigroup_best_outputs.rds"))
+# multigroup_scores <- readRDS(here("02_scoring_outputs", "scores", "scores_multigroup.rds"))
+
+best_multigroup <- readRDS(here("02_scoring_outputs", "irt_outputs", "multigroup_task_rxx.rds"))
 multigroup_scores <- readRDS(here("02_scoring_outputs", "scores", "scores_multigroup.rds"))
 
 ```
