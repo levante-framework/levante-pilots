@@ -264,8 +264,13 @@ summary(egma_trimmed$rt_numeric)
 Load IRT results
 
 ```{r}
-best_multigroup <- readRDS(here("02_scoring_outputs", "irt_outputs", "independent_item_coefs.rds"))
+
+best_multigroup <- readRDS(here("02_scored_data", "irt_outputs", "multigroup_best_outputs.rds"))
+colnames(best_multigroup)
+View ("02_scored_data", "irt_outputs", "multigroup_best_outputs.rds")
+
 multigroup_scores <- readRDS(here("02_scoring_outputs", "scores", "scores_multigroup.rds"))
+colnames(multigroup_scores)
 
 ```
 
@@ -294,27 +299,29 @@ ggplot(multigroup_scores_egma, aes(x = age, y = metric_value, col = site)) +
 
 ```
 
-Get the coefficients - there doesn't seem to be any coefficients; return to this tomorrow. 
+Extract the coefficients  and filter for difficulty
 
 ```{r}
-egma_coefs <- best_multigroup |>
-  filter(task_id == "egma-math", term == "difficulty", str_detect(item, "^egma_"))
+# Filter to the egma-math model
+egma_model_list <- best_multigroup |> 
+  filter(task_id == "egma-math") |> 
+  pull(coefs)
 
-head(egma_coefs)
+egma_model <- egma_model_list[[1]]
+glimpse(egma_model)
 
-# Calculate mean IRT difficulty across sites
-irt_difficulty <- egma_coefs |>
-  group_by(item) |>
-  summarise(mean_d = mean(value, na.rm = TRUE), .groups = "drop")
+# Filter for difficulty terms
+egma_coefs <- egma_model |> 
+  group_by(item) |> 
+  summarise(mean_d = mean(d, na.rm = TRUE), .groups = "drop")
 
-# Join with item_group
+# Join with item group
+egma_groups <- egma |> 
+  select(item_uid, item_group) |> 
+  distinct() |> 
+  mutate(item = glue("{item_uid}_1"))  # match naming convention
 
-egma_groups <- egma |>
-  select(item_uid, item_group) |>
-  distinct() |>
-  mutate(item = glue("{item_uid}_1"))  # Adjust if item names have a different suffix
-
-egma_difficulty_grouped <- left_join(irt_difficulty, egma_groups, by = "item")
+egma_difficulty_grouped <- left_join(egma_coefs, egma_groups, by = "item")
 
 ```
 
@@ -322,7 +329,7 @@ Item difficulty by group
 
 ```{r}
 
-ggplot(egma_difficulty_grouped, aes(x = fct_reorder(item_group, mean_d), y = mean_d, fill = item_group)) +
+ggplot(egma_difficulty_grouped, aes(x = fct_reorder(item_group, -mean_d), y = mean_d, fill = item_group)) +
   geom_boxplot(alpha = 0.8) +
   coord_flip() +
   scale_fill_viridis_d(option = "C") +
@@ -335,55 +342,7 @@ ggplot(egma_difficulty_grouped, aes(x = fct_reorder(item_group, mean_d), y = mea
   theme(legend.position = "none")
 ```
 
-IRT difficulty [return to this tomorrow - april 23]
-
-```{r}
-
-# Calculate mean IRT difficulty (d) for each item across groups
-irt_difficulty <- egma_coefs |> 
-  group_by(item) |> 
-  summarise(mean_d = mean(d, na.rm = TRUE)) 
-
-# Match item to item_uid
-irt_difficulty <- irt_difficulty |>
-  mutate(item_uid = str_remove(item, "_1")) 
-
-# Check
-unique(irt_difficulty$item_uid)
-unique(egma$item_uid)
-
-# Join with item_group info.
-irt_difficulty_grouped <- irt_difficulty |>
-  left_join(egma_groups, by = "item_uid")
-
-# Summarise mean difficulty by group
-irt_group_summary <- irt_difficulty_grouped |>
-  group_by(item_group) |>
-  summarise(
-    mean_d = mean(mean_d, na.rm = TRUE),
-    n_items = n(),
-    .groups = "drop"
-  ) |>
-  arrange(mean_d)  # Lower = easier
-
-# Plot
-ggplot(irt_group_summary, aes(x = fct_reorder(item_group, mean_d), y = mean_d, fill = mean_d)) +
-  geom_col() +
-  scale_fill_viridis_c() +
-  coord_flip() +
-  labs(
-    title = "Mean IRT Difficulty by Item Group (EGMA)",
-    x = "Item Group",
-    y = "Mean Difficulty (d)",
-    fill = "Difficulty"
-  ) +
-  theme_minimal(base_family = "sans")
-
-# Return to this - line is one of the harder categories with the raw data. There's also something going on with NA. 
-
-# END
-
-```
+IRT difficulty
 
 ```{r}
 
