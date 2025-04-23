@@ -32,6 +32,7 @@ load_or_install("tidyr")
 load_or_install("quarto")
 load_or_install("ggthemes")
 load_or_install("GGally")
+load_or_install("stringr")
 
 ```
 
@@ -232,18 +233,6 @@ item_difficulty |>
 
 ```
 
-Figuring out the file
-
-```{r}
-readRDS(here("02_scoring_outputs", "irt_outputs", "multigroup_task_rxx.rds")) # not this
-
-library(here)
-readRDS(here("02_scoring_outputs", "irt_outputs", "item_coefs.rds"))
-readRDS(here("02_scoring_outputs", "irt_outputs", "joint_task_results.rds"))
-readRDS(here("02_scoring_outputs", "irt_outputs", "independent_item_coefs.rds"))
-
-```
-
 Load results from IRT model
 
 ```{r}
@@ -282,11 +271,6 @@ ggplot(multigroup_scores_trog, aes(x = age, y = metric_value, col = site)) +
 Organizing trog items into difficulty-based blocks using IRT parameters
 
 ```{r}
-
-library(dplyr)
-library(stringr)
-library(glue)
-
 # Filter for trog item difficulty estimates
 trog_coefs <- best_multigroup |>
   filter(task_id == "trog", term == "difficulty", str_detect(item, "^trog_"))
@@ -370,6 +354,8 @@ colnames(difficulty_compare)
 
 # Check correlation
 cor(difficulty_compare$mean_accuracy, difficulty_compare$mean_d, use = "complete.obs")
+
+# END
 
 
 

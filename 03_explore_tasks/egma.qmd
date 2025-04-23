@@ -8,16 +8,43 @@ format:
   html: 
     code-fold: true
 ---
+Required packages
 
 ```{r}
-library(tidyverse)
-library(glue)
-library(here)
-library(viridis)
+
+#| echo: false
+
+load_or_install <- function(pkg) {
+  if (!require(pkg, character.only = TRUE)) {
+    install.packages(pkg)
+    library(pkg, character.only = TRUE)
+  }
+}
+
+load_or_install("tidyverse")
+load_or_install("glue")
+load_or_install("here")
+load_or_install("viridis")
+load_or_install("purrr")
+load_or_install("readr")
+load_or_install("dplyr")
+load_or_install("tidyr")
+load_or_install("quarto")
+load_or_install("forcats")
+load_or_install("ggplot2")
+
+
+```
+
+Helper functions
+
+```{r}
+#| echo: false
 
 source(here("02_score_data","irt_helpers.R"))
 source(here("03_summaries", "plotting_helper.R"))
 source(here("03_explore_tasks/explore_helper.R"))
+
 ```
 
 Get egma data
@@ -237,11 +264,7 @@ summary(egma_trimmed$rt_numeric)
 Load IRT results
 
 ```{r}
-
-# best_multigroup <- readRDS(here("02_scoring_outputs", "irt_outputs", "multigroup_best_outputs.rds"))
-# multigroup_scores <- readRDS(here("02_scoring_outputs", "scores", "scores_multigroup.rds"))
-
-best_multigroup <- readRDS(here("02_scoring_outputs", "irt_outputs", "multigroup_task_rxx.rds"))
+best_multigroup <- readRDS(here("02_scoring_outputs", "irt_outputs", "independent_item_coefs.rds"))
 multigroup_scores <- readRDS(here("02_scoring_outputs", "scores", "scores_multigroup.rds"))
 
 ```
@@ -250,7 +273,7 @@ Multigroup models
 
 Developmental trends in egma math ability estimates by site
 
-This plot shows how IRT-derived ability estimates (theta scores, i.e. estimated latent ability) from the TROG task vary with age across different sites.
+This plot shows how IRT-derived ability estimates (theta scores, i.e. estimated latent ability) from the Egma task vary with age across different sites.
 ```{r}
 
 run_ages <- egma |>
@@ -271,29 +294,48 @@ ggplot(multigroup_scores_egma, aes(x = age, y = metric_value, col = site)) +
 
 ```
 
-Get the coefficients
+Get the coefficients - there doesn't seem to be any coefficients; return to this tomorrow. 
 
 ```{r}
+egma_coefs <- best_multigroup |>
+  filter(task_id == "egma-math", term == "difficulty", str_detect(item, "^egma_"))
 
-# Pull item level IRT parameters for egma-math
-egma_models <- best_multigroup$coefs[[which(best_multigroup$task_id == "egma-math")]]
+head(egma_coefs)
 
-# Keep only rows where the item ID starts with "math"
-egma_coefs <- egma_models |> 
-  filter(str_detect(item, "^math_"))
+# Calculate mean IRT difficulty across sites
+irt_difficulty <- egma_coefs |>
+  group_by(item) |>
+  summarise(mean_d = mean(value, na.rm = TRUE), .groups = "drop")
 
-ggplot(egma_coefs, aes(x = d, y = reorder(item, d))) +
-  geom_point(alpha = 0.7) +
-  facet_wrap(~site) +
-  theme_minimal(base_family = "sans") +
-  labs(title = "EGMA-Math Item Difficulties by Site",
-       x = "Difficulty (d)",
-       y = "Item") +
-  theme(axis.text.y = element_text(size = 6))
+# Join with item_group
+
+egma_groups <- egma |>
+  select(item_uid, item_group) |>
+  distinct() |>
+  mutate(item = glue("{item_uid}_1"))  # Adjust if item names have a different suffix
+
+egma_difficulty_grouped <- left_join(irt_difficulty, egma_groups, by = "item")
 
 ```
 
-IRT difficult
+Item difficulty by group
+
+```{r}
+
+ggplot(egma_difficulty_grouped, aes(x = fct_reorder(item_group, mean_d), y = mean_d, fill = item_group)) +
+  geom_boxplot(alpha = 0.8) +
+  coord_flip() +
+  scale_fill_viridis_d(option = "C") +
+  labs(
+    title = "Distribution of EGMA Item Difficulty by Item Group",
+    x = "Item Group",
+    y = "Mean IRT Difficulty"
+  ) +
+  theme_minimal(base_family = "sans") +
+  theme(legend.position = "none")
+```
+
+IRT difficulty [return to this tomorrow - april 23]
 
 ```{r}
 
@@ -338,6 +380,8 @@ ggplot(irt_group_summary, aes(x = fct_reorder(item_group, mean_d), y = mean_d, f
   theme_minimal(base_family = "sans")
 
 # Return to this - line is one of the harder categories with the raw data. There's also something going on with NA. 
+
+# END
 
 ```
 
