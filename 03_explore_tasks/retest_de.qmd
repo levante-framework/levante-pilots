@@ -18,10 +18,24 @@ library(viridis)
 source(here("02_score_data","irt_helpers.R"))
 source(here("03_summaries", "plotting_helper.R"))
 source(here("03_explore_tasks/explore_helper.R"))
+
+thetas <- read_rds(here("02_scored_data/scores/scores_thetas.rds"))
 ```
 
 Examine test/retest reliability in German data.
 
 ```{r}
-
+thetas |> filter(site=="de_pilot") |> 
+  group_by(user_id, task_id) |>
+  filter(n() > 1) |>
+  mutate(run_number = dense_rank(run_id)) |>
+  ungroup() |>  
+  pivot_wider(
+    id_cols = c(user_id, task_id),
+    names_from = run_number,
+    values_from = metric_value,
+    names_prefix = "run_"
+  ) |>
+  summarise(test_retest_r = cor(run_1, run_2, use = "complete.obs"))
+  
 ```
