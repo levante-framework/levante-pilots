@@ -15,22 +15,17 @@ Packages
 
 #| echo: false
 
-load_or_install <- function(pkg) {
-  if (!require(pkg, character.only = TRUE)) {
-    install.packages(pkg)
-    library(pkg, character.only = TRUE)
-  }
-}
 
-load_or_install("tidyverse")
-load_or_install("glue")
-load_or_install("here")
-load_or_install("viridis")
-load_or_install("purrr")
-load_or_install("readr")
-load_or_install("dplyr")
-load_or_install("tidyr")
-load_or_install("quarto")
+
+library("tidyverse")
+library("glue")
+library("here")
+library("viridis")
+library("purrr")
+library("readr")
+library("dplyr")
+library("tidyr")
+# library("quarto")
 
 ```
 
