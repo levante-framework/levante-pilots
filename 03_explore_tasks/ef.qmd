@@ -25,7 +25,10 @@ source(here("02_score_data","irt_helpers.R"))
 source(here("03_summaries", "plotting_helper.R"))
 
 source(here("03_explore_tasks/explore_helper.R"))
-ef <- load_task_data(c("hearts-and-flowers","same-different-selection","memory-game"))
+ef <- load_task_data(c("hearts-and-flowers","same-different-selection","memory-game")) |>
+  nest(data = -task_id) |>
+  mutate(data = map2(task_id, data, rescore_hf)) |>
+  unnest(data)
 ```
 
 Load multigroup models
