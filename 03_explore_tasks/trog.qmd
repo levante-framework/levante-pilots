@@ -80,7 +80,7 @@ trog_runs <- trog |>
 
 ggplot(trog_runs, aes(x = age, y = correct)) +
   geom_point(alpha = 0.5) +
-  geom_smooth(method = "gam", formula = y ~ s(x, bs = "re")) +
+  geom_smooth(method = "gam", formula = y ~ s(x)) +
   theme_minimal(base_family = "sans") +
   ylim(0, 1) +
   facet_wrap(~site) + 
@@ -189,23 +189,6 @@ trog_difficulty_raw <- item_difficulty |>
 
 ```
 
-Bar plot
-
-```{r}
-
-trog_difficulty_raw_summary <- trog_difficulty_raw |>
-  group_by(block) |>
-  summarise(mean_difficulty = mean(mean_accuracy, na.rm = TRUE))
-
-ggplot(trog_difficulty_raw_summary, aes(x = block, y = mean_difficulty)) +
-  geom_line() +
-  geom_point() +
-  labs(x = "Block", y = "Average Item Accuracy",
-       title = "Average difficulty by block, (based on proportion correct across all sites)") +
-  theme_minimal()
-
-```
-
 Examining difficulty block v grammar group [Bar chart showing how items from different grammar groups are distributed across difficulty blocks]
 
 ```{r}
@@ -294,9 +277,9 @@ trog_difficulty_irt <- left_join(trog_groups, irt_difficulty, by = "item")
 trog_difficulty_irt <- trog_difficulty_irt |>
   mutate(mean_d_reversed = -mean_d)
 
-ggplot(trog_difficulty_irt, aes(x = fct_reorder(grammar_group, mean_d_reversed), y = mean_d_reversed, fill = grammar_group)) +
-  geom_boxplot(alpha = 0.8) +
-  scale_fill_viridis_d(option = "D", begin = 0.1, end = 0.9) +
+ggplot(trog_difficulty_irt, aes(x = fct_reorder(grammar_group, mean_d_reversed), y = mean_d_reversed, color = grammar_group)) +
+  geom_jitter(width = 0.2, size = 2, alpha = 0.8) +  # Use geom_point() instead if you don't want horizontal jitter
+  scale_color_viridis_d(option = "D", begin = 0.1, end = 0.9) +
   coord_flip() +
   labs(
     x = "Grammar Group",
@@ -305,6 +288,7 @@ ggplot(trog_difficulty_irt, aes(x = fct_reorder(grammar_group, mean_d_reversed),
   ) +
   theme_minimal(base_family = "sans") +
   theme(legend.position = "none")
+
 
 # Note narrow spread for some categories like logical structures suggest consistent item behavior.
 
