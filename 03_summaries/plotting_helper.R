@@ -1,4 +1,8 @@
-.font <- "Source Sans Pro"
+.font <- "Source Sans 3"
+if (!(.font %in% sysfonts::font_families_google())) sysfonts::font_add_google(.font)
+showtext::showtext_auto()
+showtext::showtext_opts(dpi = 300)
+
 theme_set(theme_bw(base_size = 14, base_family = .font))
 theme_update(panel.grid = element_blank(),
              strip.background = element_blank(),
@@ -6,7 +10,6 @@ theme_update(panel.grid = element_blank(),
              panel.border = element_blank(),
              axis.line = element_line(),
              strip.text = element_text(face = "bold"))
-
 
 task_plot_pooled <- \(scores, ylab, nr = NULL, nc = NULL, y_axis = seq(6, 14, 2)) {
   ggplot(scores, aes(x = age, y = metric_value)) +
