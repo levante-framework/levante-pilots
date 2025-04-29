@@ -2,9 +2,12 @@
 library(tidyverse)
 library(glue)
 library(here)
+source(here("02_score_data/irt_helpers.R"))
 
 task_data_nested <- read_rds(here(glue("01_fetched_data/task_data_nested.rds")))
-task_data_combined <- task_data_nested |> unnest(data)
+task_data_combined <- task_data_nested |>
+  mutate(data = map2(task_id, data, rescore_hf)) |>
+  unnest(data)
 
 run_data_combined <- read_rds(here("01_fetched_data/run_data.rds"))
 ```
