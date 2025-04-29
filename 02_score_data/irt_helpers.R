@@ -1,5 +1,14 @@
 ### functions to prep data for modeling
 
+# special for SDS, code too fast/slow RTs as incorrect
+rescore_hf <- function(task_id, df) {
+  if (task_id != "hearts-and-flowers") return(df)
+  df |>
+    mutate(response_fast = rt_numeric < 200, response_slow = rt_numeric > 2000,
+           correct = correct & !response_fast & !response_slow) |>
+    select(-response_fast, -response_slow)
+}
+
 # filter to each users earliest run
 filter_repeat_runs <- function(df) {
   df |>

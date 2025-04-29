@@ -104,6 +104,7 @@ Get IDs and merge.
 
 # now removes missing item ID data
 task_data_prepped <- task_data_nested |>
+  mutate(data = map2(task_id, data, rescore_hf)) |>
   mutate(#data = map(data_with_ids, \(df) filter(df, !is.na(item_id))),
          data_filtered = map(data, \(df) df |> filter_repeat_runs() |>
                                dedupe_items() |> remove_no_var_items()),
