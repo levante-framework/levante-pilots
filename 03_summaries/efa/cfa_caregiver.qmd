@@ -18,6 +18,7 @@ caregiver_data <- get_survey_data(survey_data_nested, "caregiver")
 
 
 caregiver_filtered <- caregiver_data %>%
+  filter(question_type == "Measurement") %>%   
   filter(site %in% c("co_pilot", "de_pilot")) %>%
   filter(!is.na(form_subconstruct), !is.na(value)) %>%
   filter(!is.na(form_construct)) %>%
@@ -44,8 +45,7 @@ caregiver_filtered <- caregiver_data %>%
     )
   ) %>%
   filter(
-    !(form_construct == "Child Health/Well-Being" & !grepl("SDQ", variable, ignore.case = TRUE)),
-    !(form_construct == "Caregiver Well-Being" & grepl("SelfLifeChanges", variable, ignore.case = TRUE))
+    !(form_construct == "Child Health/Well-Being" & !grepl("SDQ", variable, ignore.case = TRUE))
   )
 
 
@@ -120,23 +120,25 @@ for (i in seq_len(nrow(caregiver_tidy))) {
   
   if (nrow(params_df) == 0) next
   
-  p <-   ggplot(params_df, aes(y = reorder(item, value), x = value, color = site)) +
-  geom_segment(aes(x = 0, xend = value, y = reorder(item, value), yend = reorder(item, value)),
-               position = position_dodge(width = 0.8), linewidth = 0.4) +
-  geom_point(position = position_dodge(width = 0.8), size = 2) +
-  facet_grid(form_subconstruct ~ type, scales = "free") +
-  theme_classic() +
-  labs(
-    x = "Estimate",
-    y = "Item",
-    color = "Site",
-    title = formi
-  ) +
-  theme(
-    strip.text = element_text(face = "bold", size = 10),
-    axis.text.y = element_text(size = 7),
-    plot.title = element_text(hjust = 0.5, face = "bold", size = 14)
-  )
+  p <- ggplot(params_df, aes(y = reorder(item, value), x = value, color = site)) +
+    geom_segment(aes(x = 0, xend = value, y = reorder(item, value), yend = reorder(item, value)),
+                 position = position_dodge(width = 0.8), linewidth = 0.4) +
+    geom_point(position = position_dodge(width = 0.8), size = 2) +
+    facet_grid(form_subconstruct ~ type, scales = "free") +
+    scale_color_manual(values = site_pal) +  # Apply custom color palette here
+    theme_classic() +
+    labs(
+      x = "Estimate",
+      y = "Item",
+      color = "Site",
+      title = formi
+    ) +
+    theme(
+      strip.text = element_text(face = "bold", size = 10),
+      axis.text.y = element_text(size = 7),
+      plot.title = element_text(hjust = 0.5, face = "bold", size = 14)
+    )
+
 
   
   print(p)

@@ -87,7 +87,7 @@ ggplot(params_all_plot, aes(x = type, y = item, fill = value)) +
     geom_tile(color = "white") +
     geom_text(aes(label = sprintf("%.2f", value)), size = 4) +
     scale_fill_gradient2(
-        low = "blue", mid = "white", high = "red",
+        low = pal$blue, mid = "white", high = pal$red,
         midpoint = 0, space = "Lab", name = "Estimate"
     ) +
     facet_grid(form_construct ~ site, scales = "free_y", space = "free_y") +
@@ -129,6 +129,7 @@ student_tidy <- student_tidy %>%
 ### Model Comparison
 
 ```{r}
+# based on cfi
 student_tidy <- student_tidy %>%
   mutate(
     invariance_cfi = pmap_chr(
@@ -153,7 +154,7 @@ student_tidy <- student_tidy %>%
     )
   )
 
-
+# based on chi-squre test
 student_tidy <- student_tidy %>%
   mutate(
     invariance_chisq = pmap_chr(
@@ -215,7 +216,7 @@ student_fscore_all <- pmap_dfr(student_tidy, function(form_construct, ..., fscor
 })
 
 
-saveRDS(student_fscore_all, here::here("03_summaries/efa/student_fscore_all.rds"))
+#saveRDS(student_fscore_all, here::here("03_summaries/efa/student_fscore_all.rds"))
 ```
 
 
