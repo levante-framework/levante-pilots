@@ -1,16 +1,3 @@
-.font <- "Source Sans 3"
-if (!(.font %in% sysfonts::font_families_google())) sysfonts::font_add_google(.font)
-showtext::showtext_auto()
-showtext::showtext_opts(dpi = 300)
-
-theme_set(theme_bw(base_size = 14, base_family = .font))
-theme_update(panel.grid = element_blank(),
-             strip.background = element_blank(),
-             legend.key = element_blank(),
-             panel.border = element_blank(),
-             axis.line = element_line(),
-             strip.text = element_text(face = "bold"))
-
 task_plot_pooled <- \(scores, ylab, nr = NULL, nc = NULL, y_axis = seq(6, 14, 2)) {
   ggplot(scores, aes(x = age, y = metric_value)) +
     ggh4x::facet_nested_wrap(vars(task_category, task_label),
@@ -21,7 +8,7 @@ task_plot_pooled <- \(scores, ylab, nr = NULL, nc = NULL, y_axis = seq(6, 14, 2)
     geom_point(aes(colour = task_category), alpha = 0.3) +
     geom_smooth(aes(group = site), method = "gam", colour = "darkgrey", formula = y ~ s(x, bs = "re")) +
     scale_x_continuous(breaks = y_axis) +
-    scale_colour_manual(values = task_pal) +
+    .scale_colour_task() +
     labs(x = "Age (years)", y = ylab,
          caption = glue("Note: includes only tasks with at least {threshold_n} observations")) +
     guides(colour = "none")
@@ -38,7 +25,7 @@ task_plot_comparative <- \(scores, ylab, nr = NULL, nc = NULL, y_axis = seq(6, 1
     geom_point(aes(colour = site), alpha = 0.3) +
     geom_smooth(aes(group = site, color = site), method = "gam", formula = y ~ s(x, bs = "re")) +
     scale_x_continuous(breaks = y_axis) +
-    ggthemes::scale_colour_solarized() +
+    .scale_colour_site() +
     labs(x = "Age (years)", y = ylab,
          caption = glue("Note: includes only tasks with at least {threshold_n} observations")) +
     theme(legend.position = "bottom")
@@ -54,7 +41,7 @@ task_plot_sites <- \(scores, ylab, nr = NULL, nc = NULL, y_axis = seq(6, 14, 2))
     geom_point(aes(colour = task_category), alpha = 0.5) +
     geom_smooth(aes(group = site), method = "gam", colour = "darkgrey", formula = y ~ s(x, bs = "re")) +
     # scale_x_continuous(breaks = y_axis) +
-    scale_colour_manual(values = task_pal) +
+    .scale_colour_task() +
     labs(x = "Age (years)", y = ylab,
          caption = glue("Note: includes only tasks with at least {threshold_n} observations")) +
     guides(colour = "none")
@@ -72,7 +59,7 @@ task_plot_completeness <- \(scores, ylab, nr = NULL, nc = NULL, y_axis = seq(6, 
     # geom_smooth(data = scores |> filter(completed),
     #             aes(group = site), method = "gam", colour = "darkgrey", formula = y ~ s(x, bs = "re")) +
     # scale_x_continuous(breaks = y_axis) +
-    scale_colour_manual(values = task_pal) +
+    .scale_colour_task() +
     scale_shape_manual(values = c(1, 16), guide = "none") +
     labs(x = "Age (years)", y = ylab) +
          # caption = glue("Note: includes only tasks with at least {threshold_n} observations")) +

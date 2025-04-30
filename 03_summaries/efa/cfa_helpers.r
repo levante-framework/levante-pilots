@@ -1,4 +1,3 @@
-
 library(psych)
 library(corrplot)
 library(reshape2)
@@ -7,8 +6,7 @@ library(gtools)  # natural sorting
 library(lavaan)
 library(GGally)
 
-col <- colorRampPalette(c("red", "white", "blue"))(200) # Red to white to blue
-
+# col <- colorRampPalette(c("red", "white", "blue"))(200) # Red to white to blue
 
 build_1factor_model_fixvar <- function(formi, item_names) {
   latent <- gsub("[^[:alnum:]_]", "_", formi)

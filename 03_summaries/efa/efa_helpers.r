@@ -5,9 +5,7 @@ library(reshape2)
 library(patchwork) 
 library(gtools)  # natural sorting
 
-col <- colorRampPalette(c("red", "white", "blue"))(200) # Red to white to blue
-
-
+# col <- colorRampPalette(c(pal$red, "white", pal$blue))(200) # Red to white to blue
 
 loadmax <- function(loadings, m_data_subset) {
   # Melt the loadings into a long format
@@ -41,7 +39,7 @@ plot_load <- function(loadings_df, title, lowlimit = -1, uplimit = 1.2){
     geom_tile() +
     geom_text(aes(label = ifelse(Loading != 0, sprintf("%.2f", Loading), "")), 
               color = "black", vjust = 0.5, hjust = 0.5) + # Add non-zero loadings as text
-    scale_fill_gradient2(low = "blue", high = "red", mid = "white", midpoint = 0, 
+    scale_fill_gradient2(low = pal$blue, high = pal$red, mid = "white", midpoint = 0, 
                          limit = c(lowlimit, uplimit), 
                          space = "Lab", name="Loading") +
     theme_classic() +

@@ -5,6 +5,7 @@ library(glue)
 library(ggforce)
 library(ggthemes)
 
+source(here("plot_settings.R"))
 source(here("03_summaries/plotting_helper.R"))
 source(here("03_summaries/scores_helper.R"))
 ```
@@ -24,11 +25,7 @@ Combine all task scores into one plot!
 
 ```{r}
 scores <- combine_scores()
-
-task_categories_vec <- levels(scores$task_category)
-task_pal <- ptol_pal()(length(task_categories_vec)) |> set_names(task_categories_vec)
 ```
-
 
 ```{r}
 # threshold_n <- 10
