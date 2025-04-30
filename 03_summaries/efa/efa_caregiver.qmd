@@ -15,12 +15,15 @@ get_survey_data <- function(survey_data_nested, type) {
     collect()
 }
 
+
+
 caregiver_data <- get_survey_data(survey_data_nested, "caregiver")
 #teacher_data   <- get_survey_data(survey_data_nested, "teacher")
 #student_data   <- get_survey_data(survey_data_nested, "student")
 
 
 caregiver_tidy <- caregiver_data %>%
+  filter(question_type == "Measurement") %>%   
   select(site, user_id, child_id, variable, value, form_construct) %>%
   filter(!is.na(form_construct),
          !is.na(value),
@@ -37,8 +40,6 @@ caregiver_tidy <- caregiver_data %>%
       )
   }))
 
-
-constructs = as.vector(unique(caregiver_tidy$form_construct))
 sites = as.vector(unique(caregiver_tidy$site))
 
 
@@ -52,6 +53,49 @@ for(i in sites){
   cat('\t')
 }
 
+
+```
+
+### SDQ data
+```{r}
+reverse_items <- c(#"ChildSDQ11", "ChildSDQ14", "ChildSDQ17", #already reversed
+                   "ChildSCS10", "ChildSCS9", "ChildSCS8", "ChildSCS7", "ChildSCS6",
+                   "ChildSCS3", "ChildJukes14", "ChildJukes10", "ChildCBQ1")
+
+
+sdq_data <- caregiver_data %>%
+  filter(question_type == "Measurement",
+         construct_sdq == TRUE,
+         !is.na(value)) %>%
+  mutate(form_construct = "SDQ") %>%
+  select(site, user_id, child_id, variable, value, form_construct) %>%
+  group_by(site, form_construct, user_id, child_id, variable) %>%
+  filter(n() == 1) %>%
+  ungroup() %>%
+  nest(data = c(user_id, child_id, variable, value)) %>%
+  mutate(df_vals = map(data, function(df) {
+    df_wide <- df %>%
+      pivot_wider(names_from = variable, values_from = value)
+    
+    # reverse items
+    for (item in reverse_items) {
+      new_name <- paste0(item, "_r")
+      df_wide[[new_name]] <- 3 - df_wide[[item]]
+    }
+    
+    df_wide <- df_wide %>%
+      select(-all_of(reverse_items))
+    
+    df_wide
+  }))
+
+
+caregiver_tidy <- bind_rows(caregiver_tidy, sdq_data)
+```
+
+### Select co and de & scale data
+
+```{R}
 ### since number of sample size is too low for ca_pilot
 ### currently we focus on co_pilot and de_pilot
 caregiver_tidy = caregiver_tidy |>
@@ -71,7 +115,7 @@ caregiver_tidy$fscore <- vector("list", nrow(caregiver_tidy))
 ## Correlation Heatmap
 ```{r}
 
-for(formi in constructs){
+for(formi in as.vector(unique(caregiver_tidy$form_construct))){
   for(sitei in unique(pull(caregiver_tidy, site))){
   
     subconstruct <- caregiver_tidy %>%
@@ -165,23 +209,20 @@ p_co_pilot + p_de_pilot +
   ) 
 
 
-#ggsave(here::here(paste0("03_summaries/efa/", gsub("[/\"']", "_", formi), ".png")), width = 8, height = 8, dpi = 300)
+#ggsave(here::here(paste0("03_summaries/efa/fig/", gsub("[/\"']", "_", formi), ".png")), width = 8, height = 8, dpi = 300)
 
 ```
 
-### Child Health/Well being
+### SDQ
 
 Determine the number of factors
 ```{r}
-formi = "Child Health/Well-Being"
+formi = "SDQ"
 for(sitei in sites){
 cat(sitei)
     subconstruct = caregiver_tidy %>% filter(form_construct == formi, site == sitei) |> 
       pull(df_scaled)  %>% .[[1]]
   
-  subconstruct <- subconstruct[, grepl("SDQ", names(subconstruct))]
-  # only use SDQ items for now - may need update in the future
-
   # Parallel analysis
   fa.parallel(subconstruct, fa="both", n.iter=100, plot=FALSE)
   
@@ -194,8 +235,8 @@ cat(sitei)
 EFA analysis and Save factor scores
 ```{r}
 nfactors <- c(
-  co_pilot = 2,
-  de_pilot = 2
+  co_pilot = 3,
+  de_pilot = 3 # change point at two factors, but three factors have eigen value > 1, 2 or 3 both works, 2 looks more tidy
 )
 
 
@@ -207,7 +248,6 @@ for(sitei in sites){
     
   subconstruct = caregiver_tidy$df_scaled[[row_index]]
   
-  subconstruct <- subconstruct[, grepl("SDQ", names(subconstruct))]
   
   # efa
   EFAresult = factanal(~ ., data=subconstruct, factors = nfactors[sitei], scores = "regression",
@@ -234,7 +274,7 @@ p_co_pilot + p_de_pilot +
     theme = theme(plot.title = element_text(hjust = 0.5, face = "bold",  size = 14))
   ) 
 
-#ggsave(here::here(paste0("03_summaries/efa/", gsub("[/\"']", "_", formi), ".png")), width = 6, height = 6, dpi = 300)
+#ggsave(here::here(paste0("03_summaries/efa/fig/", gsub("[/\"']", "_", formi), ".png")), width = 6, height = 6, dpi = 300)
 ```
 
 
@@ -299,7 +339,7 @@ p_co_pilot + p_de_pilot +
     theme = theme(plot.title = element_text(hjust = 0.5, face = "bold",  size = 14))
   ) 
 
-#ggsave(here::here(paste0("03_summaries/efa/", gsub("[/\"']", "_", formi), ".png")), width = 8, height = 8, dpi = 300)
+#ggsave(here::here(paste0("03_summaries/efa/fig/", gsub("[/\"']", "_", formi), ".png")), width = 8, height = 8, dpi = 300)
 
 ```
 
@@ -366,7 +406,7 @@ p_co_pilot + p_de_pilot +
     theme = theme(plot.title = element_text(hjust = 0.5, face = "bold",  size = 14))
   ) 
 
-#ggsave(here::here(paste0("03_summaries/efa/", "ChildJukes", ".png")), width = 8, height = 8, dpi = 300)
+#ggsave(here::here(paste0("03_summaries/efa/fig/", "ChildJukes", ".png")), width = 8, height = 8, dpi = 300)
 
 ```
 
@@ -434,7 +474,7 @@ p_co_pilot + p_de_pilot +
     theme = theme(plot.title = element_text(hjust = 0.5, face = "bold",  size = 14))
   ) 
 
-#ggsave(here::here(paste0("03_summaries/efa/", gsub("[/\"']", "_", formi), ".png")), width = 8, height = 8, dpi = 300)
+#ggsave(here::here(paste0("03_summaries/efa/fig/", gsub("[/\"']", "_", formi), ".png")), width = 8, height = 8, dpi = 300)
 ```
 
 
@@ -449,10 +489,6 @@ for(sitei in sites){
   cat(sitei)
   subconstruct = caregiver_tidy %>% filter(form_construct == formi, site == sitei) |> 
   pull(df_scaled)  %>% .[[1]]
-  
-  # missing values in SelfLifeChanges19 SelfLifeChanges25 SelfLifeChanges32 SelfLifeChanges36 SelfLifeChanges41 SelfLifeChanges44 SelfLifeChanges45 SelfLifeChanges47 SelfLifeChanges52 SelfLifeChanges54 SelfLifeChanges74  failed the parallel analysis
-  # analyze other variables first
-  subconstruct <- subconstruct[, !grepl("SelfLifeChanges", colnames(subconstruct))]
 
   # Parallel analysis
   fa.parallel(subconstruct, fa="both", n.iter=100, plot=FALSE)
@@ -505,6 +541,6 @@ p_co_pilot + p_de_pilot +
     theme = theme(plot.title = element_text(hjust = 0.5, face = "bold",  size = 14))
   ) 
 
-#ggsave(here::here(paste0("03_summaries/efa/", gsub("[/\"']", "_", formi), ".png")), width = 8, height = 8, dpi = 300)
+#ggsave(here::here(paste0("03_summaries/efa/fig/", gsub("[/\"']", "_", formi), ".png")), width = 8, height = 8, dpi = 300)
 
 ```
