@@ -98,34 +98,11 @@ for(formi in constructs){
 
 ## EFA Analysis and Loading Matrix Plot
 
-### Teacher-student relationship
 
-Determine the number of factors
 ```{r}
-formi = "Teacher-Student Relationship"
-for(sitei in sites){
-  cat(sitei)
-  subconstruct = student_tidy %>% filter(form_construct == formi, site == sitei) |> 
-  pull(df_scaled)  %>% .[[1]]
-  
-  # Parallel analysis
-  fa.parallel(subconstruct, fa="both", n.iter=100, plot=FALSE)
-  
-  # Scree plot
-  scree(subconstruct, factors=TRUE, pc=F, 
-        main = paste0(sitei, ": ", formi))
-}
-```
-
-
-EFA analysis and Save factor scores
-```{r}
-nfactors <- c(
-  co_pilot = 1,
-  de_pilot = 1
-)
-
-for(sitei in sites){
+#All surveys fit a one-factor model based on the scree plot and parallel analysis. Theoretically, surveys with four or fewer items cannot support a two-factor model due to insufficient degrees of freedom. Therefore, I simplified the code by fixing the number of factors to one across all cases.
+for(formi in constructs){
+  for(sitei in unique(pull(student_tidy, site))){
   # data preparation
   row_index <- which(student_tidy$form_construct == formi & student_tidy$site == sitei)
   ids <- student_tidy$df_vals[[row_index]] %>% 
@@ -133,7 +110,7 @@ for(sitei in sites){
     
   subconstruct = student_tidy$df_scaled[[row_index]]
   # efa
-  EFAresult = factanal(~ ., data=subconstruct, factors = nfactors[sitei], scores = "regression",
+  EFAresult = factanal(~ ., data=subconstruct, factors = 1, scores = "regression",
     rotation = "promax", na.action = na.exclude)
   loadings_df <- loadmax(EFAresult$loadings, subconstruct)
   
@@ -150,278 +127,19 @@ for(sitei in sites){
 # combined_load_plot
 p_co_pilot <- p_co_pilot + theme(legend.position = "none")
 
-p_co_pilot + p_de_pilot + 
+plot_combined <- p_co_pilot + p_de_pilot +
   plot_layout(ncol = 2, widths = c(1, 1)) &
   plot_annotation(
     title = formi,
-    theme = theme(plot.title = element_text(hjust = 0.5, face = "bold",  size = 14))
-  ) 
+    theme = theme(plot.title = element_text(hjust = 0.5, face = "bold", size = 14))
+  )
+
+print(plot_combined)
 
 
-ggsave(here::here(paste0("03_summaries/efa/", gsub("[/\"']", "_", formi), ".png")), width = 5, height = 3, dpi = 300)
-```
-
-
-
-### Belongings
-
-Determine the number of factors
-```{r}
-formi = "Belonging"
-for(sitei in sites){
-  cat(sitei)
-  subconstruct = student_tidy %>% filter(form_construct == formi, site == sitei) |> 
-  pull(df_scaled)  %>% .[[1]]
-  
-  # Parallel analysis
-  fa.parallel(subconstruct, fa="both", n.iter=100, plot=FALSE)
-  
-  # Scree plot
-  scree(subconstruct, factors=TRUE, pc=F, 
-        main = paste0(sitei, ": ", formi))
+#ggsave(here::here(paste0("03_summaries/efa/fig/", gsub("[/\"']", "_", formi), ".png")), width = 5, height = 3, dpi = 300)
 }
 ```
-
-EFA analysis and Save factor scores
-```{r}
-nfactors <- c(
-  co_pilot = 1,
-  de_pilot = 1
-)
-
-for(sitei in sites){
-  # data preparation
-  row_index <- which(student_tidy$form_construct == formi & student_tidy$site == sitei)
-  ids <- student_tidy$df_vals[[row_index]] %>% 
-      select(user_id, child_id) 
-    
-  subconstruct = student_tidy$df_scaled[[row_index]]
-  # efa
-  EFAresult = factanal(~ ., data=subconstruct, factors = nfactors[sitei], scores = "regression",
-    rotation = "promax", na.action = na.exclude)
-  loadings_df <- loadmax(EFAresult$loadings, subconstruct)
-  
-  # loading plot
-  assign(paste0("p_", sitei), plot_load(loadings_df, paste0(sitei)))
-  
-  # save factor scores
-  scores_df <- as.data.frame(EFAresult$scores)
-  colnames(scores_df) <- paste0(formi, 1:ncol(scores_df))
-  student_tidy$fscore[[row_index]] <- bind_cols(ids, scores_df)
-}
-
-
-# combined_load_plot
-p_co_pilot <- p_co_pilot + theme(legend.position = "none")
-
-p_co_pilot + p_de_pilot + 
-  plot_layout(ncol = 2, widths = c(1, 1)) &
-  plot_annotation(
-    title = formi,
-    theme = theme(plot.title = element_text(hjust = 0.5, face = "bold",  size = 14))
-  ) 
-
-
-ggsave(here::here(paste0("03_summaries/efa/", gsub("[/\"']", "_", formi), ".png")), width = 5, height = 3, dpi = 300)
-```
-
-
-
-### Peer Relationships
-
-
-
-Determine the number of factors
-```{r}
-formi = "Peer Relationships"
-for(sitei in sites){
-  cat(sitei)
-  subconstruct = student_tidy %>% filter(form_construct == formi, site == sitei) |> 
-  pull(df_scaled)  %>% .[[1]]
-  
-  # Parallel analysis
-  fa.parallel(subconstruct, fa="both", n.iter=100, plot=FALSE)
-  
-  # Scree plot
-  scree(subconstruct, factors=TRUE, pc=F, 
-        main = paste0(sitei, ": ", formi))
-}
-```
-
-EFA analysis and Save factor scores
-```{r}
-nfactors <- c(
-  co_pilot = 1,
-  de_pilot = 1
-)
-
-for(sitei in sites){
-  # data preparation
-  row_index <- which(student_tidy$form_construct == formi & student_tidy$site == sitei)
-  ids <- student_tidy$df_vals[[row_index]] %>% 
-      select(user_id, child_id) 
-    
-  subconstruct = student_tidy$df_scaled[[row_index]]
-  # efa
-  EFAresult = factanal(~ ., data=subconstruct, factors = nfactors[sitei], scores = "regression",
-    rotation = "promax", na.action = na.exclude)
-  loadings_df <- loadmax(EFAresult$loadings, subconstruct)
-  
-  # loading plot
-  assign(paste0("p_", sitei), plot_load(loadings_df, paste0(sitei)))
-  
-  # save factor scores
-  scores_df <- as.data.frame(EFAresult$scores)
-  colnames(scores_df) <- paste0(formi, 1:ncol(scores_df))
-  student_tidy$fscore[[row_index]] <- bind_cols(ids, scores_df)
-}
-
-
-# combined_load_plot
-p_co_pilot <- p_co_pilot + theme(legend.position = "none")
-
-p_co_pilot + p_de_pilot + 
-  plot_layout(ncol = 2, widths = c(1, 1)) &
-  plot_annotation(
-    title = formi,
-    theme = theme(plot.title = element_text(hjust = 0.5, face = "bold",  size = 14))
-  ) 
-
-
-ggsave(here::here(paste0("03_summaries/efa/", gsub("[/\"']", "_", formi), ".png")), width = 5, height = 3, dpi = 300)
-```
-
-
-
-
-### Academic Perception
-
-
-Determine the number of factors
-```{r}
-formi = "Academic Perception"
-for(sitei in sites){
-  cat(sitei)
-  subconstruct = student_tidy %>% filter(form_construct == formi, site == sitei) |> 
-  pull(df_scaled)  %>% .[[1]]
-  
-  # Parallel analysis
-  fa.parallel(subconstruct, fa="both", n.iter=100, plot=FALSE)
-  
-  # Scree plot
-  scree(subconstruct, factors=TRUE, pc=F, 
-        main = paste0(sitei, ": ", formi))
-}
-```
-
-EFA analysis and Save factor scores
-```{r}
-nfactors <- c(
-  co_pilot = 1,
-  de_pilot = 1
-)
-
-for(sitei in sites){
-  # data preparation
-  row_index <- which(student_tidy$form_construct == formi & student_tidy$site == sitei)
-  ids <- student_tidy$df_vals[[row_index]] %>% 
-      select(user_id, child_id) 
-    
-  subconstruct = student_tidy$df_scaled[[row_index]]
-  # efa
-  EFAresult = factanal(~ ., data=subconstruct, factors = nfactors[sitei], scores = "regression",
-    rotation = "promax", na.action = na.exclude)
-  loadings_df <- loadmax(EFAresult$loadings, subconstruct)
-  
-  # loading plot
-  assign(paste0("p_", sitei), plot_load(loadings_df, paste0(sitei)))
-  
-  # save factor scores
-  scores_df <- as.data.frame(EFAresult$scores)
-  colnames(scores_df) <- paste0(formi, 1:ncol(scores_df))
-  student_tidy$fscore[[row_index]] <- bind_cols(ids, scores_df)
-}
-
-
-# combined_load_plot
-p_co_pilot <- p_co_pilot + theme(legend.position = "none")
-
-p_co_pilot + p_de_pilot + 
-  plot_layout(ncol = 2, widths = c(1, 1)) &
-  plot_annotation(
-    title = formi,
-    theme = theme(plot.title = element_text(hjust = 0.5, face = "bold",  size = 14))
-  ) 
-
-
-ggsave(here::here(paste0("03_summaries/efa/", gsub("[/\"']", "_", formi), ".png")), width = 5, height = 3, dpi = 300)
-```
-
-
-### Growth Mindset
-
-
-Determine the number of factors
-```{r}
-formi = "Growth Mindset"
-for(sitei in sites){
-  cat(sitei)
-  subconstruct = student_tidy %>% filter(form_construct == formi, site == sitei) |> 
-  pull(df_scaled)  %>% .[[1]]
-  
-  # Parallel analysis
-  fa.parallel(subconstruct, fa="both", n.iter=100, plot=FALSE)
-  
-  # Scree plot
-  scree(subconstruct, factors=TRUE, pc=F, 
-        main = paste0(sitei, ": ", formi))
-}
-```
-
-EFA analysis and Save factor scores
-```{r}
-nfactors <- c(
-  co_pilot = 1,
-  de_pilot = 1
-)
-
-for(sitei in sites){
-  # data preparation
-  row_index <- which(student_tidy$form_construct == formi & student_tidy$site == sitei)
-  ids <- student_tidy$df_vals[[row_index]] %>% 
-      select(user_id, child_id) 
-    
-  subconstruct = student_tidy$df_scaled[[row_index]]
-  # efa
-  EFAresult = factanal(~ ., data=subconstruct, factors = nfactors[sitei], scores = "regression",
-    rotation = "promax", na.action = na.exclude)
-  loadings_df <- loadmax(EFAresult$loadings, subconstruct)
-  
-  # loading plot
-  assign(paste0("p_", sitei), plot_load(loadings_df, paste0(sitei)))
-  
-  # save factor scores
-  scores_df <- as.data.frame(EFAresult$scores)
-  colnames(scores_df) <- paste0(formi, 1:ncol(scores_df))
-  student_tidy$fscore[[row_index]] <- bind_cols(ids, scores_df)
-}
-
-
-# combined_load_plot
-p_co_pilot <- p_co_pilot + theme(legend.position = "none")
-
-p_co_pilot + p_de_pilot + 
-  plot_layout(ncol = 2, widths = c(1, 1)) &
-  plot_annotation(
-    title = formi,
-    theme = theme(plot.title = element_text(hjust = 0.5, face = "bold",  size = 14))
-  ) 
-
-
-ggsave(here::here(paste0("03_summaries/efa/", gsub("[/\"']", "_", formi), ".png")), width = 5, height = 3, dpi = 300)
-```
-
-
 
 # save factor scores
 
@@ -441,5 +159,5 @@ student_fscore_long <- student_tidy %>%
     )
   })
 
-saveRDS(student_fscore_long, here::here("03_summaries/efa/student_fscore.rds"))
+#saveRDS(student_fscore_long, here::here("03_summaries/efa/student_fscore.rds"))
 ```
