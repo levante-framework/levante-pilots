@@ -10,3 +10,4 @@ rsconnect*
 .DS_Store
 data_raw/
 
+02_scoring_outputs/irt_outputs/joint_task_results.rds

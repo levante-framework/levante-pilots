@@ -37,8 +37,6 @@ load_or_install("ggrepel")
 load_or_install("broom")
 load_or_install("purrr")
 
-
-
 ```
 
 Helper functions
@@ -57,6 +55,7 @@ Get vocab data
 ```{r}
 vocab <- load_task_data("vocab")
 vocab
+
 ```
 
 Checking n's
@@ -197,7 +196,7 @@ ggplot(easiest_hardest_by_bracket, aes(x = reorder(item_uid, proportion_correct)
 
 ```
 
-By site
+By country
 
 ```{r}
 
@@ -220,6 +219,8 @@ easiest_hardest_by_site <- item_accuracy_by_site |>
 
 ```
 
+Plot
+
 ```{r fig.height =14, fig.width = 8}
 # Plot 
 ggplot(easiest_hardest_by_site, aes(x = reorder(item_uid, proportion_correct), y = proportion_correct, fill = site)) +
@@ -239,7 +240,7 @@ ggplot(easiest_hardest_by_site, aes(x = reorder(item_uid, proportion_correct), y
 
 ```
 
-Examining item accuracy (proportion correct) across sites, adjusting for age.
+Examining item accuracy (proportion correct) across sites, adjusting for age
 
 ```{r}
 
@@ -261,7 +262,8 @@ item_models <- vocab %>%
   unnest(tidied)
 
 # Extract site effects (excluding intercept and age)
-site_effects <- site_effects %>%
+site_effects <- item_models %>%
+  filter(term %in% c("siteco_pilot", "sitede_pilot")) %>%
   mutate(abs_estimate = abs(estimate))
 
 # Get top 20 items with largest site differences (adjusted for age)
@@ -275,7 +277,7 @@ top_items_adj <- site_effects %>%
 top_items_accuracy <- item_accuracy_by_site %>%
   filter(item_uid %in% top_items_adj$item_uid)
 
-# Plot raw accuracy for these items (to visualise effect scale)
+# Plot raw accuracy for these items (to visualize effect scale)
 ggplot(top_items_accuracy, aes(x = proportion_correct, y = reorder(item_uid, proportion_correct), color = site)) +
   geom_point(size = 3) +
   geom_line(aes(group = item_uid), color = "gray70", linewidth = 0.6) +
@@ -288,9 +290,10 @@ ggplot(top_items_accuracy, aes(x = proportion_correct, y = reorder(item_uid, pro
   theme_minimal(base_size = 10) +
   theme(legend.position = "bottom")
 
+
 ```
 
-Same graph, re-ordered by the size of the difference between sites.
+Same graph, re-ordered by the size of the difference between sites
 
 ```{r}
 # Vector of items ordered by difficult gap across sites 
@@ -307,7 +310,7 @@ ggplot(top_items_accuracy, aes(x = proportion_correct, y = item_uid, color = sit
   geom_line(aes(group = item_uid), color = "gray70", linewidth = 0.6) +
   scale_color_viridis_d() +
   labs(
-  title = "Top 20 vocabulary items with site differences (age adjusted)",
+  title = "Top 20 vocabulary items with site differences (age-adjusted)",
   subtitle = "Ranked by age-adjusted site effects from logistic regression; plotted using raw accuracy",
   x = "Proportion Correct",
   y = "Vocabulary Item"
@@ -442,10 +445,5 @@ ggplot(coefs_top_items, aes(x = -d, y = a1, color = site, label = item_clean)) +
   scale_color_viridis_d() +
   theme_minimal(base_size = 12) +
   theme(legend.position = "bottom")
-
-```
-
-
-```{r}
 
 ```
