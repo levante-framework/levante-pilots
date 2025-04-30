@@ -44,6 +44,7 @@ Helper functions
 source(here("02_score_data","irt_helpers.R"))
 source(here("03_summaries", "plotting_helper.R"))
 source(here("03_explore_tasks/explore_helper.R"))
+
 ```
 
 Get trog data
@@ -78,7 +79,7 @@ trog_runs <- trog |>
     .groups = "drop"
   )
 
-ggplot(trog_runs, aes(x = age, y = correct)) +
+trog_sum_scores <- ggplot(trog_runs, aes(x = age, y = correct)) +
   geom_point(alpha = 0.5) +
   geom_smooth(method = "gam", formula = y ~ s(x)) +
   theme_minimal(base_family = "sans") +
@@ -90,8 +91,12 @@ ggplot(trog_runs, aes(x = age, y = correct)) +
     caption = "Note: Each point represents a participant run; smoothed trend by site"
   )
 
-# Note: The lab theme in plotting_helper.R sets "Source Sans Pro" as the base font,
-# which isn't available on my system. Overriding with theme_minimal() for compatibility.
+ggsave(
+  filename = here::here("03_explore_tasks", "Graphs", "trog_sum_scores.png"),
+  plot = my_plot,
+  width = 10, height = 6, dpi = 300
+)
+
 
 ```
 

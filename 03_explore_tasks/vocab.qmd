@@ -44,9 +44,16 @@ Helper functions
 ```{r}
 #| echo: false
 
+getwd()
+
 source(here("02_score_data","irt_helpers.R"))
 source(here("03_summaries", "plotting_helper.R"))
 source(here("03_explore_tasks/explore_helper.R"))
+
+# Download font
+.font <- "Source Sans 3"
+sysfonts::font_add_google(.font)
+showtext::showtext_auto()
 
 ```
 
@@ -79,12 +86,25 @@ vocab_runs <- vocab |>
     n_items = n_distinct(item_uid)          
   )
 
+vocab_for_plot <- vocab_runs |>
+  mutate(
+    metric_value = correct,
+    task_label = "Vocabulary",
+    task_category = "Language" # to check
+  )
+
+threshold_n <- 50  # to check
+task_plot_comparative(vocab_for_plot, ylab = "Proportion correct")
+
+# Previous graph
 ggplot(vocab_runs, aes(x = age, y = correct)) +
   geom_point(alpha = 0.5) +
   geom_smooth(method = "gam") +
-  theme_minimal(base_family = "sans") +
+  theme_minimal(base_family = "Source Sans 3") +
   ylim(0, 1) +
   facet_wrap(~site)
+
+
 
 ```
 
