@@ -25,7 +25,6 @@ library("purrr")
 library("readr")
 library("dplyr")
 library("tidyr")
-# library("quarto")
 
 ```
 
@@ -79,8 +78,22 @@ print(all_summaries)
 # Group by site
 all_summaries_by_site <- all_summaries |>
   arrange(site, task)
-print(all_summaries_by_site)
+# print(all_summaries_by_site)
 knitr::kable(all_summaries_by_site)
+
+
+```
+
+
+```{r}
+
+# Group by site
+wide_summaries_by_site <- all_summaries |>
+  pivot_wider(names_from = "site", values_from = "n_participants", 
+              values_fill = 0) |>
+  arrange(task)
+
+knitr::kable(wide_summaries_by_site)
 
 
 ```
