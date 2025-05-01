@@ -50,6 +50,16 @@ remove_singlegroup_items <- function(df, group_n_min = 2) {
     filter(n_groups >= group_n_min) # need to be in N or more groups
 }
 
+# remove items that aren't shared across all groups
+remove_nonshared_items <- function(df) {
+  n_groups_total <- length(unique(df$group))
+  
+  df |>
+    group_by(item_id) |>
+    mutate(n_groups = n_distinct(group)) |>
+    ungroup() |>
+    filter(n_groups == n_groups_total) # need to be in N or more groups
+}
 
 # format data for mirt
 to_mirt_shape <- function(df) {
@@ -213,7 +223,7 @@ multigroup_itemfit <- \(submods, fit_stats) {
 to_mirt_shape_grouped <- function(df) {
   df |>
     mutate(correct = as.numeric(correct)) |> # values to numeric
-    select(user_id, group, item_inst, correct) |>
+    select(run_id, group, item_inst, correct) |>
     pivot_wider(names_from = "item_inst", values_from = "correct") |> # column for each item
-    column_to_rownames("user_id") # user_id to rownames
+    column_to_rownames("run_id") # user_id to rownames
 }
