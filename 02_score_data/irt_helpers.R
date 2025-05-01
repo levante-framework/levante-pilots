@@ -55,9 +55,9 @@ remove_singlegroup_items <- function(df, group_n_min = 2) {
 to_mirt_shape <- function(df) {
   df |>
     mutate(correct = as.numeric(correct)) |> # values to numeric
-    select(user_id, item_inst, correct) |>
+    select(run_id, item_inst, correct) |>
     pivot_wider(names_from = "item_inst", values_from = "correct") |> # column for each item
-    column_to_rownames("user_id") # user_id to rownames
+    column_to_rownames("run_id") # user_id to rownames
 }
 
 paste_c <- partial(paste, collapse = ",")
@@ -177,7 +177,7 @@ mirt_coefs <- function(mod) {
 mirt_scores <- function(mod, df, df_prepped) {
   # scores <- fscores(mod, method = "MAP", verbose = FALSE)
   scores <- fscores(mod, method = "EAP", verbose = FALSE)
-  user_scores <- tibble(user_id = rownames(df_prepped),
+  user_scores <- tibble(run_id = rownames(df_prepped),
                         ability = scores[,1]) # TODO: check this gives correct order
   df |> distinct(user_id, run_id) |> # took out task ID here because of multi-task models
     left_join(user_scores) 

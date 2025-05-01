@@ -1,7 +1,5 @@
 ---
 title: "Germany Retest"
-format: html
-editor: visual
 format:
   html: 
     code-fold: true
@@ -19,14 +17,22 @@ source(here("02_score_data","irt_helpers.R"))
 source(here("03_summaries", "plotting_helper.R"))
 source(here("03_explore_tasks/explore_helper.R"))
 
-thetas <- read_rds(here("02_scored_data/scores/scores_thetas.rds"))
+thetas <- read_rds(here("02_scoring_outputs/scores/independent_scores.rds"))
+runs <- read_rds(here("01_fetched_data/run_data.rds"))
 ```
 
 Examine test/retest reliability in German data.
 
+TODO: add gap filtering to make sure we have at least 1 month between runs.
+
 ```{r}
-thetas |> filter(site=="de_pilot") |> 
+retest <- thetas |> 
+  filter(site == "de_pilot") |> 
+  left_join(select(runs, user_id, run_id, age)) |>
   group_by(user_id, task_id) |>
+  arrange(age) |>
+  mutate(age_gap = c(0, diff(age))) |>
+  # filter(age_gap > .01) |>
   filter(n() > 1) |>
   mutate(run_number = dense_rank(run_id)) |>
   ungroup() |>  
@@ -35,7 +41,10 @@ thetas |> filter(site=="de_pilot") |>
     names_from = run_number,
     values_from = metric_value,
     names_prefix = "run_"
-  ) |>
+  ) 
+
+retest |>
+  group_by(task_id) |>
   summarise(test_retest_r = cor(run_1, run_2, use = "complete.obs"))
   
 ```
