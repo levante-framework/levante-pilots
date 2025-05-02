@@ -10,9 +10,48 @@ format:
 ---
 
 
-# Data loading
+Required packages
 
 ```{r}
+
+#| echo: false
+
+library("tidyverse")
+library("glue")
+library("here")
+library("viridis")
+library("purrr")
+library("readr")
+library("dplyr")
+library("tidyr")
+library("quarto")
+library("forcats")
+library("ggplot2")
+
+```
+
+Helper functions
+
+```{r}
+#| echo: false
+
+source(here("02_score_data","irt_helpers.R"))
+source(here::here("plot_settings.R"))
+source(here("03_explore_tasks/explore_helper.R"))
+
+```
+
+Get EF data
+
+```{r}
+ef <- load_task_data(c("hearts-and-flowers","same-different-selection","memory-game"))
+ef
+
+```
+
+```{r}
+# Mike's previous code for loading data
+
 library(tidyverse)
 library(glue)
 library(here)
@@ -35,7 +74,7 @@ Load multigroup models
 
 
 ```{r}
-best_multigroup <- readRDS(here("02_scoring_outputs", "irt_outputs", "multigroup_best_outputs.rds")) 
+best_multigroup <- readRDS(here("02_scoring_outputs", "irt_outputs", "item_coefs.rds"))
 multigroup_scores <- readRDS(here("02_scoring_outputs", "scores", "scores_multigroup.rds"))
 ```
 
@@ -48,11 +87,26 @@ ef_runs <- ef |>
   summarise(correct = mean(correct), 
             age = mean(age))
 
-ggplot(ef_runs, aes(x = age, y = correct)) + 
+ef_sum_scores <- ggplot(ef_runs, aes(x = age, y = correct)) + 
   geom_point(alpha = .5) + 
   geom_smooth(method = "loess", lambda = 1) +
   facet_grid(site ~ task_id) + 
-  ylim(0,1) 
+  ylim(0,1) +
+  labs(
+    x = "Age (years)",
+    y = "Proportion correct",
+    caption = "Note: Each point represents a participant run; smoothed trend by site"
+  )
+
+print(ef_sum_scores)
+
+ggsave(
+  filename = here::here("03_explore_tasks", "Graphs", "ef_sum_scores.png"),
+  plot = ef_sum_scores,
+  width = 10,
+  height = 6,
+  dpi = 300
+)
 ```
 
 Now go to task analysis. 
@@ -143,18 +197,71 @@ ggplot(hf, aes(x = as.numeric(rt))) +
 We now use the multigroup IRT models. 
 
 ```{r}
+
+run_ages <- ef |>
+  select(site, run_id, user_id, age) |>
+  distinct()
+
 multigroup_scores_hf <- multigroup_scores |>
   filter(task_id == "hearts-and-flowers") |>
   select(site, task_id, user_id, run_id, metric_type, metric_value ) |>
   left_join(run_ages)
 
-ggplot(multigroup_scores_hf, aes(x = age, y = metric_value, col = site)) + 
+ef_irt <- ggplot(multigroup_scores_hf, aes(x = age, y = metric_value, col = site)) + 
   geom_point() + 
-  geom_smooth()
+  geom_smooth() +
+  labs(
+    title = "Developmental trends in EF ability by site",
+    x = "Age (years)",
+    y = "Ability (IRT Score)",
+    colour = "Site"
+  )
+print(ef_irt)
+
+ggsave(
+  filename = here::here("03_explore_tasks", "Graphs", "ef_irt.png"),
+  plot = ef_irt,
+  width = 10,
+  height = 6,
+  dpi = 300
+)
 ```
 Look at coefficients. 
 
 ```{r}
+
+
+library(dplyr)
+library(tidyr)
+
+hf_coefs <- best_multigroup |>
+  filter(task_id == "hearts-and-flowers", term == "difficulty") |>
+  separate(item, into = c("task", "block", "trial", "number"), sep = "_", remove = FALSE) |>
+  select(-number)
+
+ggplot(hf_coefs, aes(x = block, y = value, colour = trial)) +
+  geom_point(position = position_jitter(width = 0.1), size = 2, alpha = 0.7) +
+  facet_wrap(~site)
+  labs(
+    title = "IRT difficulty by block and trial type",
+    x = "Block",
+    y = "IRT difficulty",
+    colour = "Trial type"
+  )
+
+# Alternative graph by site
+ggplot(hf_coefs, aes(x = block, y = value, colour = trial, shape = trial)) +
+  geom_point(size = 3) +
+  geom_text_repel(aes(label = trial), size = 3, show.legend = FALSE) +
+  ylab("IRT difficulty") +
+  xlab("Block") +
+  facet_wrap(~site) +
+  labs(title = "Hearts and Flowers: Item difficulty by block and trial type") 
+
+
+
+
+# Mike previous code
 hf_coefs <- filter(best_multigroup, task_id == "hearts-and-flowers")$coefs[[1]] |>
   separate(item, sep = "_", into = c("task","block","trial", "number")) |>
   select(-number) |>
@@ -166,6 +273,8 @@ ggplot(hf_coefs, aes(x = a1, y = -d, col = block, pch = trial)) +
   xlab("Slope") + 
   ylab("Difficulty") + 
   facet_wrap(~site) 
+
+
 ```
 
 
