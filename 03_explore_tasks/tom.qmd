@@ -47,7 +47,6 @@ tom
 
 ```
 
-
 Exploring item group
 
 ```{r}
@@ -55,6 +54,7 @@ base::table(tom$item_group)
 sort(unique(tom$item_group))
 
 ```
+
 Sum scores
 
 ```{r}
@@ -121,6 +121,8 @@ tom_groups <- ggplot(tom_group_scores, aes(x = age, y = prop_correct, colour = s
     colour = "Site"
   )
 
+print(tom_groups)
+
 ggsave(
   filename = here::here("03_explore_tasks", "Graphs", "tom_groups.png"),
   plot = tom_groups,
@@ -174,5 +176,59 @@ ggsave(
 )
 
 ```
+IRT scores by item_group
 
+```{r}
+
+# Filter for tom scores and join age 
+multigroup_scores_tom <- multigroup_scores |>
+  filter(task_id == "theory-of-mind") |>
+  select(site, task_id, user_id, run_id, metric_type, metric_value) |>
+  left_join(run_ages, by = c("site", "user_id", "run_id"))
+
+# Extract IRT ability scores and age
+irt_scores <- multigroup_scores_tom |>
+  filter(str_detect(metric_type, "2PL")) |>
+  select(site, user_id, run_id, ability = metric_value, age)
+
+# Join with item group scores
+irt_by_group <- left_join(
+  tom_group_scores,
+  irt_scores,
+  by = c("site", "user_id", "run_id")
+) |>
+  mutate(age = age.y) |>
+  select(-age.x, -age.y)
+
+# Check age 
+irt_by_group |>
+  summarise(
+    n_total = n(),
+    n_missing_age = sum(is.na(age)),
+    n_with_age = sum(!is.na(age))
+  )
+
+# Plot
+tom_irt_groups <- ggplot(irt_by_group, aes(x = prop_correct, y = ability, colour = age_group)) +
+  geom_point(alpha = 0.6) +
+  geom_smooth(method = "lm", se = FALSE, colour = "black") +
+  facet_wrap(~item_group) +
+  .scale_color_default(name = "Age") +
+  labs(
+    x = "Proportion correct (subskill)",
+    y = "IRT Ability",
+    title = "ToM subskills and IRT ability, by age"
+  )
+
+print(tom_irt_groups)
+
+ggsave(
+  filename = here::here("03_explore_tasks", "Graphs", "tom_irt_groups.png"),
+  plot = tom_irt_groups,
+  width = 10,
+  height = 6,
+  dpi = 300
+)
+
+```
 
