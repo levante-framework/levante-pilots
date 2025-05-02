@@ -4,7 +4,6 @@
 library("tidyverse")
 library("glue")
 library("here")
-library("viridis")
 library("purrr")
 library("readr")
 library("dplyr")
@@ -75,6 +74,7 @@ ggsave(
 
 ```
 
+Angle curves
 
 ```{r}
 
@@ -86,8 +86,8 @@ library(stringr)
 
 mrot_items <- mrot |>
   mutate(
-    stimulus = str_extract(item, "^[a-z]+"),           # extract stimulus type (e.g., "duck")
-    angle = as.integer(str_extract(item, "\\d+"))      # extract rotation angle
+    stimulus = str_extract(item, "^[a-z]+"), # extract stimulus type
+    angle = as.integer(str_extract(item, "\\d+")) # extract angle
   ) |>
   filter(stimulus %in% c("duck", "rabbit", "shape")) |>
   group_by(site, stimulus, item_group, angle) |>
@@ -117,6 +117,7 @@ ggsave(
 
 ```
 
+Angle curves #2
 
 ```{r}
 mrot_items <- mrot_items |>
