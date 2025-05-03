@@ -31,7 +31,7 @@ site_pal <- solarized_pal()(length(sites) + 2)[c(1:2, 5:6)] |> rlang::set_names(
 .scale_color_site <- .scale_colour_site
 
 # other contrasts: brewer Set1
-.scale_color_default <- \(...) scale_colour_brewer(name = "Set1", ...)
+.scale_color_default <- \(...) scale_colour_brewer(palette = "Set1", ...)
 
 # specific element colors
 pal <- list(

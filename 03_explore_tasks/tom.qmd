@@ -77,6 +77,7 @@ tom_sum_scores <- ggplot(tom_runs, aes(x = age, y = correct)) +
   ylim(0, 1) +
   facet_wrap(~site) +
   labs(
+    title = "Age-related accuracy, smoothed trends by site",
     x = "Age (years)",
     y = "Proportion correct",
     caption = "Note: Each point represents a participant run; smoothed trend by site"

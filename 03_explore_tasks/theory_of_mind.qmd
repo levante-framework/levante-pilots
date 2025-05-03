@@ -74,8 +74,8 @@ tom_runs |>
   geom_jitter(height = .02, width = .02, alpha = .5) + 
   geom_smooth(method = "lm") + 
   facet_wrap(~site)
-```
 
+```
 
 Note there are some substantial task differences between CO and DE that make these hard to interpret. 
 
@@ -96,7 +96,6 @@ ggplot(tom_items, aes(x = item_id, y = correct)) +
 
 
 ```
-
 
 # IRT approach
 
@@ -184,8 +183,6 @@ select(tom_plus_er_results, model_type, item_type, bic)
 
 
 
-
-
 ```{r, eval=FALSE}
 # get each model's coefs, scores, BIC
 # single_task_results <- single_task_models |>
@@ -211,7 +208,6 @@ select(tom_plus_er_results, model_type, item_type, bic)
 
 ## Analysis
 
-
 ```{r}
 tom_coefs <- tom_plus_er_best$coefs[[1]]
 tom_coefs$item <- fct_reorder(tom_coefs$item, tom_coefs$d)
@@ -222,8 +218,7 @@ ggplot(tom_coefs, aes(x = a1, y = -d)) +
   geom_label_repel(aes(label = item), max.overlaps = 20, size = 2)
 ```
 
-outliers by 2PL slope
-
+Outliers by 2PL slope
 
 ```{r}
 
@@ -258,6 +253,7 @@ ggplot(tom_runs_scores, aes(x = age, y = ability)) +
   geom_point(alpha = .5) + 
   geom_smooth(method = "lm") + 
   facet_wrap(~site)
+
 ```
 
 ```{r}
