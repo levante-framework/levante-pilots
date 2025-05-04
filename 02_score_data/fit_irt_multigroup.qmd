@@ -196,8 +196,34 @@ best_multigroup <- multigroup_models |>
   ungroup() |>
   mutate(fscore = map(mod, \(df) fscores(df)[,1]), 
          coefs = map(mod, multigroup_coefs))
+```
 
-write_rds(best_multigroup, 
+NOW - we want to refit the best multigroup model with the full group of items, even those that aren't shared across groups. 
+
+
+THIS NEEDS TO BE CHANGED:
+* if CONFIGURAL wins, then we may need to fit separate models
+* otherwise refit the best model
+```{r}
+best_multigroup_refit <- best_multigroup |>
+  mutate(data_filtered = map(data, \(df) df |> #filter_repeat_runs() |>
+                               dedupe_items() |> remove_no_var_items()),
+         data_wide = map(data_filtered, to_mirt_shape_grouped), 
+         data_prepped = map(data_wide, \(df) df |> select(-group)),
+         groups = map(data_wide, \(df) df |> pull(group))) 
+
+# add arguments for model fitting to data
+best_multigroup_refit <- best_multigroup_refit |>
+  mutate(model_str = pmap_chr(list(data, data_prepped, item_type, model_type),
+                              generate_model_str_numeric)) |>
+  mutate(mod = pmap(list(row_number(), data_prepped, item_type, groups, model_str, 
+                                invariance_type, task_id), fit_multigroup))
+```
+
+
+
+```{r}
+write_rds(best_multigroup_refit, 
           here("02_scored_data/irt_outputs/multigroup_best_outputs.rds"))
 ```
 

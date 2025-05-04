@@ -1,0 +1,86 @@
+---
+title: ""
+format: html
+---
+
+```{r}
+library(tidyverse)
+library(glue)
+library(here)
+library(mirt)
+
+source(here("02_score_data/irt_helpers.R"))
+```
+
+
+```{r}
+task_results <- readRDS(here("02_scoring_outputs/irt_outputs/independent_task_results.rds")) |>
+  filter(site %in% c("co_pilot","de_pilot"))
+```
+
+```{r}
+task_results <- task_results |>
+  group_by(task_id, site) |>
+  mutate(delta_bic = bic - min(bic))
+
+ggplot(task_results, 
+       aes(x = task_id, y = delta_bic, col = item_type)) + 
+  geom_point() + 
+  coord_flip() + 
+  facet_wrap(~site)
+```
+Let's go with Ben's theory of making everything Rasch. 
+
+```{r}
+rasch_mods <- task_results |>
+  filter(item_type == "Rasch") 
+
+rasch_coefs <- rasch_mods |>
+  select(site, task_id, coefs) |>
+  unnest(coefs) |>
+  select(-g, -u, -a1) |>
+  ungroup() |>
+  pivot_wider(names_from = "site", values_from = "d", id_cols = c(task_id, item))
+```
+
+# Items with bad statistics
+
+```{r}
+fit <- itemfit(rasch_mods$mod[[2]], 
+               method = "X2",
+               na.rm=TRUE)
+
+# p-value adjustment
+itemfit(x, p.adjust='fdr')
+
+# two different fit stats (with/without p-value adjustment)
+itemfit(x, c('S_X2' ,'X2'), p.adjust='fdr')
+itemfit(x, c('S_X2' ,'X2'))
+
+# Conditional sum-score plot from S-X2 information
+itemfit(x, S_X2.plot = 1) # good fit
+itemfit(x, S_X2.plot = 2) # good fit
+itemfit(x, S_X2.plot = 21) # bad fit
+
+```
+
+
+
+# Items with different difficulties
+
+```{r}
+rasch_coefs <- rasch_coefs |>
+  filter(!is.na(co_pilot) & !is.na(de_pilot)) |>
+  group_by(task_id) |>
+  mutate(resid = resid(lm(co_pilot ~ de_pilot))) 
+
+ggplot(rasch_coefs, aes(x = co_pilot, y = de_pilot)) +
+  geom_text_repel(data = rasch_coefs |>
+                     filter(abs(resid) > 1), 
+                   aes(label = item), 
+                  size = 2, max.overlaps = 10)+ 
+  geom_point() + 
+  geom_abline(lty = 2) + 
+  geom_smooth(method = "lm") + 
+  facet_wrap(~task_id) 
+```
