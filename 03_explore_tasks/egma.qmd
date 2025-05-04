@@ -14,25 +14,17 @@ Required packages
 
 #| echo: false
 
-load_or_install <- function(pkg) {
-  if (!require(pkg, character.only = TRUE)) {
-    install.packages(pkg)
-    library(pkg, character.only = TRUE)
-  }
-}
-
-load_or_install("tidyverse")
-load_or_install("glue")
-load_or_install("here")
-load_or_install("viridis")
-load_or_install("purrr")
-load_or_install("readr")
-load_or_install("dplyr")
-load_or_install("tidyr")
-load_or_install("quarto")
-load_or_install("forcats")
-load_or_install("ggplot2")
-
+library("tidyverse")
+library("glue")
+library("here")
+library("viridis")
+library("purrr")
+library("readr")
+library("dplyr")
+library("tidyr")
+library("quarto")
+library("forcats")
+library("ggplot2")
 
 ```
 
@@ -42,7 +34,7 @@ Helper functions
 #| echo: false
 
 source(here("02_score_data","irt_helpers.R"))
-source(here("03_summaries", "plotting_helper.R"))
+source(here::here("plot_settings.R"))
 source(here("03_explore_tasks/explore_helper.R"))
 
 ```
@@ -77,12 +69,25 @@ egma_runs <- egma |>
     n_items = n_distinct(item_uid) # how many unique items were completed
   )
 
-ggplot(egma_runs, aes(x = age, y = correct)) +
+egma_sum_scores <- ggplot(egma_runs, aes(x = age, y = correct)) +
   geom_point(alpha = 0.5) +
   geom_smooth(method = "gam", formula = y ~ s(x, bs = "re")) +
-  theme_minimal(base_family = "sans") +
   ylim(0, 1) +
-  facet_wrap(~site)
+  facet_wrap(~site) +
+  labs(
+    title = "Age-related accuracy, smoothed trends by site",
+    x = "Age (years)",
+    y = "Proportion correct",
+    caption = "Note: Each point represents a participant run; smoothed trend by site"
+  )
+
+ggsave(
+  filename = here::here("03_explore_tasks", "Graphs", "egma_sum_scores.png"),
+  plot = egma_sum_scores,
+  width = 10,
+  height = 6,
+  dpi = 300
+)
 
 ```
 
@@ -115,12 +120,11 @@ ggplot(egma_cat_runs, aes(x = age, y = correct)) +
           hjust = -0.1, vjust = 1,
           size = 3, 
           inherit.aes = FALSE) +
-  theme_minimal(base_family = "sans") +
   ylim(0, 1) +
   facet_grid(site ~ item_group) +
-  labs(title = "EGMA Accuracy by Age, Site, and Category",
+  labs(title = "EGMA accuracy by age, site, and category",
        x = "Age (years)",
-       y = "Proportion Correct")
+       y = "Proportion correct")
 
 ```
 
@@ -135,8 +139,6 @@ egma_type <- egma |>
 
 ggplot(egma_type, aes(x = age, y = correct, col = item_group)) +
   geom_smooth(method = "lm", se = FALSE) +
-  theme_minimal(base_family = "sans") + 
-  viridis::scale_color_viridis(discrete=TRUE) +
   facet_wrap(~site)
 
 ```
@@ -167,16 +169,15 @@ Plot
 
 ggplot(egma_difficulty_raw, aes(x = item_uid, y = mean_accuracy, fill = mean_accuracy)) +
   geom_col() +
-  scale_fill_viridis_c() +
   coord_flip() +
   labs(
-    title = "EGMA Item Difficulty (Easiest to Hardest)",
+    title = "EGMA item difficulty (easiest to hardest)",
     x = "Item (UID)",
-    y = "Mean Proportion Correct",
+    y = "Mean proportion correct",
     fill = "Accuracy"
   ) +
-  ylim(0, 1) +
-  theme_minimal(base_family = "sans")
+  ylim(0, 1) 
+
 
 # Note: The 'easiest' items are based on the proportion of correct responses, which can be misleading if only a few participants attempted them. For example, two fraction items appear among the easiest, even though fractions are generally the most difficult category—this is because the few participants who saw those items answered them correctly. IRT model accounts for this as it estimates item difficulty and discrimination while adjusting for participant ability.
 
@@ -205,16 +206,14 @@ egma_group_summary <- egma_difficulty_grouped |>
 # Bar graph
 ggplot(egma_group_summary, aes(x = fct_reorder(item_group, mean_accuracy), y = mean_accuracy, fill = mean_accuracy)) +
   geom_col() +
-  scale_fill_viridis_c() +
   coord_flip() +
   labs(
-    title = "Average Difficulty by Item Group (EGMA)",
-    x = "Item Group",
-    y = "Mean Proportion Correct",
+    title = "Average difficulty by item group (EGMA)",
+    x = "Item group",
+    y = "Mean proportion correct",
     fill = "Accuracy"
   ) +
-  ylim(0, 1) +
-  theme_minimal(base_family = "sans")
+  ylim(0, 1)
 
 ```
 
@@ -224,19 +223,37 @@ Box plot - spread of accuracy across categories
 
 ggplot(egma_difficulty_grouped, aes(x = fct_reorder(item_group, mean_accuracy), y = mean_accuracy, fill = item_group)) +
   geom_boxplot() +
-  scale_fill_viridis_d() +
   coord_flip() +
   labs(
-    title = "Distribution of Item Difficulty by Group (EGMA)",
-    x = "Item Group",
-    y = "Mean Accuracy"
-  ) +
-  theme_minimal(base_family = "sans") +
-  theme(legend.position = "none")
+    title = "Distribution of item difficulty by group (EGMA)",
+    x = "Item group",
+    y = "Mean accuracy"
+  ) 
+
+# Dots
+egma_accuracy_raw <- ggplot(egma_difficulty_grouped, aes(x = fct_reorder(item_group, mean_accuracy), y = mean_accuracy, 
+                                    colour = item_group)) +
+  geom_jitter() +
+  coord_flip() +
+  labs(
+    title = "Distribution of item difficulty by group (EGMA)",
+    x = "Item group",
+    y = "Mean accuracy"
+  ) 
+
+ggsave(
+  filename = here::here("03_explore_tasks", "Graphs", "egma_accuracy_raw.png"),
+  plot = egma_accuracy_raw,
+  width = 10,
+  height = 6,
+  dpi = 300
+)
+
 
 ```
 
 Reaction times
+
 ```{r}
 
 summary(egma$rt_numeric)
@@ -245,12 +262,11 @@ egma_trimmed <- egma |>
   filter(rt_numeric > 200, rt_numeric < 5000)
 
 ggplot(egma_trimmed, aes(x = rt_numeric)) +
-  geom_histogram(binwidth = 100, fill = "steelblue", colour = "white") +
+  geom_histogram(binwidth = 100) +
   facet_wrap(~site, scales = "free_y") +
-  theme_minimal(base_family = "sans") +
   labs(
-    title = "Histogram of Reaction Times by Site",
-    x = "Reaction Time (ms)",
+    title = "Histogram of reaction times by site",
+    x = "Reaction time (ms)",
     y = "Count"
   )
 
@@ -265,12 +281,8 @@ Load IRT results
 
 ```{r}
 
-best_multigroup <- readRDS(here("02_scored_data", "irt_outputs", "multigroup_best_outputs.rds"))
-colnames(best_multigroup)
-View ("02_scored_data", "irt_outputs", "multigroup_best_outputs.rds")
-
+best_multigroup <- readRDS(here("02_scoring_outputs", "irt_outputs", "item_coefs.rds"))
 multigroup_scores <- readRDS(here("02_scoring_outputs", "scores", "scores_multigroup.rds"))
-colnames(multigroup_scores)
 
 ```
 
@@ -292,36 +304,47 @@ multigroup_scores_egma <- multigroup_scores |>
 
 glimpse(multigroup_scores_egma)
 
-ggplot(multigroup_scores_egma, aes(x = age, y = metric_value, col = site)) + 
+egma_irt <- ggplot(multigroup_scores_egma, aes(x = age, y = metric_value, col = site)) + 
   geom_point() + 
-  theme_minimal(base_family = "sans") +
-  geom_smooth()
+  geom_smooth() +
+  labs(
+    title = "Developmental trends in EGMA ability by site",
+    subtitle = "IRT-based theta estimates smoothed with GAM",
+    x = "Age (years)",
+    y = "Ability (IRT Theta Score)",
+    colour = "Site"
+  )
+
+ggsave(
+  filename = here::here("03_explore_tasks", "Graphs", "egma_irt.png"),
+  plot = egma_irt,
+  width = 10,
+  height = 6,
+  dpi = 300
+)
 
 ```
 
 Extract the coefficients  and filter for difficulty
 
 ```{r}
-# Filter to the egma-math model
-egma_model_list <- best_multigroup |> 
-  filter(task_id == "egma-math") |> 
-  pull(coefs)
+# Extract coefficients
+egma_difficulty <- best_multigroup |> 
+  filter(task_id == "egma-math", term == "difficulty") |> 
+  select(site, item, value)
 
-egma_model <- egma_model_list[[1]]
-glimpse(egma_model)
-
-# Filter for difficulty terms
-egma_coefs <- egma_model |> 
+# Compute average difficulty
+egma_mean_difficulty <- egma_difficulty |> 
   group_by(item) |> 
-  summarise(mean_d = mean(d, na.rm = TRUE), .groups = "drop")
+  summarise(mean_d = mean(value, na.rm = TRUE), .groups = "drop")
 
 # Join with item group
 egma_groups <- egma |> 
   select(item_uid, item_group) |> 
   distinct() |> 
-  mutate(item = glue("{item_uid}_1"))  # match naming convention
+  mutate(item = glue("{item_uid}_1"))  
 
-egma_difficulty_grouped <- left_join(egma_coefs, egma_groups, by = "item")
+egma_difficulty_grouped <- left_join(egma_mean_difficulty, egma_groups, by = "item")
 
 ```
 
@@ -332,14 +355,33 @@ Item difficulty by group
 ggplot(egma_difficulty_grouped, aes(x = fct_reorder(item_group, -mean_d), y = mean_d, fill = item_group)) +
   geom_boxplot(alpha = 0.8) +
   coord_flip() +
-  scale_fill_viridis_d(option = "C") +
   labs(
     title = "Distribution of EGMA Item Difficulty by Item Group",
     x = "Item Group",
     y = "Mean IRT Difficulty"
-  ) +
-  theme_minimal(base_family = "sans") +
-  theme(legend.position = "none")
+  ) 
+
+# Violin plot
+ggplot(egma_difficulty_grouped, aes(x = fct_reorder(item_group, -mean_d), y = mean_d, fill = item_group)) +
+  geom_violin(trim = FALSE, alpha = 0.7) +
+  geom_boxplot(width = 0.1, fill = "white", outlier.size = 0.5) +
+  coord_flip() +
+  labs(
+    title = "Distribution of EGMA item difficulty by group",
+    x = "Item group",
+    y = "Mean IRT difficulty"
+  )
+
+# Dots
+ggplot(egma_difficulty_grouped, aes(x = fct_reorder(item_group, -mean_d), y = mean_d, colour = item_group)) +
+  geom_jitter(width = 0.2, height = 0, alpha = 0.7) +
+  coord_flip() +
+  labs(
+    title = "Item difficulty by group (individual points)",
+    x = "Item group",
+    y = "Mean IRT difficulty"
+  )
+
 ```
 
 IRT difficulty

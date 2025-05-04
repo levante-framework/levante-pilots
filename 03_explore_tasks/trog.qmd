@@ -24,7 +24,6 @@ load_or_install <- function(pkg) {
 load_or_install("tidyverse")
 load_or_install("glue")
 load_or_install("here")
-load_or_install("viridis")
 load_or_install("purrr")
 load_or_install("readr")
 load_or_install("dplyr")
@@ -42,7 +41,7 @@ Helper functions
 #| echo: false
 
 source(here("02_score_data","irt_helpers.R"))
-source(here("03_summaries", "plotting_helper.R"))
+source(here::here("plot_settings.R"))
 source(here("03_explore_tasks/explore_helper.R"))
 
 ```
@@ -82,10 +81,10 @@ trog_runs <- trog |>
 trog_sum_scores <- ggplot(trog_runs, aes(x = age, y = correct)) +
   geom_point(alpha = 0.5) +
   geom_smooth(method = "gam", formula = y ~ s(x)) +
-  theme_minimal(base_family = "sans") +
   ylim(0, 1) +
   facet_wrap(~site) + 
   labs(
+    title = "Age-related accuracy, smoothed trends by site",
     x = "Age (years)",
     y = "Proportion correct",
     caption = "Note: Each point represents a participant run; smoothed trend by site"
@@ -93,10 +92,11 @@ trog_sum_scores <- ggplot(trog_runs, aes(x = age, y = correct)) +
 
 ggsave(
   filename = here::here("03_explore_tasks", "Graphs", "trog_sum_scores.png"),
-  plot = my_plot,
-  width = 10, height = 6, dpi = 300
+  plot = trog_sum_scores,
+  width = 10,
+  height = 6,
+  dpi = 300
 )
-
 
 ```
 
@@ -121,9 +121,7 @@ trog_type <- trog |>
 
 ggplot(trog_type, aes(x = age, y = correct, col = item_group)) +
   geom_smooth(method = "lm", se = FALSE) +
-  theme_minimal(base_family = "sans") + # note over-writing the theme. 
-  viridis::scale_color_viridis(discrete=TRUE) +
-  facet_wrap(~site)
+   facet_wrap(~site)
 
 ```
 
@@ -161,17 +159,22 @@ trog_grammar_blocks <- trog_grouped |>
   mutate(grammar_group = fct_reorder(grammar_group, correct, .desc = TRUE)) 
 
 library(ggthemes)
-ggplot(trog_grammar_blocks, aes(x = age, y = correct, col = site)) + 
+trog_grammar_groups <- ggplot(trog_grammar_blocks, aes(x = age, y = correct, col = site)) + 
   geom_point(aes(alpha = !is.na(correct)), size = 1, show.legend = FALSE) +
   scale_alpha_manual(values = c(`TRUE` = 0.6, `FALSE` = 0.1)) +
   geom_smooth(data = trog_grammar_blocks |> filter(!is.na(correct)), 
               method = "lm", se = FALSE, span = 2) +
   geom_hline(yintercept = 0.25, lty = 2, colour = "black") + 
-  ggthemes::scale_color_solarized() + 
-  theme_minimal(base_family = "sans") +
   ylim(0, 1) +
   facet_wrap(~grammar_group) 
 
+ggsave(
+  filename = here::here("03_explore_tasks", "Graphs", "trog_grammar_groups.png"),
+  plot = trog_grammar_groups,
+  width = 10,
+  height = 6,
+  dpi = 300
+)
 ```
 
 Now grouping items by difficulty (instead of grammar group)
@@ -202,10 +205,9 @@ trog_difficulty_raw <- trog_difficulty_raw |>
 
 ggplot(trog_difficulty_raw, aes(x = factor(block), fill = grammar_group)) +
   geom_bar(position = "fill") +
-  scale_fill_viridis_d() +
-  labs(x = "Block", y = "Proportion", fill = "Grammar Group",
-       title = "Grammar Group Composition Across Difficulty Blocks") +
-  theme_minimal()
+  labs(x = "Block", y = "Proportion", fill = "Grammar group",
+       title = "Grammar group composition across difficulty blocks")
+
 
 ```
 
@@ -216,8 +218,7 @@ Difficulty patterns across sites
 library(GGally)
 item_difficulty |>
   select(-item_uid) |>
-  ggpairs(title = "Pairwise Site-Level Item Difficulties") +
-  theme_minimal(base_family = "sans")
+  ggpairs(title = "Pairwise Site-Level Item Difficulties")
 
 ```
 
@@ -249,10 +250,24 @@ multigroup_scores_trog <- multigroup_scores |>
   left_join(run_ages)
 colnames(multigroup_scores_trog)
 
-ggplot(multigroup_scores_trog, aes(x = age, y = metric_value, col = site)) + 
+trog_irt <- ggplot(multigroup_scores_trog, aes(x = age, y = metric_value, col = site)) + 
   geom_point() + 
-  theme_minimal(base_family = "sans") +
-  geom_smooth()
+  geom_smooth() +
+  labs(
+    title = "Developmental trends in TROG ability by site",
+    subtitle = "IRT-based theta estimates smoothed with GAM",
+    x = "Age (years)",
+    y = "Ability (IRT Theta Score)",
+    colour = "Site"
+  )
+
+ggsave(
+  filename = here::here("03_explore_tasks", "Graphs", "trog_irt.png"),
+  plot = trog_irt,
+  width = 10,
+  height = 6,
+  dpi = 300
+)
 
 ```
 
@@ -260,6 +275,8 @@ Organizing trog items into difficulty-based blocks using IRT parameters
 
 ```{r}
 # Filter for trog item difficulty estimates
+
+library(mirt)
 trog_coefs <- best_multigroup |>
   filter(task_id == "trog", term == "difficulty", str_detect(item, "^trog_"))
 
@@ -284,16 +301,12 @@ trog_difficulty_irt <- trog_difficulty_irt |>
 
 ggplot(trog_difficulty_irt, aes(x = fct_reorder(grammar_group, mean_d_reversed), y = mean_d_reversed, color = grammar_group)) +
   geom_jitter(width = 0.2, size = 2, alpha = 0.8) +  # Use geom_point() instead if you don't want horizontal jitter
-  scale_color_viridis_d(option = "D", begin = 0.1, end = 0.9) +
   coord_flip() +
   labs(
-    x = "Grammar Group",
-    y = "Reversed IRT Difficulty (higher = harder)",
-    title = "Reversed TROG Item Difficulty by Grammar Group"
-  ) +
-  theme_minimal(base_family = "sans") +
-  theme(legend.position = "none")
-
+    x = "Grammar group",
+    y = "Reversed IRT difficulty (higher = harder)",
+    title = "Reversed TROG item difficulty by grammar group"
+  )
 
 # Note narrow spread for some categories like logical structures suggest consistent item behavior.
 
@@ -301,21 +314,18 @@ ggplot(trog_difficulty_irt, aes(x = fct_reorder(grammar_group, mean_d_reversed),
 
 Plot
 
-```{r fig.height =8, fig.width = 10}
+```{r fig.height =12, fig.width = 10}
 
 ggplot(trog_difficulty_irt, aes(x = reorder(item, mean_d), 
                                 y = mean_d, col = grammar_group)) +
   geom_point() +
   coord_flip() +
-  scale_color_viridis_d() +  # same palette as the bar chart
   labs(
     x = "Item (ordered by mean difficulty)",
     y = "Mean Difficulty (d)",
-    title = "TROG Item Difficulty (Mean Across Sites)",
+    title = "TROG item difficulty (mean across sites)",
     colour = "Grammar Group"
-  ) +
-  theme_minimal() +
-  theme(axis.text.y = element_text(size = 6))
+  )
 
 ```
 
@@ -329,15 +339,13 @@ difficulty_compare <- trog_difficulty_raw |>
 
 ggplot(difficulty_compare, aes(x = mean_accuracy, y = mean_d, colour = grammar_group.y)) +
   geom_point() +
-  scale_color_viridis_d() +
   geom_smooth(method = "lm") +
   labs(
-    x = "Raw Accuracy",
-    y = "IRT Difficulty",
-    title = "Raw vs IRT Difficulty",
-    colour = "Grammar Group"
-  ) +
-  theme_minimal()
+    x = "Raw accuracy",
+    y = "IRT difficulty",
+    title = "Raw vs IRT difficulty",
+    colour = "Grammar group"
+  ) 
 
 colnames(difficulty_compare)
 

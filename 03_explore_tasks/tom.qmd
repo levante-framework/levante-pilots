@@ -1,0 +1,235 @@
+---
+title: "LEVANTE Thory of Mind task"
+author: "Fionnuala O'Reilly"
+toc: true
+number-sections: true
+highlight-style: pygments
+format:
+  html: 
+    code-fold: true
+---
+Required packages
+
+```{r}
+
+#| echo: false
+
+library("tidyverse")
+library("glue")
+library("here")
+library("viridis")
+library("purrr")
+library("readr")
+library("dplyr")
+library("tidyr")
+library("quarto")
+library("forcats")
+library("ggplot2")
+
+```
+
+Helper functions
+
+```{r}
+#| echo: false
+
+source(here("02_score_data","irt_helpers.R"))
+source(here::here("plot_settings.R"))
+source(here("03_explore_tasks/explore_helper.R"))
+
+```
+
+Get tom data
+
+```{r}
+tom <- load_task_data("theory-of-mind")
+tom
+
+```
+
+Exploring item group
+
+```{r}
+base::table(tom$item_group)
+sort(unique(tom$item_group))
+
+```
+
+Sum scores
+
+```{r}
+
+# 94 items
+
+colnames(tom)
+
+tom_runs <- tom |>
+  group_by(site, user_id, run_id) |>
+  summarise(
+    correct = mean(correct, na.rm = TRUE),  
+    age = mean(age, na.rm = TRUE),          
+    n_items = n_distinct(item_uid) # how many unique items were completed
+  )
+
+tom_sum_scores <- ggplot(tom_runs, aes(x = age, y = correct)) +
+  geom_point(alpha = 0.5) +
+  geom_smooth(method = "gam", formula = y ~ s(x, bs = "re")) +
+  ylim(0, 1) +
+  facet_wrap(~site) +
+  labs(
+    title = "Age-related accuracy, smoothed trends by site",
+    x = "Age (years)",
+    y = "Proportion correct",
+    caption = "Note: Each point represents a participant run; smoothed trend by site"
+  )
+
+print(tom_sum_scores)
+
+ggsave(
+  filename = here::here("03_explore_tasks", "Graphs", "tom_sum_scores.png"),
+  plot = tom_sum_scores,
+  width = 10,
+  height = 6,
+  dpi = 300
+)
+
+```
+
+Item group
+
+```{r}
+tom_group_scores <- tom |>
+  group_by(site, user_id, run_id, item_group) |>
+  summarise(prop_correct = mean(correct, na.rm = TRUE), age = mean(age, na.rm = TRUE), .groups = "drop")
+
+ggplot(tom_group_scores, aes(x = age, y = prop_correct, colour = item_group)) +
+  geom_point(alpha = 0.4) +
+  geom_smooth(method = "gam", formula = y ~ s(x, bs = "tp")) +
+  facet_wrap(~site) +
+  labs(x = "Age (years)", y = "Proportion correct", colour = "Item Group")
+# bit messy.
+
+# facet by group instead of country
+tom_groups <- ggplot(tom_group_scores, aes(x = age, y = prop_correct, colour = site)) +
+  geom_point(alpha = 0.2) +
+  geom_smooth(method = "gam", formula = y ~ s(x, bs = "tp")) +
+  facet_wrap(~item_group) +
+  ylim(0, 1) +
+  labs(
+    title = "Developmental trends in Theory of Mind sub-skills",
+    x = "Age (years)",
+    y = "Proportion correct",
+    colour = "Site"
+  )
+
+print(tom_groups)
+
+ggsave(
+  filename = here::here("03_explore_tasks", "Graphs", "tom_groups.png"),
+  plot = tom_groups,
+  width = 10,
+  height = 6,
+  dpi = 300
+)
+
+```
+
+Load IRT results
+
+```{r}
+best_multigroup <- readRDS(here("02_scoring_outputs", "irt_outputs", "item_coefs.rds"))
+multigroup_scores <- readRDS(here("02_scoring_outputs", "scores", "scores_multigroup.rds"))
+
+```
+
+Age-related trends in ToM ability estimates by site
+
+```{r}
+run_ages <- tom |>
+  select(site, run_id, user_id, age) |>
+  distinct()
+
+multigroup_scores_tom <- multigroup_scores |>
+  filter(task_id == "theory-of-mind") |>
+  select(site, task_id, user_id, run_id, metric_type, metric_value) |>
+  left_join(run_ages)
+
+glimpse(multigroup_scores_tom)
+
+tom_irt <- ggplot(multigroup_scores_tom, aes(x = age, y = metric_value, col = site)) + 
+  geom_point() + 
+  geom_smooth() +
+  labs(
+    title = "Developmental trends in Theory of Mind ability by site",
+    subtitle = "IRT-based theta estimates smoothed with GAM",
+    x = "Age (years)",
+    y = "Ability (IRT Theta Score)",
+    colour = "Site"
+  )
+print(tom_irt)
+
+ggsave(
+  filename = here::here("03_explore_tasks", "Graphs", "tom_irt.png"),
+  plot = tom_irt,
+  width = 10,
+  height = 6,
+  dpi = 300
+)
+
+```
+IRT scores by item_group
+
+```{r}
+
+# Filter for tom scores and join age 
+multigroup_scores_tom <- multigroup_scores |>
+  filter(task_id == "theory-of-mind") |>
+  select(site, task_id, user_id, run_id, metric_type, metric_value) |>
+  left_join(run_ages, by = c("site", "user_id", "run_id"))
+
+# Extract IRT ability scores and age
+irt_scores <- multigroup_scores_tom |>
+  filter(str_detect(metric_type, "2PL")) |>
+  select(site, user_id, run_id, ability = metric_value, age)
+
+# Join with item group scores
+irt_by_group <- left_join(
+  tom_group_scores,
+  irt_scores,
+  by = c("site", "user_id", "run_id")
+) |>
+  mutate(age = age.y) |>
+  select(-age.x, -age.y)
+
+# Check age 
+irt_by_group |>
+  summarise(
+    n_total = n(),
+    n_missing_age = sum(is.na(age)),
+    n_with_age = sum(!is.na(age))
+  )
+
+# Plot
+tom_irt_groups <- ggplot(irt_by_group, aes(x = prop_correct, y = ability, colour = age_group)) +
+  geom_point(alpha = 0.6) +
+  geom_smooth(method = "lm", se = FALSE, colour = "black") +
+  facet_wrap(~item_group) +
+  .scale_color_default(name = "Age") +
+  labs(
+    x = "Proportion correct (subskill)",
+    y = "IRT Ability",
+    title = "ToM subskills and IRT ability, by age"
+  )
+
+print(tom_irt_groups)
+
+ggsave(
+  filename = here::here("03_explore_tasks", "Graphs", "tom_irt_groups.png"),
+  plot = tom_irt_groups,
+  width = 10,
+  height = 6,
+  dpi = 300
+)
+
+```
+

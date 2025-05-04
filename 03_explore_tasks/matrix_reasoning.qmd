@@ -1,93 +1,106 @@
-```{r}
-library(tidyverse)
-library(glue)
-library(here)
-
-sites <- c("ca_pilot", "co_pilot", "de_pilot")
-
-task_data_nested <- sites |>
-  set_names() |>
-  map(\(s) read_rds(here(glue("01_processed_data/{s}/task_data_nested.rds")))) |>
-  list_rbind(names_to = "site")
-
-task_data_combined <- task_data_nested |>
-  select(-task_id) |>
-  unnest(data)
-
-mr <- filter(task_data_combined, 
-             task_id %in% c("matrix-reasoning"))
-```
-
-Get ages. 
+Packages
 
 ```{r}
-participants <- sites |>
-  set_names() |>
-  map(\(s) read_rds(here(glue("00_prepped_data/{s}/participants.rds")))) |>
-  list_rbind(names_to = "site")
+#| echo: false
 
-run_ages <- participants |>
-  select(user_id, ages) |>
-  unnest(ages)
+load_or_install <- function(pkg) {
+  if (!require(pkg, character.only = TRUE)) {
+    install.packages(pkg)
+    library(pkg, character.only = TRUE)
+  }
+}
 
-# this is useful below for various simplifications
-ages <- run_ages |>
-  group_by(user_id) |>
-  summarise(age = mean(age))
+load_or_install("tidyverse")
+load_or_install("glue")
+load_or_install("here")
+load_or_install("purrr")
+load_or_install("readr")
+load_or_install("dplyr")
+load_or_install("tidyr")
+load_or_install("quarto")
+load_or_install("ggthemes")
+load_or_install("GGally")
+load_or_install("stringr")
 
-mr <- left_join(mr, run_ages)
 ```
 
-Get items
+Helper functions
 
 ```{r}
-id_map <- read_csv(here("02_score_data/item_metadata/pilot-item-ID mapping.csv"))
+#| echo: false
 
-trial_id_map <- id_map |>
-  mutate(trials = trials |> str_split(",")) |>
-  unnest(trials) |>
-  rename(trial_id = trials) |>
-  mutate(trial_id = str_trim(trial_id))
+source(here("02_score_data","irt_helpers.R"))
+source(here::here("plot_settings.R"))
+source(here("03_explore_tasks/explore_helper.R"))
+
 ```
+
+Get mental rotation data
 
 ```{r}
-mr <- mr |>
-  left_join(trial_id_map) |>
-  filter(!is.na(item_uid)) 
+mr <- load_task_data("matrix-reasoning")
+mr
+
 ```
+
 
 Load multigroup models
 
 
 ```{r}
-best_multigroup <- readRDS(here("02_scored_data", "irt_outputs", "multigroup_best_outputs.rds")) 
-multigroup_scores <- readRDS(here("02_scored_data", "scores", "scores_multigroup.rds"))
+
+best_multigroup <- readRDS(here("02_scoring_outputs", "irt_outputs", "item_coefs.rds"))
+multigroup_scores <- readRDS(here("02_scoring_outputs", "scores", "scores_multigroup.rds"))
+
+
+#previous
+#best_multigroup <- readRDS(here("02_scored_data", "irt_outputs", "multigroup_best_outputs.rds")) 
+#multigroup_scores <- readRDS(here("02_scored_data", "scores", "scores_multigroup.rds"))
 ```
 
-
-# Sumscores
-
+# Sum scores
 
 ```{r}
 mr_runs <- mr |>
   group_by(site, user_id, run_id) |>
   summarise(correct = mean(correct), 
-            age = mean(age))
+            age = mean(age),
+            .groups = "drop")
 
-mr_runs |> filter(age < 13) |>
+
+mr_sum_scores <- mr_runs |> 
+  filter(age < 13) |>
   ggplot(aes(x = age, y = correct)) + 
   geom_point(alpha = .5) + 
-  geom_smooth(method = "loess", lambda = 1) +
-  facet_wrap(~ site)
+  geom_smooth(method = "gam", formula = y ~ s(x)) +
+  ylim(0, 1) +
+  facet_wrap(~site) + 
+  labs(
+    title = "Age-related accuracy, smoothed trends by site",
+    x = "Age (years)",
+    y = "Proportion correct",
+    caption = "Note: Each point represents a participant run; smoothed trend by site"
+  )
+
+# Save the plot
+ggsave(
+  filename = here::here("03_explore_tasks", "Graphs", "mr_sum_scores.png"),
+  plot = mr_sum_scores,
+  width = 10,
+  height = 6,
+  dpi = 300
+)
+
 ```
 Let's look at dates on these. 
 
 ```{r}
+colnames(mr)
 mr_runs <- mr |>
   group_by(site, user_id, run_id) |>
   summarise(correct = mean(correct), 
             age = mean(age), 
-            date = min(server_timestamp))
+            date = min(timestamp))
 
 mr_runs |> filter(age < 13) |>
   ggplot(aes(x = age, y = correct, col = date)) + 
@@ -95,8 +108,6 @@ mr_runs |> filter(age < 13) |>
   geom_smooth(method = "loess", lambda = 1) +
   facet_wrap(~ site)
 ```
-
-
 
 # Response Times
 
@@ -109,12 +120,28 @@ med_rt <- mr |> #filter(correct==1) |>
   summarise(n=n(),
             median_rt = median(rt, na.rm=T))
 
-med_rt |>
+mr_rt_plot <- med_rt |>
   ggplot(aes(x=n, y=median_rt)) + 
   geom_point(alpha = .5) + 
   geom_smooth(method = "loess", lambda = 1) +
-  facet_grid(correct ~ site) + 
-  theme_classic()
+  facet_grid(correct ~ site) +
+  labs(
+  title = "Response time patterns by accuracy and site",
+  subtitle = "Median RT by number of trials, separated by correct vs incorrect responses",
+  x = "Number of trials (per user-run)",
+  y = "Median response time (ms)",
+  caption = "Each point represents a unique user-run; smoothed trend by site and accuracy"
+)
+
+ggsave(
+  filename = here::here("03_explore_tasks", "Graphs", "mr_rt_plot.png"),
+  plot = mr_rt_plot,
+  width = 10,
+  height = 6,
+  dpi = 300
+)
+
+
 ```
 
 Median correct RT per problem: 
@@ -128,30 +155,60 @@ But notice there is huge variation per child (and presumably per problem).
 # IRT approach
 
 ```{r}
+run_ages <- mr |>
+  select(site, run_id, user_id, age) |>
+  distinct()
+
 multigroup_scores_mr <- multigroup_scores |>
   filter(task_id == "matrix-reasoning") |>
   select(site, task_id, user_id, run_id, metric_type, metric_value ) |>
   left_join(run_ages)
 
-ggplot(multigroup_scores_mr, aes(x = age, y = metric_value, col = site)) + 
-  geom_point() + 
-  geom_smooth()
+mr_irt <- ggplot(multigroup_scores_mr, aes(x = age, y = metric_value, col = site)) + 
+  geom_point(alpha = 0.5) + 
+  geom_smooth(method = "gam", se = TRUE) +
+  labs(
+    title = "Developmental trends in reasoning ability by site",
+    subtitle = "IRT-based theta estimates smoothed with GAM",
+    x = "Age (years)",
+    y = "Ability (IRT Theta Score)",
+    colour = "Site"
+  )
+
+ggsave(
+  filename = here::here("03_explore_tasks", "Graphs", "mr_irt.png"),
+  plot = mr_irt,
+  width = 10,
+  height = 6,
+  dpi = 300
+)
+
 ```
+
 Look at coefficients. 
 
-```{r}
-mr_coefs <- filter(best_multigroup, 
-                   task_id == "matrix-reasoning")$coefs[[1]]  |>
-  mutate(item = fct_reorder(item, d))
+```{r fig.height = 12, fig.width = 8}
+mr_coefs <- best_multigroup |>
+  filter(task_id == "matrix-reasoning", term == "difficulty") |>
+  mutate(item = fct_reorder(item, value))
   
-ggplot(mr_coefs, aes(x = item, y = -d)) + 
-  geom_point() +
-  coord_flip() + 
-  facet_wrap(~site) 
+ggplot(mr_coefs, aes(x = item, y = -value)) +
+  geom_col() +
+  coord_flip() +
+  labs(
+    title = "Matrix Reasoning: itme difficulties (IRT)",
+    x = "Item",
+    y = "Difficulty (–IRT estimate)"
+  )  
 ```
 
 ```{r}
-mr_coefs |>
-  pivot_wider(names_from = site, values_from = d) |>
-  GGally::ggpairs(columns = c("ca_pilot", "co_pilot", "de_pilot"))
+mr_wide <- mr_coefs |>
+  select(site, item, value) |>
+  group_by(item, site) |>
+  summarise(value = mean(value, na.rm = TRUE), .groups = "drop") |>
+  pivot_wider(names_from = site, values_from = value)
+
+GGally::ggpairs(mr_wide, columns = c("ca_pilot", "co_pilot", "de_pilot"))
+
 ```

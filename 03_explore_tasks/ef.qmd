@@ -10,9 +10,48 @@ format:
 ---
 
 
-# Data loading
+Required packages
 
 ```{r}
+
+#| echo: false
+
+library("tidyverse")
+library("glue")
+library("here")
+library("viridis")
+library("purrr")
+library("readr")
+library("dplyr")
+library("tidyr")
+library("quarto")
+library("forcats")
+library("ggplot2")
+
+```
+
+Helper functions
+
+```{r}
+#| echo: false
+
+source(here("02_score_data","irt_helpers.R"))
+source(here::here("plot_settings.R"))
+source(here("03_explore_tasks/explore_helper.R"))
+
+```
+
+Get EF data
+
+```{r}
+ef <- load_task_data(c("hearts-and-flowers","same-different-selection","memory-game"))
+ef
+
+```
+
+```{r}
+# Mike's previous code for loading data
+
 library(tidyverse)
 library(glue)
 library(here)
@@ -35,7 +74,7 @@ Load multigroup models
 
 
 ```{r}
-best_multigroup <- readRDS(here("02_scoring_outputs", "irt_outputs", "multigroup_best_outputs.rds")) 
+best_multigroup <- readRDS(here("02_scoring_outputs", "irt_outputs", "item_coefs.rds"))
 multigroup_scores <- readRDS(here("02_scoring_outputs", "scores", "scores_multigroup.rds"))
 ```
 
@@ -48,11 +87,27 @@ ef_runs <- ef |>
   summarise(correct = mean(correct), 
             age = mean(age))
 
-ggplot(ef_runs, aes(x = age, y = correct)) + 
+ef_sum_scores <- ggplot(ef_runs, aes(x = age, y = correct)) + 
   geom_point(alpha = .5) + 
   geom_smooth(method = "loess", lambda = 1) +
   facet_grid(site ~ task_id) + 
-  ylim(0,1) 
+  ylim(0,1) +
+  labs(
+    title = "Age-related accuracy, smoothed trends by site",
+    x = "Age (years)",
+    y = "Proportion correct",
+    caption = "Note: Each point represents a participant run; smoothed trend by site"
+  )
+
+print(ef_sum_scores)
+
+ggsave(
+  filename = here::here("03_explore_tasks", "Graphs", "ef_sum_scores.png"),
+  plot = ef_sum_scores,
+  width = 10,
+  height = 6,
+  dpi = 300
+)
 ```
 
 Now go to task analysis. 
@@ -143,18 +198,69 @@ ggplot(hf, aes(x = as.numeric(rt))) +
 We now use the multigroup IRT models. 
 
 ```{r}
+
+run_ages <- ef |>
+  select(site, run_id, user_id, age) |>
+  distinct()
+
 multigroup_scores_hf <- multigroup_scores |>
   filter(task_id == "hearts-and-flowers") |>
   select(site, task_id, user_id, run_id, metric_type, metric_value ) |>
   left_join(run_ages)
 
-ggplot(multigroup_scores_hf, aes(x = age, y = metric_value, col = site)) + 
+ef_irt <- ggplot(multigroup_scores_hf, aes(x = age, y = metric_value, col = site)) + 
   geom_point() + 
-  geom_smooth()
+  geom_smooth() +
+  labs(
+    title = "Developmental trends in EF ability by site",
+    x = "Age (years)",
+    y = "Ability (IRT Score)",
+    colour = "Site"
+  )
+print(ef_irt)
+
+ggsave(
+  filename = here::here("03_explore_tasks", "Graphs", "ef_irt.png"),
+  plot = ef_irt,
+  width = 10,
+  height = 6,
+  dpi = 300
+)
 ```
+
 Look at coefficients. 
 
+Hearts and flowers - IRT scores by trial type
+
 ```{r}
+# Hearts and flowers - IRT scores by trial type
+hf_coefs <- best_multigroup |>
+  filter(task_id == "hearts-and-flowers", term == "difficulty") |>
+  separate(item, into = c("task", "block", "trial", "number"), sep = "_", remove = FALSE) |>
+  select(-number)
+
+# Plot
+hf_trial_type <- ggplot(hf_coefs, aes(x = block, y = value, colour = trial, shape = trial)) +
+  geom_point(size = 3) +
+  geom_text_repel(aes(label = trial), size = 3, show.legend = FALSE) +
+  ylab("IRT difficulty") +
+  xlab("Block") +
+  facet_wrap(~site) +
+  labs(title = "Hearts and Flowers: Item difficulty by block and trial type") 
+
+print(hf_trial_type)
+
+ggsave(
+  filename = here::here("03_explore_tasks", "Graphs", "hf_trial_type.png"),
+  plot = hf_trial_type,
+  width = 10,
+  height = 6,
+  dpi = 300
+)
+
+
+
+# Mike previous code
 hf_coefs <- filter(best_multigroup, task_id == "hearts-and-flowers")$coefs[[1]] |>
   separate(item, sep = "_", into = c("task","block","trial", "number")) |>
   select(-number) |>
@@ -166,6 +272,8 @@ ggplot(hf_coefs, aes(x = a1, y = -d, col = block, pch = trial)) +
   xlab("Slope") + 
   ylab("Difficulty") + 
   facet_wrap(~site) 
+
+
 ```
 
 
@@ -178,6 +286,8 @@ mg <- ef |>
   mutate(span = as.numeric(str_replace(span, "len",""))) |>
   group_by(run_id, direction) |>
   mutate(max_span = max(span))
+
+
 ```
 
 ## Sumscore
@@ -186,7 +296,7 @@ mg <- ef |>
 mg_spans <- mg |>
   group_by(site, span, size, direction) |>
   summarise(n = n(), 
-            correct = mean(correct))
+            correct = mean(correct, na.rm = TRUE))
 
 ggplot(mg_spans, aes(x = span, y = correct, col = direction, pch = size)) + 
   geom_point(aes(size = n)) + 
@@ -258,6 +368,45 @@ ggplot(multigroup_scores_mg, aes(x = age, y = metric_value, col = site)) +
 Look at coefficients. 
 
 ```{r}
+mg_coefs <- best_multigroup |>
+  filter(task_id == "memory-game", term == "difficulty") |>
+  separate(item, into = c("task", "direction", "size", "span", "number"), sep = "_", remove = FALSE) |>
+  mutate(
+    span = as.numeric(str_replace(span, "len", "")),
+    label = paste(direction, size, sep = "_")
+  ) |>
+  select(-number, -task) |>
+  distinct()
+
+mg_coefs <- mg_coefs |>
+  group_by(site, direction, size) |>
+  mutate(is_max = -value == max(-value)) |> 
+  ungroup()
+
+mg_irt_trial_type <- ggplot(mg_coefs, aes(x = span, y = -value, col = direction, pch = size)) + 
+  geom_point() + 
+  geom_line(aes(group = interaction(direction, size))) +
+  geom_text_repel(data = mg_coefs |> filter(is_max), aes(label = label), size = 3) +
+  xlab("Span") + 
+  ylab("IRT Difficulty (flipped)") + 
+  facet_wrap(~site) +
+  labs(title = "Memory Game: IRT difficulty by span, direction, and size")
+
+print(mg_irt_trial_type)
+
+ggsave(
+  filename = here::here("03_explore_tasks", "Graphs", "mg_irt_trial_type.png"),
+  plot = mg_irt_trial_type,
+  width = 10,
+  height = 6,
+  dpi = 300
+)
+
+
+
+
+
+# Mike's previous code
 mg_coefs <- filter(best_multigroup, task_id == "memory-game")$coefs[[1]] |>
   separate(item, sep = "_", into = c("task", "direction", "size", "span", "number")) |>
   mutate(span = as.numeric(str_replace(span, "len",""))) |>
@@ -279,6 +428,7 @@ Note that we have used grid3 very little and so it's getting dropped from most a
 # SDS
 
 ```{r}
+
 sds <- filter(ef, task_id == "same-different-selection") |>
   separate(item_uid , into = c("task", "block", "trial"), sep = "_") 
 ```
@@ -321,6 +471,95 @@ ggplot(multigroup_scores_sds, aes(x = age, y = metric_value, col = site)) +
 Look at coefficients. 
 
 ```{r}
+
+# Filter and prepare SDS coefficients
+sds_coefs <- best_multigroup |>
+  filter(task_id == "same-different-selection", term == "difficulty") |>
+  separate(item, into = c("task", "block", "trial"), sep = "_", extra = "merge", remove = FALSE) |>
+  filter(block != "3unique") |>
+  mutate(
+    block = fct_relevel(block, "dimensions", "same"),
+    trial_type = str_extract(trial, "^[a-zA-Z]+")
+  ) |>
+  select(-task) |>
+  distinct()
+
+# Plot 1: Trial-level difficulty (colour = individual trial)
+ggplot(sds_coefs, aes(x = block, y = -value, colour = trial)) +
+  geom_point(size = 3, alpha = 0.8) +
+  geom_line(aes(group = trial), linewidth = 1) +
+  coord_flip() +
+  labs(
+    title = "Same-Different Selection: IRT Difficulty by Block and Trial",
+    x = "Block",
+    y = "IRT Difficulty (flipped)",
+    colour = "Trial"
+  )
+# graph isn't good
+
+# Plot 2: Grouped by trial type
+ggplot(sds_coefs, aes(x = block, y = -value, colour = trial_type)) +
+  geom_point(size = 3, alpha = 0.8) +
+  geom_line(aes(group = trial), linewidth = 1) +
+  coord_flip() +
+  labs(
+    title = "Same-Different Selection: IRT Difficulty by Block and Trial Type",
+    x = "Block",
+    y = "IRT Difficulty (flipped)",
+    colour = "Trial Type"
+  )
+
+# still not great
+
+# fix trial_type
+sds_coefs <- sds_coefs |>
+  mutate(trial_type = case_when(
+    str_detect(trial, "^[a-zA-Z]+") ~ str_extract(trial, "^[a-zA-Z]+"),
+    TRUE ~ "other"  # fallback label
+  ))
+
+# Reorder factor levels for clarity
+sds_coefs <- sds_coefs |>
+  mutate(
+    trial_type = factor(trial_type, levels = c("choice", "color", "number", "shape", "size", "texture", "other")),
+    block = fct_relevel(block, "dimensions", "same", "2match", "3match", "4match")
+  )
+
+# Summary: Mean difficulty by trial type within each block
+sds_summary <- sds_coefs |>
+  group_by(block, trial_type) |>
+  summarise(mean_difficulty = mean(-value, na.rm = TRUE), .groups = "drop")
+
+# Plot: mean difficulty
+sds_mean_irt <- ggplot(sds_coefs, aes(x = -value, y = block, colour = trial_type)) +
+  geom_jitter(height = 0.2, width = 0, alpha = 0.7, size = 2) +
+  labs(
+    x = "IRT Difficulty (flipped)",
+    y = "Block",
+    colour = "Trial Type",
+    title = "Same-Different Selection: Mean IRT difficulty by block and trial type"
+  )
+
+print(sds_mean_irt)
+
+# Note: values further to the left (more negative) indicate greater difficulty
+
+# Check "other"
+sds_coefs |> filter(trial_type == "other") |> 
+  distinct(trial)
+
+ggsave(
+  filename = here::here("03_explore_tasks", "Graphs", "sds_mean_irt.png"),
+  plot = sds_mean_irt,
+  width = 10,
+  height = 6,
+  dpi = 300
+)
+
+
+
+
+# Mike's previous code
 sds_coefs <- filter(best_multigroup, task_id == "same-different-selection")$coefs[[1]] |>
   separate(item, sep = "_", into = c("task", "block","trial")) |>
   filter(block != "3unique") |>
@@ -334,6 +573,7 @@ ggplot(sds_coefs, aes(x = block, y = -d, col = trial)) +
   # geom_text_repel(aes(label = direction)) + 
   xlab("block") + 
   ylab("Difficulty") 
+
 ```
 
 
