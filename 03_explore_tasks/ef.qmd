@@ -394,7 +394,7 @@ ggsave(
   dpi = 300
 )
 
-# By grid
+# Span graph
 mg_coefs <- best_multigroup |>
   filter(task_id == "memory-game", term == "difficulty", site != "us_pilot") |>
   separate(item, sep = "_", into = c("task", "direction", "size", "span", "number")) |>
@@ -408,7 +408,6 @@ mg_coefs <- best_multigroup |>
 mg_spans_irt <- mg_coefs |>
   group_by(site, span, size, direction) |>
   summarise(mean_difficulty = mean(value, na.rm = TRUE), .groups = "drop")
-
 
 # Plot
 mg_span_irt <- ggplot(mg_spans_irt, aes(x = span, y = -mean_difficulty, col = direction, pch = size)) +
