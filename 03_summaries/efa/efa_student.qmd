@@ -82,7 +82,7 @@ for(formi in constructs){
     
     cor_matrix <- cor(subconstruct, use = "pairwise.complete.obs")
 
-    corrplot(cor_matrix, method = "color", col = col, type = "upper", order = "original",
+    corrplot(cor_matrix, method = "color", col = colorRampPalette(c(pal$red, "white", pal$blue))(200), type = "upper", order = "original",
             tl.pos = "l", 
             tl.col = "black", 
             title =  paste0(sitei, ":", formi), 
