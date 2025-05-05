@@ -513,81 +513,35 @@ sds_coefs <- best_multigroup |>
   mutate(block = fct_relevel(block, "dimensions", "same")) |>
   distinct()
 
-# Check column names
-names(sds_coefs)
-
-# Plot
-ggplot(sds_coefs, aes(x = block, y = -value, colour = trial)) + 
-  geom_point() + 
-  #geom_line(aes(group = trial)) + 
-  coord_flip() +
-  xlab("Block") + 
-  ylab("Difficulty") + 
-  labs(
-    title = "Same-Different Selection: IRT difficulty by block and trial type",
-    y = "IRT difficulty (flipped)", 
-    colour = "Trial type"
-  )
-
-# Graph isn't right
-
-# 05.05.2025 updated
-sds_coefs |> count(block, trial) |>
-  arrange(block)
-
-# 'same' is empty
-
-# Check 'same'
-same_items <- best_multigroup |>
-  filter(task_id == "same-different-selection", term == "difficulty") |>
-  filter(str_detect(item, "same"))
-
-same_items |>
-  mutate(n_underscores = str_count(item, "_")) |>
-  count(n_underscores)
-
-
-# Create classification - sort into "choice" or "feature"
-sds_coefs_clean <- sds_coefs |> 
+# Label missing trials as "same" and classify trial type
+sds_coefs_clean <- sds_coefs |>
   mutate(
-    trial = ifelse(trial == "", "same_block", trial),
+    trial = if_else(trial == "", "same", trial),
     trial_type = case_when(
       str_detect(trial, "choice") ~ "choice-based",
       TRUE ~ "feature-based"
     )
   )
 
-sds_feature <- filter(sds_coefs_clean, trial_type == "feature-based")
-sds_choice  <- filter(sds_coefs_clean, trial_type == "choice-based")
-
-# Plots
-# feature based
-ggplot(sds_feature, aes(x = block, y = -value, colour = trial)) + 
-  geom_point() + 
-  geom_line(aes(group = trial)) + 
-  coord_flip() +
+# Plot: All trials
+ggplot(sds_coefs_clean, aes(x = block, y = -value, colour = trial)) + 
+  geom_jitter(width = 0.2, height = 0.1, size = 2) +
   facet_wrap(~site) +
+  coord_flip() +
   labs(
-    title = "Same-different selection: Feature-based IRT difficulty by block",
+    title = "Same-Different Selection: IRT difficulty by block and trial type",
     x = "Block",
-    y = "IRT difficulty (flipped)",
-    colour = "Feature"
-  ) 
+    y = "IRT difficulty (flipped)", 
+    colour = "Trial type"
+  )
 
-# de-bug
-sds_coefs_clean |> filter(trial_type == "feature-based") |> count(block)
-sds_coefs |> filter(block == "same") |>
-  count(trial)
-
-sds_coefs |> filter(block == "same")
-
-# choice based
-sds_choice <- sds_choice |> 
+# Subset and plot choice-based
+sds_choice <- sds_coefs_clean |> 
+  filter(trial_type == "choice-based") |>
   mutate(block = fct_relevel(block, "2match", "3match", "4match"))
 
 sds_choice_plot <- ggplot(sds_choice, aes(x = block, y = -value, colour = trial)) + 
   geom_point() + 
-  #geom_line(aes(group = trial)) + 
   coord_flip() +
   facet_wrap(~site) +
   labs(
@@ -607,10 +561,20 @@ ggsave(
   dpi = 300
 )
 
-sds_coefs |> glimpse()
+# Subset and plot feature-based !!
+sds_feature <- filter(sds_coefs_clean, trial_type == "feature-based")
 
-sds_choice |> 
-  count(site, block, trial)
+ggplot(sds_feature, aes(x = block, y = -value, colour = trial)) + 
+  geom_point() + 
+  coord_flip() +
+  facet_wrap(~site) +
+  labs(
+    title = "Same-different selection: Feature-based IRT difficulty by block",
+    x = "Block",
+    y = "IRT difficulty (flipped)",
+    colour = "Feature"
+  )
+
 
 
 
