@@ -21,6 +21,7 @@ library(glue)
 library(here)
 library(mirt)
 
+set.seed(1234)
 source(here("02_score_data/irt_helpers.R"))
 
 # tasks to include in these analyses
@@ -87,13 +88,24 @@ task_data_args <- task_data_prepped |>
 Joint model fitting. 
 
 ```{r fit-models}
-set.seed(1234)
+# multidyplr attempt
+library(multidplyr)
+cluster <- new_cluster(14) # needs generalizing
+cluster_library(cluster, "tidyverse")
+cluster_library(cluster, "mirt")
+cluster_library(cluster, "glue")
+cluster_copy(cluster, "fit_mirt")
+cluster_copy(cluster, "fit_multigroup")
+
 
 # fit all the models!
 task_models <- task_data_args |>
+  partition(cluster) |>
   mutate(mod = pmap(list(row_number(), data_prepped, item_type, model_str,
                          model_type, task_id, guess),
-                    fit_mirt))
+                    fit_mirt)) |>
+  collect() 
+
 
 # get each model's coefs, scores, BIC
 task_results <- task_models |>
@@ -121,21 +133,12 @@ task_scores <- task_best |>
          metric_type = glue("merged_data ability ({item_type}-{model_type})")) |>
   select(site, task_id, user_id, run_id, metric_type, metric_value = ability)
 
-# write_rds(task_scores, here("02_scored_data","scores","scores_fullpooling.rds"),
-#           compress = "gz")
+write_rds(task_scores, here("02_scored_data","scores","scores_fullpooling.rds"),
+compress = "gz")
 ```
 
 Now fit multigroup models.
 
-```{r}
-# foo <- multipleGroup(task_results$data_prepped[[1]], 
-#                 itemtype = "Rasch", 
-#                 group = task_results$groups[[1]], 
-#                 model = mirt.model(task_results$model_str[[1]]), 
-#                 verbose = TRUE, 
-#                 invariance = "configural",
-#                 technical = list(NCYCLES = 5000))
-```
 
 
 ```{r}
@@ -151,21 +154,23 @@ model_types <- tribble(~item_type, ~invariance_type,
 
 multigroup_models <- task_results |>
   full_join(model_types, relationship = "many-to-many") |>
+  partition(cluster) |>
   mutate(mod = pmap(list(row_number(), data_prepped, item_type, groups, model_str, 
-                                invariance_type, task_id), fit_multigroup))
+                                invariance_type, task_id), fit_multigroup)) |>
+  collect()
 
-# write_rds(multigroup_models,
-#           here("02_scored_data/irt_outputs/multigroup_outputs.rds"),
-#           compress = "gz")
+write_rds(multigroup_models,
+          here("02_scored_data/irt_outputs/multigroup_outputs.rds"),
+          compress = "gz")
 ```
 
 ```{r}
 # this is obviously terrible but somehow the following doesn't work 
 # do.call(anova, mod) 
 # even though anova(mod[[1]], mod[[2]]) works. 
+# also somehow we can only do 7 models here not 8?!?!
 
 task_anova <- multigroup_models |>
-  slice(-7) |>
   group_by(task_id) |>
   summarise(model_types = list(model_types), 
             anova = list(anova(mod[1][[1]], mod[2][[1]], mod[3][[1]], mod[4][[1]], 
@@ -181,29 +186,31 @@ task_anova <- multigroup_models |>
 
 
 ggplot(task_anova, aes(x = model_type, pch = best, 
-                       y = delta_bic, col = item_type)) + 
+                       y = delta_bic, col = item_type, size = as.numeric(best))) + 
   geom_point() + 
   coord_flip() + 
+  scale_size_continuous(guide = FALSE, range = c(1,3)) + 
   facet_wrap(~task_id)
 ggsave(here("02_score_data", "plots","multigroup_anova.png"))
 ```
+
 
 ```{r}
 best_multigroup <- multigroup_models |>
   mutate(bic = map_dbl(mod, mirt_bic)) |>
   group_by(task_id) |>
-  filter(bic == min(bic)) |>
-  ungroup() |>
-  mutate(fscore = map(mod, \(df) fscores(df)[,1]), 
-         coefs = map(mod, multigroup_coefs))
+  filter(bic == min(bic)) 
 ```
 
 NOW - we want to refit the best multigroup model with the full group of items, even those that aren't shared across groups. 
 
+The logic here is: if the best model is CONFIGURAL, then we need to use separate models for scoring and nothing is comparable at all.  
 
-THIS NEEDS TO BE CHANGED:
-* if CONFIGURAL wins, then we may need to fit separate models
-* otherwise refit the best model
+Otherwise, we use the best fitting model, but REFIT to all the items. So then we are using all the items under the assumption that if the overlapping items are being fit correctly and are metric/scalar invariant, then so are the non-overlapping items. 
+
+Right now scores for configural models use only overlapping data though. 
+
+
 ```{r}
 best_multigroup_refit <- best_multigroup |>
   mutate(data_filtered = map(data, \(df) df |> #filter_repeat_runs() |>
@@ -214,65 +221,91 @@ best_multigroup_refit <- best_multigroup |>
 
 # add arguments for model fitting to data
 best_multigroup_refit <- best_multigroup_refit |>
-  mutate(model_str = pmap_chr(list(data, data_prepped, item_type, model_type),
-                              generate_model_str_numeric)) |>
-  mutate(mod = pmap(list(row_number(), data_prepped, item_type, groups, model_str, 
-                                invariance_type, task_id), fit_multigroup))
+  mutate(model_str = ifelse(invariance_type != "configural", 
+                            pmap_chr(list(data, data_prepped, item_type, model_type),
+                              generate_model_str_numeric), model_str)) |>
+    partition(cluster) |>
+  mutate(mod = ifelse(invariance_type != "configural", 
+                      pmap(list(row_number(), data_prepped, item_type, groups, model_str, 
+                                invariance_type, task_id), fit_multigroup), 
+                      mod)) |>
+  collect()
 ```
 
-
+Now do the scoring. 
 
 ```{r}
-write_rds(best_multigroup_refit, 
-          here("02_scored_data/irt_outputs/multigroup_best_outputs.rds"))
+#independent_task_scores <- read_rds(here("02_scoring_outputs/scores/independent_scores.rds"))
+
+best_multigroup_refit <- best_multigroup_refit |>
+  ungroup() |>
+  mutate(fscore = map(mod, \(df) fscores(df)[,1]), 
+         coefs = map(mod, multigroup_coefs))
+
+
+task_scores <- best_multigroup_refit |>
+  select(task_id, item_type, model_type, invariance_type, groups, scores) |>
+  unnest(scores) |>
+  mutate(metric_type = glue("ability ({item_type}-{model_type}D-{invariance_type})")) |>
+  select(task_id, user_id, run_id, metric_type, metric_value = ability) |>
+  left_join(select(run_ages, site, user_id, run_id))
+
+# save scores
+write_rds(task_scores, here("02_scoring_outputs/scores/multigroup_scores.rds"),
+          compress = "gz")
 ```
 
 
-# Plot fscores. 
-
-```{r}
-# this is terrible column alignment
-
-groups <- multigroup_models |> 
-  select(task_id, groups, data_wide) |> 
-  mutate(user_id = map(data_wide, rownames)) |>
-  select(-data_wide) |>
-  unnest(c(groups, user_id))
 
 
-all_fscores <- best_multigroup |>
-  mutate(ids = map(data_filtered, \(df) df |> select(user_id, run_id) |> 
-                     distinct())) |>
-  select(task_id, ids, invariance_type, item_type, fscore, groups) |>
-  mutate(metric_type = glue("multigroup ({item_type}-{invariance_type})")) |>
-  unnest(cols = c("groups", "fscore", "ids")) |>
-  rename(site = groups, 
-         metric_value = fscore) |>
-  left_join(run_ages)
-```
 
-```{r}
-ggplot(all_fscores,
-       aes(x = age, y = metric_value, col = site)) + 
-  geom_point(alpha = .05) + 
-  geom_smooth(method = "loess", span = 1) + 
-  xlab("Age (years)") + 
-  xlim(5,13)+ 
-  ylab("Ability") + 
-  facet_wrap(~task_id) + 
-  ggthemes::theme_few() +
-  ggthemes::scale_color_solarized() + 
-  theme(legend.position = "bottom")
-```
 
-Save out scores. 
 
-```{r}
-all_fscores |>
-  select(site, task_id, user_id, run_id, metric_type, metric_value) |>
-  write_rds(here("02_scored_data","scores","scores_multigroup.rds"),
-            compress = "gz")
-```
+<!-- # Plot fscores.  -->
+
+<!-- ```{r} -->
+<!-- # this is terrible column alignment -->
+
+<!-- groups <- multigroup_models |>  -->
+<!--   select(task_id, groups, data_wide) |>  -->
+<!--   mutate(user_id = map(data_wide, rownames)) |> -->
+<!--   select(-data_wide) |> -->
+<!--   unnest(c(groups, user_id)) -->
+
+
+<!-- all_fscores <- best_multigroup |> -->
+<!--   mutate(ids = map(data_filtered, \(df) df |> select(user_id, run_id) |>  -->
+<!--                      distinct())) |> -->
+<!--   select(task_id, ids, invariance_type, item_type, fscore, groups) |> -->
+<!--   mutate(metric_type = glue("multigroup ({item_type}-{invariance_type})")) |> -->
+<!--   unnest(cols = c("groups", "fscore", "ids")) |> -->
+<!--   rename(site = groups,  -->
+<!--          metric_value = fscore) |> -->
+<!--   left_join(run_ages) -->
+<!-- ``` -->
+
+<!-- ```{r} -->
+<!-- ggplot(all_fscores, -->
+<!--        aes(x = age, y = metric_value, col = site)) +  -->
+<!--   geom_point(alpha = .05) +  -->
+<!--   geom_smooth(method = "loess", span = 1) +  -->
+<!--   xlab("Age (years)") +  -->
+<!--   xlim(5,13)+  -->
+<!--   ylab("Ability") +  -->
+<!--   facet_wrap(~task_id) +  -->
+<!--   ggthemes::theme_few() + -->
+<!--   ggthemes::scale_color_solarized() +  -->
+<!--   theme(legend.position = "bottom") -->
+<!-- ``` -->
+
+<!-- Save out scores.  -->
+
+<!-- ```{r} -->
+<!-- all_fscores |> -->
+<!--   select(site, task_id, user_id, run_id, metric_type, metric_value) |> -->
+<!--   write_rds(here("02_scored_data","scores","scores_multigroup.rds"), -->
+<!--             compress = "gz") -->
+<!-- ``` -->
 
 # Marginal reliabilities
 

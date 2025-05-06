@@ -13,40 +13,32 @@ source(here("03_summaries/scores_helper.R"))
 ```{r}
 sites <- c("ca_pilot", "co_pilot", "de_pilot")
 
-participants <- sites |>
-  set_names() |>
-  map(\(s) read_rds(here(glue("00_prepped_data/{s}/participants.rds")))) |>
-  list_rbind(names_to = "site")
-```
+task_scores <- read_rds(here("02_scoring_outputs","scores",
+                             "scores_multigroup.rds"))  |>
+  filter(site %in% sites)
 
-
-```{r}
-scores <- combine_scores()
-
-task_scores <- scores |>
-  mutate(metric_type = if_else(str_detect(metric_type, "ability"), "ability", metric_type)) |>
-  filter(!is.na(metric_value)) |>
-  inner_join(task_metrics)
+run_ages <- read_rds(here(glue("01_fetched_data/run_data.rds"))) |>
+  select(site, task_id, user_id, run_id, age)
 ```
 
 
 # Factor analysis
 
 ```{r}
-ages <- task_scores |>
+ages <- run_ages |>
   group_by(user_id, site) |>
   summarise(age = mean(age))
 
 
 scores_wide <- task_scores |>
-  select(task, metric_value, user_id, age, site) |>
-  pivot_wider(names_from = "task", values_from = "metric_value", 
+  select(task_id, metric_value, user_id, site) |>
+  pivot_wider(names_from = "task_id", values_from = "metric_value", 
               id_cols = c("user_id","site"), 
               values_fn = mean) 
 
 scores_wide_mat <- scores_wide |>
   janitor:::clean_names() |>
-  mutate(across(hostile_attribution:vocab, ~ scale(.x)[,1])) |>
+  mutate(across(egma_math:vocab, ~ scale(.x)[,1])) |>
   left_join(ages)
 ```
 
@@ -57,7 +49,7 @@ cfa_model <-  "
 reasoning =~ matrix_reasoning + mental_rotation 
 ef =~ hearts_and_flowers + memory_game + same_different_selection
 social =~ theory_of_mind
-language =~ trog + vocab + sre + swr + pa
+language =~ trog + vocab 
 math =~ egma_math
 "
 
@@ -87,8 +79,8 @@ cfa_model_age <-  "
 # measurement
 reasoning =~ matrix_reasoning + mental_rotation 
 ef =~ hearts_and_flowers + memory_game + same_different_selection
-social =~ theory_of_mind 
-language =~ trog + vocab + sre + swr + pa
+social =~ theory_of_mind
+language =~ trog + vocab 
 math =~ egma_math
 
 # age regressions

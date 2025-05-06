@@ -101,8 +101,8 @@ caregiver_tidy <- caregiver_tidy %>%
 # warning: childbullied has negative residual variance
 
 ```
-
 ```{r}
+
 caregiver_tidy <- caregiver_tidy %>%
   mutate(
     params_configural = map2(fit_configural, data, ~ extract_parameters_multiF(.x, .y)),
@@ -114,39 +114,36 @@ for (i in seq_len(nrow(caregiver_tidy))) {
   
   if (is.null(params_df)) next
   
-  params_df <- params_df %>%
-    filter(!is.na(form_subconstruct)) %>%
-    mutate(form_subconstruct = substr(form_subconstruct, 1, 10)) 
+  params_wide <- params_df %>%
+    filter(site %in% c("co_pilot", "de_pilot")) %>%
+    select(item, site, value, type, form_subconstruct) %>%
+    pivot_wider(names_from = site, values_from = value) %>%
+    filter(!is.na(co_pilot), !is.na(de_pilot))
   
-  if (nrow(params_df) == 0) next
-  
-  p <- ggplot(params_df, aes(y = reorder(item, value), x = value, color = site)) +
-    geom_segment(aes(x = 0, xend = value, y = reorder(item, value), yend = reorder(item, value)),
-                 position = position_dodge(width = 0.8), linewidth = 0.4) +
-    geom_point(position = position_dodge(width = 0.8), size = 2) +
-    facet_grid(form_subconstruct ~ type, scales = "free") +
-    scale_color_manual(values = site_pal) +  # Apply custom color palette here
-    theme_classic() +
-    labs(
-      x = "Estimate",
-      y = "Item",
-      color = "Site",
-      title = formi
-    ) +
-    theme(
-      strip.text = element_text(face = "bold", size = 10),
-      axis.text.y = element_text(size = 7),
-      plot.title = element_text(hjust = 0.5, face = "bold", size = 14)
-    )
 
-
+  p <- ggplot(params_wide, aes(x = co_pilot, y = de_pilot, color = form_subconstruct, label = item)) +
+  geom_point(size = 2, alpha = 0.9) +
+  geom_abline(slope = 1, intercept = 0, linetype = "dashed", color = "gray50") +
+  ggrepel::geom_text_repel(size = 3, max.overlaps = 100, segment.color = "gray80") +
+  facet_wrap(~ type, scales = "free") +
+  scale_color_manual(values = RColorBrewer::brewer.pal(7, "Set1")[-6])+
+  labs(
+    x = "Estimate (co_pilot)",
+    y = "Estimate (de_pilot)",
+    title = formi,
+    color = "Subconstruct"
+  ) +
+  theme(
+    legend.position = "bottom"
+  )
   
   print(p)
   
-  #ggsave(here::here(paste0("03_summaries/efa/fig/cfa_", gsub("[/\"']", "_", formi), ".png")), width = 7, height = 8, dpi = 300)
+  ggsave(here::here(paste0("03_summaries/efa/fig/cfa_points_", gsub("[/\"']", "_", formi), ".png")), width = 12, height = 5, dpi = 300)
 }
 
 ```
+
 
 
 
