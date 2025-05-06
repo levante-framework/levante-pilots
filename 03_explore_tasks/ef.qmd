@@ -54,8 +54,8 @@ Load multigroup models
 ```{r}
 best_multigroup <- readRDS(here("02_scoring_outputs", "irt_outputs", "item_coefs.rds"))
 multigroup_scores <- readRDS(here("02_scoring_outputs", "scores", "scores_multigroup.rds"))
+View(best_multigroup)
 ```
-
 
 First plot sumscores
 
@@ -182,7 +182,6 @@ ggplot(hf, aes(x = as.numeric(rt))) +
 We now use the multigroup IRT models. 
 
 ```{r}
-
 run_ages <- ef |>
   filter(site != "us_pilot") |>
   select(site, run_id, user_id, age) |>
@@ -224,6 +223,8 @@ hf_coefs <- best_multigroup |>
   filter(task_id == "hearts-and-flowers", term == "difficulty", site != "us_pilot") |>
   separate(item, into = c("task", "block", "trial", "number"), sep = "_", remove = FALSE) |>
   select(-number)
+
+hf_coefs |> count(model) # check which irt model
 
 # Plot
 library(ggrepel)
@@ -505,7 +506,7 @@ Look at coefficients.
 
 ```{r}
 
-#05.05
+#05.05.2025
 sds_coefs <- best_multigroup |>
   filter(task_id == "same-different-selection", term == "difficulty", site != "us_pilot") |>
   separate(item, sep = "_", into = c("task", "block", "trial", "number")) |>
@@ -513,7 +514,7 @@ sds_coefs <- best_multigroup |>
   mutate(block = fct_relevel(block, "dimensions", "same")) |>
   distinct()
 
-# Label missing trials as "same" and classify trial type
+# Label missing trials as 'same' and classify trial type
 sds_coefs_clean <- sds_coefs |>
   mutate(
     trial = if_else(trial == "", "same", trial),
@@ -553,6 +554,10 @@ sds_choice_plot <- ggplot(sds_choice, aes(x = block, y = -value, colour = trial)
 
 print(sds_choice_plot)
 
+# Why two points?
+sds_choice |> count(site, block, trial, model)
+
+
 ggsave(
   filename = here::here("03_explore_tasks", "Graphs", "sds_choice_plot.png"),
   plot = sds_choice_plot,
@@ -561,7 +566,7 @@ ggsave(
   dpi = 300
 )
 
-# Subset and plot feature-based !!
+# Subset and plot feature-based
 sds_feature <- filter(sds_coefs_clean, trial_type == "feature-based")
 
 ggplot(sds_feature, aes(x = block, y = -value, colour = trial)) + 
@@ -610,6 +615,8 @@ ggplot(sds_coefs, aes(x = block, y = -d, col = trial)) +
 ## Only LEVANTE tasks
 
 ```{r}
+library(janitor)
+library(lavaan)
 
 ef_scores <- filter(multigroup_scores, 
                     task_id %in% c("hearts-and-flowers", "memory-game", "same-different-selection"))
@@ -622,7 +629,7 @@ ef_scores_irt <- ef_scores |>
   mutate(across(hearts_and_flowers:same_different_selection, ~ scale(.x)[,1]), 
          ca_site = site == "ca_pilot",
          de_site = site == "de_pilot") |>
-  left_join(ages)
+  left_join(run_ages)
 ```
 
 ```{r}
