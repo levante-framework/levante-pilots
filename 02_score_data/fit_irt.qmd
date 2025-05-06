@@ -86,7 +86,7 @@ task_scores <- task_best |>
   select(site, task_id, item_type, model_type, scores) |>
   unnest(scores) |>
   mutate(#item_type = fct_recode(item_type, "1PL" = "Rasch"),
-         metric_type = glue("ability ({item_type}-{model_type})")) |>
+         metric_type = glue("ability ({item_type}-{model_type}D-configural)")) |>
   select(site, task_id, user_id, run_id, metric_type, metric_value = ability)
   
 # save all data + models + results
