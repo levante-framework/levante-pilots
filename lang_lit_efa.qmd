@@ -1,0 +1,101 @@
+---
+title: "lang_lit_efa"
+format: html
+editor: visual
+---
+
+Load data
+
+```{r}
+multigroup_scores <- readRDS(here("02_scoring_outputs", "scores", "scores_multigroup.rds"))
+
+names(multigroup_scores)
+# Check tasks
+multigroup_scores |> 
+  distinct(task_id) |> 
+  arrange(task_id) |> 
+  View()
+
+```
+
+```{r}
+library(janitor)
+library(lavaan)
+
+ll_scores <- filter(multigroup_scores, 
+                    task_id %in% c("trog", "vocab"))  
+
+ll_scores_irt <- ll_scores |>
+  select(site, task_id, metric_value, user_id) |>
+  pivot_wider(
+    names_from = "task_id", 
+    values_from = "metric_value", 
+    id_cols = c("user_id", "site")
+  ) |>
+  janitor::clean_names() |>
+  mutate(
+    across(c(trog, vocab), ~ scale(.x)[, 1])
+  )
+
+# Add age
+run_ages <- run_ages |>
+  mutate(site = case_when(
+    site == "1" ~ "ca_pilot",
+    site == "2" ~ "co_pilot",
+    site == "3" ~ "de_pilot",
+    TRUE ~ site  # fallback
+  ))
+
+ages <- multigroup_scores |>
+  select(site, run_id, user_id) |>
+  distinct() |>
+  left_join(run_ages, by = c("user_id", "site"))
+
+ll_scores_irt <- ll_scores_irt |>
+  left_join(ages |> select(user_id, site, age), by = c("user_id", "site"))
+
+```
+
+EFA
+
+```{r}
+cfa_model <-  "
+ll =~ trog + vocab 
+ll ~ age
+"
+
+fit <- cfa(cfa_model, ll_scores_irt, std.lv=TRUE, missing='fiml')
+summary(fit, fit.measures=TRUE, standardize=TRUE)
+
+install.packages("tidySEM")
+library(tidySEM)
+
+p <- prepare_graph(fit)
+plot(p)
+
+summary(fit, fit.measures = TRUE, standardize = TRUE)
+
+```
+
+Add in ROAR measures
+
+```{r}
+mefs_scores <- read_csv(here("02_scored_data","mefs_data","LEVANTE_20250403_1132.csv")) |>
+  janitor::clean_names() |>
+  select(child_id, a1_total_score, a1_standard_score) |>
+  rename(user_id = child_id, 
+         mefs_total = a1_total_score,
+         mefs_standard = a1_standard_score
+         ) 
+
+ef_scores_irt <- ef_scores_irt |>
+  left_join(mefs_scores) |>
+  mutate(mefs_total = scale(mefs_total)[,1],
+         mefs_standard = scale(mefs_standard)[,1])
+
+
+```
+
+```{r}
+
+```
