@@ -1,14 +1,5 @@
 ### functions to prep data for modeling
 
-# special for SDS, code too fast/slow RTs as incorrect
-rescore_hf <- function(task_id, df) {
-  if (task_id != "hearts-and-flowers") return(df)
-  df |>
-    mutate(response_fast = rt_numeric < 200, response_slow = rt_numeric > 2000,
-           correct = correct & !response_fast & !response_slow) |>
-    select(-response_fast, -response_slow)
-}
-
 # filter to each users earliest run
 filter_repeat_runs <- function(df) {
   df |>
@@ -24,10 +15,11 @@ filter_repeat_runs <- function(df) {
 item_sep <- "_"
 dedupe_items <- function(df) {
   df |>
-    group_by(user_id, item_id) |>
-    mutate(instance = seq_along(item_id)) |> # i
+    # group_by(user_id, item_uid) |>
+    group_by(run_id, item_uid) |>
+    mutate(instance = seq_along(item_uid)) |> # i
     ungroup() |>
-    mutate(item_inst = glue("{item_id}{item_sep}{instance}")) # item_i
+    mutate(item_inst = glue("{item_uid}{item_sep}{instance}")) # item_i
 }
 
 # remove items with no variance
@@ -44,7 +36,7 @@ remove_no_var_items <- function(df, item_n_min = 1) {
 # could potentially be useful if there are missing data issues
 remove_singlegroup_items <- function(df, group_n_min = 2) {
   df |>
-    group_by(item_id) |>
+    group_by(item_uid) |>
     mutate(n_groups = n_distinct(group)) |>
     ungroup() |>
     filter(n_groups >= group_n_min) # need to be in N or more groups
@@ -55,7 +47,7 @@ remove_nonshared_items <- function(df) {
   n_groups_total <- length(unique(df$group))
   
   df |>
-    group_by(item_id) |>
+    group_by(item_uid) |>
     mutate(n_groups = n_distinct(group)) |>
     ungroup() |>
     filter(n_groups == n_groups_total) # need to be in N or more groups
@@ -79,7 +71,7 @@ generate_model_str <- function(df, df_prepped, item_type, f) { # f = num factors
   params <- "d" # always have difficulty
   prior <- ""
   
-  items <- df |> pull(item_id) |> unique() # item ids
+  items <- df |> pull(item_uid) |> unique() # item ids
   #items <- df_prepped |> colnames() # note if columns are dropped in prep, this fixes matters.
   
   if (item_type != "Rasch") {
@@ -88,10 +80,10 @@ generate_model_str <- function(df, df_prepped, item_type, f) { # f = num factors
     params <- c(params, paste0("a", 1:s))
     #prior <- paste0("PRIOR = (1-", length(items), ", a0, norm, 0, 5)") # do these need to be named items?
   }
-  constraints <- items |> map(\(item_id) {
+  constraints <- items |> map(\(item_uid) {
     # get columns with item's instances
     matched <- colnames(df_prepped) |>
-      keep(\(col) str_detect(col, glue("^{item_id}{item_sep}")))
+      keep(\(col) str_detect(col, glue("^{item_uid}{item_sep}")))
     if (length(matched) > 1) {
       # constraint for item instance: (item_1, item_2, param)
       map_chr(params, \(p) glue("({paste_c(matched)},{p})")) |> paste_c()
@@ -112,7 +104,7 @@ generate_model_str_numeric <- function(df, df_prepped, item_type, f) { # f = num
   params <- "d" # always have difficulty
   prior <- ""
   
-  items <- df |> pull(item_id) |> unique() # item ids
+  items <- df |> pull(item_uid) |> unique() # item ids
   #items <- df_prepped |> colnames() # note if columns are dropped in prep, this fixes matters.
   
   if (item_type != "Rasch") {
@@ -121,9 +113,9 @@ generate_model_str_numeric <- function(df, df_prepped, item_type, f) { # f = num
     params <- c(params, paste0("a", 1:s))
     #prior <- paste0("PRIOR = (1-", length(items), ", a0, norm, 0, 5)") # do these need to be named items?
   }
-  constraints <- items |> map(\(item_id) {
+  constraints <- items |> map(\(item_uid) {
     # get columns with item's instances
-    matched_idx <- which(str_detect(colnames(df_prepped), paste0(item_id,"_")))
+    matched_idx <- which(str_detect(colnames(df_prepped), paste0(item_uid,"_")))
     
     if (length(matched_idx) > 1) {
       # constraint for item instance: (item_1, item_2, param)
@@ -138,14 +130,13 @@ generate_model_str_numeric <- function(df, df_prepped, item_type, f) { # f = num
 }
 
 
-
 # wrapper to fit mirt model with supplied arguments
-fit_mirt <- function(i, df, item_type, model_str, model_type, task_id, guess, verbose = FALSE) {
-  message(glue("fitting row {i}: {task_id} model {item_type} with {model_type} dims"))
+fit_mirt <- function(i, df, item_type, model_str, model_type, item_task, guess, verbose = FALSE) {
+  message(glue("fitting row {i}: {item_task} model {item_type} with {model_type} dims"))
   # TODO: temporarily disabled guessing params due to upstream data problem
   
   if (nrow(df) > 0) {
-    mirt(df, itemtype = item_type, model = model_str, #guess = guess,
+    mirt(df, itemtype = item_type, model = model_str, guess = guess,
          technical = list(NCYCLES = 5000), verbose = verbose)
   } else {
     return(NA)
@@ -154,8 +145,8 @@ fit_mirt <- function(i, df, item_type, model_str, model_type, task_id, guess, ve
 
 # wrapper to fit multigroup mirt model with supplied arguments
 fit_multigroup <- function(i, df, item_type, group, model_str, guess,
-                           invariance, task_id, verbose = FALSE) {
-  message(glue("fitting row {i}: {task_id}, {item_type}  model, {invariance} invariance"))
+                           invariance, item_task, verbose = FALSE) {
+  message(glue("fitting row {i}: {item_task}, {item_type}  model, {invariance} invariance"))
   
   # see https://docs.google.com/presentation/d/1OyQbOBhlOnuNpX9lgHKkp-xyTplo1JHdrNenUFyfZmI/edit?slide=id.p#slide=id.p 
   # for an illustration of how these work
@@ -210,7 +201,6 @@ mirt_scores <- function(mod, df, df_prepped) {
                           ability = scores[,1]) # TODO: check this gives correct order
     df |> distinct(user_id, run_id) |> # took out task ID here because of multi-task models
       left_join(user_scores) 
-    # |> select(-task_id)
   }
 }
 

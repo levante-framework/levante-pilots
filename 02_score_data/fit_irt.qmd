@@ -17,23 +17,27 @@ irt_tasks <- c("egma-math",
                "trog",
                "vocab")
 
-task_data_nested <- read_rds(here(glue("01_fetched_data/task_data_nested.rds"))) |>
+task_data_irt <- read_rds(here(glue("01_fetched_data/task_data_nested.rds"))) |>
   filter(task_id %in% irt_tasks)
 ```
 
 ```{r}
-# transform each task's data for modeling by applying above functions
-task_data_prepped <- task_data_nested |>
-  mutate(data = map2(task_id, data, rescore_hf)) |>
-  mutate(data = map(data, \(df) rename(df, item_id = item_uid)),
-    data_filtered = map(data, \(df) df |> # filter_repeat_runs() |>
+# no_guess_tasks <- c("mg", "sds")
+# transform each task's data for modeling
+task_data_prepped <- task_data_irt |>
+  mutate(data_filtered = map(data, \(df) df |> # filter_repeat_runs() |>
                                dedupe_items() |> remove_no_var_items()),
          data_prepped = map(data_filtered, to_mirt_shape)) |>
   filter(map_int(data_prepped, nrow) > 0) |>
   # pull out chance values
-  mutate(guess = NA) # TODO
-  # mutate(guess = map(data_filtered, # TODO: check that this gives correct order
-  #                    \(df) df |> distinct(item_inst, chance) |> pull(chance)))
+  # note: this depends on item_inst order ending up the same from the outputs of
+  # distinct() and pivot_wider(), which appears to be the case
+  mutate(guess = data_filtered |>
+           map(\(df) df |> distinct(item_inst, chance) |> pull(chance)))
+  # mutate(guess = map2(data_filtered, item_task, \(df, tsk) {
+  #   if (tsk %in% no_guess_tasks) 0 else df |> distinct(item_inst, chance) |> pull(chance)
+  # }))
+  # guess = if_else(item_task %in% no_guess_tasks, 0, guess))
 
 write_rds(task_data_prepped, here("02_scoring_outputs/irt_data/independent_task_data_prepped.rds"),
           compress = "gz")
@@ -64,8 +68,10 @@ set.seed(1234)
 
 # fit all the models!
 task_models <- task_data_args |>
+  # filter(item_task == "same-different-selection") |>
+  # slice(1) |>
   mutate(mod = pmap(list(row_number(), data_prepped, item_type, model_str,
-                         model_type, task_id, guess),
+                         model_type, item_task, guess),
                     fit_mirt))
 
 # get each model's coefs, scores, BIC
@@ -76,18 +82,18 @@ task_results <- task_models |>
 
 # best fitting model for each task
 task_best <- task_results |>
-  group_by(site, task_id) |>
+  group_by(site, item_task) |>
   filter(bic == min(bic)) |>
   ungroup()
-  # select(site, task_id, item_type, model_type, coefs, scores)
+  # select(site, item_task, item_type, model_type, coefs, scores)
 
 # scores from best fitting models
 task_scores <- task_best |>
-  select(site, task_id, item_type, model_type, scores) |>
+  select(site, item_task, item_type, model_type, scores) |>
   unnest(scores) |>
   mutate(#item_type = fct_recode(item_type, "1PL" = "Rasch"),
          metric_type = glue("ability ({item_type}-{model_type}D-configural)")) |>
-  select(site, task_id, user_id, run_id, metric_type, metric_value = ability)
+  select(site, item_task, user_id, run_id, metric_type, metric_value = ability)
   
 # save all data + models + results
 # save(task_results, file = "irt_models.RData")
@@ -102,14 +108,14 @@ write_rds(task_scores, here("02_scoring_outputs/scores/independent_scores.rds"),
 ```{r}
 # item parameters
 item_coefs <- task_results |>
-  select(site, task_id, dims = model_type, params = item_type, coefs) |>
+  select(site, item_task, dims = model_type, params = item_type, coefs) |>
   unnest(coefs) |>
   select(-g, -u) |>
   # pivot_longer(c(d, a1, a2), names_to = "term", values_to = "value") |>
   pivot_longer(c(d, a1), names_to = "term", values_to = "value") |>
   filter(!is.na(value)) |>
   mutate(params = fct_inorder(params), term = fct_inorder(term)) |>
-  arrange(task_id, params, dims) |>
+  arrange(item_task, params, dims) |>
   # mutate(model = paste(params, dims) |> fct_inorder()) |>
   mutate(model = params |> fct_inorder(),
          term = term |> fct_recode("difficulty" = "d", "discrimination" = "a1")) |>
@@ -124,7 +130,7 @@ write_rds(item_coefs, here("02_scoring_outputs/irt_outputs/independent_item_coef
 ```{r}
 task_rxx <- task_best |>
   mutate(rxx = map_dbl(mod, marginal_rxx)) |>
-  select(site, task_id, item_type, rxx)
+  select(site, item_task, item_type, rxx)
 
 task_rxx_wide <- task_rxx |> 
   select(-item_type) |> 

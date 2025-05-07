@@ -26,25 +26,43 @@ Examine test/retest reliability in German data.
 TODO: add gap filtering to make sure we have at least 1 month between runs.
 
 ```{r}
-retest <- thetas |> 
-  filter(site == "de_pilot") |> 
-  left_join(select(runs, user_id, run_id, age)) |>
-  group_by(user_id, task_id) |>
-  arrange(age) |>
-  mutate(age_gap = c(0, diff(age))) |>
-  # filter(age_gap > .01) |>
+de_retest_scores <- thetas |> 
+  filter(site == "de_pilot", item_task != "ha") |> 
+  left_join(select(runs, user_id, run_id, age, completed, valid_run)) |>
+  filter(completed, valid_run) |>
+  group_by(user_id, item_task) |>
+  arrange(user_id ,item_task, age) |>
   filter(n() > 1) |>
-  mutate(run_number = dense_rank(run_id)) |>
+  mutate(run_number = row_number(),
+         age_gap = c(0, diff(age))) 
+
+retest_wide <- de_retest_scores |>
+  group_by(user_id, item_task) |>
+  mutate(has_retest = any(age_gap > .05), 
+         mean_age = mean(age)) |>
+  filter(has_retest) |>
   ungroup() |>  
   pivot_wider(
-    id_cols = c(user_id, task_id),
+    id_cols = c(user_id, item_task, mean_age),
     names_from = run_number,
     values_from = metric_value,
     names_prefix = "run_"
-  ) 
+  ) |>
+  select(user_id, item_task, age = mean_age, run_1, run_2)
 
-retest |>
-  group_by(task_id) |>
-  summarise(test_retest_r = cor(run_1, run_2, use = "complete.obs"))
+retest_wide |>
+  group_by(item_task) |>
+  summarise(test_retest_r = cor(run_1, run_2, use = "complete.obs"), 
+            n = n()) 
   
 ```
+
+```{r}
+ggplot(retest_wide, 
+       aes(x = run_1, y = run_2, col = age)) +
+  geom_point() + 
+  geom_smooth(aes(group = 1), col = "blue", method = "lm") + 
+  scale_color_viridis() + 
+  facet_wrap(~item_task) 
+```
+

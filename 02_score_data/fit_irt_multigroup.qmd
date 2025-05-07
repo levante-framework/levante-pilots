@@ -40,9 +40,9 @@ site_task_data_nested <- read_rds(here(glue("01_fetched_data/task_data_nested.rd
 
 task_data_nested <- site_task_data_nested |>
   unnest(data) |>
-  rename(group = site, item_id = item_uid) |>
-  filter(!is.na(item_id)) |>
-  nest(data = -task_id) 
+  rename(group = site) |>
+  filter(!is.na(item_uid)) |>
+  nest(data = -item_task) 
 ```
 
 Get participants. 
@@ -58,23 +58,18 @@ run_ages <- read_rds(here(glue("01_fetched_data/run_data.rds"))) |>
 ```{r}
 # now removes missing item ID data
 task_data_prepped <- task_data_nested |>
-  mutate(data = map2(task_id, data, rescore_hf)) |>
-  mutate(#data = map(data_with_ids, \(df) filter(df, !is.na(item_id))),
-         data_filtered = map(data, \(df) df |> #filter_repeat_runs() |>
+  mutate(data_filtered = map(data, \(df) df |> #filter_repeat_runs() |>
                                remove_nonshared_items() |>
                                dedupe_items() |> remove_no_var_items()),
          data_wide = map(data_filtered, to_mirt_shape_grouped), 
          data_prepped = map(data_wide, \(df) df |> select(-group)),
          groups = map(data_wide, \(df) df |> pull(group))) |>
-  # pull out chance values
-  mutate(guess = NA) # TODO
-  # mutate(guess = map(data_filtered, # TODO: check that this gives correct order
-  #                    \(df) df |> distinct(item_inst, chance) |> pull(chance)))
+  mutate(guess = map(data_filtered,
+                     \(df) df |> distinct(item_inst, chance) |> pull(chance)))
 
 
 item_types <- c("Rasch", "2PL") #, "3PL") # set of parameterizations
 model_types <- c(1) #, 2) # set of dimensionalities
-# model_types <- c(1) # set of dimensionalities
 
 # add arguments for model fitting to data
 task_data_args <- task_data_prepped |>
@@ -102,8 +97,8 @@ cluster_copy(cluster, "fit_multigroup")
 task_models <- task_data_args |>
   partition(cluster) |>
   mutate(mod = pmap(list(row_number(), data_prepped, item_type, model_str,
-                         model_type, task_id, guess),
-                    fit_mirt)) 
+                         model_type, item_task, guess),
+                    fit_mirt)) |>
   collect()
 
 
@@ -113,32 +108,31 @@ task_results <- task_models |>
          scores = pmap(list(mod, data_filtered, data_prepped), mirt_scores),
          bic = map_dbl(mod, mirt_bic))
 
-# write_rds(task_results, here("02_scored_data/irt_outputs/multigroup_task_results.rds"),
-          # compress = "gz")
+write_rds(task_results, here("02_scored_data/irt_outputs/fullpooling_task_results.rds"),
+          compress = "gz")
 
 
 # best fitting model for each task
 task_best <- task_results |>
-  group_by(task_id) |>
+  group_by(item_task) |>
   filter(bic == min(bic)) |>
   ungroup()
-  # select(site, task_id, item_type, model_type, coefs, scores)
+  # select(site, item_task, item_type, model_type, coefs, scores)
 
 # scores from best fitting models
 task_scores <- task_best |>
-  select(task_id, item_type, model_type, scores, groups) |>
+  select(item_task, item_type, model_type, scores, groups) |>
   rename(site = groups) |>
   unnest(cols = c(scores, site)) |>
   mutate(#item_type = fct_recode(item_type, "1PL" = "Rasch"),
          metric_type = glue("merged_data ability ({item_type}-{model_type})")) |>
-  select(site, task_id, user_id, run_id, metric_type, metric_value = ability)
+  select(site, item_task, user_id, run_id, metric_type, metric_value = ability)
 
 write_rds(task_scores, here("02_scored_data","scores","scores_fullpooling.rds"),
-compress = "gz")
+          compress = "gz")
 ```
 
 Now fit multigroup models.
-
 
 
 ```{r}
@@ -156,13 +150,14 @@ multigroup_models <- task_results |>
   full_join(model_types, relationship = "many-to-many") |>
   partition(cluster) |>
   mutate(mod = pmap(list(row_number(), data_prepped, item_type, groups, model_str, 
-                                invariance_type, task_id), fit_multigroup)) |>
+                                invariance_type, item_task), fit_multigroup)) |>
   collect()
 
 write_rds(multigroup_models,
           here("02_scored_data/irt_outputs/multigroup_outputs.rds"),
           compress = "gz")
 ```
+
 
 ```{r}
 # this is obviously terrible but somehow the following doesn't work 
@@ -171,12 +166,12 @@ write_rds(multigroup_models,
 # also somehow we can only do 7 models here not 8?!?!
 
 task_anova <- multigroup_models |>
-  group_by(task_id) |>
+  group_by(item_task) |>
   summarise(model_types = list(model_types), 
             anova = list(anova(mod[1][[1]], mod[2][[1]], mod[3][[1]], mod[4][[1]], 
                                mod[5][[1]], mod[6][[1]], mod[7][[1]]))) |>
   unnest(cols = c(model_types, anova)) |>
-  group_by(task_id) |>
+  group_by(item_task) |>
   mutate(delta_bic = BIC - min(BIC), 
          model_type = fct_relevel(glue("{item_type}-{invariance_type}"), 
                                   "2PL-full",
@@ -190,7 +185,7 @@ ggplot(task_anova, aes(x = model_type, pch = best,
   geom_point() + 
   coord_flip() + 
   scale_size_continuous(guide = FALSE, range = c(1,3)) + 
-  facet_wrap(~task_id)
+  facet_wrap(~item_task)
 ggsave(here("02_score_data", "plots","multigroup_anova.png"))
 ```
 
@@ -198,7 +193,7 @@ ggsave(here("02_score_data", "plots","multigroup_anova.png"))
 ```{r}
 best_multigroup <- multigroup_models |>
   mutate(bic = map_dbl(mod, mirt_bic)) |>
-  group_by(task_id) |>
+  group_by(item_task) |>
   filter(bic == min(bic)) 
 ```
 
@@ -227,7 +222,7 @@ best_multigroup_refit <- best_multigroup_refit |>
     partition(cluster) |>
   mutate(mod = ifelse(invariance_type != "configural", 
                       pmap(list(row_number(), data_prepped, item_type, groups, model_str, 
-                                invariance_type, task_id), fit_multigroup), 
+                                invariance_type, item_task), fit_multigroup), 
                       mod)) |>
   collect()
 ```
@@ -244,10 +239,10 @@ best_multigroup_refit <- best_multigroup_refit |>
 
 
 task_scores <- best_multigroup_refit |>
-  select(task_id, item_type, model_type, invariance_type, groups, scores) |>
+  select(item_task, item_type, model_type, invariance_type, groups, scores) |>
   unnest(scores) |>
   mutate(metric_type = glue("ability ({item_type}-{model_type}D-{invariance_type})")) |>
-  select(task_id, user_id, run_id, metric_type, metric_value = ability) |>
+  select(item_task, user_id, run_id, metric_type, metric_value = ability) |>
   left_join(select(run_ages, site, user_id, run_id))
 
 # save scores
