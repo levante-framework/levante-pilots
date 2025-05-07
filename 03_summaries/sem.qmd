@@ -26,7 +26,7 @@ run_ages <- read_rds(here(glue("01_fetched_data/run_data.rds"))) |>
 
 ```{r}
 ages <- run_ages |>
-  group_by(user_id, site) |>
+  group_by(user_id) |>
   summarise(age = mean(age))
 
 
@@ -93,6 +93,32 @@ math ~ age
 
 fit_age <- cfa(cfa_model_age, scores_wide_mat, std.lv=TRUE, missing='fiml')
 summary(fit_age, fit.measures=TRUE, standardize=TRUE)
+
+
+layout_age = matrix(nrow=7, ncol = 12, 
+                data = c(
+                  "matrix_reasoning", "mental_rotation", "hearts_and_flowers","memory_game", "same_different_selection", "theory_of_mind","trog","vocab","sre","swr","pa","egma_math",
+                         NA, NA, NA, NA, NA, NA, NA, NA, NA, NA, NA, NA, 
+                         NA, NA, NA, NA, NA, NA, NA, NA, NA, NA, NA, NA, 
+                         "reasoning",NA, "ef", NA, NA, "social","language",NA, NA, NA, NA,
+                         "math",
+                         NA, NA, NA, NA, NA, NA, NA, NA,  NA, NA, NA, NA, 
+                         NA, NA, NA, NA, NA, NA, NA, NA,  NA, NA, NA, NA, 
+                  NA, NA, NA, NA, NA, NA, "age", NA, NA,  NA, NA, NA
+                         ), byrow = TRUE)
+
+graph_sem(model = fit_age, text_size = 3, layout = t(layout_age)) + 
+  theme(panel.background = element_rect(fill = "white"))
+ggsave(here("03_summaries/plots/sem_age.png"), width = 14, height = 10)
+```
+
+Add site grouping - this is an invariant mdoel tha
+
+```{r}
+fit_age_site <- cfa(cfa_model_age, scores_wide_mat, 
+                    group = "site", 
+                    std.lv=TRUE, missing='fiml')
+summary(fit_age_site, fit.measures=TRUE, standardize=TRUE)
 
 
 layout_age = matrix(nrow=7, ncol = 12, 
@@ -200,7 +226,7 @@ cfa_model_age_de <-  "
 reasoning =~ matrix_reasoning + mental_rotation 
 ef =~ hearts_and_flowers + memory_game + same_different_selection
 social =~ theory_of_mind 
-language =~ trog + vocab + sre + swr
+language =~ trog + vocab 
 math =~ egma_math
 
 # age regressions
@@ -231,7 +257,37 @@ fit_age_de <- cfa(cfa_model_age_de,
 
 graph_sem(model = fit_age_de, text_size = 3, layout = t(layout_age_de)) + 
   theme(panel.background = element_rect(fill = "white"))
-ggsave(here("03_summaries/plots/extra/sem_age_de.png"), width = 14, height = 10)
+# ggsave(here("03_summaries/plots/extra/sem_age_de.png"), width = 14, height = 10)
+```
+
+
+```{r}
+
+cfa_model_age_co <-  "
+# measurement
+reasoning =~ matrix_reasoning + mental_rotation 
+ef =~ hearts_and_flowers + memory_game + same_different_selection
+social =~ theory_of_mind 
+language =~ trog + vocab 
+math =~ egma_math
+
+# age regressions
+reasoning ~ age
+ef ~ age
+social ~ age
+language ~ age
+math ~ age
+"
+
+fit_age_co <- cfa(cfa_model_age_co, 
+               filter(scores_wide_mat, site == "co_pilot"),
+               std.lv=TRUE, missing='fiml')
+# summary(fit_age, fit.measures=TRUE, standardize=TRUE)
+
+
+graph_sem(model = fit_age_co, text_size = 3, layout = t(layout_age_de)) + 
+  theme(panel.background = element_rect(fill = "white"))
+# ggsave(here("03_summaries/plots/extra/sem_age_de.png"), width = 14, height = 10)
 ```
 
 # Age exploration

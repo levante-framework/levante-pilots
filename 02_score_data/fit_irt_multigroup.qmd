@@ -103,8 +103,8 @@ task_models <- task_data_args |>
   partition(cluster) |>
   mutate(mod = pmap(list(row_number(), data_prepped, item_type, model_str,
                          model_type, task_id, guess),
-                    fit_mirt)) |>
-  collect() 
+                    fit_mirt)) 
+  collect()
 
 
 # get each model's coefs, scores, BIC
