@@ -39,6 +39,19 @@ source(here("03_summaries", "plotting_helper.R"))
 source(here("03_explore_tasks/explore_helper.R"))
 ```
 
+Getting overall counts.
+
+
+```{r}
+runs <- read_rds(here("01_fetched_data/run_data.rds")) 
+
+# Get the number of unique participants per site
+n_participants <- runs |>
+  distinct(site, user_id) |>
+  count(site, name = "n_participants")
+```
+
+
 Getting counts per task per site
 
 ```{r}
@@ -96,5 +109,11 @@ wide_summaries_by_site <- all_summaries |>
 knitr::kable(wide_summaries_by_site)
 
 
+```
+
+# Survey counts
+
+```{r}
+surveys <- read_rds(here("01_fetched_data","survey_data_nested"))
 ```
 
