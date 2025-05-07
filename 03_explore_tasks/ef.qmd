@@ -54,7 +54,6 @@ Load multigroup models
 ```{r}
 best_multigroup <- readRDS(here("02_scored_data", "irt_outputs", "multigroup_best_outputs.rds"))
 multigroup_scores <- readRDS(here("02_scoring_outputs", "scores", "scores_multigroup.rds"))
-View(best_multigroup)
 ```
 
 First plot sumscores
