@@ -9,7 +9,7 @@ source(here("02_score_data/irt_helpers.R"))
 
 run_data <- read_rds(here(glue("01_fetched_data/run_data.rds")))
 
-trial_data <- read_rds(here(glue("01_fetched_data/trials.rds")))
+trial_data <- read_rds(here(glue("01_fetched_data/trial_data.rds")))
 ```
 
 ```{r}
@@ -25,8 +25,7 @@ trial_data_coded <- trial_data |>
 
 ```{r}
 runs <- run_data |>
-  mutate(dataset = dataset |> str_extract("^.*?(?=:)") |> str_remove("_pilot"),
-         task_id = fct_infreq(task_id),
+  mutate(item_task = fct_infreq(item_task),
          completed = if_else(completed, "complete", "incomplete"),
          msg = validation_msg_run |> map(jsonlite::fromJSON) |>
            map_chr(\(m) if (length(m) > 0) pluck(m, 1) else "valid"),
@@ -34,12 +33,12 @@ runs <- run_data |>
   select(site, dataset, contains("_id"), run_status)
 
 run_status_summary <- runs |>
-  count(dataset, task_id, run_status) |>
-  group_by(dataset, task_id) |>
+  count(dataset, item_task, run_status) |>
+  group_by(dataset, item_task) |>
   mutate(prop = n / sum(n)) |>
   ungroup()
 
-ggplot(run_status_summary, aes(x = n, y = task_id, fill = run_status)) +
+ggplot(run_status_summary, aes(x = n, y = item_task, fill = run_status)) +
   facet_wrap(vars(dataset), scales = "free") +
   # geom_bar(stat = "identity") +
   geom_col() +
@@ -51,38 +50,39 @@ ggplot(run_status_summary, aes(x = n, y = task_id, fill = run_status)) +
   labs(x = "Number of runs", y = "", fill = "Run status") +
   theme(legend.position = "bottom",
         strip.placement = "outside")
-ggsave("valid_run_counts.png", width = 12, height = 6)
+ggsave(here("02_score_data/plots/valid_run_counts.png"), width = 12, height = 6)
 ```
 
 ```{r}
-trial_status_summary <- trial_data |>
-  mutate(task_id = fct_infreq(task_id),
+trial_status_summary <- trial_data_coded |>
+  mutate(item_task = fct_infreq(item_task),
          msg = validation_msg_trial |> map(jsonlite::fromJSON) |>
            map_chr(\(m) if (length(m) > 0) pluck(m, 1) else "valid"),
          status = msg |> fct_infreq() |> fct_rev()) |>
-  count(dataset, task_id, status) |>
-  group_by(dataset, task_id) |>
-  mutate(prop = n / sum(n))
+  count(dataset, item_task, status) |>
+  group_by(dataset, item_task) |>
+  mutate(prop = n / sum(n)) |>
+  ungroup()
 
-ggplot(trial_status_summary, aes(x = n, y = task_id, fill = status)) +
+ggplot(trial_status_summary, aes(x = n, y = item_task, fill = status)) +
   facet_wrap(vars(dataset), scales = "free") +
   # geom_bar(stat = "identity") +
   geom_col() +
   geom_text(aes(label = paste0(round(prop * 100), "%")),
             x = 0, size = 2.5, hjust = 0, color = "white", family = .font,
-            data = trial_summary |> filter(status == "valid")) +
+            data = trial_status_summary |> filter(status == "valid")) +
   scale_fill_ptol(guide = guide_legend(reverse = TRUE)) +
   scale_x_continuous(expand = expansion(mult = 0.01)) +
   labs(x = "Number of trials", y = "", fill = "Trial status") +
   theme(legend.position = "bottom",
         strip.placement = "outside")
 
-ggsave("valid_trial_counts.png", width = 12, height = 6)
+ggsave(here("02_score_data/plots/valid_trial_counts.png"), width = 12, height = 6)
 ```
 
 ```{r}
-trial_runs <- trial_data |>
-  group_by(site, dataset, user_id, run_id, task_id) |>
+trial_runs <- trial_data_coded |>
+  group_by(site, dataset, user_id, run_id, item_task) |>
   summarise(mean_correct = mean(correct),
             sd_correct = sd(correct),
             n_trials = n(),
@@ -97,12 +97,12 @@ trial_runs <- trial_data |>
   # unite(run_status, run_status, correctness, sep = " + ")
 
 trial_runs_summary <- trial_runs |>
-  count(dataset, task_id, correctness) |>
-  group_by(dataset, task_id) |>
+  count(dataset, item_task, correctness) |>
+  group_by(dataset, item_task) |>
   mutate(prop = n / sum(n)) |>
   mutate(correctness = correctness |> fct_infreq())
 
-ggplot(trial_runs_summary, aes(x = n, y = task_id, fill = correctness)) +
+ggplot(trial_runs_summary, aes(x = n, y = item_task, fill = correctness)) +
   facet_wrap(vars(dataset), scales = "free") +
   # geom_bar(stat = "identity") +
   geom_col() +
@@ -114,11 +114,11 @@ ggplot(trial_runs_summary, aes(x = n, y = task_id, fill = correctness)) +
   labs(x = "Number of runs", y = "", fill = "Correctness status") +
   theme(legend.position = "bottom",
         strip.placement = "outside")
-ggsave("valid_correctness_counts.png", width = 12, height = 6)
+ggsave(here("02_score_data/plots/valid_correctness_counts.png"), width = 12, height = 6)
 
 none_correct_ranges <- trial_runs |>
   filter(str_detect(correctness, "none")) |>
-  group_by(site, dataset, user_id, task_id) |>
+  group_by(site, dataset, user_id, item_task) |>
   summarise(min_trials = min(n_trials),
             max_trials = max(n_trials))
 max(none_correct_ranges$max_trials)
@@ -131,7 +131,7 @@ trial_data_filtered <- trial_data_coded
 
 ```{r}
 task_data_nested <- trial_data_filtered |>
-  nest(data = -c(task_id, item_task, site))
+  nest(data = -c(item_task, item_task, site))
 
 write_rds(task_data_nested, here("01_fetched_data/task_data_nested.rds"),
           compress = "gz")
