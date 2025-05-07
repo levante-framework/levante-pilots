@@ -1,0 +1,138 @@
+```{r load-data}
+library(tidyverse)
+library(glue)
+library(here)
+library(mirt)
+
+source(here("plot_settings.R"))
+source(here("02_score_data/irt_helpers.R"))
+
+run_data <- read_rds(here(glue("01_fetched_data/run_data.rds")))
+
+trial_data <- read_rds(here(glue("01_fetched_data/trials.rds")))
+```
+
+```{r}
+# recode correctness for math slider items and hearts & flowers
+# set chance values for slider items accordingly
+slider_threshold <- 0.15
+trial_data_coded <- trial_data |>
+  recode_hf() |>
+  recode_slider(threshold = slider_threshold) |>
+  mutate(chance = if_else(item_group == "slider", 1 / slider_threshold / 100, chance),
+         chance = chance |> replace_na(0))
+```
+
+```{r}
+runs <- run_data |>
+  mutate(dataset = dataset |> str_extract("^.*?(?=:)") |> str_remove("_pilot"),
+         task_id = fct_infreq(task_id),
+         completed = if_else(completed, "complete", "incomplete"),
+         msg = validation_msg_run |> map(jsonlite::fromJSON) |>
+           map_chr(\(m) if (length(m) > 0) pluck(m, 1) else "valid"),
+         run_status = paste(msg, completed, sep = " + ") |> fct_infreq() |> fct_rev()) |>
+  select(site, dataset, contains("_id"), run_status)
+
+run_status_summary <- runs |>
+  count(dataset, task_id, run_status) |>
+  group_by(dataset, task_id) |>
+  mutate(prop = n / sum(n)) |>
+  ungroup()
+
+ggplot(run_status_summary, aes(x = n, y = task_id, fill = run_status)) +
+  facet_wrap(vars(dataset), scales = "free") +
+  # geom_bar(stat = "identity") +
+  geom_col() +
+  geom_text(aes(label = paste0(round(prop * 100), "%")),
+            x = 0, size = 2.5, hjust = 0, color = "white", family = .font,
+            data = run_status_summary |> filter(run_status == "valid + complete")) +
+  scale_fill_ptol(guide = guide_legend(reverse = TRUE)) +
+  scale_x_continuous(expand = expansion(mult = 0.01)) +
+  labs(x = "Number of runs", y = "", fill = "Run status") +
+  theme(legend.position = "bottom",
+        strip.placement = "outside")
+ggsave("valid_run_counts.png", width = 12, height = 6)
+```
+
+```{r}
+trial_status_summary <- trial_data |>
+  mutate(task_id = fct_infreq(task_id),
+         msg = validation_msg_trial |> map(jsonlite::fromJSON) |>
+           map_chr(\(m) if (length(m) > 0) pluck(m, 1) else "valid"),
+         status = msg |> fct_infreq() |> fct_rev()) |>
+  count(dataset, task_id, status) |>
+  group_by(dataset, task_id) |>
+  mutate(prop = n / sum(n))
+
+ggplot(trial_status_summary, aes(x = n, y = task_id, fill = status)) +
+  facet_wrap(vars(dataset), scales = "free") +
+  # geom_bar(stat = "identity") +
+  geom_col() +
+  geom_text(aes(label = paste0(round(prop * 100), "%")),
+            x = 0, size = 2.5, hjust = 0, color = "white", family = .font,
+            data = trial_summary |> filter(status == "valid")) +
+  scale_fill_ptol(guide = guide_legend(reverse = TRUE)) +
+  scale_x_continuous(expand = expansion(mult = 0.01)) +
+  labs(x = "Number of trials", y = "", fill = "Trial status") +
+  theme(legend.position = "bottom",
+        strip.placement = "outside")
+
+ggsave("valid_trial_counts.png", width = 12, height = 6)
+```
+
+```{r}
+trial_runs <- trial_data |>
+  group_by(site, dataset, user_id, run_id, task_id) |>
+  summarise(mean_correct = mean(correct),
+            sd_correct = sd(correct),
+            n_trials = n(),
+            n_valid_trials = sum(valid_trial)) |>
+  ungroup() |>
+  mutate(correctness = case_when(
+    mean_correct == 0 ~ "none correct",
+    mean_correct == 1 ~ "all correct",
+    .default = "some correct"
+  )) |>
+  left_join(runs |> select(run_id, run_status))
+  # unite(run_status, run_status, correctness, sep = " + ")
+
+trial_runs_summary <- trial_runs |>
+  count(dataset, task_id, correctness) |>
+  group_by(dataset, task_id) |>
+  mutate(prop = n / sum(n)) |>
+  mutate(correctness = correctness |> fct_infreq())
+
+ggplot(trial_runs_summary, aes(x = n, y = task_id, fill = correctness)) +
+  facet_wrap(vars(dataset), scales = "free") +
+  # geom_bar(stat = "identity") +
+  geom_col() +
+  geom_text(aes(label = paste0(round(prop * 100), "%")),
+            x = 0, size = 2.5, hjust = 0, color = "white", family = .font,
+            data = trial_runs_summary |> filter(correctness == "some correct")) +
+  scale_fill_ptol(guide = guide_legend(reverse = TRUE)) +
+  scale_x_continuous(expand = expansion(mult = 0.01)) +
+  labs(x = "Number of runs", y = "", fill = "Correctness status") +
+  theme(legend.position = "bottom",
+        strip.placement = "outside")
+ggsave("valid_correctness_counts.png", width = 12, height = 6)
+
+none_correct_ranges <- trial_runs |>
+  filter(str_detect(correctness, "none")) |>
+  group_by(site, dataset, user_id, task_id) |>
+  summarise(min_trials = min(n_trials),
+            max_trials = max(n_trials))
+max(none_correct_ranges$max_trials)
+```
+
+```{r}
+# TODO: decide validity filters
+trial_data_filtered <- trial_data_coded
+```
+
+```{r}
+task_data_nested <- trial_data_filtered |>
+  nest(data = -c(task_id, item_task, site))
+
+write_rds(task_data_nested, here("01_fetched_data/task_data_nested.rds"),
+          compress = "gz")
+```
