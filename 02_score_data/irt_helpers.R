@@ -133,12 +133,18 @@ generate_model_str_numeric <- function(df, df_prepped, item_type, f) { # f = num
 # wrapper to fit mirt model with supplied arguments
 fit_mirt <- function(i, df, item_type, model_str, model_type, item_task, guess, verbose = FALSE) {
   message(glue("fitting row {i}: {item_task} model {item_type} with {model_type} dims"))
-  mirt(df, itemtype = item_type, model = model_str, guess = guess,
-       technical = list(NCYCLES = 5000), verbose = verbose)
+  # TODO: temporarily disabled guessing params due to upstream data problem
+  
+  if (nrow(df) > 0) {
+    mirt(df, itemtype = item_type, model = model_str, guess = guess,
+         technical = list(NCYCLES = 5000), verbose = verbose)
+  } else {
+    return(NA)
+  }
 }
 
 # wrapper to fit multigroup mirt model with supplied arguments
-fit_multigroup <- function(i, df, item_type, group, model_str, 
+fit_multigroup <- function(i, df, item_type, group, model_str, guess,
                            invariance, item_task, verbose = FALSE) {
   message(glue("fitting row {i}: {item_task}, {item_type}  model, {invariance} invariance"))
   
@@ -158,43 +164,67 @@ fit_multigroup <- function(i, df, item_type, group, model_str,
     stop("invariance must be one of 'configural', 'metric', 'scalar_intercepts', 'scalar_slopes_and_intercepts', or 'full'")
   }
   
-  multipleGroup(df, 
-                itemtype = item_type, 
-                group = group, 
-                model = mirt.model(model_str), 
-                verbose = TRUE, 
-                invariance = invariance_list,
-                technical = list(NCYCLES = 5000))
+  if (nrow(df) > 0) {
+    multipleGroup(df, 
+                  itemtype = item_type, 
+                  group = group, 
+                  # guess = guess,
+                  model = mirt.model(model_str), 
+                  verbose = TRUE, 
+                  invariance = invariance_list,
+                  technical = list(NCYCLES = 5000))
+  } else {
+    return(NA)
+  }
 }
 
 
 # get item parameters of fitted mirt model
 mirt_coefs <- function(mod) {
-  coef(mod, simplify = TRUE)$items |> as_tibble(rownames = "item")
+  
+  if (is.na(mod)) {
+    return(tibble()) 
+  } else {
+    coef(mod, simplify = TRUE)$items |> as_tibble(rownames = "item")
+  }
 }
 
 # get participant scores of fitted mirt model
 mirt_scores <- function(mod, df, df_prepped) {
   # scores <- fscores(mod, method = "MAP", verbose = FALSE)
-  scores <- fscores(mod, method = "EAP", verbose = FALSE)
-  user_scores <- tibble(run_id = rownames(df_prepped),
-                        ability = scores[,1]) # TODO: check this gives correct order
-  df |> distinct(user_id, run_id) |> # took out task ID here because of multi-task models
-    left_join(user_scores) 
-  # |> select(-item_task)
+  
+  if (is.na(mod)) {
+    return(tibble())
+  } else {
+    scores <- fscores(mod, method = "EAP", verbose = FALSE)
+    user_scores <- tibble(run_id = rownames(df_prepped),
+                          ability = scores[,1]) # TODO: check this gives correct order
+    df |> distinct(user_id, run_id) |> # took out task ID here because of multi-task models
+      left_join(user_scores) 
+  }
 }
 
 # get AIC of fitted mirt model
 mirt_aic <- function(mod) mod@Fit$AIC
 
 # get AIC of fitted mirt model
-mirt_bic <- function(mod) mod@Fit$BIC
+mirt_bic <- function(mod) {
+  if (is.na(mod)) {
+    return(NA)
+  } else {
+    mod@Fit$BIC
+  }
+}
 
 # get coefficients for multigroup model
 multigroup_coefs <- \(mod) {
-  transpose(coef(mod, simplify = TRUE))$items |>
-    map(partial(as_tibble, rownames = "item")) |>
-    list_rbind(names_to = "site")
+  if (is.na(mod)) {
+    return(tibble()) 
+  } else {
+    transpose(coef(mod, simplify = TRUE))$items |>
+      map(partial(as_tibble, rownames = "item")) |>
+      list_rbind(names_to = "site")
+  }
 }
 
 # get groups out of multigroup model
