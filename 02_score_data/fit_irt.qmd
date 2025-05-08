@@ -64,15 +64,22 @@ write_rds(task_data_args, here("02_scoring_outputs/irt_data/independent_task_dat
 ### Fit models
 
 ```{r fit-models}
+library(multidplyr)
+cluster <- new_cluster(14) # needs generalizing
+cluster_library(cluster, "tidyverse")
+cluster_library(cluster, "mirt")
+cluster_library(cluster, "glue")
+cluster_copy(cluster, "fit_mirt")
+
 set.seed(1234)
 
 # fit all the models!
 task_models <- task_data_args |>
-  # filter(item_task == "same-different-selection") |>
-  # slice(1) |>
+  partition(cluster) |>
   mutate(mod = pmap(list(row_number(), data_prepped, item_type, model_str,
                          model_type, item_task, guess),
-                    fit_mirt))
+                    fit_mirt)) |>
+  collect()
 
 # get each model's coefs, scores, BIC
 task_results <- task_models |>

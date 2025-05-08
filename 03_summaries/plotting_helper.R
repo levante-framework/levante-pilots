@@ -9,8 +9,8 @@ task_plot_pooled <- \(scores, ylab, nr = NULL, nc = NULL, y_axis = seq(6, 14, 2)
     geom_smooth(aes(group = site), method = "gam", colour = "darkgrey", formula = y ~ s(x, bs = "re")) +
     scale_x_continuous(breaks = y_axis) +
     .scale_colour_task() +
-    labs(x = "Age (years)", y = ylab,
-         caption = glue("Note: includes only tasks with at least {threshold_n} observations")) +
+    labs(x = "Age (years)", y = ylab) +
+         # caption = glue("Note: includes only tasks with at least {threshold_n} observations")) +
     guides(colour = "none")
 }
 
@@ -26,8 +26,8 @@ task_plot_comparative <- \(scores, ylab, nr = NULL, nc = NULL, y_axis = seq(6, 1
     geom_smooth(aes(group = site, color = site), method = "gam", formula = y ~ s(x, bs = "re")) +
     scale_x_continuous(breaks = y_axis) +
     .scale_colour_site() +
-    labs(x = "Age (years)", y = ylab,
-         caption = glue("Note: includes only tasks with at least {threshold_n} observations")) +
+    labs(x = "Age (years)", y = ylab, colour = "Site") +
+         # caption = glue("Note: includes only tasks with at least {threshold_n} observations")) +
     theme(legend.position = "bottom")
 }
 
@@ -42,8 +42,8 @@ task_plot_sites <- \(scores, ylab, nr = NULL, nc = NULL, y_axis = seq(6, 14, 2))
     geom_smooth(aes(group = site), method = "gam", colour = "darkgrey", formula = y ~ s(x, bs = "re")) +
     # scale_x_continuous(breaks = y_axis) +
     .scale_colour_task() +
-    labs(x = "Age (years)", y = ylab,
-         caption = glue("Note: includes only tasks with at least {threshold_n} observations")) +
+    labs(x = "Age (years)", y = ylab) +
+         # caption = glue("Note: includes only tasks with at least {threshold_n} observations")) +
     guides(colour = "none")
 }
 
