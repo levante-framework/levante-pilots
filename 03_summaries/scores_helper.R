@@ -58,7 +58,7 @@ task_metrics <- tribble(
   "vocab"    , "ability",
   "tom"      , "ability",
   "ha"       , "ability",
-  "pa"       , "total_correct",
+  "pa"       , "prop_correct",
   "sre"      , "guessing_adjusted_number_correct",
   "swr"      , "ability",
   "mefs"     , "total_score"
