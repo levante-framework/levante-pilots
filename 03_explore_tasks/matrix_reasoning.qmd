@@ -49,8 +49,8 @@ Load multigroup models
 
 ```{r}
 
-best_multigroup <- readRDS(here("02_scoring_outputs", "irt_outputs", "item_coefs.rds"))
-multigroup_scores <- readRDS(here("02_scoring_outputs", "scores", "scores_multigroup.rds"))
+best_multigroup <- readRDS(here("02_scoring_outputs", "irt_outputs", "multigroup_best_models.rds"))
+multigroup_scores <- readRDS(here("02_scoring_outputs", "scores", "multigroup_scores.rds"))
 
 
 #previous
@@ -81,7 +81,7 @@ mr_sum_scores <- mr_runs |>
     y = "Proportion correct",
     caption = "Note: Each point represents a participant run; smoothed trend by site"
   )
-
+print(mr_sum_scores)
 # Save the plot
 ggsave(
   filename = here::here("03_explore_tasks", "Graphs", "mr_sum_scores.png"),

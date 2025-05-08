@@ -81,6 +81,8 @@ egma_sum_scores <- ggplot(egma_runs, aes(x = age, y = correct)) +
     caption = "Note: Each point represents a participant run; smoothed trend by site"
   )
 
+egma_sum_scores
+
 ggsave(
   filename = here::here("03_explore_tasks", "Graphs", "egma_sum_scores.png"),
   plot = egma_sum_scores,
@@ -277,13 +279,19 @@ summary(egma_trimmed$rt_numeric)
 
 ```
 
+
+
+# IRT 
 Load IRT results
 
 ```{r}
 
-best_multigroup <- readRDS(here("02_scoring_outputs", "irt_outputs", "item_coefs.rds"))
+best_multigroup <- readRDS(here("02_scoring_outputs", "irt_outputs", "best_multigroup.rds"))
 multigroup_scores <- readRDS(here("02_scoring_outputs", "scores", "scores_multigroup.rds"))
 
+best_multigroup_coefs <- best_multigroup |>
+  select(item_task, item_type, invariance_type, coefs) |>
+  unnest(coefs)
 ```
 
 Multigroup models
@@ -384,10 +392,48 @@ ggplot(egma_difficulty_grouped, aes(x = fct_reorder(item_group, -mean_d), y = me
 
 ```
 
-IRT difficulty
+
+# Number-to-line vs. line-to-number
 
 ```{r}
+line_trials <- egma_difficulty_grouped |>
+  filter(str_detect(item_uid, "line") | str_detect(item_uid, "slider")) |>
+  separate(item_uid, into = c("item", "trial_type", "point","scale"), sep = "_") |>
+  select(-mean_accuracy) |>
+  pivot_longer(ca_pilot:de_pilot, names_to = "site", values_to = "correct") |>
+  group_by(point, scale, site) |>
+  mutate(match = n() == 2) |>
+  filter(match) |>
+  select(-item, -item_group, -match) |>
+  ungroup() |>
+  pivot_wider(names_from = "trial_type", values_from = "correct", id_cols = c("site", "point","scale"))
 
+
+ggplot(line_trials, aes(x = line, y = slider)) + 
+  geom_point() +
+  geom_smooth(method = "lm") + 
+  facet_wrap(~site)
 ```
 
+Item parameters
+
+```{r}
+params <- best_multigroup_coefs |>
+  filter(item_task == "math", str_detect(item, "line|slider")) |>
+  separate(item, into = c("item", "trial_type", "point","scale","num"), sep = "_") |>
+  filter(site == "de_pilot") |>
+  select(item, trial_type, point, scale, d) |>
+  pivot_wider(names_from = "trial_type", values_from = "d")
+
+ggplot(params, aes(x = -line, y = -slider, col = scale)) + 
+  geom_point()+ 
+  geom_smooth(method = "lm", aes(group = 1)) +
+  ggrepel::geom_text_repel(aes(label = point), size = 3) + 
+  xlab("Line-to-number 4AFC difficulty") + 
+  ylab("Number-to-line slider difficulty")
+```
+
+```{r}
+filter(egma, item_uid == "math_line_9_100") |> View()
+```
 
