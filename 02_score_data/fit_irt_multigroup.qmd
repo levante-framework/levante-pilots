@@ -117,8 +117,6 @@ task_results <- task_models |>
          scores = pmap(list(mod, data_filtered, data_prepped), mirt_scores),
          bic = map_dbl(mod, mirt_bic))
 
-write_rds(task_results, here("02_scored_data/irt_outputs/fullpooling_task_results.rds"),
-          compress = "gz")
 
 
 # best fitting model for each task
@@ -127,6 +125,9 @@ task_best <- task_results |>
   filter(bic == min(bic)) |>
   ungroup()
 # select(site, item_task, item_type, model_type, coefs, scores)
+
+write_rds(task_best, here("02_scoring_outputs","irt_outputs","fullpooling_best_models.rds"),
+          compress = "gz")
 
 # scores from best fitting models
 task_scores <- task_best |>
@@ -137,7 +138,7 @@ task_scores <- task_best |>
     metric_type = glue("merged_data ability ({item_type}-{model_type})")) |>
   select(site, item_task, user_id, run_id, metric_type, metric_value = ability)
 
-write_rds(task_scores, here("02_scored_data","scores","scores_fullpooling.rds"),
+write_rds(task_scores, here("02_scoring_outputs","scores","fullpooling_scores.rds"),
           compress = "gz")
 ```
 
@@ -266,6 +267,10 @@ best_multigroup_refit <- best_multigroup_refit |>
   mutate(fscore = map(mod, \(df) fscores(df)[,1]), 
          coefs = map(mod, multigroup_coefs))
 
+# save scores
+write_rds(best_multigroup_refit, here("02_scoring_outputs","irt_outputs","multigroup_best_models.rds"),
+          compress = "gz")
+
 
 task_scores <- best_multigroup_refit |>
   select(item_task, item_type, model_type, invariance_type, groups, scores) |>
@@ -339,19 +344,17 @@ Note, some of these look a little different than with the by-group models.
 task_rxx <- best_multigroup |>
   mutate(site = map(mod, \(m) m@Data$groupNames),
          group_models = map(mod, multigroup_extract_groups)) |>
-  select(-mod, -bic, -fscore) |>
+  select(-mod, -bic) |>
   unnest(cols = c("group_models", "site")) |>
   mutate(rxx = map_dbl(group_models, marginal_rxx)) |>
-  select(site, task_id, item_type, model_type, rxx)
+  select(site, item_task, item_type, model_type, invariance_type, rxx)
 
 task_rxx_wide <- task_rxx |> 
   pivot_wider(names_from = "site", values_from = "rxx") 
 
-write_rds(task_rxx, here("02_scored_data/irt_outputs/multigroup_task_rxx.rds"),
+write_rds(task_rxx, here("02_scoring_outputs","irt_outputs","multigroup_task_rxx.rds"),
           compress = "gz")
-write_csv(task_rxx, here("02_scored_data/irt_outputs/multigroup_task_rxx.csv"),
-          compress = "gz")
+write_csv(task_rxx, here("02_scoring_outputs","irt_outputs","multigroup_task_rxx.csv"))
 write_csv(task_rxx_wide,
-          here("02_scored_data/irt_outputs/multigroup_task_rxx_wide.csv"),
-          compress = "gz")
+          here("02_scoring_outputs","irt_outputs","multigroup_task_rxx_wide.csv"))
 ```

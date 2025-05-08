@@ -27,6 +27,7 @@ library("tidyr")
 library("quarto")
 library("forcats")
 library("ggplot2")
+library(ggrepel)
 
 ```
 
@@ -52,8 +53,12 @@ ef
 Load multigroup models
 
 ```{r}
-best_multigroup <- readRDS(here("02_scored_data", "irt_outputs", "multigroup_best_outputs.rds"))
-multigroup_scores <- readRDS(here("02_scoring_outputs", "scores", "scores_multigroup.rds"))
+best_multigroup <- readRDS(here("02_scoring_outputs", "irt_outputs", "multigroup_best_models.rds"))
+multigroup_scores <- readRDS(here("02_scoring_outputs", "scores", "multigroup_scores.rds"))
+
+best_multigroup_coefs <- best_multigroup |>
+  select(item_task, item_type, invariance_type, coefs) |>
+  unnest(coefs)
 ```
 
 First plot sumscores
@@ -187,15 +192,15 @@ run_ages <- ef |>
   distinct()
 
 multigroup_scores_hf <- multigroup_scores |>
-  filter(task_id == "hearts-and-flowers", site != "us_pilot") |>
-  select(site, task_id, user_id, run_id, metric_type, metric_value ) |>
+  filter(item_task == "hf") |>
+  select(site, item_task, user_id, run_id, metric_type, metric_value ) |>
   left_join(run_ages)
 
 ef_irt <- ggplot(multigroup_scores_hf, aes(x = age, y = metric_value, col = site)) + 
   geom_point() + 
   geom_smooth() +
   labs(
-    title = "Developmental trends in EF ability by site",
+    title = "Developmental trends in Hearts & Flowers by site",
     x = "Age (years)",
     y = "Ability (IRT Score)",
     colour = "Site"
@@ -216,24 +221,19 @@ Look at coefficients.
 Hearts and flowers - IRT scores by trial type
 
 ```{r}
-
 # Hearts and flowers - IRT scores by trial type
-hf_coefs <- best_multigroup |>
-  filter(task_id == "hearts-and-flowers", term == "difficulty", site != "us_pilot") |>
-  separate(item, into = c("task", "block", "trial", "number"), sep = "_", remove = FALSE) |>
-  select(-number)
+hf_coefs <- filter(best_multigroup, item_task == "hf")$coefs[[1]] |>
+  separate(item, sep = "_", into = c("task","block","trial", "number")) |>
+  select(-number) |>
+  distinct()
 
-hf_coefs |> count(model) # check which irt model
-
-# Plot
-library(ggrepel)
-hf_trial_type <- ggplot(hf_coefs, aes(x = block, y = value, colour = trial, shape = trial)) +
-  geom_point(size = 3) +
-  geom_text_repel(aes(label = trial), size = 3, show.legend = FALSE) +
-  ylab("IRT difficulty") +
-  xlab("Block") +
-  facet_wrap(~site) +
-  labs(title = "Hearts and Flowers: Item difficulty by block and trial type") 
+hf_trial_type <- ggplot(hf_coefs, aes(x = a1, y = -d, col = block, pch = trial)) +
+  geom_point() +
+  geom_text_repel(aes(label = trial)) +
+  xlab("Slope") +
+  ylab("Difficulty") +
+  facet_wrap(~site)+
+  labs(title = "Hearts and Flowers: Item difficulty by block and trial type")
 
 print(hf_trial_type)
 
@@ -246,28 +246,13 @@ ggsave(
 )
 
 
-
-# Mike previous code
-hf_coefs <- filter(best_multigroup, task_id == "hearts-and-flowers")$coefs[[1]] |>
-  separate(item, sep = "_", into = c("task","block","trial", "number")) |>
-  select(-number) |>
-  distinct()
-
-ggplot(hf_coefs, aes(x = a1, y = -d, col = block, pch = trial)) + 
-  geom_point() + 
-  geom_text_repel(aes(label = trial)) + 
-  xlab("Slope") + 
-  ylab("Difficulty") + 
-  facet_wrap(~site) 
-
-
 ```
 
 # Memory game
 
 ```{r}
 mg <- ef |>
-  filter(task_id == "memory-game", site != "us_pilot") |>
+  filter(item_task == "mg") |>
   separate(item_uid , into = c("task", "direction", "size", "span"), sep = "_") |>
   mutate(span = as.numeric(str_replace(span, "len",""))) |>
   group_by(run_id, direction) |>
@@ -288,9 +273,9 @@ mg_span_raw <- ggplot(mg_spans, aes(x = span, y = correct, col = direction, pch 
   geom_line(aes(lty = size)) + 
   facet_wrap(~site) +
   labs(
-  title = "Memory Game: Raw accuracy by span length, direction, and grid size",
-  x = "Span length",
-  y = "Proportion correct"
+    title = "Memory Game: Raw accuracy by span length, direction, and grid size",
+    x = "Span length",
+    y = "Proportion correct"
   )
 
 print(mg_span_raw)
@@ -318,19 +303,7 @@ mg |>
 
 ```
 
-```{r}
-mg |>
-  filter(direction == "forward", span > 1, site != "us_pilot") |>
-  mutate(max_span = as_factor(max_span)) |>
-  group_by(max_span, span) |>
-  summarise(correct = mean(correct), 
-            n = n()) |>
-  ggplot(aes(x = span, y = correct, col = max_span)) + 
-  geom_point(aes(size = n)) + 
-  geom_line()
-  # geom_smooth(method = "lm", se =FALSE)
 
-```
 
 ```{r}
 mg_runs <- mg |>
@@ -354,8 +327,8 @@ We now use the multigroup IRT models.
 
 ```{r}
 multigroup_scores_mg <- multigroup_scores |>
-  filter(task_id == "memory-game", site != "us_pilot") |>
-  select(site, task_id, user_id, run_id, metric_type, metric_value ) |>
+  filter(item_task == "mg", site != "us_pilot") |>
+  select(site, item_task, user_id, run_id, metric_type, metric_value ) |>
   left_join(run_ages)
 
 ggplot(multigroup_scores_mg, aes(x = age, y = metric_value, col = site)) + 
@@ -366,48 +339,16 @@ ggplot(multigroup_scores_mg, aes(x = age, y = metric_value, col = site)) +
 Look at coefficients. 
 
 ```{r}
-mg_coefs <- best_multigroup |>
-  filter(task_id == "memory-game", term == "difficulty", site != "us_pilot") |>
+mg_coefs <- best_multigroup_coefs |>
+  filter(item_task == "mg",) |>
   separate(item, sep = "_", into = c("task", "direction", "size", "span", "number")) |>
   mutate(span = as.numeric(str_replace(span, "len", ""))) |>
   select(-task, -number) |>
   distinct()
 
- mg_irt_trial_type <- ggplot(mg_coefs, aes(x = span, y = -value, colour = direction)) +
-  geom_point(alpha = 0.6) +
-  geom_smooth(method = "loess", se = TRUE) + 
-  facet_wrap(~site) +
-  labs(
-    title = "Memory Game: IRT difficulty by span and direction",
-    x = "Span length",
-    y = "IRT difficulty (flipped)",
-    colour = "Direction"
-  )
-
-print(mg_irt_trial_type)
-
-ggsave(
-  filename = here::here("03_explore_tasks", "Graphs", "mg_irt_trial_type.png"),
-  plot = mg_irt_trial_type,
-  width = 10,
-  height = 6,
-  dpi = 300
-)
-
-# Span graph
-mg_coefs <- best_multigroup |>
-  filter(task_id == "memory-game", term == "difficulty", site != "us_pilot") |>
-  separate(item, sep = "_", into = c("task", "direction", "size", "span", "number")) |>
-  mutate(
-    span = as.numeric(str_replace(span, "len", "")),
-    size = recode(size, "2grid" = "2×2 grid", "3grid" = "3×3 grid")
-  ) |>
-  select(site, span, size, direction, value)
-
-# one point per condition
 mg_spans_irt <- mg_coefs |>
   group_by(site, span, size, direction) |>
-  summarise(mean_difficulty = mean(value, na.rm = TRUE), .groups = "drop")
+  summarise(mean_difficulty = mean(d, na.rm = TRUE), .groups = "drop")
 
 # Plot
 mg_span_irt <- ggplot(mg_spans_irt, aes(x = span, y = -mean_difficulty, col = direction, pch = size)) +
@@ -431,28 +372,6 @@ ggsave(
   height = 6,
   dpi = 300
 )
-
-
-
-
-
-# Mike's previous code
-mg_coefs <- filter(best_multigroup, task_id == "memory-game")$coefs[[1]] |>
-  separate(item, sep = "_", into = c("task", "direction", "size", "span", "number")) |>
-  mutate(span = as.numeric(str_replace(span, "len",""))) |>
-  select(-task, -number) |>
-  distinct()
-
-ggplot(mg_coefs, aes(x = span, y = -d, col = direction, pch = size)) + 
-  geom_point() + 
-  geom_line() + 
-  # geom_text_repel(aes(label = direction)) + 
-  xlab("Slope") + 
-  ylab("Difficulty") + 
-  facet_wrap(~site) 
-
-
-
 ```
 
 Note that we have used grid3 very little and so it's getting dropped from most analysis. 
@@ -463,8 +382,7 @@ Note that we have used grid3 very little and so it's getting dropped from most a
 ```{r}
 # remove US data
 sds <- ef |>
-  filter(task_id == "same-different-selection", site != "us_pilot") |>
-  separate(item_uid , into = c("task", "block", "trial"), sep = "_")
+  filter(item_task == "sds", site != "us_pilot") 
 
 ```
 
@@ -477,24 +395,23 @@ sds_runs <- sds |>
             age = mean(age))
 
 sds_runs_block <- sds |>
-  filter(block != "3unique") |>
-  mutate(block = fct_relevel(block, "dimensions","same")) |>
-  group_by(site, user_id, run_id, task_id, block) |>
+  filter(item_group != "3unique") |>
+  group_by(site, user_id, run_id, task_id, item_group) |>
   summarise(correct = mean(correct), 
             age = mean(age))
 
 ggplot(sds_runs_block, aes(x = age, y = correct)) + 
   geom_point(alpha = .5) + 
   geom_smooth(method = "lm", se=FALSE) + 
-  facet_grid(site ~ block)
+  facet_grid(site ~ item_group)
 ```
 
 ## IRT
 
 ```{r}
 multigroup_scores_sds <- multigroup_scores |>
-  filter(task_id == "same-different-selection", site != "us_pilot") |>
-  select(site, task_id, user_id, run_id, metric_type, metric_value ) |>
+  filter(item_task == "sds", site != "us_pilot") |>
+  select(site, item_task, user_id, run_id, metric_type, metric_value ) |>
   left_join(run_ages)
 
 ggplot(multigroup_scores_sds, aes(x = age, y = metric_value, col = site)) + 
@@ -506,8 +423,8 @@ Look at coefficients.
 ```{r}
 
 #05.05.2025
-sds_coefs <- best_multigroup |>
-  filter(task_id == "same-different-selection", term == "difficulty", site != "us_pilot") |>
+sds_coefs <- best_multigroup_coefs |>
+  filter(item_task == "sds", site != "us_pilot") |>
   separate(item, sep = "_", into = c("task", "block", "trial", "number")) |>
   filter(block != "3unique") |>
   mutate(block = fct_relevel(block, "dimensions", "same")) |>
@@ -524,88 +441,16 @@ sds_coefs_clean <- sds_coefs |>
   )
 
 # Plot: All trials
-ggplot(sds_coefs_clean, aes(x = block, y = -value, colour = trial)) + 
-  geom_jitter(width = 0.2, height = 0.1, size = 2) +
+ggplot(sds_coefs_clean, aes(x = block, y = -d, colour = trial)) +
+  geom_jitter(width = 0, height = 0, size = 2) +
   facet_wrap(~site) +
   coord_flip() +
   labs(
     title = "Same-Different Selection: IRT difficulty by block and trial type",
     x = "Block",
-    y = "IRT difficulty (flipped)", 
+    y = "IRT difficulty (flipped)",
     colour = "Trial type"
   )
-
-# Subset and plot choice-based
-sds_choice <- sds_coefs_clean |> 
-  filter(trial_type == "choice-based") |>
-  mutate(block = fct_relevel(block, "2match", "3match", "4match"))
-
-sds_choice_plot <- ggplot(sds_choice, aes(x = block, y = -value, colour = trial)) + 
-  geom_point() + 
-  coord_flip() +
-  facet_wrap(~site) +
-  labs(
-    title = "Same-different selection: Choice-based IRT difficulty by block",
-    x = "Block",
-    y = "IRT Difficulty (flipped)",
-    colour = "Choice"
-  )
-
-print(sds_choice_plot)
-
-# Why two points?
-sds_choice |> count(site, block, trial, model)
-
-
-ggsave(
-  filename = here::here("03_explore_tasks", "Graphs", "sds_choice_plot.png"),
-  plot = sds_choice_plot,
-  width = 10,
-  height = 6,
-  dpi = 300
-)
-
-# Subset and plot feature-based
-sds_feature <- filter(sds_coefs_clean, trial_type == "feature-based")
-
-ggplot(sds_feature, aes(x = block, y = -value, colour = trial)) + 
-  geom_point() + 
-  coord_flip() +
-  facet_wrap(~site) +
-  labs(
-    title = "Same-different selection: Feature-based IRT difficulty by block",
-    x = "Block",
-    y = "IRT difficulty (flipped)",
-    colour = "Feature"
-  )
-
-
-
-
-
-
-# Mike's previous code
-sds_coefs <- filter(best_multigroup, task_id == "same-different-selection")$coefs[[1]] |>
-  separate(item, sep = "_", into = c("task", "block","trial")) |>
-  filter(block != "3unique") |>
-  mutate(block = fct_relevel(block, "dimensions","same")) |>
-  distinct()
-
-ggplot(sds_coefs, aes(x = block, y = -d, col = trial)) + 
-  geom_point() + 
-  geom_line(aes(group = trial)) + 
-  coord_flip() +
-  # geom_text_repel(aes(label = direction)) + 
-  xlab("block") + 
-  ylab("Difficulty") 
-
-```
-
-# De-bugging feature based trials
-
-```{r}
-
-
 ```
 
 
@@ -616,24 +461,38 @@ ggplot(sds_coefs, aes(x = block, y = -d, col = trial)) +
 ```{r}
 library(janitor)
 library(lavaan)
+library(tidySEM)
 
 ef_scores <- filter(multigroup_scores, 
-                    task_id %in% c("hearts-and-flowers", "memory-game", "same-different-selection"))
+                    item_task %in% c("hf", "mg", "sds"))
+
+first_run_ages <- run_ages |>
+  group_by(user_id) |>
+  arrange(age) |>
+  mutate(run = row_number()) |>
+  filter(run == 1) |>
+  select(site, user_id, age)
 
 ef_scores_irt <- ef_scores |>
-  select(site, task_id, metric_value, user_id) |>
-  pivot_wider(names_from = "task_id", values_from = "metric_value", 
+  group_by(site, item_task, user_id) |>
+  left_join(run_ages) |>
+  arrange(age) |>
+  mutate(run = row_number()) |>
+  filter(run == 1) |>
+  select(site, item_task, metric_value, user_id) |>
+  pivot_wider(names_from = "item_task", values_from = "metric_value", 
               id_cols = c("user_id", "site")) |>
   janitor:::clean_names() |>
-  mutate(across(hearts_and_flowers:same_different_selection, ~ scale(.x)[,1]), 
-         ca_site = site == "ca_pilot",
-         de_site = site == "de_pilot") |>
-  left_join(run_ages)
+  left_join(first_run_ages)
+# |>
+#   mutate(across(hf:sds, ~ scale(.x)[,1]), 
+#          ca_site = site == "ca_pilot",
+#          de_site = site == "de_pilot") 
 ```
 
 ```{r}
 cfa_model <-  "
-ef =~ hearts_and_flowers + memory_game + same_different_selection
+ef =~ hf + mg + sds
 ef ~ age
 "
 
@@ -649,15 +508,15 @@ Multi-group model
 ```{r}
 # configural invariance
 fit1 <- cfa(cfa_model, ef_scores_irt, std.lv=TRUE, missing='fiml', 
-           group = "site")
+            group = "site")
 
 # weak invariance
 fit2 <- cfa(cfa_model, ef_scores_irt, std.lv=TRUE, missing='fiml', 
-           group = "site", group.equal = "loadings")
+            group = "site", group.equal = "loadings")
 
 # strong invariance
 fit3 <- cfa(cfa_model, ef_scores_irt, std.lv=TRUE, missing='fiml', 
-           group = "site", group.equal = c("intercepts","loadings"))
+            group = "site", group.equal = c("intercepts","loadings"))
 
 # model comparison tests
 lavTestLRT(fit1, fit2, fit3)
@@ -671,15 +530,16 @@ graph_sem(model = fit1, text_size = 3) +
 ## Add MEFS
 
 ```{r}
-mefs_scores <- read_csv(here("02_scored_data","mefs_data","LEVANTE_20250403_1132.csv")) |>
+mefs_scores <- read_csv(here("02_scoring_outputs","mefs_data","LEVANTE_20250403_1132.csv")) |>
   janitor::clean_names() |>
   select(child_id, a1_total_score, a1_standard_score) |>
   rename(user_id = child_id, 
          mefs_total = a1_total_score,
          mefs_standard = a1_standard_score
-         ) 
+  ) 
 
-ef_scores_irt <- ef_scores_irt |>
+ef_scores_irt_mefs <- ef_scores_irt |>
+  ungroup() |>
   left_join(mefs_scores) |>
   mutate(mefs_total = scale(mefs_total)[,1],
          mefs_standard = scale(mefs_standard)[,1])
@@ -688,11 +548,11 @@ ef_scores_irt <- ef_scores_irt |>
 
 ```{r}
 cfa_model_mefs <-  "
-ef =~ hearts_and_flowers + memory_game + same_different_selection + mefs_standard
+ef =~ hf + mg + sds + mefs_standard
 ef ~ age
 "
 
-fit <- cfa(cfa_model_mefs, ef_scores_irt, std.lv=TRUE, missing='fiml')
+fit <- cfa(cfa_model_mefs, ef_scores_irt_mefs, std.lv=TRUE, missing='fiml')
 summary(fit, fit.measures=TRUE, standardize=TRUE)
 
 graph_sem(model = fit, text_size = 3) + 
@@ -702,16 +562,16 @@ graph_sem(model = fit, text_size = 3) +
 
 ```{r}
 # configural invariance
-fit1 <- cfa(cfa_model_mefs, ef_scores_irt, std.lv=TRUE, missing='fiml', 
-           group = "site")
+fit1 <- cfa(cfa_model_mefs, ef_scores_irt_mefs, std.lv=TRUE, missing='fiml', 
+            group = "site")
 
 # weak invariance
-fit2 <- cfa(cfa_model_mefs, ef_scores_irt, std.lv=TRUE, missing='fiml', 
-           group = "site", group.equal = "loadings")
+fit2 <- cfa(cfa_model_mefs, ef_scores_irt_mefs, std.lv=TRUE, missing='fiml', 
+            group = "site", group.equal = "loadings")
 
 # strong invariance
-fit3 <- cfa(cfa_model_mefs, ef_scores_irt, std.lv=TRUE, missing='fiml', 
-           group = "site", group.equal = c("intercepts","loadings"))
+fit3 <- cfa(cfa_model_mefs, ef_scores_irt_mefs, std.lv=TRUE, missing='fiml', 
+            group = "site", group.equal = c("intercepts","loadings"))
 
 # model comparison tests
 lavTestLRT(fit1, fit2, fit3)
