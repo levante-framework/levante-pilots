@@ -86,14 +86,14 @@ Everything on the plots.
 
 ```{r}
 task_scores |>
-  filter(is.na(model) | model == "partial pooling IRT") |>
+  filter(is.na(model) | model == "partial pooling IRT", site != "us_pilot") |>
   task_plot_comparative(ylab = "Score", nr = 3)
 ggsave(here("03_summaries/plots/all_tasks_multigroup.png"), width = 11, height = 8)
 ```
 
 ```{r}
 task_scores |>
-  filter(is.na(model) | model == "no pooling IRT") |>
+  filter(is.na(model) | model == "no pooling IRT", , site != "us_pilot") |>
   task_plot_comparative(ylab = "Score", nr = 3)
 ggsave(here("03_summaries/plots/all_tasks_no pooling.png"), width = 11, height = 8)
 ```
