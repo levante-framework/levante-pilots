@@ -22,10 +22,12 @@ task_plot_comparative <- \(scores, ylab, nr = NULL, nc = NULL, y_axis = seq(6, 1
                              nest_line = element_line(), solo_line = TRUE,
                              axes = "x",
                              scales = "free_y") +
+    geom_smooth(aes(group = site, color = site),
+                method = "gam", formula = y ~ s(x, bs = "re")) +
     geom_point(aes(colour = site), alpha = 0.3) +
-    geom_smooth(aes(group = site, color = site), method = "gam", formula = y ~ s(x, bs = "re")) +
     scale_x_continuous(breaks = y_axis) +
-    .scale_colour_site() +
+    .scale_colour_site(labels = site_labels[names(site_pal)]) +
+    guides(color = guide_legend(override.aes = list(fill = "white"))) +
     labs(x = "Age (years)", y = ylab, colour = "Site") +
          # caption = glue("Note: includes only tasks with at least {threshold_n} observations")) +
     theme(legend.position = "bottom")
