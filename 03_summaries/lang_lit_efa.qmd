@@ -16,7 +16,7 @@ source(here("03_explore_tasks/explore_helper.R"))
 ```
 
 # May 8, updates
-Load task data
+Load irt scores for trog and vocab
 
 ```{r}
 best_multigroup <- readRDS(here("02_scored_data", "irt_outputs", "multigroup_best_outputs.rds"))
@@ -58,8 +58,6 @@ n_distinct(swr$user_id) #518
 
 swr <- swr |>
   mutate(task_id = "swr")
-
-
 
 ```
 
@@ -135,8 +133,8 @@ print(efa_result, digits = 3, cut = 0.3)
 
 fa.diagram(efa_result)
 
-
 ```
+
 Check if it's feasible to do efa within a site
 
 ```{r}
@@ -148,7 +146,8 @@ lang_lit_combined |>
   count(site, name = "n_users_with_3plus_tasks") |>
   arrange(desc(n_users_with_3plus_tasks))
 
-#no, only 7 users in canada have data on all three
+#no, only 7 users in Canada have data on all three
+
 ```
 
 Load data for trog and vocab only
