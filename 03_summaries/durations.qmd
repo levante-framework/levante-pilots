@@ -50,7 +50,7 @@ time_summary <- task_data |>
          is_cat = case_when(
            site == "co_pilot" & task_id %in% co_cat_tasks & task_data$timestamp > "2025-03-15" ~ TRUE, 
            site == "de_pilot" & task_id %in% de_cat_tasks & task_data$timestamp > "2025-03-15" ~ TRUE, 
-           site == "ca_pilot" & task_id %in% de_cat_tasks & task_data$timestamp > "2025-04-25" ~ TRUE, 
+           site == "ca_pilot" & task_id %in% ca_cat_tasks & task_data$timestamp > "2025-04-25" ~ TRUE, 
            TRUE ~ FALSE)) |>
   arrange(user_id, run_id, timestamp) |>
   group_by(site, task_id, run_id, user_id, is_cat) |>
@@ -80,12 +80,19 @@ task_time_summary <- time_summary |>
 ```{r}
 write_csv(task_time_summary, here("03_summaries","tables","task_time_summary.csv"))
 
-task_time_wide <- task_time_summary |>
+task_time_wide_nocat <- task_time_summary |>
   filter(!is_cat) |>
   select(-combined_diff, -min_diff, -max_diff) |>
   pivot_wider(names_from = site, values_from = median_diff)
 
 write_csv(task_time_wide, here("03_summaries","tables","task_time_wide.csv"))
+
+task_time_wide_cat <- task_time_summary |>
+  filter(is_cat) |>
+  select(-combined_diff, -min_diff, -max_diff) |>
+  pivot_wider(names_from = site, values_from = median_diff)
+
+write_csv(task_time_wide_cat, here("03_summaries","tables","task_time_wide_cat.csv"))
 
 ```
 

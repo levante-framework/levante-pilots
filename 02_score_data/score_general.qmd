@@ -8,6 +8,8 @@ task_data_nested <- read_rds(here(glue("01_fetched_data/task_data_nested.rds")))
 task_data_combined <- task_data_nested |>
   unnest(data)
 
+task_map <- task_data_combined |> distinct(task_id, item_task)
+
 run_data_combined <- read_rds(here("01_fetched_data/run_data.rds"))
 ```
 
@@ -22,7 +24,8 @@ sumscores <- task_data_combined |>
             n_trials = n()) |>
   ungroup() |>
   pivot_longer(-c("site", ends_with("_id"), "item_task"),
-               names_to = "metric_type", values_to = "metric_value")
+               names_to = "metric_type", values_to = "metric_value") |>
+  mutate(item_task = str_remove(item_task, "-.*?$"))
 
 write_rds(sumscores, here("02_scoring_outputs","scores","sumscores.rds"))
 ```
@@ -38,8 +41,8 @@ thetas <- run_data_combined |>
   mutate(metric_type = "ability (CAT)") |>
   select(site, task_id, user_id, run_id, metric_type,
          metric_value = test_comp_theta_estimate) |>
-  mutate(item_task = str_replace(task_id, "-es", ""),
-         item_task = str_replace(item_task, "-de", "")) 
+  left_join(task_map) |>
+  mutate(item_task = str_remove(task_id, "-.*?$"))
 
 write_rds(thetas, here("02_scoring_outputs","scores","roar_thetas.rds"))
 ```
@@ -101,7 +104,8 @@ sre <- sre_all |>
   filter(site != "ca_pilot" | timestamp < timestamp[min(trial_number)] + 180) |>
   summarise(metric_value = (sum(correct) - sum(!correct))/180) |>
   ungroup() |>
-  mutate(metric_type = "guessing_adjusted_number_correct")
+  mutate(metric_type = "guessing_adjusted_number_correct") |>
+  mutate(item_task = str_remove(item_task, "-.*?$"))
 ```
 
 ```{r}
@@ -116,8 +120,6 @@ ggplot(sre, aes(x = metric_value)) +
 # MEFS
 
 ```{r}
-#| eval: false
-
 mefs_scores <- read_csv(here("02_scoring_outputs","mefs_data","LEVANTE_20250403_1132.csv")) |>
   janitor::clean_names() |>
   select(child_id, a1_total_score, a1_standard_score) |>
@@ -125,14 +127,12 @@ mefs_scores <- read_csv(here("02_scoring_outputs","mefs_data","LEVANTE_20250403_
          total_score = a1_total_score, 
          standard_score = a1_standard_score) |>
   pivot_longer(total_score:standard_score, names_to = "metric_type", values_to = "metric_value") |>
-  mutate(item_task = "mefs", run_id = NA) 
+  mutate(item_task = "mefs", run_id = user_id)
 ```
 
 Figure out how many MEFS userids fit. 
 
 ```{r}
-#| eval: false
-
 site_users <- task_data_combined |>
   select(user_id, site) |>
   distinct() 

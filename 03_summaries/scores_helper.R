@@ -41,50 +41,50 @@ task_info <- tribble(
   "sre-es"   , "sentence reading"       , "reading",
   "swr-es"   , "word reading"           , "reading",
   "sre-de"   , "sentence reading"       , "reading",
-  "swr-de"   , "word reading"           , "reading"
+  "swr-de"   , "word reading"           , "reading",
+  "mefs"     , "MEFS"                   , "executive function"
 ) |> mutate(task = task |> str_to_title() |> fct_inorder(),
             task_category = task_category |> str_to_title() |> fct_inorder())
 
 task_metrics <- tribble(
-  ~task_id, ~metric_type,
-  "hearts-and-flowers", "ability",
-  "same-different-selection", "ability",
-  "memory-game", "ability",
-  "mefs", "total_score",
-  "egma-math", "ability",
-  "matrix-reasoning", "ability",
-  "mental-rotation", "ability",
-  "trog", "ability",
-  "vocab", "ability",
-  "pa-es", "prop_correct",
-  "sre-es", "guessing_adjusted_number_correct",
-  "swr-es", "ability",
-  "pa", "prop_correct",
-  "sre", "guessing_adjusted_number_correct",
-  "swr", "prop_correct",
-  "sre-de", "guessing_adjusted_number_correct",
-  "swr-de", "prop_correct",
-  # "emotion-reasoning", "prop_correct",
-  "theory-of-mind", "ability",
-  "hostile-attribution", "prop_correct"
+  ~item_task,   ~metric_type,
+  "hf"       , "ability",
+  "sds"      , "ability",
+  "mg"       , "ability",
+  "math"     , "ability",
+  "matrix"   , "ability",
+  "mrot"     , "ability",
+  "trog"     , "ability",
+  "vocab"    , "ability",
+  "tom"      , "ability",
+  "ha"       , "ability",
+  "pa"       , "total_correct",
+  "sre"      , "guessing_adjusted_number_correct",
+  "swr"      , "ability",
+  "mefs"     , "total_score"
 )
 
 combine_scores <- \() {
   # score_files <- list.files(here("02_scored_data/scores"), pattern = "*.rds",
                             # full.names = TRUE)
+
+  scores_sumscores <- readRDS(here("02_scoring_outputs","scores","sumscores.rds")) |>
+    filter(metric_type == "total_correct")
+  
+  scores_general <- readRDS(here("02_scoring_outputs","scores","scores_general.rds"))
+    # mutate(model = "guessing_adjusted_number_correct")
+  scores_thetas <- readRDS(here("02_scoring_outputs","scores", "roar_thetas.rds"))
+    # mutate(model = "ROAR IRT")
   
   scores_irt <- readRDS(here("02_scoring_outputs","scores","independent_scores.rds")) |>
     mutate(model = "no pooling IRT")
-  scores_general <- readRDS(here("02_scoring_outputs","scores","sumscores.rds")) |>
-    filter(metric_type == "total_correct") |>
-    mutate(model = "sumscore") 
   scores_multigroup <- readRDS(here("02_scoring_outputs","scores","multigroup_scores.rds")) |>
     mutate(model = "partial pooling IRT")
   scores_fullpooling <- readRDS(here("02_scoring_outputs","scores","fullpooling_scores.rds")) |>
     mutate(model = "full pooling IRT")
   
-  scores_noages <- bind_rows(scores_irt, scores_general, 
-                             scores_multigroup, scores_fullpooling) |>
+  scores_noages <- bind_rows(scores_sumscores, scores_general, scores_thetas,
+                             scores_irt, scores_multigroup, scores_fullpooling) |>
     # rename(task = item_task) |>
     select(-task_id)
   
@@ -101,14 +101,14 @@ combine_scores <- \() {
   #   bind_rows() |>
   #   rename(task = task_id) 
   
-  # mefs_age_guesses <- scores_noages |>
-  #   filter(task == "mefs") |>
-  #   left_join(run_ages |> group_by(user_id) |> summarise(age = mean(age, na.rm=TRUE)))
+  mefs_age_guesses <- scores_noages |>
+    filter(item_task == "mefs") |>
+    left_join(run_ages |> group_by(user_id) |> summarise(age = mean(age, na.rm = TRUE)))
   
   scores <- scores_noages |>
-    # filter(task != "mefs") |>
+    filter(item_task != "mefs") |>
     left_join(run_ages) |>
-    # bind_rows(mefs_age_guesses) |> # add mefs back in
+    bind_rows(mefs_age_guesses) |> # add mefs back in
     filter(!is.na(age)) |>
     # filter(!is.na(age), age >= 5, age <= 12) |>
     left_join(task_info) |>

@@ -48,7 +48,7 @@ With just the LEVANTE original tasks.
 
 ```{r}
 levante_tasks <- c("hearts-and-flowers", "memory-game", "same-different-selection", 
-                   "egma-math", "mental-rotation", "trog", "vocab", "theory-of-mind")
+                   "egma-math", "mental-rotation", "matrix-reasoning", "trog", "vocab", "theory-of-mind")
 
 site_labels <- scores |>
   distinct(site, site_label) |>
@@ -85,12 +85,17 @@ ggsave(here("03_summaries/plots/levante_tasks_multigroup.png"), width = 11, heig
 Everything on the plots.
 
 ```{r}
-scores |>
-  filter((model == "partial pooling IRT" & task_id %in% levante_tasks) |
-          (metric_type == "guessing-adjusted number correct" & task_id %in% c("sre")),
-         site != "us_pilot") |>
-  task_plot_comparative(ylab = "Score", nr = 2)
-# ggsave(here("03_summaries/plots/levante_tasks_multigroup.png"), width = 11, height = 6)
+task_scores |>
+  filter(is.na(model) | model == "partial pooling IRT", site != "us_pilot") |>
+  task_plot_comparative(ylab = "Score", nr = 3)
+ggsave(here("03_summaries/plots/all_tasks_multigroup.png"), width = 11, height = 8)
+```
+
+```{r}
+task_scores |>
+  filter(is.na(model) | model == "no pooling IRT", , site != "us_pilot") |>
+  task_plot_comparative(ylab = "Score", nr = 3)
+ggsave(here("03_summaries/plots/all_tasks_no pooling.png"), width = 11, height = 8)
 ```
 
 Ages. 
