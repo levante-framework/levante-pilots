@@ -59,6 +59,8 @@ independent_trt <- retest_wide |>
             n = n(), 
             age_gap = mean(age_gap)*12) |>
   mutate(model = "independent")
+
+knitr::kable(independent_trt, digits = 2)
   
 ```
 
@@ -68,7 +70,9 @@ ggplot(retest_wide,
   geom_point() + 
   geom_smooth(aes(group = 1), col = "blue", method = "lm") + 
   scale_color_viridis() + 
-  facet_wrap(~item_task) 
+  facet_wrap(~item_task) +
+  xlab("Score 1") + ylab("Score 2") + 
+  ggtitle("Test-retest reliability (DE)")
 ```
 
 
@@ -118,6 +122,13 @@ ggplot(retest_wide_mg,
   geom_smooth(aes(group = 1), col = "blue", method = "lm") + 
   scale_color_viridis() + 
   facet_wrap(~item_task) 
+```
+
+# Missing DE
+
+```{r}
+filter(multigroup_thetas, site == "de_pilot", item_task == "matrix")
+filter(independent_thetas, site == "de_pilot", item_task == "matrix")
 ```
 
 # Combine
