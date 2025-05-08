@@ -6,60 +6,82 @@ library(glue)
 source(here("03_summaries", "plotting_helper.R"))
 runs <- read_rds(here("01_fetched_data/run_data.rds"))
 
-site_task_data_nested <- read_rds(here(glue("01_fetched_data/task_data_nested.rds"))) 
+task_data <- read_rds(here(glue("01_fetched_data/task_data_nested.rds"))) |>
+  unnest(data)
 ```
 
 
 Table of median task times
 
+Vocabulary - CAT (DE & CO)
+Sentence Understanding - CAT (DE & CO)
+Same & Different (CAT if available for DE & CO)
+Shape Rotation - CAT (DE & CO)
+Pattern Matching (DE new corpus; CO CAT)
+Math (DE new corpus; CO old corpus)
+Hearts & Flowers (DE & CO)
+Memory (DE & CO)
+Stories (DE - 2 waves, 2 new corpora; CO - 1 new corpus?)
+
+
 ```{r}
-time_summary <- trials_coded |>
-  mutate(server_timestamp = as_datetime(server_timestamp)) |>
+times <- task_data |>
+  mutate(timestamp = as_datetime(timestamp)) |>
+  group_by(run_id, site) |>
+  summarise(time = mean(timestamp))
+
+ggplot(times, aes(x = time, fill = site)) +
+  geom_histogram() 
+
+ggsave(here("03_summaries", "plots", "data_waves.png"),
+        width = 6, height = 3, create.dir = TRUE)
+```
+
+
+```{r}
+de_cat_tasks <- c("trog","vocab","mental-rotation")
+co_cat_tasks <- c("trog","vocab","mental-rotation","matrix-reasoning")
+ca_cat_tasks <- c("trog","vocab","mental-rotation","matrix-reasoning","egma-math")
+
+time_summary <- task_data |>
+  mutate(timestamp = as_datetime(timestamp)) |>
   mutate(task_id = str_replace(task_id, "-es", ""),
-         task_id = str_replace(task_id, "-de", "")) |>
-  arrange(user_id, run_id, server_timestamp) |>
-  group_by(site, task_id, run_id, user_id) |>
+         task_id = str_replace(task_id, "-de", ""), 
+         is_cat = case_when(
+           site == "co_pilot" & task_id %in% co_cat_tasks & task_data$timestamp > "2025-03-15" ~ TRUE, 
+           site == "de_pilot" & task_id %in% de_cat_tasks & task_data$timestamp > "2025-03-15" ~ TRUE, 
+           site == "ca_pilot" & task_id %in% de_cat_tasks & task_data$timestamp > "2025-04-25" ~ TRUE, 
+           TRUE ~ FALSE)) |>
+  arrange(user_id, run_id, timestamp) |>
+  group_by(site, task_id, run_id, user_id, is_cat) |>
   summarise(trials = n(),
-            start = min(server_timestamp), end = max(server_timestamp)) |>
+            start = min(timestamp), end = max(timestamp)) |>
   ungroup() |>
   mutate(diff = difftime(end, start, units = "mins")) |>
-  left_join(participants) |>
+  left_join(select(runs, run_id, completed)) |>
   left_join(task_categories, by = c("task_id" = "task")) |>
-  filter(trials > 2)
+  filter(trials > 2, completed = TRUE)
 
 # ggplot(time_summary, aes(x = diff)) +
 #   facet_wrap(vars(site, task_id)) +
 #   geom_histogram()
 
 task_time_summary <- time_summary |>
-  group_by(site, task_category, task_id) |>
+  group_by(site, task_category, task_id, is_cat) |>
   summarise(median_diff = median(diff),
             min_diff = min(diff),
             max_diff = max(diff)) |>
   ungroup() |>
   mutate(across(contains("diff"), \(d) round(d, 2))) |>
   mutate(combined_diff = glue("{median_diff} [{min_diff}, {max_diff}]"))
-
-# task_time_summary
-# sum(task_time_summary$median_diff)
-
-run_time_summary <- time_summary |>
-  group_by(user_id, run_id) |>
-  summarise(total = sum(diff)) |>
-  ungroup() |>
-  summarise(med = median(total))
-
-user_summary <- time_summary |>
-  group_by(user_id) |>
-  summarise(total = sum(diff)) |>
-  ungroup() |>
-  summarise(med = median(total))
 ```
+
 
 ```{r}
 write_csv(task_time_summary, here("03_summaries","tables","task_time_summary.csv"))
 
 task_time_wide <- task_time_summary |>
+  filter(!is_cat) |>
   select(-combined_diff, -min_diff, -max_diff) |>
   pivot_wider(names_from = site, values_from = median_diff)
 

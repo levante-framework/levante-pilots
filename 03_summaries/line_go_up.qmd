@@ -92,8 +92,6 @@ scores |>
   task_plot_comparative(ylab = "Score", nr = 2)
 # ggsave(here("03_summaries/plots/levante_tasks_multigroup.png"), width = 11, height = 6)
 ```
-```
-
 
 Ages. 
 
@@ -114,4 +112,3 @@ ggplot(ages, aes(x = age, fill = site)) +
 ggsave(here("03_summaries/plots/ages.png"), 
        width = 8, height = 3, create.dir = TRUE)
 ```
-
