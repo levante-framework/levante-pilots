@@ -72,6 +72,29 @@ task_scores |>
 ggsave(here("03_summaries/plots/levante_tasks_no_pooling.png"), width = 11, height = 6)
 ```
 
+
+```{r}
+task_scores |>
+  filter(model == "partial pooling IRT",
+         site != "us_pilot",
+         task_id %in% levante_tasks) |>
+  task_plot_comparative(ylab = "Score", nr = 2)
+ggsave(here("03_summaries/plots/levante_tasks_multigroup.png"), width = 11, height = 6)
+```
+
+Everything on the plots.
+
+```{r}
+scores |>
+  filter((model == "partial pooling IRT" & task_id %in% levante_tasks) |
+          (metric_type == "guessing-adjusted number correct" & task_id %in% c("sre")),
+         site != "us_pilot") |>
+  task_plot_comparative(ylab = "Score", nr = 2)
+# ggsave(here("03_summaries/plots/levante_tasks_multigroup.png"), width = 11, height = 6)
+```
+```
+
+
 Ages. 
 
 ```{r}
