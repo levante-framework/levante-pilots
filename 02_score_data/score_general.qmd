@@ -147,5 +147,6 @@ mefs <- left_join(mefs_scores, site_users) |>
 # scores_combined <- bind_rows(sumscores, thetas)
 # scores_combined <- bind_rows(sumscores, thetas, mg, sre, mefs)
 # scores_combined <- bind_rows(sumscores, thetas, mg, sre, mefs, pa) # FIXME: pa not defined here..
-# write_rds(scores_combined, here("02_scored_data/scores/scores_general.rds"))
+scores_combined <- bind_rows(sre, mefs)
+write_rds(scores_combined, here("02_scoring_outputs/scores/scores_general.rds"))
 ```
