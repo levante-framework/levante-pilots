@@ -90,6 +90,7 @@ trog_sum_scores <- ggplot(trog_runs, aes(x = age, y = correct)) +
     caption = "Note: Each point represents a participant run; smoothed trend by site"
   )
 
+print(trog_sum_scores)
 ggsave(
   filename = here::here("03_explore_tasks", "Graphs", "trog_sum_scores.png"),
   plot = trog_sum_scores,
