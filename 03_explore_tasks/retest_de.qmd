@@ -39,21 +39,23 @@ de_retest_scores <- thetas |>
 retest_wide <- de_retest_scores |>
   group_by(user_id, item_task) |>
   mutate(has_retest = any(age_gap > .05), 
-         mean_age = mean(age)) |>
+         mean_age = mean(age), 
+         age_gap = max(age_gap)) |>
   filter(has_retest) |>
   ungroup() |>  
   pivot_wider(
-    id_cols = c(user_id, item_task, mean_age),
+    id_cols = c(user_id, item_task, mean_age, age_gap),
     names_from = run_number,
     values_from = metric_value,
     names_prefix = "run_"
   ) |>
-  select(user_id, item_task, age = mean_age, run_1, run_2)
+  select(user_id, item_task, age = mean_age, age_gap, run_1, run_2)
 
 retest_wide |>
   group_by(item_task) |>
   summarise(test_retest_r = cor(run_1, run_2, use = "complete.obs"), 
-            n = n()) 
+            n = n(), 
+            age_gap = mean(age_gap)*12) 
   
 ```
 

@@ -53,6 +53,18 @@ remove_nonshared_items <- function(df) {
     filter(n_groups == n_groups_total) # need to be in N or more groups
 }
 
+remove_no_var_items_bygroup <- function(df, item_n_min = 1) {
+  df |>
+    group_by(item_inst, group) |>
+    mutate(item_mean = mean(correct, na.rm = TRUE), 
+           item_n = length(correct)) |> # item means
+    group_by(item_inst) |>
+    mutate(low_var = any(item_mean == 0) | any(item_mean== 1), 
+           low_n = any(item_n < item_n_min)) |>
+    ungroup() |>
+    filter(!low_var, !low_n) # need to be between 0 and 1
+}
+
 # format data for mirt
 to_mirt_shape <- function(df) {
   df |>
@@ -168,7 +180,7 @@ fit_multigroup <- function(i, df, item_type, group, model_str, guess,
     multipleGroup(df, 
                   itemtype = item_type, 
                   group = group, 
-                  # guess = guess,
+                  guess = guess,
                   model = mirt.model(model_str), 
                   verbose = TRUE, 
                   invariance = invariance_list,

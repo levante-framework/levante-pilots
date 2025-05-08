@@ -20,23 +20,30 @@ library(tidyverse)
 library(glue)
 library(here)
 library(mirt)
+library(multidplyr)
+library(tictoc)
+library(beepr)
 
 set.seed(1234)
 source(here("02_score_data/irt_helpers.R"))
 
 # tasks to include in these analyses
-irt_tasks <- c("egma-math",
-               "matrix-reasoning",
-               "mental-rotation",
-               "same-different-selection",
-               "theory-of-mind",
-               "hearts-and-flowers",
-               "memory-game",
+irt_tasks <- c("math",
+               "matrix",
+               "mrot",
+               "sds",
+               "tom",
+               "hf",
+               "ha",
+               "mg",
                "trog",
                "vocab")
 
+multigroup_sites <- c("ca_pilot", "co_pilot", "de_pilot")
+
 site_task_data_nested <- read_rds(here(glue("01_fetched_data/task_data_nested.rds"))) |>
-  filter(task_id %in% irt_tasks)
+  filter(item_task %in% irt_tasks, 
+         site %in% multigroup_sites)
 
 task_data_nested <- site_task_data_nested |>
   unnest(data) |>
@@ -59,14 +66,14 @@ run_ages <- read_rds(here(glue("01_fetched_data/run_data.rds"))) |>
 # now removes missing item ID data
 task_data_prepped <- task_data_nested |>
   mutate(data_filtered = map(data, \(df) df |> #filter_repeat_runs() |>
+                               dedupe_items() |> remove_no_var_items() |>
                                remove_nonshared_items() |>
-                               dedupe_items() |> remove_no_var_items()),
+                               remove_no_var_items_bygroup()),
          data_wide = map(data_filtered, to_mirt_shape_grouped), 
          data_prepped = map(data_wide, \(df) df |> select(-group)),
          groups = map(data_wide, \(df) df |> pull(group))) |>
   mutate(guess = map(data_filtered,
                      \(df) df |> distinct(item_inst, chance) |> pull(chance)))
-
 
 item_types <- c("Rasch", "2PL") #, "3PL") # set of parameterizations
 model_types <- c(1) #, 2) # set of dimensionalities
@@ -84,7 +91,7 @@ Joint model fitting.
 
 ```{r fit-models}
 # multidyplr attempt
-library(multidplyr)
+
 cluster <- new_cluster(14) # needs generalizing
 cluster_library(cluster, "tidyverse")
 cluster_library(cluster, "mirt")
@@ -94,13 +101,15 @@ cluster_copy(cluster, "fit_multigroup")
 
 
 # fit all the models!
+tic()
 task_models <- task_data_args |>
   partition(cluster) |>
   mutate(mod = pmap(list(row_number(), data_prepped, item_type, model_str,
                          model_type, item_task, guess),
                     fit_mirt)) |>
   collect()
-
+toc()
+beep()
 
 # get each model's coefs, scores, BIC
 task_results <- task_models |>
@@ -117,7 +126,7 @@ task_best <- task_results |>
   group_by(item_task) |>
   filter(bic == min(bic)) |>
   ungroup()
-  # select(site, item_task, item_type, model_type, coefs, scores)
+# select(site, item_task, item_type, model_type, coefs, scores)
 
 # scores from best fitting models
 task_scores <- task_best |>
@@ -125,7 +134,7 @@ task_scores <- task_best |>
   rename(site = groups) |>
   unnest(cols = c(scores, site)) |>
   mutate(#item_type = fct_recode(item_type, "1PL" = "Rasch"),
-         metric_type = glue("merged_data ability ({item_type}-{model_type})")) |>
+    metric_type = glue("merged_data ability ({item_type}-{model_type})")) |>
   select(site, item_task, user_id, run_id, metric_type, metric_value = ability)
 
 write_rds(task_scores, here("02_scored_data","scores","scores_fullpooling.rds"),
@@ -136,22 +145,34 @@ Now fit multigroup models.
 
 
 ```{r}
+cluster <- new_cluster(14) # needs generalizing
+cluster_library(cluster, "tidyverse")
+cluster_library(cluster, "mirt")
+cluster_library(cluster, "glue")
+cluster_copy(cluster, "fit_mirt")
+cluster_copy(cluster, "fit_multigroup")
+
+tic()
 model_types <- tribble(~item_type, ~invariance_type,
                        "Rasch","configural",
-                      "Rasch", "metric",
-                      "Rasch", "full",
-                      "2PL","configural",
-                      "2PL", "metric",
-                      "2PL", "scalar_intercepts",
-                      # "2PL", "scalar_slopes_and_intercepts", # cut for space in the anova (total hack)
-                      "2PL", "full")
+                       "Rasch", "metric",
+                       "Rasch", "full",
+                       "2PL","configural",
+                       "2PL", "metric",
+                       "2PL", "scalar_intercepts",
+                       # "2PL", "scalar_slopes_and_intercepts", # cut for space in the anova (total hack)
+                       "2PL", "full")
 
 multigroup_models <- task_results |>
   full_join(model_types, relationship = "many-to-many") |>
   partition(cluster) |>
-  mutate(mod = pmap(list(row_number(), data_prepped, item_type, groups, model_str, 
-                                invariance_type, item_task), fit_multigroup)) |>
+  mutate(mod = pmap(list(row_number(), df = data_prepped, 
+                         item_type = item_type, group = groups, model_str = model_str, guess = guess, 
+                         invariance = invariance_type, item_task = item_task), fit_multigroup)) |>
   collect()
+
+toc()
+beep()
 
 write_rds(multigroup_models,
           here("02_scored_data/irt_outputs/multigroup_outputs.rds"),
@@ -168,8 +189,9 @@ write_rds(multigroup_models,
 task_anova <- multigroup_models |>
   group_by(item_task) |>
   summarise(model_types = list(model_types), 
-            anova = list(anova(mod[1][[1]], mod[2][[1]], mod[3][[1]], mod[4][[1]], 
-                               mod[5][[1]], mod[6][[1]], mod[7][[1]]))) |>
+            anova = ifelse(is.na(mod[1][[1]]), tibble(), 
+                           list(anova(mod[1][[1]], mod[2][[1]], mod[3][[1]], mod[4][[1]], 
+                                      mod[5][[1]], mod[6][[1]], mod[7][[1]])))) |>
   unnest(cols = c(model_types, anova)) |>
   group_by(item_task) |>
   mutate(delta_bic = BIC - min(BIC), 
@@ -212,19 +234,26 @@ best_multigroup_refit <- best_multigroup |>
                                dedupe_items() |> remove_no_var_items()),
          data_wide = map(data_filtered, to_mirt_shape_grouped), 
          data_prepped = map(data_wide, \(df) df |> select(-group)),
-         groups = map(data_wide, \(df) df |> pull(group))) 
+         groups = map(data_wide, \(df) df |> pull(group))) |>
+  mutate(guess = map(data_filtered,
+                     \(df) df |> distinct(item_inst, chance) |> pull(chance)))
+
 
 # add arguments for model fitting to data
+tic()
 best_multigroup_refit <- best_multigroup_refit |>
   mutate(model_str = ifelse(invariance_type != "configural", 
                             pmap_chr(list(data, data_prepped, item_type, model_type),
-                              generate_model_str_numeric), model_str)) |>
-    partition(cluster) |>
+                                     generate_model_str_numeric), model_str)) |>
+  partition(cluster) |>
   mutate(mod = ifelse(invariance_type != "configural", 
-                      pmap(list(row_number(), data_prepped, item_type, groups, model_str, 
-                                invariance_type, item_task), fit_multigroup), 
+                      pmap(list(row_number(), df = data_prepped, 
+                                item_type = item_type, group = groups, model_str = model_str, guess = guess, 
+                                invariance = invariance_type, item_task = item_task), fit_multigroup), 
                       mod)) |>
   collect()
+toc()
+beep()
 ```
 
 Now do the scoring. 

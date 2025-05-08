@@ -114,6 +114,21 @@ knitr::kable(wide_summaries_by_site)
 # Survey counts
 
 ```{r}
-surveys <- read_rds(here("01_fetched_data","survey_data_nested"))
+surveys <- read_rds(here("01_fetched_data","survey_data_nested.rds"))
 ```
+
+```{r}
+surveys |>
+  unnest(data) |>
+  select(survey_type, site, user_id) |>
+  distinct() |>
+  group_by(survey_type, site) |>
+  count()  |>
+  pivot_wider(names_from = "site", values_from = "n") |>
+  knitr::kable()
+  
+
+
+```
+
 
