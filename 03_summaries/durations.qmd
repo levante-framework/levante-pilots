@@ -4,22 +4,11 @@ library(here)
 library(glue)
 
 source(here("03_summaries", "plotting_helper.R"))
+runs <- read_rds(here("01_fetched_data/run_data.rds"))
+
 
 ```
 
-```{r}
-sites <- c("ca_pilot", "co_pilot", "de_pilot")
-
-trials_coded <- sites |>
-  set_names() |>
-  map(\(s) read_rds(here(glue("00_prepped_data/{s}/trials_coded.rds")))) |>
-  list_rbind(names_to = "site")
-
-participants <- sites |>
-  set_names() |>
-  map(\(s) read_rds(here(glue("00_prepped_data/{s}/participants.rds")))) |>
-  list_rbind(names_to = "site")
-```
 
 Table of median task times
 

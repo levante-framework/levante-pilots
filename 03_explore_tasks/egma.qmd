@@ -427,10 +427,16 @@ params <- best_multigroup_coefs |>
 
 ggplot(params, aes(x = -line, y = -slider, col = scale)) + 
   geom_point()+ 
-  geom_smooth(method = "lm", aes(group = 1)) +
+  # geom_smooth(method = "lm", aes(group = 1)) +
+  geom_smooth(method = "lm", aes(group = 1),
+              data = filter(params, !(scale=="100" & point == "9"))) +
   ggrepel::geom_text_repel(aes(label = point), size = 3) + 
   xlab("Line-to-number 4AFC difficulty") + 
   ylab("Number-to-line slider difficulty")
+
+with(filter(params, !(scale=="100" & point == "9")), 
+     cor.test(line, slider))
+with(params,  cor.test(line, slider))
 ```
 
 ```{r}
