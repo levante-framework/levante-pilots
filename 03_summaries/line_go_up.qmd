@@ -29,41 +29,47 @@ scores <- combine_scores()
 
 ```{r}
 # threshold_n <- 10
-threshold_n <- 10
-threshold_scores <- scores |> filter(site_task_n >= threshold_n)
+# threshold_n <- 10
+# threshold_scores <- scores |> filter(site_task_n >= threshold_n)
 
-sumscores <- threshold_scores |> filter(metric_type == "prop_correct")
+# sumscores <- scores |> filter(metric_type == "prop_correct")
 
-irt_scores <- threshold_scores |>
-  filter(str_detect(metric_type, "ability"))
+# irt_scores <- scores |>
+#   filter(str_detect(metric_type, "ability"))
 
-task_scores <- threshold_scores |>
+task_scores <- scores |>
   mutate(metric_type = if_else(str_detect(metric_type, "ability"), "ability", metric_type)) |>
   filter(!is.na(metric_value)) |>
-  inner_join(task_metrics) 
+  inner_join(task_metrics)
 ```
 
 
 With just the LEVANTE original tasks. 
 
 ```{r}
-levante_tasks <- c("hearts-and-flowers","memory-game","same-different-selection", 
-                   "egma-math", "mental-rotation", "trog","vocab","theory-of-mind")
+levante_tasks <- c("hearts-and-flowers", "memory-game", "same-different-selection", 
+                   "egma-math", "mental-rotation", "trog", "vocab", "theory-of-mind")
+
+site_labels <- scores |>
+  distinct(site, site_label) |>
+  deframe() |>
+  as.character()
+
 task_scores |>
   filter(model == "full pooling IRT",
          # site != "us_pilot", 
-         task %in% levante_tasks) |>
+         task_id %in% levante_tasks) |>
   task_plot_comparative(ylab = "Score", nr = 2)
-ggsave(here("03_summaries/plots/levante_tasks_full_pooling.png"), width = 10, height = 6)
+ggsave(here("03_summaries/plots/levante_tasks_full_pooling.png"), width = 11, height = 6)
 ```
 
 ```{r}
 task_scores |>
   filter(model == "no pooling IRT",
          site != "us_pilot",
-         task %in% levante_tasks) |>
+         task_id %in% levante_tasks) |>
   task_plot_comparative(ylab = "Score", nr = 2)
-ggsave(here("03_summaries/plots/levante_tasks_no_pooling.png"), width = 10, height = 6)
+ggsave(here("03_summaries/plots/levante_tasks_no_pooling.png"), width = 11, height = 6)
 ```
 
 Ages. 

@@ -1,29 +1,52 @@
-task_categories <- tribble(
-  ~task, ~task_category,
-  "hearts-and-flowers", "executive function",
-  "same-different-selection", "executive function",
-  "memory-game", "executive function",
-  "mefs", "executive function",
-  "egma-math", "math",
-  "matrix-reasoning", "reasoning",
-  "mental-rotation", "spatial cognition",
-  "trog", "language",
-  "vocab", "language",
-  "pa-es", "reading",
-  "sre-es", "reading",
-  "swr-es", "reading",
-  "pa", "reading",
-  "sre", "reading",
-  "swr", "reading",
-  "sre-de", "reading",
-  "swr-de", "reading",
-  # "emotion-reasoning", "social cognition",
-  "theory-of-mind", "social cognition",
-  "hostile-attribution", "social cognition"
-) |> mutate(task_category = task_category |> str_to_sentence() |> fct_inorder())
+# task_categories <- tribble(
+#   ~task, ~task_category,
+#   "hearts-and-flowers", "executive function",
+#   "same-different-selection", "executive function",
+#   "memory-game", "executive function",
+#   "mefs", "executive function",
+#   "egma-math", "math",
+#   "matrix-reasoning", "reasoning",
+#   "mental-rotation", "spatial cognition",
+#   "trog", "language",
+#   "vocab", "language",
+#   "pa-es", "reading",
+#   "sre-es", "reading",
+#   "swr-es", "reading",
+#   "pa", "reading",
+#   "sre", "reading",
+#   "swr", "reading",
+#   "sre-de", "reading",
+#   "swr-de", "reading",
+#   # "emotion-reasoning", "social cognition",
+#   "theory-of-mind", "social cognition",
+#   "hostile-attribution", "social cognition"
+# ) |> mutate(task_category = task_category |> str_to_sentence() |> fct_inorder())
+
+task_info <- tribble(
+  ~item_task , ~task                    , ~task_category,
+  "hf"       , "hearts & flowers"       , "executive function",
+  "sds"      , "same & different"       , "executive function",
+  "mg"       , "memory"                 , "executive function",
+  "math"     , "math"                   , "math",
+  "matrix"   , "pattern matching"       , "reasoning",
+  "mrot"     , "shape rotation"         , "spatial cognition",
+  "trog"     , "sentence understanding" , "language",
+  "vocab"    , "vocabulary"             , "language",
+  "tom"      , "theory of mind"         , "social cognition",
+  "ha"       , "social attribution"     , "social cognition",
+  "pa"       , "language sounds"        , "reading",
+  "sre"      , "sentence reading"       , "reading",
+  "swr"      , "word reading"           , "reading",
+  "pa-es"    , "language sounds"        , "reading",
+  "sre-es"   , "sentence reading"       , "reading",
+  "swr-es"   , "word reading"           , "reading",
+  "sre-de"   , "sentence reading"       , "reading",
+  "swr-de"   , "word reading"           , "reading"
+) |> mutate(task = task |> str_to_title() |> fct_inorder(),
+            task_category = task_category |> str_to_title() |> fct_inorder())
 
 task_metrics <- tribble(
-  ~task, ~metric_type,
+  ~task_id, ~metric_type,
   "hearts-and-flowers", "ability",
   "same-different-selection", "ability",
   "memory-game", "ability",
@@ -62,7 +85,8 @@ combine_scores <- \() {
   
   scores_noages <- bind_rows(scores_irt, scores_general, 
                              scores_multigroup, scores_fullpooling) |>
-    rename(task = task_id)
+    # rename(task = item_task) |>
+    select(-task_id)
   
   # score_list <- score_files |> map(read_rds)
   # score_files <- list.files(here("02_scored_data/scores"), pattern = "*.rds",
@@ -77,24 +101,23 @@ combine_scores <- \() {
   #   bind_rows() |>
   #   rename(task = task_id) 
   
-  mefs_age_guesses <- scores_noages |>
-    filter(task == "mefs") |>
-    left_join(run_ages |> group_by(user_id) |> summarise(age = mean(age, na.rm=TRUE)))
+  # mefs_age_guesses <- scores_noages |>
+  #   filter(task == "mefs") |>
+  #   left_join(run_ages |> group_by(user_id) |> summarise(age = mean(age, na.rm=TRUE)))
   
   scores <- scores_noages |>
-    filter(task != "mefs") |>
+    # filter(task != "mefs") |>
     left_join(run_ages) |>
-    bind_rows(mefs_age_guesses) |> # add mefs back in
+    # bind_rows(mefs_age_guesses) |> # add mefs back in
     filter(!is.na(age)) |>
     # filter(!is.na(age), age >= 5, age <= 12) |>
-    left_join(task_categories) |>
-    mutate(task = str_replace(task, "-es", ""),
-           task = str_replace(task, "-de", "") )|>
+    left_join(task_info) |>
+    # mutate(task = str_replace(task, "-es", ""),
+    #        task = str_replace(task, "-de", "") )|>
     group_by(site, task) |>
-    mutate(site_task_n = n_distinct(user_id),
-           site_task_label = glue("{task}\n(n = {site_task_n})")) |>
+    mutate(site_task_label = glue("{task}\n(n = {n_distinct(run_id)})")) |>
     group_by(task) |>
-    mutate(task_label = glue("{task}\n(n = {n_distinct(user_id)})")) |>
+    mutate(task_label = glue("{task}\n(n = {n_distinct(run_id)})")) |>
     ungroup() |>
     mutate(site_label = site |>
              # fct_relevel("co_pilot", "de_pilot", "ca_pilot") |>
@@ -103,6 +126,6 @@ combine_scores <- \() {
                         "Germany" = "de_pilot",
                         "US" = "us_pilot")) |>
     group_by(site) |>
-    mutate(site_label = glue("{site_label} (n = {n_distinct(user_id)})")) |>
+    mutate(site_label = glue("{site_label} (n = {n_distinct(run_id)})")) |>
     ungroup()
 }

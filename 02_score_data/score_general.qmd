@@ -16,14 +16,15 @@ Sumscores for all tasks
 ```{r sumscores}
 sumscores <- task_data_combined |>
   # filter(corpus_trial_type != "Number Line Slider") |> # TODO
-  group_by(site, item_task, user_id, run_id) |>
+  group_by(site, task_id, item_task, user_id, run_id) |>
   summarise(prop_correct =  mean(correct),
             total_correct = sum(correct),
             n_trials = n()) |>
   ungroup() |>
   pivot_longer(-c("site", ends_with("_id"), "item_task"),
                names_to = "metric_type", values_to = "metric_value")
-write_rds(sumscores, here("02_scored_data","scores","sumscores.rds"))
+
+write_rds(sumscores, here("02_scoring_outputs","scores","sumscores.rds"))
 ```
 
 Thetas for tasks that have them
