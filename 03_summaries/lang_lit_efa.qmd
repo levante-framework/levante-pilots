@@ -19,8 +19,9 @@ source(here("03_explore_tasks/explore_helper.R"))
 Load irt scores for trog and vocab
 
 ```{r}
-best_multigroup <- readRDS(here("02_scored_data", "irt_outputs", "multigroup_best_outputs.rds"))
-multigroup_scores <- readRDS(here("02_scoring_outputs", "scores", "scores_multigroup.rds"))
+best_multigroup <- readRDS(here("02_scoring_outputs", "irt_outputs", "multigroup_best_outputs.rds"))
+multigroup_scores <- readRDS(here("02_scoring_outputs", "scores", "multigroup_scores.rds"))
+names(multigroup_scores)
 
 # Add age
 run_data_combined <- read_rds(here("01_fetched_data", "run_data.rds"))
@@ -30,16 +31,14 @@ run_ages <- run_data_combined |>
   distinct()
 
 lang_lit_scores <- multigroup_scores |>
-  filter(task_id %in% c("trog", "vocab"), site != "us_pilot") |>
-  select(site, task_id, user_id, run_id, metric_type, metric_value) |>
+  filter(item_task %in% c("trog", "vocab"), site != "us_pilot") |>
+  select(site, item_task, user_id, run_id, metric_type, metric_value) |>
   left_join(run_ages, by = c("site", "user_id", "run_id"))
-
-dir(here("01_fetched_data"))
 
 # check n's
 lang_lit_scores |>
-  distinct(site, task_id, user_id) |>
-  count(site, task_id, name = "n_users")
+  distinct(site, item_task, user_id) |>
+  count(site, item_task, name = "n_users")
 
 
 ```
@@ -48,10 +47,10 @@ Load swr from thetas file
 
 ```{r}
 # check what's in scores_thetas
-scores_thetas <- read_rds(here("02_scored_data/scores/scores_thetas.rds"))
+scores_thetas <- read_rds(here("02_scoring_outputs/scores/roar_thetas.rds"))
 glimpse(scores_thetas)
 
-swr <- read_rds(here("02_scored_data/scores/scores_thetas.rds")) |>
+swr <- read_rds(here("02_scoring_outputs/scores/roar_thetas.rds")) |>
   filter(task_id %in% c("swr", "swr-de", "swr-es")) |>
   select(site, task_id, user_id, run_id, metric_type, metric_value)
 n_distinct(swr$user_id) #518
@@ -93,14 +92,11 @@ Combine all scores
 
 ```{r}
 
-lang_lit_combined |>
-  filter(task_id == "trog") |>
-  semi_join(
-    lang_lit_combined |> filter(task_id == "vocab"),
-    by = "user_id"
-  ) |> 
-  distinct(user_id) |> 
-  count()
+lang_lit_combined <- bind_rows(
+  lang_lit_scores |> rename(task_id = item_task),
+  swr,
+  sre
+)
 
 efa_data <- lang_lit_combined |>
   select(user_id, task_id, metric_value) |>
@@ -112,7 +108,8 @@ efa_data <- lang_lit_combined |>
 glimpse(efa_data)
 
 efa_data |>
-  summarise(across(-c(user_id, run_id), ~sum(!is.na(.))))
+  summarise(across(-c(user_id), ~sum(!is.na(.))))
+
 ```
 
 EFA
@@ -138,6 +135,7 @@ fa.diagram(efa_result)
 Check if it's feasible to do efa within a site
 
 ```{r}
+
 lang_lit_combined |>
   select(site, user_id, task_id) |>
   distinct() |>
