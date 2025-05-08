@@ -4,7 +4,6 @@ format: html
 editor: visual
 ---
 
-
 Helper functions
 
 ```{r}
@@ -16,146 +15,143 @@ source(here("03_explore_tasks/explore_helper.R"))
 
 ```
 
-Load data
+# May 8, updates
+Load task data
 
 ```{r}
-# load vocab and trog
-lang_lit <- load_task_data(c("vocab", "trog"))
-lang_lit
-                  
-# load sre and swr (ROAR)
-task_data_nested <- read_rds(here(glue("01_fetched_data/task_data_nested.rds")))
-
-task_data_combined <- task_data_nested |>
-  mutate(data = map2(task_id, data, rescore_hf)) |>
-  unnest(data)
-
-#sre
-sre <- task_data_combined |>
-  filter(str_detect(task_id, "sre")) |>
-  mutate(item_num = as.numeric(str_extract(item_uid, "[:digit:]+")), 
-         ai = str_detect(item_uid, "ai"))
-colnames(sre)
-
-#swr
-swr <- task_data_combined |>
-  filter(str_detect(task_id, "swr")) |>
-  mutate(item_num = as.numeric(str_extract(item_uid, "[:digit:]+")), 
-         ai = str_detect(item_uid, "ai"))
-
-```
-
-Compute raw accuracy
-
-```{r}
-# trog and vocab
-lang_lit_scores <- lang_lit |>
-  group_by(user_id, site, task_id) |>
-  summarise(accuracy = mean(correct, na.rm = TRUE), .groups = "drop") |>
-  pivot_wider(names_from = task_id, values_from = accuracy) |>
-  janitor::clean_names()
-
-# SRE and SWR
-sre_scores <- sre |>
-  group_by(user_id, site) |>
-  summarise(sre = mean(correct, na.rm = TRUE), .groups = "drop")
-
-swr_scores <- swr |>
-  group_by(user_id, site) |>
-  summarise(swr = mean(correct, na.rm = TRUE), .groups = "drop")
-
-ages <- run_ages |> 
-  select(user_id, site, age)  
-
-# Join all scores together
-lang_lit_full <- lang_lit_scores |>
-  left_join(sre_scores, by = c("user_id", "site")) |>
-  left_join(swr_scores, by = c("user_id", "site")) |>
-  left_join(ages |> select(user_id, site, age), by = c("user_id", "site"))
-
-lang_lit_full |> summarise(n = n(), with_age = sum(!is.na(age)))
-lang_lit_scores |> count(site)
-ages |> count(site)
-
-
-```
-
-EFA #2
-
-Have to use raw accuracy scores because I don't have IRT scores for sre and swr
-
-```{r}
-
-install.packages("naniar")
-library(naniar) 
-
-# plot missingness
-vis_miss(lang_lit_full[, c("trog", "vocab", "sre", "swr")])
-
-# vount complete cases
-lang_lit_full |> 
-  summarise(n = n(), complete_cases = sum(complete.cases(trog, vocab, sre, swr)))
-
-# Check na's per column
-lang_lit_full |>
-  select(trog, vocab, sre, swr) |>
-  summarise(across(everything(), ~ sum(is.na(.))))
-
-# EFA data and model
-efa_data <- lang_lit_full |>
-  select(trog, vocab, sre, swr) |>
-  na.omit()
-
-efa_result <- fa(efa_data, nfactors = 1, rotate = "none", fm = "ml")
-print(efa_result)
-
-# Scree
-fa.parallel(efa_data, fa = "fa")
-
-```
-
-CFA to confirm one factor structure 
-
-```{r}
-library(lavaan)
-cfa_model <- "
-  ll =~ trog + vocab + sre + swr
-  ll ~ age
-"
-
-# Prep data
-lang_lit_cfa <- lang_lit_full |>
-  select(trog, vocab, sre, swr, age) |>
-  na.omit()
-
-# Fit cfa
-fit_cfa <- cfa(
-  model = cfa_model,
-  data = lang_lit_cfa,
-  std.lv = TRUE
-)
-
-# Summarise
-summary(fit_cfa, fit.measures = TRUE, standardized = TRUE)
-
-# Plot
-
-
-```
-
-EFA for trog and vocab only
-
-```{r}
+best_multigroup <- readRDS(here("02_scored_data", "irt_outputs", "multigroup_best_outputs.rds"))
 multigroup_scores <- readRDS(here("02_scoring_outputs", "scores", "scores_multigroup.rds"))
 
-names(multigroup_scores)
-# Check tasks
-multigroup_scores |> 
-  distinct(task_id) |> 
-  arrange(task_id) |> 
-  View()
+# Add age
+run_data_combined <- read_rds(here("01_fetched_data", "run_data.rds"))
+run_ages <- run_data_combined |>
+  filter(site != "us_pilot") |>
+  select(site, run_id, user_id, age) |>
+  distinct()
+
+lang_lit_scores <- multigroup_scores |>
+  filter(task_id %in% c("trog", "vocab"), site != "us_pilot") |>
+  select(site, task_id, user_id, run_id, metric_type, metric_value) |>
+  left_join(run_ages, by = c("site", "user_id", "run_id"))
+
+dir(here("01_fetched_data"))
+
+# check n's
+lang_lit_scores |>
+  distinct(site, task_id, user_id) |>
+  count(site, task_id, name = "n_users")
+
 
 ```
+
+Load swr from thetas file
+
+```{r}
+# check what's in scores_thetas
+scores_thetas <- read_rds(here("02_scored_data/scores/scores_thetas.rds"))
+glimpse(scores_thetas)
+
+swr <- read_rds(here("02_scored_data/scores/scores_thetas.rds")) |>
+  filter(task_id %in% c("swr", "swr-de", "swr-es")) |>
+  select(site, task_id, user_id, run_id, metric_type, metric_value)
+n_distinct(swr$user_id) #518
+
+swr <- swr |>
+  mutate(task_id = "swr")
+
+
+
+```
+
+Score SRE manually
+
+```{r}
+task_data_nested <- read_rds(here("01_fetched_data/task_data_nested.rds"))
+names(task_data_nested)
+glimpse(task_data_nested)
+
+# load re-score
+source(here("02_score_data", "irt_helpers.R"))
+ls()
+
+task_data_combined <- task_data_nested |>
+  filter(item_task == "sre") |>
+  unnest(data)
+
+sre_all <- task_data_combined |>
+  filter(str_detect(task_id, "sre"))
+
+sre <- sre_all |>
+  group_by(site, task_id, user_id, run_id) |>
+  filter(site != "ca_pilot" | timestamp < timestamp[min(trial_number)] + 180) |>
+  summarise(metric_value = (sum(correct) - sum(!correct)) / 180, .groups = "drop") |>
+  mutate(metric_type = "guessing_adjusted_number_correct")
+
+n_distinct(sre$user_id) #36
+
+```
+
+Combine all scores
+
+```{r}
+
+lang_lit_combined |>
+  filter(task_id == "trog") |>
+  semi_join(
+    lang_lit_combined |> filter(task_id == "vocab"),
+    by = "user_id"
+  ) |> 
+  distinct(user_id) |> 
+  count()
+
+efa_data <- lang_lit_combined |>
+  select(user_id, task_id, metric_value) |>
+  group_by(user_id, task_id) |>
+  summarise(metric_value = mean(metric_value, na.rm = TRUE), .groups = "drop") |>
+  pivot_wider(names_from = task_id, values_from = metric_value)
+
+# check n's
+glimpse(efa_data)
+
+efa_data |>
+  summarise(across(-c(user_id, run_id), ~sum(!is.na(.))))
+```
+
+EFA
+
+```{r}
+
+efa_matrix <- efa_data |>
+  select(trog, vocab, swr)
+
+efa_matrix <- efa_matrix[rowSums(!is.na(efa_matrix)) >= 2, ]
+
+fa.parallel(efa_matrix, fa = "fa", use = "pairwise")
+
+library(psych)
+efa_result <- fa(efa_matrix, nfactors = 1, rotate = "none", use = "pairwise", fm = "ml")
+
+print(efa_result, digits = 3, cut = 0.3)
+
+fa.diagram(efa_result)
+
+
+```
+Check if it's feasible to do efa within a site
+
+```{r}
+lang_lit_combined |>
+  select(site, user_id, task_id) |>
+  distinct() |>
+  count(site, user_id, name = "n_tasks") |>
+  filter(n_tasks >= 3) |>
+  count(site, name = "n_users_with_3plus_tasks") |>
+  arrange(desc(n_users_with_3plus_tasks))
+
+#no, only 7 users in canada have data on all three
+```
+
+Load data for trog and vocab only
 
 ```{r}
 library(janitor)
@@ -230,9 +226,6 @@ semPaths(
 
 ```
 
-```{r}
-
-```
 
 ```{r}
 
@@ -241,23 +234,3 @@ semPaths(
 ```{r}
 
 ```
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
