@@ -63,28 +63,34 @@ swr <- swr |>
 Score SRE manually
 
 ```{r}
-task_data_nested <- read_rds(here("01_fetched_data/task_data_nested.rds"))
-names(task_data_nested)
-glimpse(task_data_nested)
+# raw scores
+scores_general <- read_rds(here("02_scoring_outputs/scores/scores_general.rds"))
 
-# load re-score
-source(here("02_score_data", "irt_helpers.R"))
-ls()
+sre <- scores_general |>
+  filter(item_task == "sre")  
 
-task_data_combined <- task_data_nested |>
+n_distinct(sre$user_id) #478
+
+# IRT scores
+# Load trial-level SRE data
+task_data_combined <- read_rds(here("01_fetched_data/task_data_nested.rds")) |>
   filter(item_task == "sre") |>
   unnest(data)
 
-sre_all <- task_data_combined |>
-  filter(str_detect(task_id, "sre"))
+# Score SRE using guessing-adjusted correct per second (as per ROAR guidelines)
+sre <- task_data_combined |>
+  group_by(site, item_task, user_id, run_id) |>
+  filter(site != "ca_pilot" | timestamp < min(timestamp) + 180) |>
+  summarise(
+    metric_value = (sum(correct, na.rm = TRUE) - sum(!correct, na.rm = TRUE)) / 180,
+    .groups = "drop"
+  ) |>
+  mutate(
+    metric_type = "guessing_adjusted_number_correct",
+    task_id = "sre"  # Standardise column name for downstream merging
+  )
 
-sre <- sre_all |>
-  group_by(site, task_id, user_id, run_id) |>
-  filter(site != "ca_pilot" | timestamp < timestamp[min(trial_number)] + 180) |>
-  summarise(metric_value = (sum(correct) - sum(!correct)) / 180, .groups = "drop") |>
-  mutate(metric_type = "guessing_adjusted_number_correct")
-
-n_distinct(sre$user_id) #36
+n_distinct(sre$user_id)
 
 ```
 

@@ -170,8 +170,30 @@ ggplot(hf_runs,
   geom_point(alpha = .5) + 
   geom_smooth(method = "lm") +
   geom_hline(yintercept = 0, lty = 2) + 
-  # ylim(0,1) + 
   facet_grid(site ~ task_id)
+```
+
+```{r}
+
+hf_it <- hf |>
+  filter(site != "us_pilot") |>
+  group_by(site, user_id, run_id, task_id, item_group, item) |>
+  summarise(correct_rt = median(as.numeric(rt[correct]), na.rm=TRUE),
+            correct = mean(correct),
+            age = mean(age)) 
+
+hf_it |> ggplot(aes(x = age, y = correct_rt, color = item)) + 
+  geom_point(alpha = .1) + 
+  geom_smooth(method = "lm") +
+  geom_hline(yintercept = 0, lty = 2) + 
+  facet_grid(site ~ item_group)
+
+hf_it |>
+  ggplot(aes(x = correct, y = correct_rt, color = item)) + 
+  geom_point(alpha = .1) + 
+  geom_smooth(method = "lm") +
+  geom_hline(yintercept = 0, lty = 2) + 
+  facet_grid(site ~ item_group)
 ```
 
 ```{r}
@@ -387,6 +409,36 @@ sds <- ef |>
 ```
 
 ## Sumscore
+
+```{r diagnostic-plot}
+# the sequentialStimulus=false bug (affecting English variant only) was fixed Feb 21
+# when was the bug introduced? plot accuracy by site over time
+require(lubridate)
+
+sds_date <- sds |> 
+  mutate(date = as.Date(sapply(strsplit(as.character(timestamp), " "), `[`, 1)),
+         week = floor_date(date, unit = "week"))
+
+sds_date |>
+  group_by(site, week, item_group, item) |>
+  summarise(
+    correct = mean(correct, na.rm = TRUE),
+    n_users = n_distinct(user_id),
+    .groups = "drop"
+  ) |>
+  ggplot(aes(x = week, y = correct, color = item)) +
+  facet_grid(item_group ~ site) + 
+  geom_line() + geom_point(aes(size = n_users), alpha = 0.6) +
+  labs(title = "Weekly accuracy on, by item and block",
+       x = "Week", y = "Mean Accuracy", size = "Unique Users") +
+  theme_minimal()
+```
+
+```{r}
+
+```
+
+
 
 ```{r}
 sds_runs <- sds |>

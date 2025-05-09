@@ -14,31 +14,42 @@ source(here("03_summaries/scores_helper.R"))
 sites <- c("ca_pilot", "co_pilot", "de_pilot")
 
 task_scores <- read_rds(here("02_scoring_outputs","scores",
-                             "scores_multigroup.rds"))  |>
+                             "multigroup_scores.rds"))  |>
+  bind_rows(read_rds(here("02_scoring_outputs","scores",
+                          "scores_general.rds")))  |>
+  bind_rows(read_rds(here("02_scoring_outputs","scores",
+                          "roar_thetas.rds"))) |>
+  bind_rows(read_rds(here("02_scoring_outputs","scores",
+                          "sumscores.rds")) |>
+              filter(item_task == "pa")) |>
   filter(site %in% sites)
+```
 
+```{r}
 run_ages <- read_rds(here(glue("01_fetched_data/run_data.rds"))) |>
-  select(site, task_id, user_id, run_id, age)
+  select(site, task_id, user_id, run_id, age) |>
+  filter(site %in% sites)
 ```
 
 
 # Factor analysis
 
+
 ```{r}
 ages <- run_ages |>
   group_by(user_id) |>
-  summarise(age = mean(age))
+  summarise(age = mean(age, na.rm=TRUE))
 
 
 scores_wide <- task_scores |>
-  select(task_id, metric_value, user_id, site) |>
-  pivot_wider(names_from = "task_id", values_from = "metric_value", 
+  select(item_task, metric_value, user_id, site) |>
+  pivot_wider(names_from = "item_task", values_from = "metric_value", 
               id_cols = c("user_id","site"), 
               values_fn = mean) 
 
 scores_wide_mat <- scores_wide |>
   janitor:::clean_names() |>
-  mutate(across(egma_math:vocab, ~ scale(.x)[,1])) |>
+  mutate(across(ha:swr, ~ scale(.x)[,1])) |>
   left_join(ages)
 ```
 
@@ -46,11 +57,11 @@ First CFA
 
 ```{r}
 cfa_model <-  "
-reasoning =~ matrix_reasoning + mental_rotation 
-ef =~ hearts_and_flowers + memory_game + same_different_selection
-social =~ theory_of_mind
-language =~ trog + vocab 
-math =~ egma_math
+reasoning =~ matrix + mrot 
+ef =~ hf + mg + sds + mefs
+social =~ ha + tom
+language =~ trog + vocab + sre + swr + pa
+maths =~ math
 "
 
 fit <- cfa(cfa_model, scores_wide_mat, std.lv=TRUE, missing='fiml')
@@ -58,13 +69,13 @@ summary(fit, fit.measures=TRUE, standardize=TRUE)
 ```
 
 ```{r}
-layout = matrix(nrow=4, ncol = 12, 
-                data = c("matrix_reasoning", "mental_rotation", "hearts_and_flowers","memory_game", "same_different_selection", "theory_of_mind","trog","vocab","sre","swr","pa","egma_math",
-                         NA, NA, NA, NA, NA, NA, NA, NA, NA, NA, NA, NA, 
-                         NA, NA, NA, NA, NA, NA, NA, NA, NA, NA, NA, NA, 
-                         "reasoning",NA, "ef", NA, NA, "social", "language",NA, NA, NA, NA,
-                         "math"
-                         ), byrow = TRUE)
+layout = matrix(nrow=4, ncol = 14, 
+                data = c("matrix", "mrot", "hf","mg", "sds", "mefs", "tom","ha", "trog","vocab","sre","swr","pa","math",
+                         NA, NA, NA, NA, NA, NA, NA, NA, NA, NA, NA, NA, NA, NA, 
+                         NA, NA, NA, NA, NA, NA, NA, NA, NA, NA, NA, NA, NA, NA,
+                         "reasoning",NA, "ef", NA, NA, NA, "social", NA,  "language",NA, NA, NA, NA,
+                         "maths"
+                ), byrow = TRUE)
 
 graph_sem(model = fit, text_size = 3, layout = t(layout)) + 
   theme(panel.background = element_rect(fill = "white"))
@@ -77,35 +88,35 @@ Add age.
 ```{r}
 cfa_model_age <-  "
 # measurement
-reasoning =~ matrix_reasoning + mental_rotation 
-ef =~ hearts_and_flowers + memory_game + same_different_selection
-social =~ theory_of_mind
-language =~ trog + vocab 
-math =~ egma_math
+reasoning =~ matrix + mrot 
+ef =~ hf + mg + sds + mefs
+social =~ ha + tom
+language =~ trog + vocab + sre + swr + pa
+maths =~ math
 
 # age regressions
 reasoning ~ age
 ef ~ age
 social ~ age
 language ~ age
-math ~ age
+maths ~ age
 "
 
 fit_age <- cfa(cfa_model_age, scores_wide_mat, std.lv=TRUE, missing='fiml')
 summary(fit_age, fit.measures=TRUE, standardize=TRUE)
 
 
-layout_age = matrix(nrow=7, ncol = 12, 
-                data = c(
-                  "matrix_reasoning", "mental_rotation", "hearts_and_flowers","memory_game", "same_different_selection", "theory_of_mind","trog","vocab","sre","swr","pa","egma_math",
-                         NA, NA, NA, NA, NA, NA, NA, NA, NA, NA, NA, NA, 
-                         NA, NA, NA, NA, NA, NA, NA, NA, NA, NA, NA, NA, 
-                         "reasoning",NA, "ef", NA, NA, "social","language",NA, NA, NA, NA,
-                         "math",
-                         NA, NA, NA, NA, NA, NA, NA, NA,  NA, NA, NA, NA, 
-                         NA, NA, NA, NA, NA, NA, NA, NA,  NA, NA, NA, NA, 
-                  NA, NA, NA, NA, NA, NA, "age", NA, NA,  NA, NA, NA
-                         ), byrow = TRUE)
+layout_age = matrix(nrow=7, ncol = 14, 
+                data = c("matrix", "mrot", "hf","mg", "sds", "mefs", "tom","ha", "trog","vocab","sre","swr","pa","math",
+                         NA, NA, NA, NA, NA, NA, NA, NA, NA, NA, NA, NA, NA, NA, 
+                         NA, NA, NA, NA, NA, NA, NA, NA, NA, NA, NA, NA, NA, NA, 
+                         "reasoning",NA, "ef", NA, NA, NA,  "social", NA, "language",NA, NA, NA, NA, "maths",
+                         NA, NA, NA, NA, NA, NA, NA, NA,  NA, NA, NA, NA, NA,NA, 
+                         NA, NA, NA, NA, NA, NA, NA, NA,  NA, NA, NA, NA, NA,NA, 
+                         NA, NA, NA, NA, NA, NA, "age", NA, NA,  NA, NA, NA, NA,NA
+                         
+                ), byrow = TRUE)
+
 
 graph_sem(model = fit_age, text_size = 3, layout = t(layout_age)) + 
   theme(panel.background = element_rect(fill = "white"))
@@ -122,16 +133,16 @@ summary(fit_age_site, fit.measures=TRUE, standardize=TRUE)
 
 
 layout_age = matrix(nrow=7, ncol = 12, 
-                data = c(
-                  "matrix_reasoning", "mental_rotation", "hearts_and_flowers","memory_game", "same_different_selection", "theory_of_mind","trog","vocab","sre","swr","pa","egma_math",
-                         NA, NA, NA, NA, NA, NA, NA, NA, NA, NA, NA, NA, 
-                         NA, NA, NA, NA, NA, NA, NA, NA, NA, NA, NA, NA, 
-                         "reasoning",NA, "ef", NA, NA, "social","language",NA, NA, NA, NA,
-                         "math",
-                         NA, NA, NA, NA, NA, NA, NA, NA,  NA, NA, NA, NA, 
-                         NA, NA, NA, NA, NA, NA, NA, NA,  NA, NA, NA, NA, 
-                  NA, NA, NA, NA, NA, NA, "age", NA, NA,  NA, NA, NA
-                         ), byrow = TRUE)
+                    data = c(
+                      "matrix_reasoning", "mental_rotation", "hearts_and_flowers","memory_game", "same_different_selection", "theory_of_mind","trog","vocab","sre","swr","pa","egma_math",
+                      NA, NA, NA, NA, NA, NA, NA, NA, NA, NA, NA, NA, 
+                      NA, NA, NA, NA, NA, NA, NA, NA, NA, NA, NA, NA, 
+                      "reasoning",NA, "ef", NA, NA, "social","language",NA, NA, NA, NA,
+                      "math",
+                      NA, NA, NA, NA, NA, NA, NA, NA,  NA, NA, NA, NA, 
+                      NA, NA, NA, NA, NA, NA, NA, NA,  NA, NA, NA, NA, 
+                      NA, NA, NA, NA, NA, NA, "age", NA, NA,  NA, NA, NA
+                    ), byrow = TRUE)
 
 graph_sem(model = fit_age, text_size = 3, layout = t(layout_age)) + 
   theme(panel.background = element_rect(fill = "white"))
@@ -164,7 +175,7 @@ layout = matrix(nrow=4, ncol = 12,
                          NA, NA, NA, NA, NA, NA, NA, NA, NA, NA, NA, NA, 
                          "reasoning","spatial", "ef", NA, NA, "social", "language",NA, "reading", NA, NA,
                          "math"
-                         ), byrow = TRUE)
+                ), byrow = TRUE)
 
 graph_sem(model = fit, text_size = 3, layout = t(layout)) + 
   theme(panel.background = element_rect(fill = "white"))
@@ -200,16 +211,16 @@ summary(fit_age, fit.measures=TRUE, standardize=TRUE)
 
 
 layout_age = matrix(nrow=7, ncol = 12, 
-                data = c(
-                  "matrix_reasoning", "mental_rotation", "hearts_and_flowers","memory_game", "same_different_selection", "theory_of_mind","trog","vocab","sre","swr","pa","egma_math",
-                         NA, NA, NA, NA, NA, NA, NA, NA, NA, NA, NA, NA, 
-                         NA, NA, NA, NA, NA, NA, NA, NA, NA, NA, NA, NA, 
-                         "reasoning","spatial", "ef", NA, NA, "social","language",NA, "reading", NA, NA,
-                         "math",
-                         NA, NA, NA, NA, NA, NA, NA, NA,  NA, NA, NA, NA, 
-                         NA, NA, NA, NA, NA, NA, NA, NA,  NA, NA, NA, NA, 
-                  NA, NA, NA, NA, NA, NA, "age", NA, NA,  NA, NA, NA
-                         ), byrow = TRUE)
+                    data = c(
+                      "matrix_reasoning", "mental_rotation", "hearts_and_flowers","memory_game", "same_different_selection", "theory_of_mind","trog","vocab","sre","swr","pa","egma_math",
+                      NA, NA, NA, NA, NA, NA, NA, NA, NA, NA, NA, NA, 
+                      NA, NA, NA, NA, NA, NA, NA, NA, NA, NA, NA, NA, 
+                      "reasoning","spatial", "ef", NA, NA, "social","language",NA, "reading", NA, NA,
+                      "math",
+                      NA, NA, NA, NA, NA, NA, NA, NA,  NA, NA, NA, NA, 
+                      NA, NA, NA, NA, NA, NA, NA, NA,  NA, NA, NA, NA, 
+                      NA, NA, NA, NA, NA, NA, "age", NA, NA,  NA, NA, NA
+                    ), byrow = TRUE)
 
 graph_sem(model = fit_age, text_size = 3, layout = t(layout_age)) + 
   theme(panel.background = element_rect(fill = "white"))
@@ -238,20 +249,20 @@ math ~ age
 "
 
 layout_age_de = matrix(nrow=7, ncol = 12, 
-                data = c(
-                  "matrix_reasoning", "mental_rotation", "hearts_and_flowers","memory_game", "same_different_selection", "theory_of_mind","trog","vocab","sre-de","swr-de",NA,"egma_math",
+                       data = c(
+                         "matrix_reasoning", "mental_rotation", "hearts_and_flowers","memory_game", "same_different_selection", "theory_of_mind","trog","vocab","sre-de","swr-de",NA,"egma_math",
                          NA, NA, NA, NA, NA, NA, NA, NA, NA, NA, NA, NA, 
                          NA, NA, NA, NA, NA, NA, NA, NA, NA, NA, NA, NA, 
                          "reasoning",NA, "ef", NA, NA, "social","language",NA, NA, NA, NA,
                          "math",
                          NA, NA, NA, NA, NA, NA, NA, NA,  NA, NA, NA, NA, 
                          NA, NA, NA, NA, NA, NA, NA, NA,  NA, NA, NA, NA, 
-                  NA, NA, NA, NA, NA, NA, "age", NA, NA,  NA, NA, NA
-                         ), byrow = TRUE)
+                         NA, NA, NA, NA, NA, NA, "age", NA, NA,  NA, NA, NA
+                       ), byrow = TRUE)
 
 fit_age_de <- cfa(cfa_model_age_de, 
-               filter(scores_wide_mat, site == "de_pilot"),
-               std.lv=TRUE, missing='fiml')
+                  filter(scores_wide_mat, site == "de_pilot"),
+                  std.lv=TRUE, missing='fiml')
 # summary(fit_age, fit.measures=TRUE, standardize=TRUE)
 
 
@@ -280,8 +291,8 @@ math ~ age
 "
 
 fit_age_co <- cfa(cfa_model_age_co, 
-               filter(scores_wide_mat, site == "co_pilot"),
-               std.lv=TRUE, missing='fiml')
+                  filter(scores_wide_mat, site == "co_pilot"),
+                  std.lv=TRUE, missing='fiml')
 # summary(fit_age, fit.measures=TRUE, standardize=TRUE)
 
 
@@ -317,7 +328,7 @@ summary(fit, fit.measures=TRUE, standardize=TRUE)
 
 layout = matrix(nrow=4, ncol = 14, 
                 data = c(NA,NA,NA,NA, NA,NA,"log_age", "age", NA,NA,NA,NA, NA, NA,
-                  NA,NA,NA,NA, NA,NA,NA,NA, NA,NA,NA,NA, NA, NA,
+                         NA,NA,NA,NA, NA,NA,NA,NA, NA,NA,NA,NA, NA, NA,
                          "reasoning",NA, "ef", NA, NA, NA, "social",NA, NA, "language",NA, NA, NA, 
                          "math",
                          "matrix_reasoning", "mental_rotation", "hearts_and_flowers","memory_game","mefs", "same_different_selection",  "theory_of_mind","hostile_attribution","emotion_reasoning","trog","vocab","sre_es","swr_es","egma_math"), byrow = TRUE)
