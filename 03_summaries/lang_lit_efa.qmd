@@ -6,157 +6,230 @@ editor: visual
 
 Helper functions
 
-```{r}
-#| echo: false
+```{r setup}
+library(tidyverse)
+library(here)
+library(glue)
+library(lavaan)
+library(tidySEM)
+library(ggthemes)
+library(psych)
 
-source(here("02_score_data","irt_helpers.R"))
-source(here::here("plot_settings.R"))
-source(here("03_explore_tasks/explore_helper.R"))
+source(here("03_summaries/plotting_helper.R"))
+source(here("03_summaries/scores_helper.R"))
+```
+
+Load thetas
+
+```{r}
+sites <- c("ca_pilot", "co_pilot", "de_pilot")
+
+task_scores <- read_rds(here("02_scoring_outputs","scores",
+                             "multigroup_scores.rds"))  |>
+  bind_rows(read_rds(here("02_scoring_outputs","scores",
+                          "scores_general.rds")))  |>
+  bind_rows(read_rds(here("02_scoring_outputs","scores",
+                          "roar_thetas.rds"))) |>
+  bind_rows(read_rds(here("02_scoring_outputs","scores",
+                          "sumscores.rds")) |>
+              filter(item_task == "pa")) |>
+  filter(site %in% sites)
+
+table(task_scores$item_task)
 
 ```
 
-# May 8, updates
-Load irt scores for trog and vocab
+Get ages
 
 ```{r}
-best_multigroup <- readRDS(here("02_scoring_outputs", "irt_outputs", "multigroup_best_outputs.rds"))
-multigroup_scores <- readRDS(here("02_scoring_outputs", "scores", "multigroup_scores.rds"))
-names(multigroup_scores)
+run_ages <- read_rds(here(glue("01_fetched_data/run_data.rds"))) |>
+  select(site, task_id, user_id, run_id, age) |>
+  filter(site %in% sites)
+```
 
-# Add age
-run_data_combined <- read_rds(here("01_fetched_data", "run_data.rds"))
-run_ages <- run_data_combined |>
-  filter(site != "us_pilot") |>
-  select(site, run_id, user_id, age) |>
-  distinct()
+Clean lang/literacy tasks
 
-lang_lit_scores <- multigroup_scores |>
-  filter(item_task %in% c("trog", "vocab"), site != "us_pilot") |>
-  select(site, item_task, user_id, run_id, metric_type, metric_value) |>
-  left_join(run_ages, by = c("site", "user_id", "run_id"))
+```{r}
 
-# check n's
-lang_lit_scores |>
-  distinct(site, item_task, user_id) |>
-  count(site, item_task, name = "n_users")
+task_scores |> count(item_task)
 
+# Combine variants 
+cleaned_scores <- task_scores |>
+  mutate(task_clean = case_when(
+    item_task %in% c("sre", "sre-de", "sre-es") ~ "sre",
+    item_task %in% c("swr", "swr-de", "swr-es") ~ "swr",
+    item_task %in% c("pa", "pa-es") ~ "pa",
+    item_task == "trog" ~ "trog",
+    item_task == "vocab" ~ "vocab",
+    TRUE ~ NA_character_
+  )) |>
+  filter(!is.na(task_clean))# keeping only the lang/lit scores 
+
+# Count unique users 
+cleaned_scores |>
+  distinct(task_clean, user_id) |>
+  count(task_clean, name = "n_unique_users") |>
+  arrange(desc(n_unique_users))
 
 ```
 
-Load swr from thetas file
+Corr matrix
 
 ```{r}
-# check what's in scores_thetas
-scores_thetas <- read_rds(here("02_scoring_outputs/scores/roar_thetas.rds"))
-glimpse(scores_thetas)
+efa_matrix <- cleaned_scores |>
+  select(user_id, task_clean, metric_value) |>
+  group_by(user_id, task_clean) |>
+  summarise(score = mean(metric_value, na.rm = TRUE), .groups = "drop") |>
+  pivot_wider(names_from = task_clean, values_from = score)
 
-swr <- read_rds(here("02_scoring_outputs/scores/roar_thetas.rds")) |>
-  filter(task_id %in% c("swr", "swr-de", "swr-es")) |>
-  select(site, task_id, user_id, run_id, metric_type, metric_value)
-n_distinct(swr$user_id) #518
+# drop user_id and make sure data is numeric
+efa_data <- efa_matrix |>
+  select(-user_id) |>
+  mutate(across(everything(), as.numeric))
 
-swr <- swr |>
-  mutate(task_id = "swr")
-
-```
-
-Score SRE manually
-
-```{r}
-# raw scores
-scores_general <- read_rds(here("02_scoring_outputs/scores/scores_general.rds"))
-
-sre <- scores_general |>
-  filter(item_task == "sre")  
-
-n_distinct(sre$user_id) #478
-
-# IRT scores
-# Load trial-level SRE data
-task_data_combined <- read_rds(here("01_fetched_data/task_data_nested.rds")) |>
-  filter(item_task == "sre") |>
-  unnest(data)
-
-# Score SRE using guessing-adjusted correct per second (as per ROAR guidelines)
-sre <- task_data_combined |>
-  group_by(site, item_task, user_id, run_id) |>
-  filter(site != "ca_pilot" | timestamp < min(timestamp) + 180) |>
-  summarise(
-    metric_value = (sum(correct, na.rm = TRUE) - sum(!correct, na.rm = TRUE)) / 180,
-    .groups = "drop"
-  ) |>
-  mutate(
-    metric_type = "guessing_adjusted_number_correct",
-    task_id = "sre"  # Standardise column name for downstream merging
-  )
-
-n_distinct(sre$user_id)
-
-```
-
-Combine all scores
-
-```{r}
-
-lang_lit_combined <- bind_rows(
-  lang_lit_scores |> rename(task_id = item_task),
-  swr,
-  sre
-)
-
-efa_data <- lang_lit_combined |>
-  select(user_id, task_id, metric_value) |>
-  group_by(user_id, task_id) |>
-  summarise(metric_value = mean(metric_value, na.rm = TRUE), .groups = "drop") |>
-  pivot_wider(names_from = task_id, values_from = metric_value)
-
-# check n's
-glimpse(efa_data)
-
-efa_data |>
-  summarise(across(-c(user_id), ~sum(!is.na(.))))
+glimpse(efa_matrix)
 
 ```
 
 EFA
 
 ```{r}
+# Run parallel analysis and EFA
+fa.parallel(efa_data, fa = "fa", use = "pairwise")
 
-efa_matrix <- efa_data |>
-  select(trog, vocab, swr)
-
-efa_matrix <- efa_matrix[rowSums(!is.na(efa_matrix)) >= 2, ]
-
-fa.parallel(efa_matrix, fa = "fa", use = "pairwise")
-
-library(psych)
-efa_result <- fa(efa_matrix, nfactors = 1, rotate = "none", use = "pairwise", fm = "ml")
-
-print(efa_result, digits = 3, cut = 0.3)
-
-fa.diagram(efa_result)
+efa_1f <- fa(efa_data, nfactors = 1, fm = "ml", rotate = "none", use = "pairwise")
+efa_2f <- fa(efa_data, nfactors = 2, fm = "ml", rotate = "oblimin", use = "pairwise")
 
 ```
 
-Check if it's feasible to do efa within a site
+Factor loadings
+
+```{r}
+loadings_1f <- as.data.frame(efa_1f$loadings[1:5, 1]) |> 
+  tibble::rownames_to_column("task") |> 
+  rename(loading = 2) |> 
+  mutate(model = "1-Factor")
+
+loadings_2f <- as.data.frame(unclass(efa_2f$loadings)[1:5, ]) |> 
+  tibble::rownames_to_column("task") |> 
+  pivot_longer(cols = starts_with("ML"), names_to = "factor", values_to = "loading") |> 
+  mutate(model = "2-Factor")
+
+# combine for plotting
+plot_data <- bind_rows(
+  loadings_1f |> mutate(factor = "Factor 1"),
+  loadings_2f
+)
+
+# plot
+ggplot(plot_data, aes(x = loading, y = task, fill = factor)) +
+  geom_col(position = position_dodge(width = 0.7)) +
+  facet_wrap(~model) +
+  labs(title = "Factor Loadings Comparison", x = "Loading", y = "Task")
+
+# get better plot
+
+```
+
+Get fit indices using lavaan
 
 ```{r}
 
-lang_lit_combined |>
-  select(site, user_id, task_id) |>
-  distinct() |>
-  count(site, user_id, name = "n_tasks") |>
-  filter(n_tasks >= 3) |>
-  count(site, name = "n_users_with_3plus_tasks") |>
-  arrange(desc(n_users_with_3plus_tasks))
+# 1-factor model: all tasks load on a single factor
+model_1f <- '
+lang_comp =~ trog + vocab + swr + sre + pa
+'
 
-#no, only 7 users in Canada have data on all three
+# 2-factor model: language vs. reading skills
+model_2f <- '
+lang_comprehension =~ trog + vocab
+reading =~ swr + sre + pa
+'
+
+# fit models with fiml for missing data 
+fit_1f <- cfa(model_1f, data = efa_data, missing = "fiml", estimator = "MLR")
+fit_2f <- cfa(model_2f, data = efa_data, missing = "fiml", estimator = "MLR")
+
+# check missingness
+lavInspect(fit_1f, "coverage") #fewer than 10% with (trog x pa), (vocab x pa), (sre x pa)
+
+# Summary with fit indices
+summary(fit_1f, fit.measures = TRUE, standardized = TRUE)
+summary(fit_2f, fit.measures = TRUE, standardized = TRUE)
+
+# Compare models directly
+anova(fit_1f, fit_2f)
 
 ```
 
+Create table
+
+```{r}
+get_fit <- function(fit) {
+  fitMeasures(fit, c("chisq", "df", "pvalue", "cfi", "tli", "rmsea", "srmr"))
+}
+
+fit_table <- bind_rows(
+  one_factor = get_fit(fit_1f),
+  two_factor = get_fit(fit_2f),
+  .id = "model"
+)
+
+fit_table
+
+```
+
+Path diagram
+
+```{r, height = 12, width = 10}
+library(semPlot)
+
+semPaths(
+  fit_1f,
+  what = "std",
+  layout = "tree",
+  edge.label.cex = 1.2,
+  sizeMan = 6,
+  sizeLat = 10,
+  label.cex = 1.1,
+  fade = FALSE,
+  residuals = TRUE,
+  intercepts = FALSE,
+  edge.color = "black",
+  edge.width = 1,
+  style = "ram",
+  nCharNodes = 0,
+  mar = c(4, 4, 6, 4)  # <- more top space
+)
+
+
+# 2f
+semPaths(
+  fit_2f,
+  what = "std",
+  layout = "tree",
+  edge.label.cex = 1.2,
+  sizeMan = 6,
+  sizeLat = 10,
+  label.cex = 1.1,
+  fade = FALSE,
+  residuals = TRUE,
+  intercepts = FALSE,
+  edge.color = "black",
+  edge.width = 1,
+  style = "ram",
+  nCharNodes = 0,
+  mar = c(4, 4, 6, 4)  # <- more top space
+)
+```
+
+
+
+```{r, eval = FALSE, echo = FALSE}
+
+# old
 Load data for trog and vocab only
 
-```{r}
 library(janitor)
 library(lavaan)
 
@@ -199,7 +272,9 @@ ll_scores_irt <- ll_scores_irt |>
 
 EFA
 
-```{r}
+```{r, eval = FALSE, echo = FALSE}
+
+
 cfa_model <-  "
 ll =~ trog + vocab 
 ll ~ age
@@ -228,7 +303,6 @@ semPaths(
 )
 
 ```
-
 
 ```{r}
 
