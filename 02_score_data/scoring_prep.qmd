@@ -6,7 +6,7 @@ library(mirt)
 
 source(here("plot_settings.R"))
 source(here("02_score_data/irt_helpers.R"))
-
+source(here("02_score_data/scoring_prep_helpers.R"))
 run_data <- read_rds(here(glue("01_fetched_data/run_data.rds")))
 
 trial_data <- read_rds(here(glue("01_fetched_data/trial_data.rds")))
@@ -84,7 +84,7 @@ ggsave(here("02_score_data/plots/valid_trial_counts.png"), width = 12, height = 
 trial_runs <- trial_data_coded |>
   group_by(site, dataset, user_id, run_id, item_task) |>
   summarise(mean_correct = mean(correct),
-            sd_correct = sqd(correct),
+            sd_correct = sd(correct),
             n_trials = n(),
             n_valid_trials = sum(valid_trial)) |>
   ungroup() |>
@@ -125,13 +125,18 @@ max(none_correct_ranges$max_trials)
 ```
 
 ```{r}
+# remove buggy SDS from Canada
+trial_data_coded_nosds <- trial_data_coded |>
+  mutate(timestamp = as_datetime(timestamp)) |>
+  filter(!(site == "ca_pilot" & item_task == "sds" & timestamp < "2025-02-21"))
+
 # filter to runs completed and no straightlining (except for us_pilot)
 runs_filtered <- run_data |>
   filter(site == "us_pilot" | (completed & !str_detect(validation_msg_run, "straightlining"))) |>
   select(run_id)
 
 # filter trials to above runs, filter out too slow/fast RTs
-trial_data_filtered <- trial_data_coded |>
+trial_data_filtered <- trial_data_coded_nosds |>
   semi_join(runs_filtered) |>
   mutate(slow_rt = rt_numeric > 30000) |>
   filter(is.na(rt_numeric) | !slow_rt, !str_detect(validation_msg_trial, "fast")) |>

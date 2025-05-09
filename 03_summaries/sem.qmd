@@ -19,9 +19,6 @@ task_scores <- read_rds(here("02_scoring_outputs","scores",
                           "scores_general.rds")))  |>
   bind_rows(read_rds(here("02_scoring_outputs","scores",
                           "roar_thetas.rds"))) |>
-  bind_rows(read_rds(here("02_scoring_outputs","scores",
-                          "sumscores.rds")) |>
-              filter(item_task == "pa")) |>
   filter(site %in% sites)
 ```
 

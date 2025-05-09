@@ -26,6 +26,6 @@ de_pilot,ha,Rasch,1,metric,0.002496705316939158
 ca_pilot,hf,2PL,1,configural,0.8255131552435616
 co_pilot,hf,2PL,1,configural,0.9013419068240913
 de_pilot,hf,2PL,1,configural,0.8800712189298048
-ca_pilot,sds,2PL,1,configural,0.9372682405614543
-co_pilot,sds,2PL,1,configural,0.9047831650198396
-de_pilot,sds,2PL,1,configural,0.9463498751671622
+ca_pilot,sds,2PL,1,metric,0.9495116794560177
+co_pilot,sds,2PL,1,metric,0.9788112372261633
+de_pilot,sds,2PL,1,metric,0.9660903295784489
