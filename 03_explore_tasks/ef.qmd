@@ -448,11 +448,11 @@ sds_runs <- sds |>
 
 sds_runs_block <- sds |>
   filter(item_group != "3unique") |>
-  group_by(site, user_id, run_id, task_id, item_group) |>
+  group_by(site, user_id, run_id, task_id, item, item_group) |>
   summarise(correct = mean(correct), 
             age = mean(age))
 
-ggplot(sds_runs_block, aes(x = age, y = correct)) + 
+ggplot(sds_runs_block, aes(x = age, y = correct, col = item)) + 
   geom_point(alpha = .5) + 
   geom_smooth(method = "lm", se=FALSE) + 
   facet_grid(site ~ item_group)
@@ -494,8 +494,9 @@ sds_coefs_clean <- sds_coefs |>
 
 # Plot: All trials
 ggplot(sds_coefs_clean, aes(x = block, y = -d, colour = trial)) +
-  geom_jitter(width = 0, height = 0, size = 2) +
   facet_wrap(~site) +
+  geom_point() + 
+  geom_line(aes(group = trial)) + 
   coord_flip() +
   labs(
     title = "Same-Different Selection: IRT difficulty by block and trial type",

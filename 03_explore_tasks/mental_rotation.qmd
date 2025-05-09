@@ -79,9 +79,9 @@ Angle curves
 
 ```{r}
 
-colnames(mrot)
-view(mrot$item)
-table(mrot$item_group)
+# colnames(mrot)
+# view(mrot$item)
+# table(mrot$item_group)
 
 library(stringr)
 
@@ -92,14 +92,15 @@ mrot_items <- mrot |>
   ) |>
   filter(stimulus %in% c("duck", "rabbit", "shape")) |>
   group_by(site, stimulus, item_group, angle) |>
-  summarise(correct = mean(correct, na.rm = TRUE), .groups = "drop")
+  summarise(correct = mean(correct, na.rm = TRUE), .groups = "drop") |>
+  filter(site != "us_pilot")
 
 mrot_stimulus <- ggplot(mrot_items, aes(x = angle, y = correct, col = stimulus, lty = item_group)) + 
   geom_point(alpha = 0.5) + 
   geom_line() + 
   geom_vline(xintercept = 180, lty = 2) + 
   ylim(0, 1) +
-  facet_wrap(~site) +
+  facet_grid(.~site) +
   labs(
     title = "Accuracy by rotation angle, stimulus type, and dimensionality",
     x = "Rotation angle (°)",
@@ -111,8 +112,8 @@ mrot_stimulus <- ggplot(mrot_items, aes(x = angle, y = correct, col = stimulus, 
 ggsave(
   filename = here::here("03_explore_tasks", "Graphs", "mrot_stimulus.png"),
   plot = mrot_stimulus,
-  width = 10,
-  height = 6,
+  width = 8,
+  height = 4,
   dpi = 300
 )
 
@@ -157,8 +158,8 @@ Load multigroup models
 
 ```{r}
 
-best_multigroup <- readRDS(here("02_scoring_outputs", "irt_outputs", "item_coefs.rds"))
-multigroup_scores <- readRDS(here("02_scoring_outputs", "scores", "scores_multigroup.rds"))
+best_multigroup <- readRDS(here("02_scoring_outputs", "irt_outputs", "multigroup_best_models.rds"))
+multigroup_scores <- readRDS(here("02_scoring_outputs", "scores", "multigroup_scores.rds"))
 
 ```
 
@@ -169,8 +170,8 @@ run_ages <- mrot |>
   distinct()
 
 multigroup_scores_mrot <- multigroup_scores |>
-  filter(task_id == "mental-rotation") |>
-  select(site, task_id, user_id, run_id, metric_type, metric_value) |>
+  filter(item_task == "mrot") |>
+  select(site, item_task, user_id, run_id, metric_type, metric_value) |>
   left_join(run_ages)
 
 mrot_irt <- ggplot(multigroup_scores_mrot, aes(x = age, y = metric_value, col = site)) + 
@@ -187,8 +188,8 @@ mrot_irt <- ggplot(multigroup_scores_mrot, aes(x = age, y = metric_value, col = 
 ggsave(
   filename = here::here("03_explore_tasks", "Graphs", "mrot_irt.png"),
   plot = mrot_irt,
-  width = 10,
-  height = 6,
+  width = 6,
+  height = 4,
   dpi = 300
 )
 

@@ -160,8 +160,8 @@ run_ages <- mr |>
   distinct()
 
 multigroup_scores_mr <- multigroup_scores |>
-  filter(task_id == "matrix-reasoning") |>
-  select(site, task_id, user_id, run_id, metric_type, metric_value ) |>
+  filter(item_task == "matrix") |>
+  select(site, item_task, user_id, run_id, metric_type, metric_value ) |>
   left_join(run_ages)
 
 mr_irt <- ggplot(multigroup_scores_mr, aes(x = age, y = metric_value, col = site)) + 
@@ -178,8 +178,8 @@ mr_irt <- ggplot(multigroup_scores_mr, aes(x = age, y = metric_value, col = site
 ggsave(
   filename = here::here("03_explore_tasks", "Graphs", "mr_irt.png"),
   plot = mr_irt,
-  width = 10,
-  height = 6,
+  width = 6,
+  height = 4,
   dpi = 300
 )
 
