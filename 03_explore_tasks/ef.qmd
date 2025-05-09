@@ -137,6 +137,7 @@ ggplot(hf_blocks, aes(x = n, y = correct)) +
   facet_grid(site ~ item_group)
 ```
 
+
 NO - this is not because of missing data. Something else is happening. 
 
 ```{r}
@@ -146,7 +147,6 @@ hf_runs <- hf |>
   summarise(correct_rt = mean(as.numeric(rt[correct]), na.rm=TRUE),
             correct = mean(correct),
             age = mean(age))
-
 ```
 
 Histograms. 
@@ -160,6 +160,29 @@ ggplot(filter(ef_runs, task_id == "hearts-and-flowers") |>
   geom_vline(xintercept = .5, lty = 2) +
   scale_x_continuous(breaks = c(0,.25, .5, .75, 1)) + 
   facet_grid(site ~ age_group)
+```
+
+```{r}
+hf_it <- hf |>
+  filter(site != "us_pilot") |>
+  group_by(site, user_id, run_id, task_id, item_group, item, age) |>
+  summarise(correct = mean(correct), 
+            #rt = mean(rt_numeric, na.rm=T), 
+            age = mean(age), 
+            n = n())
+#mutate(age_group = cut(age, breaks = seq(12, 60, by = 6)))
+
+summary(lm(correct ~ item * item_group + site, data=hf_it))
+
+
+hf_it |>
+  ggplot(aes(x = item_group, y = correct, group = interaction(user_id, run_id), color = site)) +
+  geom_point(alpha = 0.3, position = position_jitter(width = 0.1)) +
+  geom_line(alpha = 0.3) +
+  facet_grid(site ~ age_group, scales = "free_x") +
+  labs(title = "Item Accuracy by Group, Site, and Age",
+       x = "Item Group", y = "Accuracy") +
+  theme_minimal()
 ```
 
 Reaction time. 
@@ -406,6 +429,10 @@ Note that we have used grid3 very little and so it's getting dropped from most a
 sds <- ef |>
   filter(item_task == "sds", site != "us_pilot") 
 
+# rescoring
+source(here("rescore-sds.R"))
+
+# ToDo: apply per user and run to 3-match and 4-match (maybe test on 2-match? shouldn't influence outcome)
 ```
 
 ## Sumscore
@@ -418,6 +445,9 @@ require(lubridate)
 sds_date <- sds |> 
   mutate(date = as.Date(sapply(strsplit(as.character(timestamp), " "), `[`, 1)),
          week = floor_date(date, unit = "week"))
+
+# spot-check a few kids in CO
+sds_date |> filter(site=="co_pilot") |> select(date, user_id) |> distinct(user_id, date)
 
 sds_date |>
   group_by(site, week, item_group, item) |>
@@ -434,9 +464,6 @@ sds_date |>
   theme_minimal()
 ```
 
-```{r}
-
-```
 
 
 
