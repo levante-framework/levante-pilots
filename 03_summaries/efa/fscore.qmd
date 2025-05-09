@@ -1,0 +1,283 @@
+
+
+# Student factor score 
+```{r}
+source(here::here("03_summaries", "efa", "efa_helpers.R"))
+student_fscore_long <- read_rds(here::here("03_summaries/efa/student_fscore_all.rds"))
+  
+ 
+
+student_fscore <- student_fscore_long %>%
+  tidyr::pivot_wider(
+    names_from = form_construct,
+    values_from = fscore
+  )
+
+## cor heatmap between factor scores
+cor_long <- student_fscore %>%
+  group_by(site) %>%
+  nest() %>%
+  mutate(cor = map(data, ~ cor(select(.x, where(is.numeric)), use = "pairwise.complete.obs"))) %>%
+  mutate(cor_melt = map(cor, ~ {
+    m <- melt(.x)
+    m <- m[as.numeric(m$Var1) <= as.numeric(m$Var2), ]  
+    m
+  })) %>%
+  select(site, cor_melt) %>%
+  unnest(cor_melt)
+
+ggplot(cor_long, aes(Var1, Var2, fill = value)) +
+  geom_tile(color = "white") +
+  geom_text(aes(label = round(value, 2)), size = 3, color = "black") +
+  scale_fill_gradient2(
+    low = "blue", high = "red", mid = "white",
+    midpoint = 0, limit = c(-1, 1), space = "Lab",
+    name = "Correlation"
+  ) +
+  facet_wrap(~ site) +
+  theme_minimal() +
+  theme(
+    axis.text.x = element_blank(),
+    axis.ticks.x = element_blank(),
+    axis.text.y = element_text(size = 10),
+    panel.grid = element_blank(),
+    strip.text = element_text(size = 14, face = "bold")  # Facet title style
+  ) +
+  labs(x = NULL, y = NULL)
+
+#ggsave(here::here(paste0("03_summaries/efa/fig/student_compare.png")), width = 8, height = 3, dpi = 300)
+
+
+```
+
+
+## Relation between task irt scores
+```{r}
+scores_multigroup <-  read_rds(here::here("02_scoring_outputs/scores/multigroup_scores.rds"))
+
+# Remove users with two runs until we find a way to utilize it.
+duplicates <- scores_multigroup %>%
+  dplyr::group_by(user_id, item_task) %>%
+  dplyr::filter(dplyr::n_distinct(run_id) > 1) %>%
+  dplyr::ungroup()
+
+
+# Prepare survey scores and IRT scores
+scores_multigroup2 <- scores_multigroup %>%
+  dplyr::anti_join(
+    duplicates %>% dplyr::distinct(user_id, item_task),
+    by = c("user_id", "item_task")
+  )%>%
+  dplyr::mutate(
+    source = "multigroup"
+  ) %>%
+  dplyr::select(site, user_id, item_task, metric_value, source)
+
+
+student_fscore_long2 <- student_fscore_long %>%
+  dplyr::filter(model == "configural") %>%
+  dplyr::rename(
+    item_task = form_construct,
+    metric_value = fscore
+  ) %>%
+  dplyr::mutate(
+    source = "survey"
+  ) 
+
+# Bind them together
+combined_scores <- dplyr::bind_rows(student_fscore_long2, scores_multigroup2)%>%
+  dplyr::filter(site %in% c("co_pilot", "de_pilot")) %>%
+  tidyr::drop_na(metric_value)
+
+
+# Step 1: Pivot wide format
+wide_df <- combined_scores %>%
+  dplyr::filter(site %in% c("co_pilot", "de_pilot")) %>%
+  tidyr::pivot_wider(
+    id_cols = c(site, user_id),
+    names_from = item_task,
+    values_from = metric_value
+  )
+
+# Step 2: variable source info
+source_map <- combined_scores %>%
+  dplyr::distinct(item_task, source) %>%
+  tibble::deframe()  
+
+# Step 3: Split columns by source
+col_names <- setdiff(names(wide_df), c("site", "user_id"))
+survey_vars <- col_names[source_map[col_names] == "survey"]
+irt_vars <- col_names[source_map[col_names] == "multigroup"]
+
+# Step 4: For each site, compute survey × irt correlations
+site_list <- split(wide_df, wide_df$site)
+
+cor_long <- purrr::map_dfr(names(site_list), function(site_name) {
+  df <- site_list[[site_name]]
+  df_numeric <- dplyr::select(df, all_of(c(survey_vars, irt_vars)))
+  
+  cor_pairs <- expand.grid(survey = survey_vars, irt = irt_vars, stringsAsFactors = FALSE)
+  
+  purrr::pmap_dfr(cor_pairs, function(survey, irt) {
+    x <- df[[survey]]
+    y <- df[[irt]]
+    complete_idx <- complete.cases(x, y)
+    n_obs <- sum(complete_idx)
+    
+    test <- cor.test(x[complete_idx], y[complete_idx])
+    cor_val <- test$estimate
+    p_val <- test$p.value
+    sig_label <- ifelse(p_val < 0.001, "***",
+                 ifelse(p_val < 0.01, "**",
+                 ifelse(p_val < 0.05, "*", "")))
+    
+    tibble::tibble(
+      Var1 = survey,
+      Var2 = irt,
+      value = cor_val,
+      n_obs = n_obs,
+      site = site_name,
+      label = ifelse(is.na(cor_val), "", paste0(round(cor_val, 2), sig_label))
+    )
+  })
+})
+
+
+
+ggplot2::ggplot(cor_long, ggplot2::aes(x = Var1, y = Var2, fill = value)) +
+  ggplot2::geom_tile(color = "white") +
+  #geom_text(aes(label = label), size = 3, color = "black")+ # show significance
+  ggplot2::geom_text(ggplot2::aes(label = round(value, 2)), size = 3, color = "black") +
+  ggplot2::scale_fill_gradient2(low = "blue", high = "red", mid = "white",
+                                midpoint = 0, limit = c(-1, 1), space = "Lab", name = "Correlation") +
+  ggplot2::facet_wrap(~ site) +
+  ggplot2::theme_minimal() +
+  ggplot2::theme(
+    axis.text.x = ggplot2::element_text(angle = 45, hjust = 1, size = 10),
+    axis.text.y = ggplot2::element_text(size = 10),
+    panel.grid = ggplot2::element_blank(),
+    strip.text = ggplot2::element_text(size = 14, face = "bold")
+  ) +
+  ggplot2::labs(x = "Survey Construct", y = "IRT Construct")
+
+
+#ggsave(here::here(paste0("03_summaries/efa/fig/student_survey_irt.png")), width = 10, height = 6, dpi = 300)
+```
+
+
+
+
+
+
+
+# Caregiver factor score 
+```{r}
+
+source(here::here("03_summaries", "efa", "efa_helpers.R"))
+caregiver_fscore_long <- read_rds(here::here("03_summaries/efa/caregiver_fscore_all.rds"))%>%
+  filter(model == "configural") %>%
+  filter(!is.na(child_id)) # analyze caregiver wellbeing later
+
+
+caregiver_fscore_nested <- caregiver_fscore_long %>%
+  filter(model == "configural", !is.na(child_id)) %>%
+  select(site, user_id, child_id, form_construct, form_subconstruct, value) %>%
+  group_by(form_construct) %>%
+  group_nest() %>%
+  mutate(
+    data = map(data, ~ pivot_wider(
+      .x,
+      names_from = form_subconstruct,
+      values_from = value
+    ))
+  )
+
+```
+
+
+## EF
+
+```{r}
+ef_score <- caregiver_fscore_long %>%
+  filter(
+    model == "configural",
+    form_construct == "Executive Function",
+    !is.na(form_subconstruct),
+    site %in% c("co_pilot", "de_pilot")
+  ) %>%
+  select(site, user_id = child_id, form_subconstruct, value) %>%
+  mutate(source = "survey")
+
+# Bind them together
+caregiver_combined_scores <- dplyr::bind_rows(ef_score, scores_multigroup2)%>%
+  dplyr::filter(site %in% c("co_pilot", "de_pilot")) %>%
+  tidyr::drop_na(metric_value)
+
+
+
+sites <- c("co_pilot", "de_pilot")
+ef_score_filtered <- ef_score %>% filter(site %in% sites)
+cg_score_filtered <- caregiver_combined_scores %>% filter(site %in% sites)
+
+# Wide-format pivot
+ef_wide <- ef_score_filtered %>%
+  pivot_wider(names_from = form_subconstruct, values_from = value)
+
+irt_wide <- cg_score_filtered %>%
+  pivot_wider(names_from = item_task, values_from = metric_value)
+
+
+merged_scores <- inner_join(ef_wide, irt_wide, by = c("site", "user_id"))
+
+
+cor_result <- map_dfr(sites, function(sitei) {
+  dat <- merged_scores %>% filter(site == sitei)
+  
+  ef_vars <- ef_score_filtered$form_subconstruct %>% unique()
+  irt_vars <- cg_score_filtered$item_task %>% unique()
+  
+  cor_pairs <- expand.grid(survey = ef_vars, task = irt_vars, stringsAsFactors = FALSE)
+  
+  cor_data <- purrr::pmap_dfr(cor_pairs, function(survey, task) {
+    x <- dat[[survey]]
+    y <- dat[[task]]
+    idx <- complete.cases(x, y)
+    n_obs <- sum(idx)
+    
+    r <- if (n_obs >= 25) cor(x[idx], y[idx]) else NA
+    
+    tibble(
+      site = sitei,
+      item_task = task,
+      form_subconstruct = survey,
+      correlation = r,
+      n = n_obs,
+      label = ifelse(!is.na(r), sprintf("%.2f", r), "")
+    )
+  })
+  
+  return(cor_data)
+})
+
+
+ggplot(cor_result, aes(x = item_task, y = form_subconstruct, fill = correlation)) +
+  geom_tile(color = "white") +
+  geom_text(aes(label = label), size = 3, color = "black") +
+  scale_fill_gradient2(
+    low = "blue", high = "red", mid = "white",
+    midpoint = 0, limit = c(-1, 1), name = "Correlation"
+  ) +
+  facet_wrap(~ site) +
+  theme_minimal() +
+  theme(
+    axis.text.x = element_text(angle = 45, hjust = 1),
+    strip.text = element_text(face = "bold", size = 14),
+    axis.text = element_text(size = 10)
+  ) +
+  labs(x = "IRT Task", y = "Executive Function Subconstruct")
+
+
+```
+
+
+
