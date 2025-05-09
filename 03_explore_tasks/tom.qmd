@@ -137,8 +137,11 @@ ggsave(
 Load IRT results
 
 ```{r}
-best_multigroup <- readRDS(here("02_scoring_outputs", "irt_outputs", "item_coefs.rds"))
-multigroup_scores <- readRDS(here("02_scoring_outputs", "scores", "scores_multigroup.rds"))
+best_multigroup <- readRDS(here("02_scoring_outputs", "irt_outputs", "multigroup_best_models.rds"))
+multigroup_scores <- readRDS(here("02_scoring_outputs", "scores", "multigroup_scores.rds"))
+best_multigroup_coefs <- best_multigroup |>
+  select(item_task, item_type, invariance_type, coefs) |>
+  unnest(coefs)
 
 ```
 
@@ -150,8 +153,8 @@ run_ages <- tom |>
   distinct()
 
 multigroup_scores_tom <- multigroup_scores |>
-  filter(task_id == "theory-of-mind") |>
-  select(site, task_id, user_id, run_id, metric_type, metric_value) |>
+  filter(item_task == "tom") |>
+  select(site, item_task, user_id, run_id, metric_type, metric_value) |>
   left_join(run_ages)
 
 glimpse(multigroup_scores_tom)
@@ -171,20 +174,40 @@ print(tom_irt)
 ggsave(
   filename = here::here("03_explore_tasks", "Graphs", "tom_irt.png"),
   plot = tom_irt,
-  width = 10,
-  height = 6,
+  width = 6,
+  height = 4,
   dpi = 300
 )
 
 ```
+```{r}
+tom_coefs <- best_multigroup_coefs |>
+  filter(item_task == "tom") |>
+  mutate(item = str_replace(item, "_[12]","")) |>
+  left_join(select(tom, item = item_uid, item_group) |> distinct()) 
+
+ggplot(tom_coefs, aes(x = item_group, y = -d, col = item_group)) +
+  geom_point() +
+  facet_wrap(~site) +
+  labs(
+    title = "IRT item difficulty estimates by site",
+    x = "Item group",
+    y = "Difficulty (IRT d)",
+    colour = "Item group"
+  ) +
+  coord_flip()+
+  theme(axis.text.x = element_text(angle = 45, hjust = 1))
+```
+
+
 IRT scores by item_group
 
 ```{r}
 
 # Filter for tom scores and join age 
 multigroup_scores_tom <- multigroup_scores |>
-  filter(task_id == "theory-of-mind") |>
-  select(site, task_id, user_id, run_id, metric_type, metric_value) |>
+  filter(item_task == "tom") |>
+  select(site, item_task, user_id, run_id, metric_type, metric_value) |>
   left_join(run_ages, by = c("site", "user_id", "run_id"))
 
 # Extract IRT ability scores and age
