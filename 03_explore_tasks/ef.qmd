@@ -46,8 +46,11 @@ Get EF data
 
 ```{r}
 ef <- load_task_data(c("hearts-and-flowers","same-different-selection","memory-game"))
-ef
 
+# age missing from 108 co_pilot Ss
+ef |> filter(is.na(age)) |> distinct(user_id, site)
+
+ef
 ```
 
 Load multigroup models
@@ -289,8 +292,6 @@ ggsave(
   height = 6,
   dpi = 300
 )
-
-
 ```
 
 # Memory game
@@ -427,7 +428,22 @@ Note that we have used grid3 very little and so it's getting dropped from most a
 ```{r}
 # remove US data
 sds <- ef |>
-  filter(item_task == "sds", site != "us_pilot") 
+  filter(item_task == "sds", site != "us_pilot", item_group!="3unique") |>
+  filter(!str_detect(response, "mittel|rote|gelb|blau"))
+
+# ----- ODDITIES -----
+de_sds <- sds |>
+  filter(str_detect(response, "mittel|rote|gelb|blau"))
+# why are there German-translated stimulus names???? ...only a few subjects
+#sds |> filter(response == "{'0': 'med-grüner-kreis-4-schwarz', '1': 'med-blau-kreis-2-grau'}")
+#sds |> filter(response == "{'0': 'lg-blaues-dreieck', '1': 'mittelblauer Kreis'}")
+
+# are there some duplicate "same" trials? (the same correct answer for a few different trials?)
+sds |> filter(item_group == "same") |> head() |> select(trial_number, response, item)
+
+# how can empty SDS responses happen? RT often NA, but often slow
+sds |> filter(response=="{}")
+# ----- /ODDITIES -----
 
 # rescoring
 source(here("rescore-sds.R"))
@@ -435,45 +451,61 @@ source(here("rescore-sds.R"))
 # ToDo: apply per user and run to 3-match and 4-match (maybe test on 2-match? shouldn't influence outcome)
 dimension_indices <- c(size = 1, color = 2, shape = 3, number = 4, bgcolor = 5)
 
-# are there some duplicate "same" trials? (the same correct answer for a few different trials?)
-sds |> filter(item_group == "same") |> head() |> select(trial_number, response, item)
-
-# how can empty SDS responses happen? RT often NA, but often slow
-sds |> filter(response=="{}")
-
-# why are there German-translated stimulus names???? ...only in a couple cases
-sds |> filter(response == "{'0': 'med-grüner-kreis-4-schwarz', '1': 'med-blau-kreis-2-grau'}")
-sds |> filter(response == "{'0': 'lg-blaues-dreieck', '1': 'mittelblauer Kreis'}")
-sds |> filter(user_id == "z51IOYtIYlcpgfD0NL9J") |> View()
+# "med-red-star" -> "med-red-star-1-white"
 
 # ToDo: parse this
 resp = "{'0': 'med-blue-triangle', '1': 'sm-blue-square'}"
+parse_response(resp)
 
-rescored_sds <- sds |>
+
+sds_parsed <- sds |>
   filter(!item_group %in% c("dimensions", "same")) |>
-  group_by(user_id, run_id) |>
-  arrange(trial_number, .by_group = TRUE) |>
-  group_modify(~ {
+  mutate(
+    trial_type = item_group,
+    selection = map(response, parse_response)
+  )
+
+# Order by user, run, and timestamp (or trial_number)
+sds_trials <- sds_parsed |>
+  group_by(user_id, run_id, trial_type) |>
+  arrange(timestamp, .by_group = TRUE) |>
+  mutate(trial_index = NA_integer_) |>
+  mutate(trial_index = if_else(item == "choice1", 1L, NA_integer_)) |>
+  mutate(trial_index = cumsum(!is.na(trial_index))) |>
+  ungroup()
+
+# Nest by trial
+trial_nested <- sds_trials |>
+  group_by(user_id, run_id, trial_type, trial_index) |>
+  arrange(item) |>
+  nest(data = c(item, response, selection))
+
+
+# Score each row based on accumulating previous selections
+trial_scored <- trial_nested |>
+  mutate(trial_result = map2(data, trial_type, function(df, type) {
+    ignore_dims <- case_when(
+      #type == "same" ~ c("number", "bgcolor"),
+      type == "2match" ~ c("number", "bgcolor"),
+      type %in% c("3match", "4match") ~ c("size"),
+      TRUE ~ character(0)
+    )
+
+    # accumulate correctness
     previous <- list()
-    .x |>
-      mutate(is_correct_scored = map_lgl(row_number(), function(i) {
-        resp <- .x$response[i]
-        if (is.na(resp)) return(FALSE)
-        selections <- parse_response(resp)
-        
-        trial_type <- .x$task_id[i]
-        ignore_dims <- case_when(
-          trial_type == "something-same-2" ~ c("number", "bgcolor"),
-          trial_type == "2-match" ~ c("number", "bgcolor"),
-          trial_type %in% c("3-match", "4-match") ~ c("size"),
-          TRUE ~ character(0)
-        )
-        
-        is_correct <- compare_selections(selections, previous, ignore_dims)
-        previous <<- append(previous, list(selections))  # update previous
-        is_correct
-      }))
-  })
+    df$trial_correct <- map_lgl(df$selection, function(sel) {
+      result <- compare_selections(sel, previous, ignore_dims)
+      previous <<- append(previous, list(sel))
+      result
+    })
+    df
+  })) |>
+  select(-data) |>
+  unnest(trial_result)
+
+
+sds_final <- sds_parsed |>
+  left_join(scored_trials, by = c("user_id", "run_id", "trial_type", "trial_index"))
 ```
 
 ## Sumscore

@@ -1,13 +1,21 @@
+library(jsonlite)
+
 # Utility: parse response into vector of card strings
+# Convert pseudo-JSON string into character vector of selections
 parse_response <- function(resp) {
-  str_split(resp, "-(?=sm|med|lg)")[[1]]
+  if (is.na(resp) || str_trim(resp) == "") return(character(0))
+  
+  # Convert single quotes to double quotes to parse as JSON
+  json_str <- str_replace_all(resp, "'", '"')
+  parsed <- fromJSON(json_str, simplifyVector = TRUE)
+  unname(as.character(parsed))
 }
 
 clean_attributes <- function(attributes) {
   non_white_backgrounds <- c("gray", "striped", "black")
   
   if (!any(attributes %in% non_white_backgrounds)) {
-    attributes <- c(attributes, "white")
+    attributes <- c(attributes, "white") # default bgcolor
   }
   
   is_numeric <- suppressWarnings(!is.na(as.numeric(attributes)))
