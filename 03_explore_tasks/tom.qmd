@@ -42,7 +42,7 @@ source(here("03_explore_tasks/explore_helper.R"))
 Get tom data
 
 ```{r}
-tom <- load_task_data("theory-of-mind")
+tom <- load_task_data("tom")
 tom
 
 ```
@@ -64,11 +64,12 @@ Sum scores
 colnames(tom)
 
 tom_runs <- tom |>
+  filter(site != "us_pilot") |>
   group_by(site, user_id, run_id) |>
   summarise(
     correct = mean(correct, na.rm = TRUE),  
     age = mean(age, na.rm = TRUE),          
-    n_items = n_distinct(item_uid) # how many unique items were completed
+    n_items = n_distinct(item_uid) 
   )
 
 tom_sum_scores <- ggplot(tom_runs, aes(x = age, y = correct)) +
@@ -99,6 +100,7 @@ Item group
 
 ```{r}
 tom_group_scores <- tom |>
+  filter(site != "us_pilot") |>
   group_by(site, user_id, run_id, item_group) |>
   summarise(prop_correct = mean(correct, na.rm = TRUE), age = mean(age, na.rm = TRUE), .groups = "drop")
 
@@ -116,7 +118,7 @@ tom_groups <- ggplot(tom_group_scores, aes(x = age, y = prop_correct, colour = s
   facet_wrap(~item_group) +
   ylim(0, 1) +
   labs(
-    title = "Developmental trends in Theory of Mind sub-skills",
+    title = "Raw accuracy by age across Theory of Mind sub-skills",
     x = "Age (years)",
     y = "Proportion correct",
     colour = "Site"
@@ -127,8 +129,8 @@ print(tom_groups)
 ggsave(
   filename = here::here("03_explore_tasks", "Graphs", "tom_groups.png"),
   plot = tom_groups,
-  width = 10,
-  height = 6,
+  width = 6,
+  height = 4,
   dpi = 300
 )
 
@@ -153,7 +155,7 @@ run_ages <- tom |>
   distinct()
 
 multigroup_scores_tom <- multigroup_scores |>
-  filter(item_task == "tom") |>
+  filter(item_task == "tom", site != "us_pilot") |>
   select(site, item_task, user_id, run_id, metric_type, metric_value) |>
   left_join(run_ages)
 
@@ -180,6 +182,7 @@ ggsave(
 )
 
 ```
+
 ```{r}
 tom_coefs <- best_multigroup_coefs |>
   filter(item_task == "tom") |>
@@ -200,59 +203,4 @@ ggplot(tom_coefs, aes(x = item_group, y = -d, col = item_group)) +
 ```
 
 
-IRT scores by item_group
-
-```{r}
-
-# Filter for tom scores and join age 
-multigroup_scores_tom <- multigroup_scores |>
-  filter(item_task == "tom") |>
-  select(site, item_task, user_id, run_id, metric_type, metric_value) |>
-  left_join(run_ages, by = c("site", "user_id", "run_id"))
-
-# Extract IRT ability scores and age
-irt_scores <- multigroup_scores_tom |>
-  filter(str_detect(metric_type, "2PL")) |>
-  select(site, user_id, run_id, ability = metric_value, age)
-
-# Join with item group scores
-irt_by_group <- left_join(
-  tom_group_scores,
-  irt_scores,
-  by = c("site", "user_id", "run_id")
-) |>
-  mutate(age = age.y) |>
-  select(-age.x, -age.y)
-
-# Check age 
-irt_by_group |>
-  summarise(
-    n_total = n(),
-    n_missing_age = sum(is.na(age)),
-    n_with_age = sum(!is.na(age))
-  )
-
-# Plot
-tom_irt_groups <- ggplot(irt_by_group, aes(x = prop_correct, y = ability, colour = age_group)) +
-  geom_point(alpha = 0.6) +
-  geom_smooth(method = "lm", se = FALSE, colour = "black") +
-  facet_wrap(~item_group) +
-  .scale_color_default(name = "Age") +
-  labs(
-    x = "Proportion correct (subskill)",
-    y = "IRT Ability",
-    title = "ToM subskills and IRT ability, by age"
-  )
-
-print(tom_irt_groups)
-
-ggsave(
-  filename = here::here("03_explore_tasks", "Graphs", "tom_irt_groups.png"),
-  plot = tom_irt_groups,
-  width = 10,
-  height = 6,
-  dpi = 300
-)
-
-```
 
