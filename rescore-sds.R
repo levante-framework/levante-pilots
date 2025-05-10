@@ -26,41 +26,34 @@ clean_attributes <- function(attributes) {
   attributes
 }
 
-shared_trait <- function(selections, ignore_dims) {
-  dimension_indices <- c(size = 1, color = 2, shape = 3, number = 4, bgcolor = 5)
-  sets <- vector("list", length(dimension_indices))
-  names(sets) <- names(dimension_indices)
+shared_trait <- function(selection, ignore = c()) {
+  if (length(selection) <= 1) return(TRUE)  # One item trivially "shares" traits
   
-  for (dim in names(dimension_indices)) {
-    if (!(dim %in% ignore_dims)) {
-      sets[[dim]] <- character(0)
-    }
-  }
+  # Split and parse each card into attributes
+  parsed <- lapply(selection, function(sel) {
+    parts <- strsplit(sel, "-")[[1]]
+    names(parts) <- c("number", "color", "shape")
+    parts
+  })
   
-  for (sel in selections) {
-    attributes <- clean_attributes(strsplit(sel, "-")[[1]])
-    for (dim in names(sets)) {
-      index <- dimension_indices[[dim]]
-      sets[[dim]] <- c(sets[[dim]], attributes[index])
-    }
-  }
+  df <- as.data.frame(do.call(rbind, parsed), stringsAsFactors = FALSE)
+  # Drop ignored attributes
+  df <- df[ , !(names(df) %in% ignore), drop = FALSE]
   
-  # check if any non-ignored dimension has all the same value
-  any(sapply(sets, function(vals) length(unique(vals)) == 1))
+  # Check if any column has the same value across all rows
+  any_shared <- any(sapply(df, function(col) length(unique(col)) == 1))
+  
+  return(any_shared)
 }
 
 
-has_new_selection <- function(selections, previous_selections) {
-  if (length(previous_selections) == 0) {
-    return(TRUE)
-  }
+has_new_selection <- function(selections, previousSelections) {
+  if (length(previousSelections) == 0) return(TRUE)
   
-  for (prev in previous_selections) {
-    if (all(selections == prev) || all(rev(selections) == prev)) {
-      return(FALSE)
-    }
-  }
-  TRUE
+  # check if any previous selection has exactly the same elements (regardless of order)
+  !any(sapply(previousSelections, function(prev) {
+    setequal(selections, prev)
+  }))
 }
 
 
@@ -84,15 +77,17 @@ example_usage <- function() {
   clean_attributes(strsplit("sm-red-circle-2-gray", "-")[[1]])
   # "sm"     "red"    "circle" "2"      "gray" 
   
-  # selectedCards is a character vector of 2 strings like "sm-red-circle-1-gray"
-  selectedCards <- c("sm-red-circle-2-gray", "sm-red-circle-2-black")
-  previousSelections <- list(c("sm-red-circle-2-gray", "sm-red-circle-2-black"))
   
+  # selectedCards is a character vector of 2 strings like "sm-red-circle-1-gray"
+  selectedCards <- c("med-blue-square", "sm-red-circle")
+  previousSelections <- list(c("sm-red-circle", "sm-blue-triangle"))
+  has_new_selection(selectedCards, previousSelections)
+  shared_trait(selectedCards, ignore_dims) 
   isCorrect <- compare_selections(selectedCards, previousSelections, ignore_dims) # F
   
-  selectedCards <- c("sm-red-circle-1-gray", "sm-red-circle-1-striped")
+  selectedCards <- c("sm-red-circle-1-gray", "sm-blue-triangle-1-striped")
   previousSelections <- list(c("sm-red-circle-1-gray", "sm-red-circle-1-gray"))  # only duplicates so far
-  stim_trial_type <- "something-same-2"
+  stim_trial_type <- "2match"
   ignore_dims <- c("number", "bgcolor")
   isCorrect <- compare_selections(selectedCards, previousSelections, ignore_dims) # T
   
@@ -105,4 +100,11 @@ example_usage <- function() {
   previous <- list(selected)
   # same as previous selection — should now return FALSE
   compare_selections(selected, previous, ignore_dims)
+  
+  selectedCards <- c("sm-blue-triangle", "lg-yellow-triangle")
+  previousSelections <- list(c("sm-blue-triangle", "lg-yellow-triangle"))
+  shared_trait(selectedCards, ignore_dims) # TRUE
+  compare_selections(selectedCards, previousCards, ignore_dims) # TRUE
+  has_new_selection(selectedCards, previousCards) # TRUE
+  
 }

@@ -45,7 +45,7 @@ source(here("03_explore_tasks/explore_helper.R"))
 Get EF data
 
 ```{r}
-ef <- load_task_data(c("hearts-and-flowers","same-different-selection","memory-game"))
+ef <- load_task_data(c("hf","sds","mg"))
 
 # age missing from 108 co_pilot Ss
 ef |> filter(is.na(age)) |> distinct(user_id, site)
@@ -179,10 +179,9 @@ summary(lm(correct ~ item * item_group + site, data=hf_it))
 
 
 hf_it |>
-  ggplot(aes(x = item_group, y = correct, group = interaction(user_id, run_id), color = site)) +
-  geom_point(alpha = 0.3, position = position_jitter(width = 0.1)) +
-  geom_line(alpha = 0.3) +
-  facet_grid(site ~ age_group, scales = "free_x") +
+  ggplot(aes(x = item_group, y = correct, group = interaction(user_id, run_id), color = age)) +
+  geom_point(alpha = 0.1) + geom_line(alpha = 0.1) +
+  facet_grid(site ~ ., scales = "free_x") +
   labs(title = "Item Accuracy by Group, Site, and Age",
        x = "Item Group", y = "Accuracy") +
   theme_minimal()
@@ -432,14 +431,6 @@ sds <- ef |>
   filter(!str_detect(response, "mittel|rote|gelb|blau"))
 
 # ----- ODDITIES -----
-de_sds <- sds |>
-  filter(str_detect(response, "mittel|rote|gelb|blau"))
-# why are there German-translated stimulus names???? ...only a few subjects
-#sds |> filter(response == "{'0': 'med-grüner-kreis-4-schwarz', '1': 'med-blau-kreis-2-grau'}")
-#sds |> filter(response == "{'0': 'lg-blaues-dreieck', '1': 'mittelblauer Kreis'}")
-
-# are there some duplicate "same" trials? (the same correct answer for a few different trials?)
-sds |> filter(item_group == "same") |> head() |> select(trial_number, response, item)
 
 # how can empty SDS responses happen? RT often NA, but often slow
 sds |> filter(response=="{}")
@@ -452,10 +443,8 @@ source(here("rescore-sds.R"))
 dimension_indices <- c(size = 1, color = 2, shape = 3, number = 4, bgcolor = 5)
 
 # "med-red-star" -> "med-red-star-1-white"
-
-# ToDo: parse this
-resp = "{'0': 'med-blue-triangle', '1': 'sm-blue-square'}"
-parse_response(resp)
+tmp <- sds |> filter(user_id=="6PxwzwbKSAtyQnpMluJS") |> select(-trial_id, -item_uid) |> 
+  filter(item_group!="dimensions", item_group!="same")
 
 
 sds_parsed <- sds |>
