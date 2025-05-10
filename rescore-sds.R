@@ -1,3 +1,8 @@
+# Utility: parse response into vector of card strings
+parse_response <- function(resp) {
+  str_split(resp, "-(?=sm|med|lg)")[[1]]
+}
+
 clean_attributes <- function(attributes) {
   non_white_backgrounds <- c("gray", "striped", "black")
   
@@ -66,6 +71,10 @@ example_usage <- function() {
                         "3-match" = c("size"),
                         "4-match" = c("size"),
                         character(0))
+  
+  clean_attributes("med-red-circle")
+  # "med-red-circle" "white" "1"
+  
   
   # selectedCards is a character vector of 2 strings like "sm-red-circle-1-gray"
   selectedCards <- c("sm-red-circle-1-gray", "sm-red-circle-1-gray")

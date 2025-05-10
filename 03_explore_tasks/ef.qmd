@@ -433,6 +433,47 @@ sds <- ef |>
 source(here("rescore-sds.R"))
 
 # ToDo: apply per user and run to 3-match and 4-match (maybe test on 2-match? shouldn't influence outcome)
+dimension_indices <- c(size = 1, color = 2, shape = 3, number = 4, bgcolor = 5)
+
+# are there some duplicate "same" trials? (the same correct answer for a few different trials?)
+sds |> filter(item_group == "same") |> head() |> select(trial_number, response, item)
+
+# how can empty SDS responses happen? RT often NA, but often slow
+sds |> filter(response=="{}")
+
+# why are there German-translated stimulus names???? ...only in a couple cases
+sds |> filter(response == "{'0': 'med-grüner-kreis-4-schwarz', '1': 'med-blau-kreis-2-grau'}")
+sds |> filter(response == "{'0': 'lg-blaues-dreieck', '1': 'mittelblauer Kreis'}")
+sds |> filter(user_id == "z51IOYtIYlcpgfD0NL9J") |> View()
+
+# ToDo: parse this
+resp = "{'0': 'med-blue-triangle', '1': 'sm-blue-square'}"
+
+rescored_sds <- sds |>
+  filter(!item_group %in% c("dimensions", "same")) |>
+  group_by(user_id, run_id) |>
+  arrange(trial_number, .by_group = TRUE) |>
+  group_modify(~ {
+    previous <- list()
+    .x |>
+      mutate(is_correct_scored = map_lgl(row_number(), function(i) {
+        resp <- .x$response[i]
+        if (is.na(resp)) return(FALSE)
+        selections <- parse_response(resp)
+        
+        trial_type <- .x$task_id[i]
+        ignore_dims <- case_when(
+          trial_type == "something-same-2" ~ c("number", "bgcolor"),
+          trial_type == "2-match" ~ c("number", "bgcolor"),
+          trial_type %in% c("3-match", "4-match") ~ c("size"),
+          TRUE ~ character(0)
+        )
+        
+        is_correct <- compare_selections(selections, previous, ignore_dims)
+        previous <<- append(previous, list(selections))  # update previous
+        is_correct
+      }))
+  })
 ```
 
 ## Sumscore
