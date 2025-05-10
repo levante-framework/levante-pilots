@@ -72,21 +72,21 @@ compare_selections <- function(selections, previous_selections, ignore_dims) {
 
 
 example_usage <- function() {
-  stim_trial_type <- "something-same-2"
+  stim_trial_type <- "2match"
   ignore_dims <- switch(stim_trial_type,
-                        "something-same-2" = c("number", "bgcolor"),
-                        "2-match" = c("number", "bgcolor"),
-                        "3-match" = c("size"),
-                        "4-match" = c("size"),
+                        "2match" = c("number", "bgcolor"),
+                        "3match" = c("size"),
+                        "4match" = c("size"),
                         character(0))
   
-  clean_attributes("med-red-circle")
-  # "med-red-circle" "white" "1"
-  
+  clean_attributes(strsplit("med-red-circle", "-")[[1]])
+  # "med" red" "circle" "white" "1"
+  clean_attributes(strsplit("sm-red-circle-2-gray", "-")[[1]])
+  # "sm"     "red"    "circle" "2"      "gray" 
   
   # selectedCards is a character vector of 2 strings like "sm-red-circle-1-gray"
-  selectedCards <- c("sm-red-circle-1-gray", "sm-red-circle-1-gray")
-  previousSelections <- list(c("sm-red-circle-1-gray", "sm-red-circle-1-gray"))
+  selectedCards <- c("sm-red-circle-2-gray", "sm-red-circle-2-black")
+  previousSelections <- list(c("sm-red-circle-2-gray", "sm-red-circle-2-black"))
   
   isCorrect <- compare_selections(selectedCards, previousSelections, ignore_dims) # F
   
@@ -95,4 +95,14 @@ example_usage <- function() {
   stim_trial_type <- "something-same-2"
   ignore_dims <- c("number", "bgcolor")
   isCorrect <- compare_selections(selectedCards, previousSelections, ignore_dims) # T
+  
+  selected <- c("sm-red-circle", "med-red-square-1-white")
+  previous <- list()
+  ignore_dims <- c("number", "bgcolor")
+  
+  compare_selections(selected, previous, ignore_dims)
+  
+  previous <- list(selected)
+  # same as previous selection — should now return FALSE
+  compare_selections(selected, previous, ignore_dims)
 }

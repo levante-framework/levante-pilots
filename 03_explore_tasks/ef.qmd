@@ -475,21 +475,21 @@ sds_trials <- sds_parsed |>
   ungroup()
 
 # Nest by trial
-trial_nested <- sds_trials |>
+sds_nested <- sds_trials |>
   group_by(user_id, run_id, trial_type, trial_index) |>
   arrange(item) |>
   nest(data = c(item, response, selection))
 
 
 # Score each row based on accumulating previous selections
-trial_scored <- trial_nested |>
+sds_rescored <- sds_nested |>
   mutate(trial_result = map2(data, trial_type, function(df, type) {
     ignore_dims <- case_when(
       #type == "same" ~ c("number", "bgcolor"),
-      type == "2match" ~ c("number", "bgcolor"),
-      type %in% c("3match", "4match") ~ c("size"),
-      TRUE ~ character(0)
-    )
+      type == "2match" ~ list(c("number", "bgcolor")),
+      type %in% c("3match", "4match") ~ list(c("size")),
+      TRUE ~ list(character(0))
+    )[[1]]
 
     # accumulate correctness
     previous <- list()
@@ -503,9 +503,10 @@ trial_scored <- trial_nested |>
   select(-data) |>
   unnest(trial_result)
 
-
 sds_final <- sds_parsed |>
-  left_join(scored_trials, by = c("user_id", "run_id", "trial_type", "trial_index"))
+  left_join(sds_rescored, by = c("user_id", "run_id", "trial_type", "timestamp"))
+
+
 ```
 
 ## Sumscore
