@@ -3,24 +3,17 @@ Packages
 ```{r}
 #| echo: false
 
-load_or_install <- function(pkg) {
-  if (!require(pkg, character.only = TRUE)) {
-    install.packages(pkg)
-    library(pkg, character.only = TRUE)
-  }
-}
-
-load_or_install("tidyverse")
-load_or_install("glue")
-load_or_install("here")
-load_or_install("purrr")
-load_or_install("readr")
-load_or_install("dplyr")
-load_or_install("tidyr")
-load_or_install("quarto")
-load_or_install("ggthemes")
-load_or_install("GGally")
-load_or_install("stringr")
+library("tidyverse")
+library("glue")
+library("here")
+library("purrr")
+library("readr")
+library("dplyr")
+library("tidyr")
+library("quarto")
+library("ggthemes")
+library("GGally")
+library("stringr")
 
 ```
 
@@ -38,7 +31,10 @@ source(here("03_explore_tasks/explore_helper.R"))
 Get mental rotation data
 
 ```{r}
-mr <- load_task_data("matrix-reasoning")
+task_data_nested <- read_rds(here(glue("01_fetched_data/task_data_nested.rds")))
+glimpse(task_data_nested)
+
+mr <- load_task_data("matrix")
 mr
 
 ```
@@ -62,6 +58,7 @@ multigroup_scores <- readRDS(here("02_scoring_outputs", "scores", "multigroup_sc
 
 ```{r}
 mr_runs <- mr |>
+  filter(site != "us_pilot") |>
   group_by(site, user_id, run_id) |>
   summarise(correct = mean(correct), 
             age = mean(age),
@@ -97,6 +94,7 @@ Let's look at dates on these.
 ```{r}
 colnames(mr)
 mr_runs <- mr |>
+  filter(site != "us_pilot") |>
   group_by(site, user_id, run_id) |>
   summarise(correct = mean(correct), 
             age = mean(age), 
@@ -116,6 +114,7 @@ Median correct RT vs. number correct
 ```{r}
 med_rt <- mr |> #filter(correct==1) |>
   mutate(rt = as.numeric(rt)) |>
+  filter(site != "us_pilot") |>
   group_by(site, user_id, run_id, correct) |>
   summarise(n=n(),
             median_rt = median(rt, na.rm=T))
@@ -126,18 +125,19 @@ mr_rt_plot <- med_rt |>
   geom_smooth(method = "loess", lambda = 1) +
   facet_grid(correct ~ site) +
   labs(
-  title = "Response time patterns by accuracy and site",
+  title = "Matrix Reasoning: RT patterns by accuracy and site",
   subtitle = "Median RT by number of trials, separated by correct vs incorrect responses",
   x = "Number of trials (per user-run)",
   y = "Median response time (ms)",
   caption = "Each point represents a unique user-run; smoothed trend by site and accuracy"
 )
+mr_rt_plot
 
 ggsave(
   filename = here::here("03_explore_tasks", "Graphs", "mr_rt_plot.png"),
   plot = mr_rt_plot,
-  width = 10,
-  height = 6,
+  width = 6,
+  height = 4,
   dpi = 300
 )
 
@@ -160,12 +160,12 @@ run_ages <- mr |>
   distinct()
 
 multigroup_scores_mr <- multigroup_scores |>
-  filter(item_task == "matrix") |>
+  filter(item_task == "matrix", site != "us_pilot") |>
   select(site, item_task, user_id, run_id, metric_type, metric_value ) |>
   left_join(run_ages)
 
 mr_irt <- ggplot(multigroup_scores_mr, aes(x = age, y = metric_value, col = site)) + 
-  geom_point(alpha = 0.5) + 
+  geom_point() + 
   geom_smooth(method = "gam", se = TRUE) +
   labs(
     title = "Developmental trends in reasoning ability by site",

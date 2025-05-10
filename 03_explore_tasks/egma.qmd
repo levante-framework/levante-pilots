@@ -42,7 +42,10 @@ source(here("03_explore_tasks/explore_helper.R"))
 Get egma data
 
 ```{r}
-egma <- load_task_data("egma-math")
+task_data_nested <- read_rds(here(glue("01_fetched_data/task_data_nested.rds")))
+glimpse(task_data_nested)
+
+egma <- load_task_data("math")
 egma
 ```
 
@@ -286,8 +289,8 @@ Load IRT results
 
 ```{r}
 
-best_multigroup <- readRDS(here("02_scoring_outputs", "irt_outputs", "best_multigroup.rds"))
-multigroup_scores <- readRDS(here("02_scoring_outputs", "scores", "scores_multigroup.rds"))
+best_multigroup <- readRDS(here("02_scoring_outputs", "irt_outputs", "multigroup_best_models.rds"))
+multigroup_scores <- readRDS(here("02_scoring_outputs", "scores", "multigroup_scores.rds"))
 
 best_multigroup_coefs <- best_multigroup |>
   select(item_task, item_type, invariance_type, coefs) |>
@@ -306,8 +309,8 @@ run_ages <- egma |>
   distinct()
 
 multigroup_scores_egma <- multigroup_scores |>
-  filter(task_id == "egma-math") |>
-  select(site, task_id, user_id, run_id, metric_type, metric_value) |>
+  filter(item_task == "math", site != "us_pilot") |>
+  select(site, item_task, user_id, run_id, metric_type, metric_value) |>
   left_join(run_ages)
 
 glimpse(multigroup_scores_egma)
@@ -323,11 +326,12 @@ egma_irt <- ggplot(multigroup_scores_egma, aes(x = age, y = metric_value, col = 
     colour = "Site"
   )
 
+egma_irt
 ggsave(
   filename = here::here("03_explore_tasks", "Graphs", "egma_irt.png"),
   plot = egma_irt,
-  width = 10,
-  height = 6,
+  width = 6,
+  height = 4,
   dpi = 300
 )
 

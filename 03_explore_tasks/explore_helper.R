@@ -6,6 +6,7 @@ load_task_data <- function(task_names) {
   
   task_data_nested |>
     unnest(data) |>
-    filter(task_id %in% task_names) |>
+    filter(item_task %in% task_names) |>
     left_join(run_ages)
 }
+

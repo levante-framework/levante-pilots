@@ -12,26 +12,18 @@ format:
 Packages
 
 ```{r}
-#| echo: false
 
-load_or_install <- function(pkg) {
-  if (!require(pkg, character.only = TRUE)) {
-    install.packages(pkg)
-    library(pkg, character.only = TRUE)
-  }
-}
-
-load_or_install("tidyverse")
-load_or_install("glue")
-load_or_install("here")
-load_or_install("purrr")
-load_or_install("readr")
-load_or_install("dplyr")
-load_or_install("tidyr")
-load_or_install("quarto")
-load_or_install("ggthemes")
-load_or_install("GGally")
-load_or_install("stringr")
+library("tidyverse")
+library("glue")
+library("here")
+library("purrr")
+library("readr")
+library("dplyr")
+library("tidyr")
+library("quarto")
+library("ggthemes")
+library("GGally")
+library("stringr")
 
 ```
 
@@ -70,6 +62,7 @@ Get the sum scores
 colnames(trog)
 
 trog_runs <- trog |>
+  filter(site != "us_pilot") |>
   group_by(site, user_id, run_id) |>
   summarise(
     correct = mean(correct, na.rm = TRUE),  
@@ -100,17 +93,6 @@ ggsave(
 )
 
 ```
-
-Item completion patterns across countries
-
-```{r}
-ggplot(trog_runs, aes(x = n_items)) +
-  geom_histogram(binwidth = 1) +
-  theme_minimal(base_family = "sans") +
-  facet_wrap(~site)
-
-```
-
 Examining by item group
 
 ```{r}
@@ -137,7 +119,7 @@ trog_grouped <- trog |>
     item_group %in% c("noun", "verb", "adjective") ~ "single words",
     item_group %in% c("pluralmorph", "pluralpronoun") ~ "morphology",
     item_group %in% c("2combo", "3combo", "prepphrase", "additive",
-                      "inon", "abovebelow", "comparative", "preploc") ~ "composition and prepositions",
+                      "inon", "abovebelow", "comparative", "preploc") ~ "composition & prepositions",
     item_group %in% c("negative", "temporal", "causal", "conditional", "genderpronoun") ~ "basic sentences",
     item_group %in% c("revactive", "revpassive") ~ "reversible constructions",
     item_group %in% c("relclause", "embedding", "depclause", "postmod", "gerund", "revpassrelclause") ~ "complex sentences",
@@ -167,13 +149,21 @@ trog_grammar_groups <- ggplot(trog_grammar_blocks, aes(x = age, y = correct, col
               method = "lm", se = FALSE, span = 2) +
   geom_hline(yintercept = 0.25, lty = 2, colour = "black") + 
   ylim(0, 1) +
-  facet_wrap(~grammar_group) 
+  facet_wrap(~grammar_group) +
+  labs(
+    title = "Accuracy on Grammar Subskills Across Age",
+    x = "Age (years)",
+    y = "Proportion correct",
+    colour = "Site") +
+  theme(strip.text = element_text(size = 8))
+
+print(trog_grammar_groups)
 
 ggsave(
   filename = here::here("03_explore_tasks", "Graphs", "trog_grammar_groups.png"),
   plot = trog_grammar_groups,
-  width = 10,
-  height = 6,
+  width = 7,
+  height = 4,
   dpi = 300
 )
 ```
@@ -229,8 +219,8 @@ Load results from IRT model
 # previous version
 # best_multigroup <- readRDS(here("02_scoring_outputs", "irt_outputs", "multigroup_best_outputs.rds"))
 
-best_multigroup <- readRDS(here("02_scoring_outputs", "irt_outputs", "item_coefs.rds"))
-multigroup_scores <- readRDS(here("02_scoring_outputs", "scores", "scores_multigroup.rds"))
+best_multigroup <- readRDS(here("02_scoring_outputs", "irt_outputs", "multigroup_best_models.rds"))
+multigroup_scores <- readRDS(here("02_scoring_outputs", "scores", "multigroup_scores.rds"))
 
 ```
 
@@ -246,8 +236,8 @@ run_ages <- trog |>
 
 # Theta scores (computed per person, per task, per site), plotted against age
 multigroup_scores_trog <- multigroup_scores |>
-  filter(task_id == "trog") |>
-  select(site, task_id, user_id, run_id, metric_type, metric_value) |>
+  filter(item_task == "trog", site != "us_pilot") |>
+  select(site, item_task, user_id, run_id, metric_type, metric_value) |>
   left_join(run_ages)
 colnames(multigroup_scores_trog)
 
@@ -265,8 +255,8 @@ trog_irt <- ggplot(multigroup_scores_trog, aes(x = age, y = metric_value, col = 
 ggsave(
   filename = here::here("03_explore_tasks", "Graphs", "trog_irt.png"),
   plot = trog_irt,
-  width = 10,
-  height = 6,
+  width = 6,
+  height = 4,
   dpi = 300
 )
 
