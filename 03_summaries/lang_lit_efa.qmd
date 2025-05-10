@@ -203,27 +203,53 @@ semPaths(
 )
 
 
-# 2f
+```
+
+```{r}
+# 2 factor
+# output file path
+out_path <- here("03_summaries", "sem_plot_2factor.png")
+
+# open PNG graphics device
+png(filename = out_path, width = 1200, height = 800, res = 150)
+
+# SEM diagram
 semPaths(
   fit_2f,
   what = "std",
   layout = "tree",
   edge.label.cex = 1.2,
   sizeMan = 6,
-  sizeLat = 10,
-  label.cex = 1.1,
+  sizeLat = 8,
+  label.cex = 1.2,
   fade = FALSE,
   residuals = TRUE,
   intercepts = FALSE,
-  edge.color = "black",
-  edge.width = 1,
   style = "ram",
+  edge.width = 0.3,
   nCharNodes = 0,
-  mar = c(4, 4, 6, 4)  # <- more top space
+  mar = c(4, 4, 6, 4),
+  nodeLabels = c(
+    "TROG", "VOCAB", "SWR", "SRE", "PA", 
+    "Lang\nComprehension", "Reading Skills"
+  ),
+  edge.color = c(
+    "steelblue", "steelblue",             # to lang_comprehension
+    "darkgreen", "darkgreen", "darkgreen",# to reading
+    "black",                              # latent correlation
+    rep("black", 7)                       # residuals (5 obs + 2 latent)
+  )
 )
+
+# close the device to save the file
+dev.off()
+
+
+
+
 ```
 
-
+```
 
 ```{r, eval = FALSE, echo = FALSE}
 

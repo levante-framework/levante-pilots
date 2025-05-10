@@ -15,27 +15,20 @@ Required packages
 
 #| echo: false
 
-load_or_install <- function(pkg) {
-  if (!require(pkg, character.only = TRUE)) {
-    install.packages(pkg)
-    library(pkg, character.only = TRUE)
-  }
-}
-
-load_or_install("tidyverse")
-load_or_install("glue")
-load_or_install("here")
-load_or_install("viridis")
-load_or_install("purrr")
-load_or_install("readr")
-load_or_install("dplyr")
-load_or_install("tidyr")
-load_or_install("quarto")
-load_or_install("forcats")
-load_or_install("ggplot2")
-load_or_install("ggrepel")
-load_or_install("broom")
-load_or_install("purrr")
+library("tidyverse")
+library("glue")
+library("here")
+library("viridis")
+library("purrr")
+library("readr")
+library("dplyr")
+library("tidyr")
+library("quarto")
+library("forcats")
+library("ggplot2")
+library("ggrepel")
+library("broom")
+library("purrr")
 
 ```
 
@@ -76,6 +69,7 @@ Get sum scores
 ```{r}
 
 vocab_runs <- vocab |>
+  filter(site != "us_pilot") |>
   group_by(site, user_id, run_id) |>
   summarise(
     correct = mean(correct, na.rm = TRUE),  
@@ -83,7 +77,7 @@ vocab_runs <- vocab |>
     n_items = n_distinct(item_uid)          
   )
 
-vocab_sum_scores <- ggplot(tom_runs, aes(x = age, y = correct)) +
+vocab_sum_scores <- ggplot(vocab_runs, aes(x = age, y = correct)) +
   geom_point(alpha = 0.5) +
   geom_smooth(method = "gam", formula = y ~ s(x, bs = "re")) +
   ylim(0, 1) +
@@ -94,6 +88,7 @@ vocab_sum_scores <- ggplot(tom_runs, aes(x = age, y = correct)) +
     y = "Proportion correct",
     caption = "Note: Each point represents a participant run; smoothed trend by site"
   )
+print(vocab_sum_scores)
 
 ggsave(
   filename = here::here("03_explore_tasks", "Graphs", "vocab_sum_scores.png"),
@@ -102,17 +97,6 @@ ggsave(
   height = 6,
   dpi = 300
 )
-
-```
-
-Item completion patterns across countries
-
-```{r}
-
-ggplot(vocab_runs, aes(x = n_items)) +
-  geom_histogram(binwidth = 1) +
-  facet_wrap(~site) + 
-  theme_minimal()
 
 ```
 
@@ -140,14 +124,13 @@ ggplot(item_accuracy, aes(x = reorder(item_uid, proportion_correct), y = proport
     title = "Proportion Correct by Vocabulary Item (All Items)",
     x = "Vocabulary Item",
     y = "Proportion Correct"
-  ) +
-  theme_minimal()
+  ) 
 
 # Note this doesn't take account of the difficulty of items as in the IRT models.
 
 ```
 
-Subset of items
+Subset of items (random, every 5th)
 
 ```{r}
 # Filter every 5th item
@@ -162,8 +145,7 @@ ggplot(sampled_items, aes(x = reorder(item_uid, proportion_correct), y = proport
     title = "Proportion Correct (Sampled Vocabulary Items)",
     x = "Vocabulary Item (every 5th)",
     y = "Proportion Correct"
-  ) +
-  theme_minimal()
+  ) 
 
 ```
 
@@ -322,7 +304,7 @@ item_order <- top_items_adj %>%
 top_items_accuracy$item_uid <- factor(top_items_accuracy$item_uid, levels = item_order)
 
 # Plot again
-ggplot(top_items_accuracy, aes(x = proportion_correct, y = item_uid, color = site)) +
+item_site_diff <- ggplot(top_items_accuracy, aes(x = proportion_correct, y = item_uid, color = site)) +
   geom_point(size = 3) +
   geom_line(aes(group = item_uid), color = "gray70", linewidth = 0.6) +
   scale_color_viridis_d() +
@@ -335,7 +317,19 @@ ggplot(top_items_accuracy, aes(x = proportion_correct, y = item_uid, color = sit
   theme_minimal(base_size = 10) +
   theme(legend.position = "bottom")
 
+print(item_site_diff)
+
 # The items near the top of the plot had the largest model-estimated site effects, after adjusting for age — not necessarily the largest raw proportion gaps.
+
+# save
+ggsave(
+  filename = here::here("03_explore_tasks", "Graphs", "item_site_diff.png"),
+  plot = item_site_diff,
+  width = 6,
+  height = 4,
+  dpi = 300
+)
+
 
 
 ```
@@ -345,8 +339,11 @@ Load IRT results
 ```{r}
 
 # Load multigroup IRT model outputs
-best_multigroup <- readRDS(here("02_scored_data", "irt_outputs", "multigroup_best_outputs.rds"))
-multigroup_scores <- readRDS(here("02_scoring_outputs", "scores", "scores_multigroup.rds"))
+best_multigroup <- readRDS(here("02_scoring_outputs", "irt_outputs", "multigroup_best_models.rds"))
+multigroup_scores <- readRDS(here("02_scoring_outputs", "scores", "multigroup_scores.rds"))
+
+list.files(here::here("02_scoring_outputs", "scores"))
+
 
 ```
 
@@ -359,14 +356,31 @@ run_ages <- vocab |>
   distinct()
 
 multigroup_scores_vocab <- multigroup_scores |>
-  filter(task_id == "vocab") |>
-  select(site, task_id, user_id, run_id, metric_type, metric_value ) |>
+  filter(item_task == "vocab", site != "us_pilot") |>
+  select(site, item_task, user_id, run_id, metric_type, metric_value ) |>
   left_join(run_ages)
 
-ggplot(multigroup_scores_vocab, aes(x = age, y = metric_value, col = site)) + 
+vocab_multigroup_irt <- ggplot(multigroup_scores_vocab, aes(x = age, y = metric_value, col = site)) + 
   geom_point() + 
   theme_minimal(base_family = "sans") +
-  geom_smooth(method = "gam")
+  geom_smooth(method = "gam") +
+  labs(
+    title = "Vocab: Developmental trends in Theory of Mind ability by site",
+    subtitle = "IRT-based theta estimates smoothed with GAM",
+    x = "Age (years)",
+    y = "Ability (IRT Theta Score)",
+    colour = "Site"
+  )
+
+print(vocab_multigroup_irt)
+
+ggsave(
+  filename = here::here("03_explore_tasks", "Graphs", "vocab_multigroup_irt.png"),
+  plot = vocab_multigroup_irt,
+  width = 6,
+  height = 4,
+  dpi = 300
+)
 
 ```
 
@@ -374,8 +388,10 @@ Extract the coefficients
 
 ```{r}
 
+names(best_multigroup)
+
 coefs_vocab_list <- best_multigroup |>
-  filter(task_id == "vocab") |>
+  filter(item_task == "vocab") |>
   pull(coefs)
 
 coefs_vocab <- coefs_vocab_list[[1]]  # create tibble
