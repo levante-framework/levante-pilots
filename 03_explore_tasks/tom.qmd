@@ -89,8 +89,8 @@ print(tom_sum_scores)
 ggsave(
   filename = here::here("03_explore_tasks", "Graphs", "tom_sum_scores.png"),
   plot = tom_sum_scores,
-  width = 10,
-  height = 6,
+  width = 6,
+  height = 4,
   dpi = 300
 )
 
@@ -201,6 +201,68 @@ ggplot(tom_coefs, aes(x = item_group, y = -d, col = item_group)) +
   coord_flip()+
   theme(axis.text.x = element_text(angle = 45, hjust = 1))
 ```
+# Hostile Attribution
 
 
+```{r}
+ha <- load_task_data("ha")
+
+ha_runs <- ha |>
+  filter(site != "us_pilot") |>
+  group_by(site, user_id, run_id, item) |>
+  summarise(
+    correct = mean(correct, na.rm = TRUE),  
+    age = mean(age, na.rm = TRUE),          
+    n_items = n_distinct(item_uid) 
+  )
+
+ha_sum_scores <- ggplot(ha_runs, aes(x = age, y = correct)) +
+  geom_point(alpha = 0.5) +
+  geom_smooth(method = "gam", formula = y ~ s(x, bs = "re")) +
+  ylim(0, 1) +
+  facet_grid(item~site) +
+  labs(
+    x = "Age (years)",
+    y = "Proportion hostile"
+  )
+
+print(ha_sum_scores)
+
+ggsave(
+  filename = here::here("03_explore_tasks", "Graphs", "ha_sum_scores.png"),
+  plot = ha_sum_scores,
+  width = 6,
+  height = 4,
+  dpi = 300
+)
+```
+
+
+```{r}
+multigroup_scores_ha <- multigroup_scores |>
+  filter(item_task == "ha", site != "us_pilot") |>
+  select(site, item_task, user_id, run_id, metric_type, metric_value) |>
+  left_join(run_ages)
+
+
+ha_irt <- ggplot(multigroup_scores_ha, aes(x = age, y = metric_value, col = site)) + 
+  geom_point() + 
+  geom_smooth() +
+  labs(
+    title = "Developmental trends in Social Attribution by site",
+    subtitle = "IRT-based theta estimates smoothed with GAM",
+    x = "Age (years)",
+    y = "Ability (IRT Theta Score)",
+    colour = "Site"
+  )
+print(ha_irt)
+
+ggsave(
+  filename = here::here("03_explore_tasks", "Graphs", "ha_irt.png"),
+  plot = ha_irt,
+  width = 6,
+  height = 4,
+  dpi = 300
+)
+```
 

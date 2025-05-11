@@ -5,7 +5,11 @@ library(glue)
 
 source(here("03_summaries", "plotting_helper.R"))
 runs <- read_rds(here("01_fetched_data/run_data.rds"))
+```
 
+# Task durations
+
+```{r}
 task_data <- read_rds(here(glue("01_fetched_data/task_data_nested.rds"))) |>
   unnest(data)
 ```
@@ -94,5 +98,32 @@ task_time_wide_cat <- task_time_summary |>
 
 write_csv(task_time_wide_cat, here("03_summaries","tables","task_time_wide_cat.csv"))
 
+```
+
+# Survey durations
+
+```{r}
+survey_data <- read_rds(here(glue("01_fetched_data/survey_data_nested.rds"))) |>
+  unnest(data) 
+
+time_surveys <- survey_data |>
+  mutate(timestamp = as_datetime(timestamp)) |>
+  arrange(user_id, timestamp) |>
+  group_by(site, survey_type, dataset, user_id) |>
+  summarise(trials = n(),
+            start = min(timestamp), end = max(timestamp)) |>
+  ungroup() |>
+  mutate(diff = difftime(end, start, units = "mins")) |>
+  filter(diff < 200)
+
+survey_time_summary <- time_surveys |>
+  group_by(site, survey_type, dataset) |>
+  summarise(median_diff = median(diff),
+            min_diff = min(diff),
+            max_diff = max(diff))
+
+```
+```{r}
+ggplot(time_surveys, aes(x = diff)) + 
 ```
 

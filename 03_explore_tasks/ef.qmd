@@ -255,10 +255,10 @@ ef_irt <- ggplot(multigroup_scores_hf, aes(x = age, y = metric_value, col = site
 print(ef_irt)
 
 ggsave(
-  filename = here::here("03_explore_tasks", "Graphs", "ef_irt.png"),
+  filename = here::here("03_explore_tasks", "Graphs", "hf_irt.png"),
   plot = ef_irt,
-  width = 10,
-  height = 6,
+  width = 6,
+  height = 4,
   dpi = 300
 )
 ```
@@ -287,8 +287,8 @@ print(hf_trial_type)
 ggsave(
   filename = here::here("03_explore_tasks", "Graphs", "hf_trial_type.png"),
   plot = hf_trial_type,
-  width = 10,
-  height = 6,
+  width = 6,
+  height = 4,
   dpi = 300
 )
 ```
@@ -376,9 +376,18 @@ multigroup_scores_mg <- multigroup_scores |>
   select(site, item_task, user_id, run_id, metric_type, metric_value ) |>
   left_join(run_ages)
 
-ggplot(multigroup_scores_mg, aes(x = age, y = metric_value, col = site)) + 
+mg_span_irt<- ggplot(multigroup_scores_mg, aes(x = age, y = metric_value, col = site)) + 
   geom_point() + 
   geom_smooth()
+
+ggsave(
+  filename = here::here("03_explore_tasks", "Graphs", "mg_span_irt.png"),
+  plot = mg_span_irt,
+  width = 6,
+  height = 4,
+  dpi = 300
+)
+
 ```
 
 Look at coefficients. 
@@ -472,7 +481,7 @@ sds_nested <- sds_trials |>
 
 # Score each row based on accumulating previous selections
 sds_rescored <- sds_nested |>
-  mutate(trial_result = map2(data, trial_type, function(df, type) {
+  mutate(trial_correct = map2(data, trial_type, function(df, type) {
     ignore_dims <- case_when(
       #type == "same" ~ c("number", "bgcolor"),
       type == "2match" ~ list(c("number", "bgcolor")),
@@ -487,7 +496,7 @@ sds_rescored <- sds_nested |>
       previous <<- append(previous, list(sel))
       result
     })
-    df
+    trial_correct
   })) |>
   select(-data) |>
   unnest(trial_result)
@@ -525,6 +534,7 @@ sds_date |>
   labs(title = "Weekly accuracy on, by item and block",
        x = "Week", y = "Mean Accuracy", size = "Unique Users") +
   theme_minimal()
+
 ```
 
 
@@ -554,11 +564,24 @@ ggplot(sds_runs_block, aes(x = age, y = correct, col = item)) +
 multigroup_scores_sds <- multigroup_scores |>
   filter(item_task == "sds", site != "us_pilot") |>
   select(site, item_task, user_id, run_id, metric_type, metric_value ) |>
-  left_join(run_ages)
+  left_join(sds_runs)
 
 ggplot(multigroup_scores_sds, aes(x = age, y = metric_value, col = site)) + 
   geom_point() + 
-  geom_smooth()
+  geom_smooth() +
+ labs(
+    title = "SDS: IRT difficulty",
+    x = "Age",
+    y = "Ability",
+    colour = "Site",
+  )
+
+ggsave(
+  filename = here::here("03_explore_tasks", "Graphs", "sds_irt.png"),
+  width = 6,
+  height = 4,
+  dpi = 300
+)
 ```
 Look at coefficients. 
 
@@ -594,12 +617,22 @@ ggplot(sds_coefs_clean, aes(x = block, y = -d, colour = trial)) +
     y = "IRT difficulty (flipped)",
     colour = "Trial type"
   )
+
+ggsave(
+  filename = here::here("03_explore_tasks", "Graphs", "sds_coefs.png"),
+  width = 6,
+  height = 4,
+  dpi = 300
+)
 ```
 
 
 # EF factor analysis
 
 ## Only LEVANTE tasks
+
+BROKEN!!
+
 
 ```{r}
 library(janitor)
