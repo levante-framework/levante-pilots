@@ -117,3 +117,5 @@ ggplot(ages, aes(x = age, fill = site)) +
 ggsave(here("03_summaries/plots/ages.png"), 
        width = 8, height = 3, create.dir = TRUE)
 ```
+
+

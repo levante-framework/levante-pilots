@@ -26,7 +26,7 @@ sumscores <- task_data_combined |>
   pivot_longer(-c("site", ends_with("_id"), "item_task"),
                names_to = "metric_type", values_to = "metric_value") |>
   mutate(item_task = str_remove(item_task, "-.*?$")) |>
-  filter(!str_detect(task_id,"pa"))
+  filter(!str_detect(task_id,"pa"), !str_detect(task_id,"sre"))
 
 write_rds(sumscores, here("02_scoring_outputs","scores","sumscores.rds"))
 ```

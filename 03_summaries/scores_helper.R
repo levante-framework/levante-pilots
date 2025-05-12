@@ -61,7 +61,7 @@ task_metrics <- tribble(
   "pa"       , "prop_correct",
   "sre"      , "guessing_adjusted_number_correct",
   "swr"      , "ability",
-  "mefs"     , "total_score"
+  "mefs"     , "standard_score"
 )
 
 combine_scores <- \() {
