@@ -440,10 +440,27 @@ sds <- ef |>
   filter(!str_detect(response, "mittel|rote|gelb|blau"))
 
 # ----- ODDITIES -----
+# some 3match/4match trials have duplicate item=choice2 (missing choice3 / choice4)
+table(sds$item, sds$item_group) # choice2 in 3match/4match should by <= choice1
 
 # how can empty SDS responses happen? RT often NA, but often slow
 sds |> filter(response=="{}")
 # ----- /ODDITIES -----
+
+sds_disambig <- sds_trials %>%
+  group_by(user_id, run_id, trial_type, trial_index) %>%
+  mutate(
+    item = case_when(
+      item_group %in% c("3match", "4match") ~ paste0("choice", row_number()),
+      TRUE ~ item
+    )
+  ) %>%
+  ungroup()
+
+sds_disambig |> filter(item_group!="dimensions", item_group!="same") |>
+  select(user_id, timestamp, item_group, item, response, correct) |> 
+  arrange(user_id, timestamp) |>
+  View()
 
 # rescoring
 source(here("rescore-sds.R"))
@@ -452,11 +469,11 @@ source(here("rescore-sds.R"))
 dimension_indices <- c(size = 1, color = 2, shape = 3, number = 4, bgcolor = 5)
 
 # "med-red-star" -> "med-red-star-1-white"
-tmp <- sds |> filter(user_id=="6PxwzwbKSAtyQnpMluJS") |> select(-trial_id, -item_uid) |> 
+tmp <- sds_disambig |> filter(user_id=="6PxwzwbKSAtyQnpMluJS") |> select(-trial_id, -item_uid) |> 
   filter(item_group!="dimensions", item_group!="same")
+tmp |> select(user_id, timestamp, item_group, item, response, correct) |> arrange(timestamp)
 
-
-sds_parsed <- sds |>
+sds_parsed <- sds_disambig |>
   filter(!item_group %in% c("dimensions", "same")) |>
   mutate(
     trial_type = item_group,
@@ -483,7 +500,7 @@ sds_nested <- sds_trials |>
 sds_rescored <- sds_nested |>
   mutate(trial_correct = map2(data, trial_type, function(df, type) {
     ignore_dims <- case_when(
-      #type == "same" ~ c("number", "bgcolor"),
+      type == "same" ~ list(c("number", "bgcolor")),
       type == "2match" ~ list(c("number", "bgcolor")),
       type %in% c("3match", "4match") ~ list(c("size")),
       TRUE ~ list(character(0))
@@ -501,9 +518,12 @@ sds_rescored <- sds_nested |>
   select(-data) |>
   unnest(trial_result)
 
+sds_rescored |> select(user_id, timestamp, item_group, item, response, correct, trial_correct) |> 
+  arrange(timestamp) |>
+  View()
+
 sds_final <- sds_parsed |>
   left_join(sds_rescored, by = c("user_id", "run_id", "trial_type", "timestamp"))
-
 
 ```
 
