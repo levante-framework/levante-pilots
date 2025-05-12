@@ -18,19 +18,16 @@ Required packages
 
 #| echo: false
 
-library("tidyverse")
-library("glue")
-library("here")
-library("viridis")
-library("purrr")
-library("readr")
-library("dplyr")
-library("tidyr")
-library("quarto")
-library("forcats")
-library("ggplot2")
+library(tidyverse)
+library(glue)
+library(here)
+library(viridis)
+library(quarto)
 library(ggrepel)
-
+library(lubridate)
+library(janitor)
+library(lavaan)
+library(tidySEM)
 ```
 
 Helper functions
@@ -48,6 +45,8 @@ Get EF data
 
 ```{r}
 ef <- load_task_data(c("hf","sds","mg"))
+runs <- read_rds(here(glue("01_fetched_data/run_data.rds"))) |>
+  filter(task_id %in% c("hearts-and-flowers","memory-game","same-different-selection")) 
 
 # age missing from 108 co_pilot Ss
 ef |> filter(is.na(age)) |> distinct(user_id, site)
@@ -380,7 +379,15 @@ multigroup_scores_mg <- multigroup_scores |>
 
 mg_span_irt<- ggplot(multigroup_scores_mg, aes(x = age, y = metric_value, col = site)) + 
   geom_point() + 
-  geom_smooth()
+  geom_smooth() +
+  labs(
+    title = "Developmental trends in Memory Game by site",
+    x = "Age (years)",
+    y = "Ability (IRT Score)",
+    colour = "Site"
+  )
+
+print(mg_span_irt)
 
 ggsave(
   filename = here::here("03_explore_tasks", "Graphs", "mg_span_irt.png"),
@@ -435,11 +442,35 @@ Note that we have used grid3 very little and so it's getting dropped from most a
 
 # SDS
 
+## Rescoring issue
+
 ```{r}
-# remove US data
+#| eval: false
+
 sds <- ef |>
   filter(item_task == "sds", site != "us_pilot", item_group!="3unique") |>
-  filter(!str_detect(response, "mittel|rote|gelb|blau"))
+  filter(!str_detect(response, "mittel|rote|gelb|blau")) |>
+  mutate(timestamp = as_datetime(timestamp)) |>
+  filter(!(site == "ca_pilot" & item_task == "sds" & timestamp < "2025-02-21"))
+
+# filter to runs completed and no straightlining (except for us_pilot)
+sds_runs_filtered <- runs |>
+  filter(task_id == "same-different-selection",
+         site != "us_pilot", 
+         (completed & !str_detect(validation_msg_run, "straightlining"))) 
+
+# filter trials to above runs, filter out too slow/fast RTs
+sds_filtered <- sds |>
+  semi_join(sds_runs_filtered) |>
+  mutate(slow_rt = rt_numeric > 30000) |>
+  filter(is.na(rt_numeric) | !slow_rt, !str_detect(validation_msg_trial, "fast")) |>
+  select(-slow_rt, -valid_trial, -validation_msg_trial)
+```
+
+
+```{r}
+#| eval: false
+# remove US data
 
 # ----- ODDITIES -----
 # some 3match/4match trials have duplicate item=choice2 (missing choice3 / choice4)
@@ -465,6 +496,7 @@ tmp <- sds |> filter(user_id=="6PxwzwbKSAtyQnpMluJS") |> select(-trial_id, -item
   filter(item_group!="dimensions", item_group!="same")
 tmp |> select(user_id, timestamp, item_group, item, response, correct) |> arrange(timestamp) |> View()
 
+sds_easy_trials <- filter(sds, item_group %in% c("dimensions", "same"))
 
 sds_parsed <- sds |>
   filter(!item_group %in% c("dimensions", "same")) |>
@@ -701,33 +733,38 @@ BROKEN!!
 
 
 ```{r}
-library(janitor)
-library(lavaan)
-library(tidySEM)
-
 ef_scores <- filter(multigroup_scores, 
                     item_task %in% c("hf", "mg", "sds"))
 
-first_run_ages <- run_ages |>
-  group_by(user_id) |>
-  arrange(age) |>
-  mutate(run = row_number()) |>
-  filter(run == 1) |>
-  select(site, user_id, age)
 
-ef_scores_irt <- ef_scores |>
+ef_scores_filtered <- ef_scores |>
   group_by(site, item_task, user_id) |>
-  left_join(run_ages) |>
+  left_join(runs) |>
+  filter(completed == TRUE, valid_run == TRUE) |> # be very conservative on validation
+  group_by(user_id, item_task) |>
   arrange(age) |>
-  mutate(run = row_number()) |>
-  filter(run == 1) |>
-  select(site, item_task, metric_value, user_id) |>
+  mutate(run_num = row_number(), 
+         delta_age = ifelse(is.na(age), 0, age - age[1]),
+         wave_id = ifelse(delta_age > .1, 2, 1)) |>
+  group_by(user_id, site, wave_id, item_task) |>
+  arrange(run_num) |>
+  filter(run_num == min(run_num))  # remove repeated tasks within wave
+
+ef_run_ages <- ef_scores_filtered |>
+  group_by(user_id, wave_id) |>
+  summarise(age = mean(age, na.rm=TRUE))
+
+
+ef_scores_wide <- ef_scores_filtered |>
+  select(site, user_id, wave_id, item_task, metric_value) |>
   pivot_wider(names_from = "item_task", values_from = "metric_value", 
-              id_cols = c("user_id", "site")) |>
+              id_cols = c("user_id", "site", "wave_id")) |>
   janitor:::clean_names() |>
-  left_join(first_run_ages)
-# |>
-#   mutate(across(hf:sds, ~ scale(.x)[,1]), 
+  ungroup() |>
+  mutate(across(hf:sds, \(x) scale(x)[,1])) |>
+  left_join(ef_run_ages)
+  
+
 #          ca_site = site == "ca_pilot",
 #          de_site = site == "de_pilot") 
 ```
@@ -738,7 +775,7 @@ ef =~ hf + mg + sds
 ef ~ age
 "
 
-fit <- cfa(cfa_model, ef_scores_irt, std.lv=TRUE, missing='fiml')
+fit <- cfa(cfa_model, ef_scores_wide, std.lv=TRUE, missing='fiml')
 summary(fit, fit.measures=TRUE, standardize=TRUE)
 
 graph_sem(model = fit, text_size = 3) + 
@@ -749,15 +786,15 @@ Multi-group model
 
 ```{r}
 # configural invariance
-fit1 <- cfa(cfa_model, ef_scores_irt, std.lv=TRUE, missing='fiml', 
+fit1 <- cfa(cfa_model, ef_scores_wide, std.lv=TRUE, missing='fiml', 
             group = "site")
 
 # weak invariance
-fit2 <- cfa(cfa_model, ef_scores_irt, std.lv=TRUE, missing='fiml', 
+fit2 <- cfa(cfa_model, ef_scores_wide, std.lv=TRUE, missing='fiml', 
             group = "site", group.equal = "loadings")
 
 # strong invariance
-fit3 <- cfa(cfa_model, ef_scores_irt, std.lv=TRUE, missing='fiml', 
+fit3 <- cfa(cfa_model, ef_scores_wide, std.lv=TRUE, missing='fiml', 
             group = "site", group.equal = c("intercepts","loadings"))
 
 # model comparison tests
@@ -780,7 +817,7 @@ mefs_scores <- read_csv(here("02_scoring_outputs","mefs_data","LEVANTE_20250403_
          mefs_standard = a1_standard_score
   ) 
 
-ef_scores_irt_mefs <- ef_scores_irt |>
+ef_scores_wide_mefs <- ef_scores_wide |>
   ungroup() |>
   left_join(mefs_scores) |>
   mutate(mefs_total = scale(mefs_total)[,1],
@@ -794,7 +831,7 @@ ef =~ hf + mg + sds + mefs_standard
 ef ~ age
 "
 
-fit <- cfa(cfa_model_mefs, ef_scores_irt_mefs, std.lv=TRUE, missing='fiml')
+fit <- cfa(cfa_model_mefs, ef_scores_wide_mefs, std.lv=TRUE, missing='fiml')
 summary(fit, fit.measures=TRUE, standardize=TRUE)
 
 graph_sem(model = fit, text_size = 3) + 
@@ -804,15 +841,15 @@ graph_sem(model = fit, text_size = 3) +
 
 ```{r}
 # configural invariance
-fit1 <- cfa(cfa_model_mefs, ef_scores_irt_mefs, std.lv=TRUE, missing='fiml', 
+fit1 <- cfa(cfa_model_mefs, ef_scores_wide_mefs, std.lv=TRUE, missing='fiml', 
             group = "site")
 
 # weak invariance
-fit2 <- cfa(cfa_model_mefs, ef_scores_irt_mefs, std.lv=TRUE, missing='fiml', 
+fit2 <- cfa(cfa_model_mefs, ef_scores_wide_mefs, std.lv=TRUE, missing='fiml', 
             group = "site", group.equal = "loadings")
 
 # strong invariance
-fit3 <- cfa(cfa_model_mefs, ef_scores_irt_mefs, std.lv=TRUE, missing='fiml', 
+fit3 <- cfa(cfa_model_mefs, ef_scores_wide_mefs, std.lv=TRUE, missing='fiml', 
             group = "site", group.equal = c("intercepts","loadings"))
 
 # model comparison tests
@@ -824,3 +861,20 @@ lavTestLRT(fit1, fit2, fit3)
 graph_sem(model = fit1, text_size = 3) + 
   theme(panel.background = element_rect(fill = "white"))
 ```
+
+
+# Simple correlations with age
+
+```{r}
+ef_scores_wide_mefs |>
+  # select(user_id, site, age, hf, mg, sds, mefs_standard) |>
+  filter(wave_id == 1) |>
+  pivot_longer(cols = c(hf, mg, sds, mefs_standard), 
+               names_to = "task", values_to = "score") |>
+  group_by(task, site) |>
+  summarise(cor = cor.test(score, age, na.rm = TRUE)$estimate) |>
+  pivot_wider(names_from = "task", values_from = "cor") |>
+  knitr::kable(digits = 2)
+
+```
+

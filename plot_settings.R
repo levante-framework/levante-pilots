@@ -2,7 +2,7 @@ library(ggplot2)
 library(ggthemes)
 
 .font <- "Source Sans 3"
-# sysfonts::font_add_google(.font)
+sysfonts::font_add_google(.font)
 showtext::showtext_auto()
 showtext::showtext_opts(dpi = 300)
 
