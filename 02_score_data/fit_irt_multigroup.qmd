@@ -176,7 +176,7 @@ toc()
 beep()
 
 write_rds(multigroup_models,
-          here("02_scored_data/irt_outputs/multigroup_outputs.rds"),
+          here("02_scoring_outputs/irt_outputs/multigroup_outputs.rds"),
           compress = "gz")
 ```
 
