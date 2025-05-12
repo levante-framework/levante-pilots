@@ -51,6 +51,7 @@ shared_trait <- function(selections, ignore_dims) {
 
 
 has_new_selection <- function(selections, previousSelections) {
+  
   if (length(previousSelections) == 0) return(TRUE)
   
   # check if any previous selection has exactly the same elements (regardless of order)
@@ -113,4 +114,9 @@ example_usage <- function() {
   has_new_selection(selectedCards, previousCards) # TRUE
   
   shared_trait(c("sm-blue-triangle", "sm-yellow-square"), c("size"))
+  
+  compare_selections(c("sm-blue-triangle", "sm-yellow-triangle"), 
+                     list(c("sm-blue-triangle", "sm-yellow-triangle")), ignore_dims) 
+  
+  
 }
