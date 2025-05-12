@@ -1,5 +1,7 @@
 library(jsonlite)
 
+dimension_indices <- c(size = 1, color = 2, shape = 3, number = 4, bgcolor = 5)
+
 # Utility: parse response into vector of card strings
 # Convert pseudo-JSON string into character vector of selections
 parse_response <- function(resp) {
@@ -41,12 +43,16 @@ shared_trait <- function(selections, ignore_dims) {
   for (sel in selections) {
     attributes <- clean_attributes(str_split(sel, "-")[[1]])
     for (dim in names(sets)) {
-      index <- dimension_indices[[dim]]
-      sets[[dim]] <- c(sets[[dim]], attributes[index])
+      if (!(dim %in% ignore_dims)) {
+        index <- dimension_indices[[dim]]
+        sets[[dim]] <- c(sets[[dim]], attributes[index])
+      }
     }
   }
   
-  any(sapply(sets, function(vals) length(unique(vals)) == 1))
+  any(sapply(sets, function(vals) {
+    !is.null(vals) & length(unique(vals)) == 1
+    }))
 }
 
 
@@ -110,10 +116,12 @@ example_usage <- function() {
   selectedCards <- c("sm-blue-triangle", "lg-yellow-triangle")
   previousSelections <- list(c("sm-blue-triangle", "lg-yellow-triangle"))
   shared_trait(selectedCards, ignore_dims) # TRUE
-  compare_selections(selectedCards, previousCards, ignore_dims) # TRUE
-  has_new_selection(selectedCards, previousCards) # TRUE
+  compare_selections(selectedCards, previousSelections, ignore_dims) # TRUE
+  has_new_selection(selectedCards, previousSelections) # FALSE
   
   shared_trait(c("sm-blue-triangle", "sm-yellow-square"), c("size"))
+  
+  shared_trait(c("med-blue-square", "sm-red-circle"), c("number", "bgcolor")) 
   
   compare_selections(c("sm-blue-triangle", "sm-yellow-triangle"), 
                      list(c("sm-blue-triangle", "sm-yellow-triangle")), ignore_dims) 

@@ -808,26 +808,57 @@ graph_sem(model = fit1, text_size = 3) +
 
 ## Add MEFS
 
+Note that the MEFS data file appears to have the column names reversed, based on the observation that standard scores have mean 50 and don't change with age. 
+
 ```{r}
 mefs_scores <- read_csv(here("02_scoring_outputs","mefs_data","LEVANTE_20250403_1132.csv")) |>
   janitor::clean_names() |>
   select(child_id, a1_total_score, a1_standard_score) |>
   rename(user_id = child_id, 
-         mefs_total = a1_total_score,
-         mefs_standard = a1_standard_score
+         mefs_total_raw = a1_total_score,
+         mefs_standard_raw = a1_standard_score
   ) 
 
 ef_scores_wide_mefs <- ef_scores_wide |>
   ungroup() |>
-  left_join(mefs_scores) |>
-  mutate(mefs_total = scale(mefs_total)[,1],
-         mefs_standard = scale(mefs_standard)[,1])
+  left_join(mutate(mefs_scores, wave_id = 1)) |>
+  mutate(mefs_standard = scale(mefs_total_raw)[,1],
+         mefs_total = scale(mefs_standard_raw)[,1])
 
+```
+
+
+Plot MEFS.
+
+```{r}
+ggplot(ef_scores_wide_mefs, aes(x = age, y = mefs_standard_raw)) +
+  geom_point() + 
+  geom_smooth(method = "lm") +
+  facet_wrap(~ site) +
+  labs(
+    title = "MEFS total score by age",
+    x = "Age (years)",
+    y = "MEFS total score"
+  )
+```
+
+
+```{r}
+ggplot(ef_scores_wide_mefs, aes(x = age, y = mefs_total_raw)) +
+  geom_point() + 
+  geom_smooth(method = "lm") +
+  facet_wrap(~site) + 
+  geom_hline(yintercept = 50, lty = 2) +
+  labs(
+    title = "MEFS standard score by age",
+    x = "Age (years)",
+    y = "MEFS standard score"
+  )
 ```
 
 ```{r}
 cfa_model_mefs <-  "
-ef =~ hf + mg + sds + mefs_standard
+ef =~ hf + mg + sds + mefs_total
 ef ~ age
 "
 
@@ -869,7 +900,7 @@ graph_sem(model = fit1, text_size = 3) +
 ef_scores_wide_mefs |>
   # select(user_id, site, age, hf, mg, sds, mefs_standard) |>
   filter(wave_id == 1) |>
-  pivot_longer(cols = c(hf, mg, sds, mefs_standard), 
+  pivot_longer(cols = c(hf, mg, sds, mefs_total), 
                names_to = "task", values_to = "score") |>
   group_by(task, site) |>
   summarise(cor = cor.test(score, age, na.rm = TRUE)$estimate) |>

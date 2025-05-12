@@ -1,7 +1,6 @@
 ---
 title: "lang_lit_efa"
 format: html
-editor: visual
 ---
 
 Helper functions

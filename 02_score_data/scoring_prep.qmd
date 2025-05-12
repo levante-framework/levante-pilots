@@ -18,6 +18,7 @@ trial_data <- read_rds(here(glue("01_fetched_data/trial_data.rds")))
 slider_threshold <- 0.15
 trial_data_coded <- trial_data |>
   recode_hf() |>
+  recode_sds() |>
   recode_slider(threshold = slider_threshold) |>
   mutate(chance = if_else(item_group == "slider", 1 / slider_threshold / 100, chance),
          chance = chance |> replace_na(0))
@@ -139,7 +140,7 @@ runs_filtered <- run_data |>
 trial_data_filtered <- trial_data_coded_nosds |>
   semi_join(runs_filtered) |>
   mutate(slow_rt = rt_numeric > 30000) |>
-  filter(is.na(rt_numeric) | !slow_rt, !str_detect(validation_msg_trial, "fast")) |>
+  filter(task_id == "same-different-selection" | is.na(rt_numeric) | !slow_rt, !str_detect(validation_msg_trial, "fast")) |>
   select(-slow_rt, -valid_trial, -validation_msg_trial)
 ```
 

@@ -50,7 +50,12 @@ scores_wide_mat <- scores_wide |>
   left_join(ages)
 ```
 
-First CFA 
+# EFA
+
+
+
+
+# CFA 
 
 ```{r}
 cfa_model <-  "
