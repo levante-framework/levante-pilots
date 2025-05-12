@@ -11,6 +11,7 @@ parse_response <- function(resp) {
   unname(as.character(parsed))
 }
 
+# adds back missing defaults (bgcolor=white; number=1)
 clean_attributes <- function(attributes) {
   non_white_backgrounds <- c("gray", "striped", "black")
   
@@ -26,28 +27,31 @@ clean_attributes <- function(attributes) {
   attributes
 }
 
-shared_trait <- function(selection, ignore = c()) {
-  if (length(selection) <= 1) return(TRUE)  # One item trivially "shares" traits
+
+shared_trait <- function(selections, ignore_dims) {
+  sets <- vector("list", length(dimension_indices))
+  names(sets) <- names(dimension_indices)
   
-  # Split and parse each card into attributes
-  parsed <- lapply(selection, function(sel) {
-    parts <- strsplit(sel, "-")[[1]]
-    names(parts) <- c("number", "color", "shape")
-    parts
-  })
+  for (dim in names(sets)) {
+    if (!(dim %in% ignore_dims)) {
+      sets[[dim]] <- character(0)
+    }
+  }
   
-  df <- as.data.frame(do.call(rbind, parsed), stringsAsFactors = FALSE)
-  # Drop ignored attributes
-  df <- df[ , !(names(df) %in% ignore), drop = FALSE]
+  for (sel in selections) {
+    attributes <- clean_attributes(str_split(sel, "-")[[1]])
+    for (dim in names(sets)) {
+      index <- dimension_indices[[dim]]
+      sets[[dim]] <- c(sets[[dim]], attributes[index])
+    }
+  }
   
-  # Check if any column has the same value across all rows
-  any_shared <- any(sapply(df, function(col) length(unique(col)) == 1))
-  
-  return(any_shared)
+  any(sapply(sets, function(vals) length(unique(vals)) == 1))
 }
 
 
 has_new_selection <- function(selections, previousSelections) {
+  
   if (length(previousSelections) == 0) return(TRUE)
   
   # check if any previous selection has exactly the same elements (regardless of order)
@@ -77,6 +81,8 @@ example_usage <- function() {
   clean_attributes(strsplit("sm-red-circle-2-gray", "-")[[1]])
   # "sm"     "red"    "circle" "2"      "gray" 
   
+  clean_attributes(strsplit('med-yellow-square-gray', "-")[[1]])
+  clean_attributes(strsplit('med-blue-triangle-3-gray', "-")[[1]])
   
   # selectedCards is a character vector of 2 strings like "sm-red-circle-1-gray"
   selectedCards <- c("med-blue-square", "sm-red-circle")
@@ -106,5 +112,11 @@ example_usage <- function() {
   shared_trait(selectedCards, ignore_dims) # TRUE
   compare_selections(selectedCards, previousCards, ignore_dims) # TRUE
   has_new_selection(selectedCards, previousCards) # TRUE
+  
+  shared_trait(c("sm-blue-triangle", "sm-yellow-square"), c("size"))
+  
+  compare_selections(c("sm-blue-triangle", "sm-yellow-triangle"), 
+                     list(c("sm-blue-triangle", "sm-yellow-triangle")), ignore_dims) 
+  
   
 }
