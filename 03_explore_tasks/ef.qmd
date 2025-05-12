@@ -447,17 +447,7 @@ table(sds$item, sds$item_group) # choice2 in 3match/4match should by <= choice1
 sds |> filter(response=="{}")
 # ----- /ODDITIES -----
 
-sds_disambig <- sds_trials %>%
-  group_by(user_id, run_id, trial_type, trial_index) %>%
-  mutate(
-    item = case_when(
-      item_group %in% c("3match", "4match") ~ paste0("choice", row_number()),
-      TRUE ~ item
-    )
-  ) %>%
-  ungroup()
-
-sds_disambig |> filter(item_group!="dimensions", item_group!="same") |>
+sds |> filter(item_group!="dimensions", item_group!="same") |>
   select(user_id, timestamp, item_group, item, response, correct) |> 
   arrange(user_id, timestamp) |>
   View()
@@ -473,7 +463,8 @@ tmp <- sds_disambig |> filter(user_id=="6PxwzwbKSAtyQnpMluJS") |> select(-trial_
   filter(item_group!="dimensions", item_group!="same")
 tmp |> select(user_id, timestamp, item_group, item, response, correct) |> arrange(timestamp)
 
-sds_parsed <- sds_disambig |>
+
+sds_parsed <- sds |>
   filter(!item_group %in% c("dimensions", "same")) |>
   mutate(
     trial_type = item_group,
@@ -489,6 +480,16 @@ sds_trials <- sds_parsed |>
   mutate(trial_index = cumsum(!is.na(trial_index))) |>
   ungroup()
 
+sds_disambig <- sds_trials %>%
+  group_by(user_id, run_id, trial_type, trial_index) %>%
+  mutate(
+    item = case_when(
+      item_group %in% c("3match", "4match") ~ paste0("choice", row_number()),
+      TRUE ~ item
+    )
+  ) %>%
+  ungroup()
+
 # Nest by trial
 sds_nested <- sds_trials |>
   group_by(user_id, run_id, trial_type, trial_index) |>
@@ -497,7 +498,7 @@ sds_nested <- sds_trials |>
 
 
 # Score each row based on accumulating previous selections
-sds_rescored <- sds_nested |>
+sds_rescored <- sds_nested |> 
   mutate(trial_correct = map2(data, trial_type, function(df, type) {
     ignore_dims <- case_when(
       type == "same" ~ list(c("number", "bgcolor")),
@@ -506,21 +507,23 @@ sds_rescored <- sds_nested |>
       TRUE ~ list(character(0))
     )[[1]]
 
-    # accumulate correctness
     previous <- list()
-    df$trial_correct <- map_lgl(df$selection, function(sel) {
+    map_lgl(df$selection, function(sel) {
       result <- compare_selections(sel, previous, ignore_dims)
       previous <<- append(previous, list(sel))
       result
     })
-    trial_correct
-  })) |>
-  select(-data) |>
-  unnest(trial_result)
+  })) |> 
+  select(-data) |> 
+  unnest(trial_correct)
 
-sds_rescored |> select(user_id, timestamp, item_group, item, response, correct, trial_correct) |> 
-  arrange(timestamp) |>
-  View()
+table(sds_rescored$correct, sds_rescored$trial_correct)
+#         FALSE  TRUE
+#  FALSE   222  5922
+#  TRUE      0 16256
+
+sds_rescored |> select(user_id, timestamp, item_group, trial_index, correct, trial_correct) |> 
+  arrange(timestamp) |> View()
 
 sds_final <- sds_parsed |>
   left_join(sds_rescored, by = c("user_id", "run_id", "trial_type", "timestamp"))
