@@ -1,0 +1,34 @@
+```{r}
+task_data_nested <- read_rds(here(glue("01_fetched_data/task_data_nested.rds")))
+
+sds_means <- task_data_nested |>
+  filter(item_task == "sds") |>
+  unnest(data) |>
+  group_by(site, dataset, item_group, item) |>
+  summarise(mean_correct = mean(correct, na.rm = TRUE)) |>
+  ungroup()
+
+ggplot(sds_means |> filter(site != "us_pilot", str_detect(item_group, "match")),
+       aes(x = mean_correct, y = item_group, color = item)) +
+  facet_wrap(vars(dataset)) +
+  geom_point() +
+  geom_line(aes(group = item))
+ggsave(here("03_explore_tasks/plots/sds_means.png"), width = 6, height = 4)
+
+sds_means_indexed <- task_data_nested |>
+  filter(item_task == "sds") |>
+  unnest(data) |>
+  group_by(site, dataset, item_group, item, item_uid, trial_number) |>
+  summarise(mean_correct = mean(correct, na.rm = TRUE),
+            n = n()) |>
+  ungroup()
+
+ggplot(sds_means_indexed |> filter(site != "us_pilot", str_detect(item_group, "match")),
+       aes(x = trial_number, y = mean_correct, color = item)) +
+  facet_grid(vars(item_group), vars(dataset)) +
+  # geom_point(aes(size = log10(n))) +
+  geom_point() +
+  geom_line(aes(group = item_uid)) +
+  .scale_color_default()
+ggsave(here("03_explore_tasks/plots/sds_means_indexed.png"), width = 9, height = 5)
+```
