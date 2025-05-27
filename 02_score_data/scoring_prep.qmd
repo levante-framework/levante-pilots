@@ -17,6 +17,7 @@ trial_data <- read_rds(here(glue("01_fetched_data/trial_data.rds")))
 # set chance values for slider items accordingly
 slider_threshold <- 0.15
 trial_data_coded <- trial_data |>
+  mutate(original_correct = correct, .after = correct) |>
   recode_hf() |>
   recode_sds() |>
   recode_slider(threshold = slider_threshold) |>

@@ -14,12 +14,12 @@ recode_slider <- function(df, threshold = 0.15) {
   slider_trials <- df |>
     filter(item_group == "slider") |>
     tidyr::separate_wider_delim(item, "_",
-                                names = c("answer", "max_value"),
+                                names = c("target", "max_value"),
                                 cols_remove = FALSE) |>
-    mutate(answer = answer |> stringr::str_replace("^0", "0."),
-           across(c(answer, max_value), as.numeric),
-           correct = (abs(as.numeric(response) - answer) / max_value < threshold)) |>
-    select(-c("answer", "max_value"))
+    mutate(target = target |> stringr::str_replace("^0", "0."),
+           across(c(target, max_value), as.numeric),
+           correct = (abs(as.numeric(response) - target) / max_value < threshold)) |>
+    select(-c("target", "max_value"))
   df |>
     filter(item_group != "slider") |>
     bind_rows(slider_trials)
@@ -91,7 +91,7 @@ recode_sds <- function(df) {
   sds_trials <- sds |>
     select(-item_uid) |>
     left_join(sds_rescored |> select(trial_id, trial_correct, trial_item = item, trial_index)) |>
-    mutate(original_correct = correct,
+    mutate(#original_correct = correct,
            correct = if_else(!is.na(trial_correct), trial_correct, correct),
            item = if_else(!is.na(trial_item), trial_item, item),
            item_uid = paste(item_task, item_group, item, sep = "_")) |>
