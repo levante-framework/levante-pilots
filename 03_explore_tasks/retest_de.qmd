@@ -75,7 +75,6 @@ ggplot(retest_wide,
   ggtitle("Test-retest reliability (DE)")
 ```
 
-
 # Multigroup model scores
 
 ```{r}
@@ -141,3 +140,35 @@ retest_results <- independent_trt |>
 knitr::kable(retest_results, digits = 2)
 ```
 
+```{r}
+retest_directions <- retest_wide_mg |>
+  mutate(direction = if_else(run_2 - run_1 > 0, "increase", "descrease")) |>
+  select(user_id, item_task, direction)
+retest_scores <- de_retest_scores_mg |>
+  inner_join(retest_directions)
+  # filter(run_number < 3)
+
+# de_retest_scores |> semi_join(retest_wide |> select(user_id, item_task)) |>
+# de_retest_scores_mg |> semi_join(retest_wide_mg |> select(user_id, item_task)) |>
+ggplot(retest_scores, aes(x = age, y = metric_value)) +
+  facet_wrap(vars(item_task), scales = "free", nrow = 2) +
+  geom_line(aes(group = user_id, alpha = direction), size = .2) +
+  geom_point(aes(color = factor(run_number)), size = .5) +
+  .scale_color_default() +
+  scale_alpha_manual(values = c(0.3, 1)) +
+  labs(x = "Age", y = "Score", color = "Run") +
+  theme(legend.position = "bottom")
+ggsave(here("03_explore_tasks/plots/retest_age.png"), width = 8, height = 5)
+
+ggplot(retest_scores |> filter(run_number <= 2),
+       aes(x = factor(run_number), y = metric_value)) +
+  facet_wrap(vars(item_task), scales = "free", nrow = 2) +
+  geom_line(aes(group = user_id, alpha = direction), size = .2) +
+  geom_point(aes(color = factor(run_number)), size = .5) +
+  .scale_color_default() +
+  scale_alpha_manual(values = c(0.3, 1)) +
+  scale_x_discrete(expand = expansion(0.1)) +
+  labs(x = "Run", y = "Score", color = "Run") +
+  theme(legend.position = "bottom")
+ggsave(here("03_explore_tasks/plots/retest_run.png"), width = 8, height = 5)
+```
