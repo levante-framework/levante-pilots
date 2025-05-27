@@ -127,9 +127,9 @@ max(none_correct_ranges$max_trials)
 
 ```{r}
 # remove buggy SDS from Canada
-trial_data_coded_nosds <- trial_data_coded |>
-  mutate(timestamp = as_datetime(timestamp)) |>
-  filter(!(site == "ca_pilot" & item_task == "sds" & timestamp < "2025-02-21"))
+# trial_data_coded_nosds <- trial_data_coded |>
+#   mutate(timestamp = as_datetime(timestamp)) |>
+#   filter(!(site == "ca_pilot" & item_task == "sds" & timestamp < "2025-02-21"))
 
 # filter to runs completed and no straightlining (except for us_pilot)
 runs_filtered <- run_data |>
@@ -137,10 +137,11 @@ runs_filtered <- run_data |>
   select(run_id)
 
 # filter trials to above runs, filter out too slow/fast RTs
-trial_data_filtered <- trial_data_coded_nosds |>
+trial_data_filtered <- trial_data_coded |> #trial_data_coded_nosds |>
   semi_join(runs_filtered) |>
   mutate(slow_rt = rt_numeric > 30000) |>
-  filter(task_id == "same-different-selection" | is.na(rt_numeric) | !slow_rt, !str_detect(validation_msg_trial, "fast")) |>
+  filter(task_id == "same-different-selection" | is.na(rt_numeric) | !slow_rt,
+         !str_detect(validation_msg_trial, "fast")) |>
   select(-slow_rt, -valid_trial, -validation_msg_trial)
 ```
 
