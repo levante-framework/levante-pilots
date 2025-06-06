@@ -8,7 +8,7 @@ format:
   html: 
     code-fold: true
 editor_options: 
-  chunk_output_type: console
+  chunk_output_type: inline
 ---
 
 
@@ -58,7 +58,7 @@ Load multigroup models
 
 ```{r}
 best_multigroup <- readRDS(here("02_scoring_outputs", "irt_outputs", "multigroup_best_models.rds"))
-multigroup_scores <- readRDS(here("02_scoring_outputs", "scores", "multigroup_scores.rds"))
+multigroup_scores <- readRDS(here("02_scoring_outputs", "scores", "multigroup_scores_rescored.rds"))
 
 best_multigroup_coefs <- best_multigroup |>
   select(item_task, item_type, invariance_type, coefs) |>
@@ -442,168 +442,6 @@ Note that we have used grid3 very little and so it's getting dropped from most a
 
 # SDS
 
-## Rescoring issue
-
-```{r}
-#| eval: false
-
-sds <- ef |>
-  filter(item_task == "sds", site != "us_pilot", item_group!="3unique") |>
-  filter(!str_detect(response, "mittel|rote|gelb|blau")) |>
-  mutate(timestamp = as_datetime(timestamp)) |>
-  filter(!(site == "ca_pilot" & item_task == "sds" & timestamp < "2025-02-21"))
-
-# filter to runs completed and no straightlining (except for us_pilot)
-sds_runs_filtered <- runs |>
-  filter(task_id == "same-different-selection",
-         site != "us_pilot", 
-         (completed & !str_detect(validation_msg_run, "straightlining"))) 
-
-# filter trials to above runs, filter out too slow/fast RTs
-sds_filtered <- sds |>
-  semi_join(sds_runs_filtered) |>
-  mutate(slow_rt = rt_numeric > 30000) |>
-  filter(is.na(rt_numeric) | !slow_rt, !str_detect(validation_msg_trial, "fast")) |>
-  select(-slow_rt, -valid_trial, -validation_msg_trial)
-```
-
-
-```{r}
-#| eval: false
-# remove US data
-
-# ----- ODDITIES -----
-# some 3match/4match trials have duplicate item=choice2 (missing choice3 / choice4)
-table(sds$item, sds$item_group) # choice2 in 3match/4match should by <= choice1
-
-# how can empty SDS responses happen? RT often NA, but often slow
-sds |> filter(response=="{}")
-# ----- /ODDITIES -----
-
-sds |> filter(item_group!="dimensions", item_group!="same") |>
-  select(user_id, timestamp, item_group, item, response, correct) |> 
-  arrange(user_id, timestamp) |>
-  View()
-
-# rescoring
-source(here("rescore-sds.R"))
-
-# ToDo: apply per user and run to 3-match and 4-match (maybe test on 2-match? shouldn't influence outcome)
-dimension_indices <- c(size = 1, color = 2, shape = 3, number = 4, bgcolor = 5)
-
-# "med-red-star" -> "med-red-star-1-white"
-tmp <- sds |> filter(user_id=="6PxwzwbKSAtyQnpMluJS") |> select(-trial_id, -item_uid) |> 
-  filter(item_group!="dimensions", item_group!="same")
-tmp |> select(user_id, timestamp, item_group, item, response, correct) |> arrange(timestamp) |> View()
-
-sds_easy_trials <- filter(sds, item_group %in% c("dimensions", "same"))
-
-sds_parsed <- sds |>
-  filter(!item_group %in% c("dimensions", "same")) |>
-  mutate(
-    trial_type = item_group,
-    selection = map(response, parse_response)
-  )
-
-# Order by user, run, and timestamp (or trial_number)
-sds_trials <- sds_parsed |>
-  group_by(user_id, run_id, trial_type) |>
-  arrange(timestamp, .by_group = TRUE) |>
-  mutate(trial_index = NA_integer_) |>
-  mutate(trial_index = if_else(item == "choice1", 1L, NA_integer_)) |>
-  mutate(trial_index = cumsum(!is.na(trial_index))) |>
-  ungroup()
-
-
-sds_trials |>
-  count(run_id, item_group, item, trial_index) |>
-  filter(n > 1)
-
-# sds_disambig <- sds_trials %>%
-#   filter(user_id=="6PxwzwbKSAtyQnpMluJS", item_group=="2match") |>
-#   group_by(user_id, run_id, trial_type, trial_index) %>%
-#   mutate(
-#     item = case_when(
-#       item_group %in% c("3match", "4match") ~ paste0("choice", row_number()),
-#       TRUE ~ item
-#     )
-#   ) %>%
-#   ungroup()
-
-
-
-# Nest by trial
-sds_nested <- sds_trials |>
-  select(user_id, run_id, trial_type, trial_index, item, response, selection, correct) |>
-  group_by(user_id, run_id, trial_type, trial_index) |>
-  arrange(item) |>
-  nest(data = c(item, response, selection, correct)) |>
-  ungroup()
-
-# sds_correct_original <- sds_trials |> select(run_id, trial_number)
-
-sds_debug <- sds_nested |> 
-  filter(user_id == "6PxwzwbKSAtyQnpMluJS") |> 
-  mutate(trial_correct = map2(data, trial_type, function(df, type) {
-    ignore_dims <- case_when(
-      type == "same" ~ list(c("number", "bgcolor")),
-      type == "2match" ~ list(c("number", "bgcolor")),
-      type %in% c("3match", "4match") ~ list(c("size")),
-      TRUE ~ list(character(0))
-    )[[1]]
-
-    previous <- list()
-    df$trial_correct <- map_lgl(df$selection, function(sel) {
-      result <- compare_selections(sel, previous, ignore_dims)
-      
-      # 🔍 Debug output:
-      cat("\nSelection:", paste(sel, collapse = ", "),
-          "\nPrevious:", paste(sapply(previous, paste, collapse = ","), collapse = " | "),
-          "\nIgnore dims:", paste(ignore_dims, collapse = ", "),
-          "\nResult:", result, "\n")
-      
-      previous <<- append(previous, list(sel))
-      result
-    })
-    
-    df$trial_correct
-  }))
-
-# Score each row based on accumulating previous selections
-sds_rescored <- sds_nested |> 
-  ungroup() |>
-  mutate(trial_correct = map2(data, trial_type, function(df, type) {
-    ignore_dims <- case_when(
-      type == "same" ~ list(c("number", "bgcolor")),
-      type == "2match" ~ list(c("number", "bgcolor")),
-      type %in% c("3match", "4match") ~ list(c("size")),
-      TRUE ~ list(character(0))
-    )[[1]]
-
-    previous <- list()
-    map_lgl(df$selection, function(sel) {
-      result <- compare_selections(sel, previous, ignore_dims)
-      previous <<- append(previous, list(sel))
-      result
-    })
-  })) |>
-  unnest(c(data, trial_correct))
-  # select(-data) |> 
-  # unnest(trial_correct)
-
-
-table(sds_rescored$correct, sds_rescored$trial_correct)
-#         FALSE  TRUE
-#  FALSE   222  5922
-#  TRUE      0 16256
-
-sds_rescored |> select(user_id, timestamp, item_group, trial_index, correct, trial_correct) |> 
-  arrange(timestamp) |> View()
-
-sds_final <- sds_parsed |>
-  left_join(sds_rescored, by = c("user_id", "run_id", "trial_type", "timestamp"))
-
-```
 
 ## Sumscore
 
@@ -728,8 +566,6 @@ ggsave(
 # EF factor analysis
 
 ## Only LEVANTE tasks
-
-BROKEN!!
 
 
 ```{r}

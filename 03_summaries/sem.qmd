@@ -124,6 +124,7 @@ graph_sem(model = fit_age, text_size = 3, layout = t(layout_age)) +
   theme(panel.background = element_rect(fill = "white"))
 ggsave(here("03_summaries/plots/sem_age.png"), width = 14, height = 10)
 ```
+## Invariance
 
 Add site grouping - this is an invariant mdoel tha
 
@@ -309,36 +310,50 @@ Let's try a model that adds log age instead of / as well as age.
 
 ```{r}
 scores_wide_mat$log_age <- log(scores_wide_mat$age)
-cfa_age_model <-  "
-# measurement
-reasoning =~ matrix_reasoning + mental_rotation 
-ef =~ hearts_and_flowers + memory_game  + same_different_selection
-social =~ theory_of_mind 
-language =~ trog + vocab + sre + swr
-math =~ egma_math
+# cfa_age_model <-  "
+# # measurement
+# reasoning =~ matrix_reasoning + mental_rotation 
+# ef =~ hearts_and_flowers + memory_game  + same_different_selection
+# social =~ theory_of_mind 
+# language =~ trog + vocab + sre + swr
+# math =~ egma_math
+# 
+# # age regressions
+# reasoning ~ age + log_age
+# ef ~ age + log_age
+# social ~ age + log_age
+# language ~ age + log_age
+# math ~ age + log_age
+# "
 
-# age regressions
-reasoning ~ age + log_age
-ef ~ age + log_age
-social ~ age + log_age
-language ~ age + log_age
-math ~ age + log_age
-"
-
-fit <- sem(cfa_age_model, scores_wide_mat, std.lv=TRUE, missing='fiml')
-summary(fit, fit.measures=TRUE, standardize=TRUE)
-
-layout = matrix(nrow=4, ncol = 14, 
-                data = c(NA,NA,NA,NA, NA,NA,"log_age", "age", NA,NA,NA,NA, NA, NA,
-                         NA,NA,NA,NA, NA,NA,NA,NA, NA,NA,NA,NA, NA, NA,
-                         "reasoning",NA, "ef", NA, NA, NA, "social",NA, NA, "language",NA, NA, NA, 
-                         "math",
-                         "matrix_reasoning", "mental_rotation", "hearts_and_flowers","memory_game","mefs", "same_different_selection",  "theory_of_mind","hostile_attribution","emotion_reasoning","trog","vocab","sre_es","swr_es","egma_math"), byrow = TRUE)
-
-graph_sem(model = fit, text_size = 3, layout = t(layout))
+# fit <- sem(cfa_age_model, scores_wide_mat, std.lv=TRUE, missing='fiml')
+# summary(fit, fit.measures=TRUE, standardize=TRUE)
+# 
+# layout = matrix(nrow=4, ncol = 14, 
+#                 data = c(NA,NA,NA,NA, NA,NA,"log_age", "age", NA,NA,NA,NA, NA, NA,
+#                          NA,NA,NA,NA, NA,NA,NA,NA, NA,NA,NA,NA, NA, NA,
+#                          "reasoning",NA, "ef", NA, NA, NA, "social",NA, NA, "language",NA, NA, NA, 
+#                          "math",
+#                          "matrix_reasoning", "mental_rotation", "hearts_and_flowers","memory_game","mefs", "same_different_selection",  "theory_of_mind","hostile_attribution","emotion_reasoning","trog","vocab","sre_es","swr_es","egma_math"), byrow = TRUE)
+# 
+# graph_sem(model = fit, text_size = 3, layout = t(layout))
 ```
 
 Median split on age
+
+```{r}
+cfa_model <-  "
+reasoning =~ matrix + mrot 
+ef =~ hf + mg + sds + mefs
+social =~ ha + tom
+language =~ trog + vocab + sre + swr + pa
+maths =~ math
+"
+
+# fit <- cfa(cfa_model, scores_wide_mat, std.lv=TRUE, missing='fiml')
+# summary(fit, fit.measures=TRUE, standardize=TRUE)
+```
+
 
 ```{r}
 fit_younger <- cfa(cfa_model, data = filter(scores_wide_mat, age < 9),
@@ -348,6 +363,8 @@ fit_older <- cfa(cfa_model, data = filter(scores_wide_mat, age >= 9),
 summary(fit_younger, fit.measures=TRUE, standardize=TRUE)
 summary(fit_older, fit.measures=TRUE, standardize=TRUE)
 
-graph_sem(model = fit_younger, text_size = 3, layout = layout)
-graph_sem(model = fit_older, text_size = 3, layout = layout)
+graph_sem(model = fit_younger, text_size = 3, layout = t(layout))
+ggsave(here("03_summaries/plots/sem_younger.png"), width = 14, height = 10)
+graph_sem(model = fit_older, text_size = 3, layout = t(layout))
+ggsave(here("03_summaries/plots/sem_older.png"), width = 14, height = 10)
 ```
