@@ -8,11 +8,18 @@ library(tidyr)
 ```
 
 ```{r}
-dataset_spec <- list(list(name = "us_downward_extension_pilot:a6kb", version = "4.6"),
-                     list(name = "co_bogota_pilot:3j4z",             version = "6.3"),
-                     list(name = "co_rural_pilot:66d2",              version = "4.2"),
-                     list(name = "de_leipzig_pilot:6c0n",            version = "5.28"),
-                     list(name = "ca_western_pilot:97mt",            version = "5.24"))
+# "frozen" dataset spec
+# dataset_spec <- list(list(name = "us_downward_extension_pilot:a6kb", version = "4.6"),
+#                      list(name = "co_bogota_pilot:3j4z",             version = "6.3"),
+#                      list(name = "co_rural_pilot:66d2",              version = "4.2"),
+#                      list(name = "de_leipzig_pilot:6c0n",            version = "5.28"),
+#                      list(name = "ca_western_pilot:97mt",            version = "5.24"))
+
+dataset_spec <- list(list(name = "us_downward_extension_pilot:a6kb", version = "current"),
+                     list(name = "co_bogota_pilot:3j4z",             version = "current"),
+                     list(name = "co_rural_pilot:66d2",              version = "current"),
+                     list(name = "de_leipzig_pilot:6c0n",            version = "current"),
+                     list(name = "ca_western_pilot:97mt",            version = "current"))
 
 runs <- get_runs(dataset_spec,
                  remove_incomplete_runs = FALSE,
