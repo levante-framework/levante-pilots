@@ -122,7 +122,7 @@ ggplot(sre, aes(x = metric_value)) +
 ```{r}
 pa <- task_data_combined |>
   filter(str_detect(task_id,"pa")) |>
-  group_by(site, task_id, item_task, user_id, run_id) |>
+  group_by(site, item_task, user_id, run_id) |>
   summarise(total_correct = sum(correct),
             n_trials = n()) |>
   filter(n_trials > 3) |>
@@ -146,9 +146,11 @@ pa <- task_data_combined |>
 mefs_scores <- read_csv(here("02_scoring_outputs","mefs_data","LEVANTE_20250403_1132.csv")) |>
   janitor::clean_names() |>
   select(child_id, a1_total_score, a1_standard_score) |>
-  rename(user_id = child_id, 
+  rename(user_id = child_id,
+         total_score = a1_total_score,
          standard_score = a1_standard_score) |>
-  pivot_longer(standard_score, names_to = "metric_type", values_to = "metric_value") |>
+  pivot_longer(c(standard_score, total_score),
+               names_to = "metric_type", values_to = "metric_value") |>
   mutate(item_task = "mefs", run_id = user_id)
 ```
 
