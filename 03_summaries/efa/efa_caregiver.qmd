@@ -15,14 +15,18 @@ get_survey_data <- function(survey_data_nested, type) {
     collect()
 }
 
-
+caregiver_prolific <- read_rds(here::here("surveys_prolific/parent/v3/data_processed/survey_tidy.rds")) |>
+  mutate(id = as.character(id)) |>
+  select(child_id = id, form_construct, form_subconstruct, question_type,
+         variable = variable_name, value) |>
+  mutate(site = "prolific", dataset = "prolific", user_id = child_id, .before = everything())
 
 caregiver_data <- get_survey_data(survey_data_nested, "caregiver")
 #teacher_data   <- get_survey_data(survey_data_nested, "teacher")
 #student_data   <- get_survey_data(survey_data_nested, "student")
 
-
 caregiver_tidy <- caregiver_data %>%
+  bind_rows(caregiver_prolific) %>%
   filter(question_type == "Measurement") %>%   
   select(site, user_id, child_id, variable, value, form_construct) %>%
   filter(!is.na(form_construct),
