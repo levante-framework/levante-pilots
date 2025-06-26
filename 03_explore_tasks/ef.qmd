@@ -442,6 +442,49 @@ Note that we have used grid3 very little and so it's getting dropped from most a
 
 # SDS
 
+<<<<<<< HEAD
+=======
+## Rescoring issue
+
+```{r}
+#| eval: false
+
+sds <- ef |>
+  filter(item_task == "sds", site != "us_pilot", item_group!="3unique") |>
+  filter(!str_detect(response, "mittel|rote|gelb|blau")) |>
+  mutate(timestamp = as_datetime(timestamp)) |>
+  filter(!(site == "ca_pilot" & item_task == "sds" & timestamp < "2025-02-21"))
+
+# filter to runs completed and no straightlining (except for us_pilot)
+sds_runs_filtered <- runs |>
+  filter(task_id == "same-different-selection",
+         site != "us_pilot", 
+         (completed & !str_detect(validation_msg_run, "straightlining"))) 
+
+# filter trials to above runs, filter out too slow/fast RTs
+sds_filtered <- sds |>
+  semi_join(sds_runs_filtered) |>
+  mutate(slow_rt = rt_numeric > 30000) |>
+  filter(is.na(rt_numeric) | !slow_rt, !str_detect(validation_msg_trial, "fast")) |>
+  select(-slow_rt, -valid_trial, -validation_msg_trial)
+```
+
+
+```{r}
+#| eval: false
+# remove US data
+
+# ----- ODDITIES -----
+# some 3match/4match trials have duplicate item=choice2 (missing choice3 / choice4)
+table(sds$item, sds$item_group) # choice2 in 3match/4match should by <= choice1
+
+# how can empty SDS responses happen? RT often NA, but often slow
+sds |> filter(response=="{}")
+# ----- /ODDITIES -----
+
+
+```
+>>>>>>> 5c91e85636a11aa6c0002343ab94cf406dd4a89e
 
 ## Sumscore
 
@@ -472,8 +515,6 @@ sds_date |>
   theme_minimal()
 
 ```
-
-
 
 
 ```{r}

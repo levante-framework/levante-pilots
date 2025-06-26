@@ -7,18 +7,18 @@ library(mirt)
 source(here("02_score_data/irt_helpers.R"))
 
 # tasks to include in these analyses
-irt_tasks <- c("egma-math",
-               "matrix-reasoning",
-               "mental-rotation",
-               "same-different-selection",
-               "theory-of-mind",
-               "hearts-and-flowers",
-               "memory-game",
+irt_tasks <- c("math",
+               "matrix",
+               "mrot",
+               "sds",
+               "tom",
+               "hf",
+               "mg",
                "trog",
                "vocab")
 
 task_data_irt <- read_rds(here(glue("01_fetched_data/task_data_nested.rds"))) |>
-  filter(task_id %in% irt_tasks)
+  filter(item_task %in% irt_tasks)
 ```
 
 ```{r}

@@ -52,6 +52,11 @@ scores_wide_mat <- scores_wide |>
 
 # EFA
 
+```{r}
+library(GGally)
+ggpairs(select(scores_wide, math, matrix, sds, hf, mg, mefs, mrot))
+
+```
 
 
 

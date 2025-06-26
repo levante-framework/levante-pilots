@@ -16,10 +16,25 @@ get_survey_data <- function(survey_data_nested, type) {
 
 caregiver_data <- get_survey_data(survey_data_nested, "caregiver")
 
+caregiver_prolific <- read_rds(here::here("surveys_prolific/parent/v3/data_processed/survey_tidy.rds")) |>
+  mutate(id = as.character(id)) |>
+  select(child_id = id, form_construct, form_subconstruct, question_type,
+         variable = variable_name, value) |>
+  mutate(site = "prolific", dataset = "prolific", user_id = child_id, .before = everything())  |>
+  mutate(form_construct = if_else(grepl("SelfSupport", variable),
+                                  "Caregiver Well-Being", form_construct))
+
+# combine co_bogota and co_rural, delete ca_western for sample size reasons
+caregiver_data <- caregiver_data %>%
+  bind_rows(caregiver_prolific) %>%
+  mutate(site = case_when(
+    site %in% c("co_bogota", "co_rural") ~ "co_bogota_rural",
+    TRUE ~ site
+  ))  %>%
+  filter(site != 'ca_western')
 
 caregiver_filtered <- caregiver_data %>%
   filter(question_type == "Measurement") %>%   
-  filter(site %in% c("co_pilot", "de_pilot")) %>%
   filter(!is.na(form_subconstruct), !is.na(value)) %>%
   filter(!is.na(form_construct)) %>%
   filter(form_construct != "Home Environment")%>%
@@ -61,9 +76,7 @@ caregiver_filtered %>%
   )
 
 
-# currently we focus on co_pilot and de_pilot
 caregiver_tidy <- caregiver_filtered %>%
-  filter(site %in% c("co_pilot", "de_pilot")) %>%
   select(site, user_id, child_id, form_construct, form_subconstruct, variable, value) %>%
   filter(!is.na(form_subconstruct), !is.na(value)) %>%
   group_by(site, form_construct, form_subconstruct, user_id, variable) %>%
@@ -80,6 +93,9 @@ caregiver_tidy <- caregiver_filtered %>%
 
 constructs = as.vector(unique(caregiver_tidy$form_construct))
 #student_tidy$fscore <- vector("list", nrow(student_tidy))
+
+
+site_pal <- solarized_pal()(length(sites) + 2)[c(1:2, 5)] |> rlang::set_names(unique(caregiver_data$site))
 ```
 
 ## SDQ
@@ -129,7 +145,6 @@ extra_rows <- caregiver_data %>%
   left_join(item_map, by = "variable") %>%
   rename(form_subconstruct = new_subconstruct) %>%
   select(site, user_id, child_id, form_construct, form_subconstruct, variable, value) %>%
-  filter(site %in% c("co_pilot", "de_pilot")) %>%
   group_by(site, form_construct, form_subconstruct, user_id, variable) %>%
   filter(n() == 1) %>%
   ungroup() %>%
@@ -163,6 +178,7 @@ caregiver_tidy <- caregiver_tidy %>%
 # warning: childbullied has negative residual variance
 
 ```
+
 ```{r}
 
 caregiver_tidy <- caregiver_tidy %>%
@@ -173,38 +189,32 @@ caregiver_tidy <- caregiver_tidy %>%
 for (i in seq_len(nrow(caregiver_tidy))) {
   formi <- caregiver_tidy$form_construct[i]
   params_df <- caregiver_tidy$params_configural[[i]]
-  
-  if (is.null(params_df)) next
-  
-  params_wide <- params_df %>%
-    filter(site %in% c("co_pilot", "de_pilot")) %>%
-    select(item, site, value, type, form_subconstruct) %>%
-    pivot_wider(names_from = site, values_from = value) %>%
-    filter(!is.na(co_pilot), !is.na(de_pilot))
-  
 
-  p <- ggplot(params_wide, aes(x = co_pilot, y = de_pilot, color = form_subconstruct, label = item)) +
-  geom_point(size = 2, alpha = 0.9) +
-  geom_abline(slope = 1, intercept = 0, linetype = "dashed", color = "gray50") +
-  ggrepel::geom_text_repel(size = 3, max.overlaps = 100, segment.color = "gray80") +
-  facet_wrap(~ type, scales = "free") +
-  scale_color_manual(values = RColorBrewer::brewer.pal(7, "Set1")[-6])+
-  labs(
-    x = "Estimate (co_pilot)",
-    y = "Estimate (de_pilot)",
-    title = formi,
-    color = "Subconstruct"
-  ) +
-  theme(
-    legend.position = "bottom"
-  )
-  
+  if (is.null(params_df)) next
+
+  params_long <- params_df %>%
+    select(item, site, value, type, form_subconstruct) %>%
+    filter(!is.na(value))
+
+  p <- ggplot(params_long, aes(x = value, y = item, color = site)) +
+    geom_crossbar(aes(xmin = value, xmax = value), orientation = "y", width = 0.4) +
+    facet_grid(form_subconstruct  ~ type, scales = "free", space = "free") +
+    scale_color_manual(values = site_pal) +  
+    labs(
+      x = "Estimate",
+      y = NULL,
+      color = "Site",
+      title = formi
+    )
+
   print(p)
-  
-  ggsave(here::here(paste0("03_summaries/efa/fig/cfa_points_", gsub("[/\"']", "_", formi), ".png")), width = 12, height = 5, dpi = 300)
+
+  #ggsave(filename = here::here(paste0("03_summaries/efa/fig/cfa_", gsub("[/\"']", "_", formi), ".png")), plot = p,
+  #  width = 12, height = 6, dpi = 300)
 }
 
 ```
+
 
 
 

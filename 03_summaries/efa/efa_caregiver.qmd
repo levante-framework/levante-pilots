@@ -15,14 +15,30 @@ get_survey_data <- function(survey_data_nested, type) {
     collect()
 }
 
-
+caregiver_prolific <- read_rds(here::here("surveys_prolific/parent/v3/data_processed/survey_tidy.rds")) |>
+  mutate(id = as.character(id)) |>
+  select(child_id = id, form_construct, form_subconstruct, question_type,
+         variable = variable_name, value) |>
+  mutate(site = "prolific", dataset = "prolific", user_id = child_id, .before = everything())  |>
+  mutate(form_construct = if_else(grepl("SelfSupport", variable),
+                                  "Caregiver Well-Being", form_construct))
 
 caregiver_data <- get_survey_data(survey_data_nested, "caregiver")
 #teacher_data   <- get_survey_data(survey_data_nested, "teacher")
 #student_data   <- get_survey_data(survey_data_nested, "student")
 
 
-caregiver_tidy <- caregiver_data %>%
+# combine co_bogota and co_rural, delete ca_western for sample size reasons
+caregiver_data <- caregiver_data %>%
+  bind_rows(caregiver_prolific) %>%
+  mutate(site = case_when(
+    site %in% c("co_bogota", "co_rural") ~ "co_bogota_rural",
+    TRUE ~ site
+  ))  %>%
+  filter(site != 'ca_western')
+  
+
+caregiver_tidy <- caregiver_data |>
   filter(question_type == "Measurement") %>%   
   select(site, user_id, child_id, variable, value, form_construct) %>%
   filter(!is.na(form_construct),
@@ -41,8 +57,6 @@ caregiver_tidy <- caregiver_data %>%
   }))
 
 sites = as.vector(unique(caregiver_tidy$site))
-
-
 cat('sample size\n')
 for(i in sites){
   cat(i)
@@ -93,13 +107,14 @@ sdq_data <- caregiver_data %>%
 caregiver_tidy <- bind_rows(caregiver_tidy, sdq_data)
 ```
 
-### Select co and de & scale data
+### Select & scale data
 
 ```{R}
 ### since number of sample size is too low for ca_pilot
 ### currently we focus on co_pilot and de_pilot
-caregiver_tidy = caregiver_tidy |>
-  filter(site != 'ca_pilot') %>%
+
+# combine co_bogota	and	co_rural for enough sample sizes
+caregiver_tidy <- caregiver_tidy %>%
   mutate(df_scaled = map(df_vals, ~ {
     .x %>%
       select(-user_id, -child_id) %>%
@@ -107,34 +122,11 @@ caregiver_tidy = caregiver_tidy |>
       as.data.frame()
   }))
 
-sites = sites[sites != "ca_pilot"]
+
 
 caregiver_tidy$fscore <- vector("list", nrow(caregiver_tidy))
 ```
 
-## Correlation Heatmap
-```{r}
-
-for(formi in as.vector(unique(caregiver_tidy$form_construct))){
-  for(sitei in unique(pull(caregiver_tidy, site))){
-  
-    subconstruct <- caregiver_tidy %>%
-      filter(form_construct == formi, site == sitei) |> pull(df_scaled)  %>% .[[1]]
-    
-    cor_matrix <- cor(subconstruct, use = "pairwise.complete.obs")
-
-    corrplot(cor_matrix, method = "color", col = colorRampPalette(c(pal$red, "white", pal$blue))(200), type = "upper", order = "original",
-            tl.pos = "l", 
-            tl.col = "black", 
-            title =  paste0(sitei, ":", formi), 
-            is.corr = FALSE,
-            mar=c(0,0,2,0),
-            col.lim = c(-1, 1)) 
-}
-}
-
-# note that some cols are '?" likely due to high proportions of missing values or low variation (e.g., sd close to 0) in that variable -- Some variables were excluded during the exploratory factor analysis because they caused the parallel analysis to fail.
-```
 
 
 
@@ -146,14 +138,20 @@ for(formi in as.vector(unique(caregiver_tidy$form_construct))){
 Determine the number of factors
 ```{r}
 formi = "Parenting"
+remove_items = c("SelfParentStressNSCHh8", paste0("SelfSupport", c(1:12)))
 for(sitei in sites){
+  if(nrow(filter(caregiver_tidy, form_construct == formi, site == sitei)) == 0){         
+    cat(sitei, ": no data\n")         
+    next      
+  }
   cat(sitei)
   subconstruct = caregiver_tidy %>% filter(form_construct == formi, site == sitei) |> 
   pull(df_scaled)  %>% .[[1]]
   
   
-  subconstruct <- subconstruct[, !colnames(subconstruct) %in% "SelfParentStressNSCHh8"]
+  subconstruct <- subconstruct[, !colnames(subconstruct) %in% remove_items]
   # remove SelfParentStressNSCHh8 variable since it contains too much missing values and fails the parallel analysis 
+  # unique in prolific data
 
   # Parallel analysis
   fa.parallel(subconstruct, fa="both", n.iter=100, plot=FALSE)
@@ -169,58 +167,34 @@ for(sitei in sites){
 EFA analysis and Save factor scores
 ```{r}
 nfactors <- c(
-  co_pilot = 3,
-  de_pilot = 3
+  co_bogota_rural = 3,
+  de_leipzig = 3,
+  prolific = 3
 )
 
-for(sitei in sites){
-  # data preparation
-  row_index <- which(caregiver_tidy$form_construct == formi & caregiver_tidy$site == sitei)
-  ids <- caregiver_tidy$df_vals[[row_index]] %>% 
-      select(user_id, child_id) 
-    
-  subconstruct = caregiver_tidy$df_scaled[[row_index]]
-  subconstruct <- subconstruct[, !colnames(subconstruct) %in% "SelfParentStressNSCHh8"]
-  # remove SelfParentStressNSCHh8 variable since it contains too much missing values and fails the parallel analysis 
-  
-  # efa
-  EFAresult = factanal(~ ., data=subconstruct, factors = nfactors[sitei], scores = "regression",
-    rotation = "promax", na.action = na.exclude)
-  loadings_df <- loadmax(EFAresult$loadings, subconstruct)
-  
-  # loading plot
-  assign(paste0("p_", sitei), plot_load(loadings_df, paste0(sitei)))
-  
-  # save factor scores
-  scores_df <- as.data.frame(EFAresult$scores)
-  colnames(scores_df) <- paste0(formi, 1:ncol(scores_df))
-  caregiver_tidy$fscore[[row_index]] <- bind_cols(ids, scores_df)
-}
+efa_plot_fscore <- run_efa_plot(caregiver_tidy, formi, remove_items, sites, nfactors) 
+caregiver_tidy <- efa_plot_fscore$data
 
-
-# combined_load_plot
-p_co_pilot <- p_co_pilot + theme(legend.position = "none")
-
-p_co_pilot + p_de_pilot + 
-  plot_layout(ncol = 2, widths = c(1, 1)) &
-  plot_annotation(
-    title = formi,
-    theme = theme(plot.title = element_text(hjust = 0.5, face = "bold",  size = 14))
-  ) 
-
-
-#ggsave(here::here(paste0("03_summaries/efa/fig/", gsub("[/\"']", "_", formi), ".png")), width = 8, height = 8, dpi = 300)
-
+combined_plot <- efa_plot_fscore$plot
+#ggsave(here::here(paste0("03_summaries/efa/fig/", gsub("[/\"']", "_", formi), ".png")), plot = combined_plot, width = 8, height = 8, dpi = 300)
 ```
+
+
 
 ### SDQ
 
 Determine the number of factors
 ```{r}
 formi = "SDQ"
+remove_items = NULL
 for(sitei in sites){
-cat(sitei)
-    subconstruct = caregiver_tidy %>% filter(form_construct == formi, site == sitei) |> 
+  if(nrow(filter(caregiver_tidy, form_construct == formi, site == sitei)) == 0){         
+    cat(sitei, ": no data\n")         
+    next      
+  }
+  cat(sitei)
+  
+  subconstruct = caregiver_tidy %>% filter(form_construct == formi, site == sitei) |> 
       pull(df_scaled)  %>% .[[1]]
   
   # Parallel analysis
@@ -235,47 +209,21 @@ cat(sitei)
 EFA analysis and Save factor scores
 ```{r}
 nfactors <- c(
-  co_pilot = 3,
-  de_pilot = 3 # change point at two factors, but three factors have eigen value > 1, 2 or 3 both works, 2 looks more tidy
+  co_bogota_rural = 3,
+  de_leipzig = 3
 )
 
 
-for(sitei in sites){
-  # data preparation
-  row_index <- which(caregiver_tidy$form_construct == formi & caregiver_tidy$site == sitei)
-  ids <- caregiver_tidy$df_vals[[row_index]] %>% 
-      select(user_id, child_id) 
-    
-  subconstruct = caregiver_tidy$df_scaled[[row_index]]
-  
-  
-  # efa
-  EFAresult = factanal(~ ., data=subconstruct, factors = nfactors[sitei], scores = "regression",
-    rotation = "promax", na.action = na.exclude)
-  loadings_df <- loadmax(EFAresult$loadings, subconstruct)
-  
-  # loading plot
-  assign(paste0("p_", sitei), plot_load(loadings_df, paste0(sitei)))
-  
-  # save factor scores
-  scores_df <- as.data.frame(EFAresult$scores)
-  colnames(scores_df) <- paste0(formi, 1:ncol(scores_df))
-  caregiver_tidy$fscore[[row_index]] <- bind_cols(ids, scores_df)
-}
+efa_plot_fscore <- run_efa_plot(caregiver_tidy, formi, remove_items, sites, nfactors) 
+caregiver_tidy <- efa_plot_fscore$data
 
-# combined plot
-p_co_pilot <- p_co_pilot + theme(legend.position = "none")
-
-
-p_co_pilot + p_de_pilot + 
-  plot_layout(ncol = 2, widths = c(1, 1)) &
-  plot_annotation(
-    title = formi,
-    theme = theme(plot.title = element_text(hjust = 0.5, face = "bold",  size = 14))
-  ) 
-
+combined_plot <- efa_plot_fscore$plot
 #ggsave(here::here(paste0("03_summaries/efa/fig/", gsub("[/\"']", "_", formi), ".png")), width = 6, height = 6, dpi = 300)
 ```
+
+
+
+
 
 
 
@@ -284,8 +232,12 @@ p_co_pilot + p_de_pilot +
 Determine the number of factors
 ```{r}
 formi = "Executive Function"
+remove_items = NULL
 for(sitei in sites){
-  cat(sitei)
+  if(nrow(filter(caregiver_tidy, form_construct == formi, site == sitei)) == 0){         
+    cat(sitei, ": no data\n")         
+    next      
+  }
   subconstruct = caregiver_tidy %>% filter(form_construct == formi, site == sitei) |> 
   pull(df_scaled)  %>% .[[1]]
 
@@ -299,49 +251,22 @@ for(sitei in sites){
 ```
 
 EFA analysis and Save factor scores
+
 ```{r}
 nfactors <- c(
-  co_pilot = 2,
-  de_pilot = 2
+  co_bogota_rural = 3,
+  de_leipzig = 3,
+  prolific = 3
 )
 
-for(sitei in sites){
-  # data preparation
-  row_index <- which(caregiver_tidy$form_construct == formi & caregiver_tidy$site == sitei)
-  ids <- caregiver_tidy$df_vals[[row_index]] %>% 
-      select(user_id, child_id) 
-    
-  subconstruct = caregiver_tidy$df_scaled[[row_index]]
-  
-  # efa
-  EFAresult = factanal(~ ., data=subconstruct, factors = nfactors[sitei], scores = "regression",
-    rotation = "promax", na.action = na.exclude)
-  loadings_df <- loadmax(EFAresult$loadings, subconstruct)
-  
-  # loading plot
-  assign(paste0("p_", sitei), plot_load(loadings_df, paste0(sitei)))
-  
-  # save factor scores
-  scores_df <- as.data.frame(EFAresult$scores)
-  colnames(scores_df) <- paste0(formi, 1:ncol(scores_df))
-  caregiver_tidy$fscore[[row_index]] <- bind_cols(ids, scores_df)
-}
+efa_plot_fscore <- run_efa_plot(caregiver_tidy, formi, remove_items, sites, nfactors) 
+caregiver_tidy <- efa_plot_fscore$data
 
-
-# combined_load_plot
-p_co_pilot <- p_co_pilot + theme(legend.position = "none")
-
-
-p_co_pilot + p_de_pilot + 
-  plot_layout(ncol = 2, widths = c(1, 1)) &
-  plot_annotation(
-    title = formi,
-    theme = theme(plot.title = element_text(hjust = 0.5, face = "bold",  size = 14))
-  ) 
-
+combined_plot <- efa_plot_fscore$plot
 #ggsave(here::here(paste0("03_summaries/efa/fig/", gsub("[/\"']", "_", formi), ".png")), width = 8, height = 8, dpi = 300)
-
 ```
+
+
 
 
 
@@ -355,10 +280,14 @@ Determine the number of factors
 ```{r}
 formi = "Social Emotional"
 for(sitei in sites){
-  cat(sitei)
+  if(nrow(filter(caregiver_tidy, form_construct == formi, site == sitei)) == 0){         
+    cat(sitei, ": no data\n")         
+    next      
+  }
   subconstruct = caregiver_tidy %>% filter(form_construct == formi, site == sitei) |> 
   pull(df_scaled)  %>% .[[1]]
-
+  
+  remove_items = names(subconstruct)[!grepl("Jukes", names(subconstruct))]
   subconstruct <- subconstruct[, grepl("Jukes", names(subconstruct))]
   # Parallel analysis
   fa.parallel(subconstruct, fa="both", n.iter=100, plot=FALSE)
@@ -367,48 +296,25 @@ for(sitei in sites){
   scree(subconstruct, factors=TRUE, pc=F, 
         main = paste0(sitei, ": ", "ChildJukes"))
 }
-```
 
+```
 
 ```{r}
 nfactors <- c(
-  co_pilot = 2,
-  de_pilot = 2
+  co_bogota_rural = 2,
+  de_leipzig = 2,
+  prolific = 2
 )
 
-for(sitei in sites){
-  # data preparation
-  row_index <- which(caregiver_tidy$form_construct == formi & caregiver_tidy$site == sitei)
-  ids <- caregiver_tidy$df_vals[[row_index]] %>% 
-      select(user_id, child_id) 
-    
-  subconstruct = caregiver_tidy$df_scaled[[row_index]]
-  subconstruct <- subconstruct[, grepl("Jukes", names(subconstruct))] 
-  
-  # efa
-  EFAresult = factanal(~ ., data=subconstruct, factors = nfactors[sitei], scores = "regression",
-    rotation = "promax", na.action = na.exclude)
-  loadings_df <- loadmax(EFAresult$loadings, subconstruct)
-  
-  # loading plot
-  assign(paste0("p_", sitei), plot_load(loadings_df, paste0(sitei)))
-  
-}
+efa_plot_fscore <- run_efa_plot(caregiver_tidy, formi, remove_items, sites, nfactors, plot_title = "ChildJukes") 
+caregiver_tidy <- efa_plot_fscore$data
 
-
-# combined_load_plot
-p_co_pilot <- p_co_pilot + theme(legend.position = "none")
-
-p_co_pilot + p_de_pilot + 
-  plot_layout(ncol = 2, widths = c(1, 1)) &
-  plot_annotation(
-    title = "ChildJukes",
-    theme = theme(plot.title = element_text(hjust = 0.5, face = "bold",  size = 14))
-  ) 
-
+combined_plot <- efa_plot_fscore$plot
 #ggsave(here::here(paste0("03_summaries/efa/fig/", "ChildJukes", ".png")), width = 8, height = 8, dpi = 300)
-
 ```
+
+
+
 
 #### other variables
 
@@ -416,10 +322,14 @@ p_co_pilot + p_de_pilot +
 ```{r}
 formi = "Social Emotional"
 for(sitei in sites){
-  cat(sitei)
+  if(nrow(filter(caregiver_tidy, form_construct == formi, site == sitei)) == 0){         
+    cat(sitei, ": no data\n")         
+    next      
+    }
   subconstruct = caregiver_tidy %>% filter(form_construct == formi, site == sitei) |> 
   pull(df_scaled)  %>% .[[1]]
 
+  remove_items = names(subconstruct)[grepl("Jukes", names(subconstruct))]
   subconstruct <- subconstruct[, !grepl("Jukes", names(subconstruct))]
   # Parallel analysis
   fa.parallel(subconstruct, fa="both", n.iter=100, plot=FALSE)
@@ -428,6 +338,8 @@ for(sitei in sites){
   scree(subconstruct, factors=TRUE, pc=F, 
         main = paste0(sitei, ": ", formi))
 }
+
+
 ```
 
 
@@ -436,47 +348,17 @@ for(sitei in sites){
 EFA analysis and Save factor scores
 ```{r}
 nfactors <- c(
-  co_pilot = 2,
-  de_pilot = 2
+  co_bogota_rural = 2,
+  de_leipzig = 2,
+  prolific = 2
 )
 
-for(sitei in sites){
-  # data preparation
-  row_index <- which(caregiver_tidy$form_construct == formi & caregiver_tidy$site == sitei)
-  ids <- caregiver_tidy$df_vals[[row_index]] %>% 
-      select(user_id, child_id) 
-    
-  subconstruct = caregiver_tidy$df_scaled[[row_index]]
-  subconstruct <- subconstruct[, !grepl("Jukes", names(subconstruct))]
-  
-  # efa
-  EFAresult = factanal(~ ., data=subconstruct, factors = nfactors[sitei], scores = "regression",
-    rotation = "promax", na.action = na.exclude)
-  loadings_df <- loadmax(EFAresult$loadings, subconstruct)
-  
-  # loading plot
-  assign(paste0("p_", sitei), plot_load(loadings_df, paste0(sitei)))
-  
-  # save factor scores
-  scores_df <- as.data.frame(EFAresult$scores)
-  colnames(scores_df) <- paste0(formi, 1:ncol(scores_df))
-  caregiver_tidy$fscore[[row_index]] <- bind_cols(ids, scores_df)
-}
+efa_plot_fscore <- run_efa_plot(caregiver_tidy, formi, remove_items, sites, nfactors) 
+caregiver_tidy <- efa_plot_fscore$data
 
-
-# combined_load_plot
-p_co_pilot <- p_co_pilot + theme(legend.position = "none")
-
-p_co_pilot + p_de_pilot + 
-  plot_layout(ncol = 2, widths = c(1, 1)) &
-  plot_annotation(
-    title = formi,
-    theme = theme(plot.title = element_text(hjust = 0.5, face = "bold",  size = 14))
-  ) 
-
+combined_plot <- efa_plot_fscore$plot
 #ggsave(here::here(paste0("03_summaries/efa/fig/", gsub("[/\"']", "_", formi), ".png")), width = 8, height = 8, dpi = 300)
 ```
-
 
 
 
@@ -486,7 +368,10 @@ Determine the number of factors
 ```{r}
 formi = "Caregiver Well-Being"
 for(sitei in sites){
-  cat(sitei)
+  if(nrow(filter(caregiver_tidy, form_construct == formi, site == sitei)) == 0){         
+    cat(sitei, ": no data\n")         
+    next      
+    }
   subconstruct = caregiver_tidy %>% filter(form_construct == formi, site == sitei) |> 
   pull(df_scaled)  %>% .[[1]]
 
@@ -503,44 +388,14 @@ for(sitei in sites){
 EFA analysis and Save factor scores
 ```{r}
 nfactors <- c(
-  co_pilot = 3,
-  de_pilot = 3
+  co_bogota_rural = 3,
+  de_leipzig = 3,
+  prolific = 3
 )
 
-for(sitei in sites){
-  # data preparation
-  row_index <- which(caregiver_tidy$form_construct == formi & caregiver_tidy$site == sitei)
-  ids <- caregiver_tidy$df_vals[[row_index]] %>% 
-      select(user_id, child_id) 
-    
-  subconstruct = caregiver_tidy$df_scaled[[row_index]]
-  subconstruct <- subconstruct[, !grepl("SelfLifeChanges", colnames(subconstruct))]
-  
-  # efa
-  EFAresult = factanal(~ ., data=subconstruct, factors = nfactors[sitei], scores = "regression",
-    rotation = "promax", na.action = na.exclude)
-  loadings_df <- loadmax(EFAresult$loadings, subconstruct)
-  
-  # loading plot
-  assign(paste0("p_", sitei), plot_load(loadings_df, paste0(sitei)))
-  
-  # save factor scores
-  scores_df <- as.data.frame(EFAresult$scores)
-  colnames(scores_df) <- paste0(formi, 1:ncol(scores_df))
-  caregiver_tidy$fscore[[row_index]] <- bind_cols(ids, scores_df)
-}
+efa_plot_fscore <- run_efa_plot(caregiver_tidy, formi, remove_items, sites, nfactors) 
+caregiver_tidy <- efa_plot_fscore$data
 
-
-# combined_load_plot
-p_co_pilot <- p_co_pilot + theme(legend.position = "none")
-
-p_co_pilot + p_de_pilot + 
-  plot_layout(ncol = 2, widths = c(1, 1)) &
-  plot_annotation(
-    title = formi,
-    theme = theme(plot.title = element_text(hjust = 0.5, face = "bold",  size = 14))
-  ) 
-
+combined_plot <- efa_plot_fscore$plot
 #ggsave(here::here(paste0("03_summaries/efa/fig/", gsub("[/\"']", "_", formi), ".png")), width = 8, height = 8, dpi = 300)
-
 ```

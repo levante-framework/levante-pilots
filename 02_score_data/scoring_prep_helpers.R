@@ -14,28 +14,38 @@ recode_slider <- function(df, threshold = 0.15) {
   slider_trials <- df |>
     filter(item_group == "slider") |>
     tidyr::separate_wider_delim(item, "_",
-                                names = c("answer", "max_value"),
+                                names = c("target", "max_value"),
                                 cols_remove = FALSE) |>
-    mutate(answer = answer |> stringr::str_replace("^0", "0."),
-           across(c(answer, max_value), as.numeric),
-           correct = (abs(as.numeric(response) - answer) / max_value < threshold)) |>
-    select(-c("answer", "max_value"))
+    mutate(target = target |> stringr::str_replace("^0", "0."),
+           across(c(target, max_value), as.numeric),
+           correct = (abs(as.numeric(response) - target) / max_value < threshold)) |>
+    select(-c("target", "max_value"))
   df |>
     filter(item_group != "slider") |>
     bind_rows(slider_trials)
 }
 
+<<<<<<< HEAD
 source(here("rescore-sds.R"))
 recode_sds <- function(df){
   sds <- df |>
     filter(item_task == "sds") |> #, site != "us_pilot", item_group!="3unique") |>
     filter(!str_detect(response, "mittel|rote|gelb|blau"))
+=======
+source(here("02_score_data/rescore-sds.R"))
+recode_sds <- function(df) {
+  sds <- df |>
+    filter(item_task == "sds") |> #, site != "us_pilot", item_group!="3unique") |>
+    filter(!str_detect(response, "mittel|rote|gelb|blau")) |>
+    filter(!(site == "ca_pilot" & timestamp < "2025-02-21"))
+>>>>>>> 5c91e85636a11aa6c0002343ab94cf406dd4a89e
   
   # ToDo: apply per user and run to 3-match and 4-match (maybe test on 2-match? shouldn't influence outcome)
   dimension_indices <- c(size = 1, color = 2, shape = 3, number = 4, bgcolor = 5)
   
   sds_parsed <- sds |>
     filter(!item_group %in% c("dimensions", "same")) |>
+<<<<<<< HEAD
     mutate(
       trial_type = item_group,
       selection = map(response, parse_response)
@@ -44,6 +54,15 @@ recode_sds <- function(df){
   # Order by user, run, and timestamp (or trial_number)
   sds_trials <- sds_parsed |>
     group_by(user_id, run_id, trial_type) |>
+=======
+    mutate(selection = map(response, parse_response)) |>
+    select(site, run_id, trial_id, trial_type = item_group, item, response,
+           selection, correct, timestamp)
+  
+  # Order by user, run, and timestamp (or trial_number)
+  sds_trials <- sds_parsed |>
+    group_by(run_id, trial_type) |>
+>>>>>>> 5c91e85636a11aa6c0002343ab94cf406dd4a89e
     arrange(timestamp, .by_group = TRUE) |>
     mutate(trial_index = NA_integer_) |>
     mutate(trial_index = if_else(item == "choice1", 1L, NA_integer_)) |>
@@ -51,10 +70,17 @@ recode_sds <- function(df){
     ungroup()
   
   sds_disambig <- sds_trials %>%
+<<<<<<< HEAD
     group_by(user_id, run_id, trial_type, trial_index) %>%
     mutate(
       item = case_when(
         item_group %in% c("3match", "4match") ~ paste0("choice", row_number()),
+=======
+    group_by(run_id, trial_type, trial_index) %>%
+    mutate(
+      item = case_when(
+        trial_type %in% c("3match", "4match") ~ paste0("choice", row_number()),
+>>>>>>> 5c91e85636a11aa6c0002343ab94cf406dd4a89e
         TRUE ~ item
       )
     ) %>%
@@ -62,8 +88,13 @@ recode_sds <- function(df){
   
   # Nest by trial
   sds_nested <- sds_disambig |>
+<<<<<<< HEAD
     select(user_id, run_id, trial_type, trial_index, item, response, selection, correct, trial_id) |>
     group_by(user_id, run_id, trial_type, trial_index) |>
+=======
+    select(run_id, trial_type, trial_index, item, response, selection, correct, trial_id) |>
+    group_by(run_id, trial_type, trial_index) |>
+>>>>>>> 5c91e85636a11aa6c0002343ab94cf406dd4a89e
     arrange(item) |>
     nest(data = c(item, response, selection, correct, trial_id)) |>
     ungroup()
@@ -89,11 +120,23 @@ recode_sds <- function(df){
     unnest(c(data, trial_correct))
   
   sds_trials <- sds |>
+<<<<<<< HEAD
     # select(-correct) |>
     left_join(sds_rescored |> select(trial_id, trial_correct)) |>
     mutate(original_correct = correct,
            correct = if_else(!is.na(trial_correct), trial_correct, correct)) |>
     select(-trial_correct)
+=======
+    select(-item_uid) |>
+    left_join(sds_rescored |> select(trial_id, trial_correct, trial_item = item, trial_index)) |>
+    mutate(#original_correct = correct,
+           correct = if_else(!is.na(trial_correct), trial_correct, correct),
+           item = if_else(!is.na(trial_item), trial_item, item),
+           item_uid = paste(item_task, item_group, item, sep = "_")) |>
+           # original_item = item,
+           # ) |>
+    select(-trial_correct, -trial_item)
+>>>>>>> 5c91e85636a11aa6c0002343ab94cf406dd4a89e
   
   df |>
     filter(item_task != "sds") |>

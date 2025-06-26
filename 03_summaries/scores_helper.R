@@ -73,8 +73,8 @@ combine_scores <- \() {
   
   scores_general <- readRDS(here("02_scoring_outputs","scores","scores_general.rds"))
     # mutate(model = "guessing_adjusted_number_correct")
-  scores_thetas <- readRDS(here("02_scoring_outputs","scores", "roar_thetas.rds"))
-    # mutate(model = "ROAR IRT")
+  scores_thetas <- readRDS(here("02_scoring_outputs","scores", "roar_thetas.rds")) |>
+    mutate(model = "ROAR IRT")
   
   scores_irt <- readRDS(here("02_scoring_outputs","scores","independent_scores.rds")) |>
     mutate(model = "no pooling IRT")
@@ -103,7 +103,8 @@ combine_scores <- \() {
   
   mefs_age_guesses <- scores_noages |>
     filter(item_task == "mefs") |>
-    left_join(run_ages |> group_by(user_id) |> summarise(age = mean(age, na.rm = TRUE)))
+    left_join(run_ages |> group_by(user_id) |> summarise(age = mean(age, na.rm = TRUE))) |>
+    mutate(task_id = "mefs")
   
   scores <- scores_noages |>
     filter(item_task != "mefs") |>
