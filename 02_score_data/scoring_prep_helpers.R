@@ -25,7 +25,7 @@ recode_slider <- function(df, threshold = 0.15) {
     bind_rows(slider_trials)
 }
 
-source(here("rescore-sds.R"))
+source(here("02_score_data/rescore-sds.R"))
 recode_sds <- function(df) {
   sds <- df |>
     filter(item_task == "sds") |> #, site != "us_pilot", item_group!="3unique") |>
