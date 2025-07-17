@@ -83,11 +83,11 @@ scores_wide_mat %>%
   count(n_tasks) %>%
   arrange(desc(n_tasks))
 
-# very low number of complete cases (i.e., all 9 tasks)
+# very low number of complete cases (i.e., all 10 tasks)
 
 ```
 
-### EFA for complete cases - participants with all 9 tasks
+### EFA for complete cases - participants with all 10 tasks
 
 ```{r}
 
@@ -105,6 +105,7 @@ nrow(efa_complete)
 ### complete case: EFA - complete case sample (psych)
 
 ```{r}
+library(psych)
 psych::KMO(efa_complete) # ha below 0.5 - doesn't share enough variance with the other items
 cortest.bartlett(cor(efa_complete), n = nrow(efa_complete))
 
@@ -118,7 +119,7 @@ efa_result_1 <- fa(efa_complete, nfactors = 3, fm = "ml", rotate = "oblimin")
 print(efa_result_1, cut = 0.2)
 ```
 
-### complete case: re-estimate EFA with lavaan (ESEM-style, cross-loadings)
+### complete case: re-estimate EFA with lavaan (ESEM-style, allowing cross-loadings)
 
 ```{r}
 # Standardise complete case data for lavaan
@@ -358,9 +359,171 @@ graph_sem(fit_5, layout = t(layout), text_size = 2.5)
 
 ```
 
+### by site
 
+### Columbia
 
+```{r}
+# check n
+scores_wide_mat_z %>%
+  filter(site == "co_pilot") %>%
+  summarise(n_total = n_distinct(user_id))  #1,069 
 
+model_6_co <- '
+ef_math =~ hf + mg + math
+social_reason =~ ha + tom + matrix + mrot
+language =~ sds + trog + vocab
+
+# add age
+ef_math ~ age
+social_reason ~ age
+language ~ age'
+
+fit_6_co <- cfa(model_6_co, 
+                filter(scores_wide_mat_z, site == "co_pilot"),
+                std.lv = TRUE, missing = "fiml",
+                bounds = list(lower = 0.001))
+
+summary(fit_6_co, fit.measures=TRUE, standardize=TRUE)
+
+layout <- matrix(nrow = 3, ncol = 9, byrow = TRUE, data = c(
+  "hf", "mg", "math", NA, "ha", "tom", "matrix", "mrot", NA,
+  NA,   NA,   NA,     NA, NA,   NA,     "sds",   "trog", "vocab",
+  "ef_math", NA, NA, NA, "social_reason", NA, "language", NA, NA
+))
+
+graph_sem(fit_6_co, layout = t(layout), text_size = 2.5)
+
+```
+### Germany
+
+```{r}
+# check n
+scores_wide_mat_z %>%
+  filter(site == "de_pilot") %>%
+  summarise(n_total = n_distinct(user_id))  #320
+
+model_7_de <- '
+ef_math =~ hf + mg + math
+social_reason =~ ha + tom + matrix + mrot
+language =~ sds + trog + vocab
+
+# add age
+ef_math ~ age
+social_reason ~ age
+language ~ age'
+
+fit_7_de <- cfa(model_7_de, 
+                filter(scores_wide_mat_z, site == "de_pilot"),
+                std.lv = TRUE, missing = "fiml",
+                bounds = list(lower = 0.001))
+
+summary(fit_7_de, fit.measures=TRUE, standardize=TRUE)
+
+layout <- matrix(nrow = 3, ncol = 9, byrow = TRUE, data = c(
+  "hf", "mg", "math", NA, "ha", "tom", "matrix", "mrot", NA,
+  NA,   NA,   NA,     NA, NA,   NA,     "sds",   "trog", "vocab",
+  "ef_math", NA, NA, NA, "social_reason", NA, "language", NA, NA
+))
+
+graph_sem(fit_7_de, layout = t(layout), text_size = 2.5)
+
+```
+### Canada
+
+```{r}
+# check n
+scores_wide_mat_z %>%
+  filter(site == "ca_pilot") %>%
+  summarise(n_total = n_distinct(user_id))  #84
+
+model_8_ca <- '
+ef_math =~ hf + mg + math
+social_reason =~ ha + tom + matrix + mrot
+language =~ sds + trog + vocab
+
+# add age
+ef_math ~ age
+social_reason ~ age
+language ~ age'
+
+fit_8_ca <- cfa(model_8_ca, 
+                filter(scores_wide_mat_z, site == "ca_pilot"),
+                std.lv = TRUE, missing = "fiml",
+                bounds = list(lower = 0.001))
+
+summary(fit_8_ca, fit.measures=TRUE, standardize=TRUE)
+
+layout <- matrix(nrow = 3, ncol = 9, byrow = TRUE, data = c(
+  "hf", "mg", "math", NA, "ha", "tom", "matrix", "mrot", NA,
+  NA,   NA,   NA,     NA, NA,   NA,     "sds",   "trog", "vocab",
+  "ef_math", NA, NA, NA, "social_reason", NA, "language", NA, NA
+))
+
+graph_sem(fit_8_ca, layout = t(layout), text_size = 2.5)
+
+```
+
+# Invariance testing
+
+### configural
+
+```{r}
+fit_config_1 <- cfa(model_5, data = scores_wide_mat_z,
+                      group = "site", std.lv = TRUE, missing = "fiml",
+                      fixed.x = FALSE)
+
+summary(fit_configural, fit.measures = TRUE, standardized = TRUE)
+lavInspect(fit_configural, "cor.lv")
+
+# latent factors highly correlated in some groups (>1) causing non-pos definite covariance matrices; try fixing covariances.
+
+# fixing covariances
+model_5_nocov <- '
+  ef_math =~ hf + mg + math
+  social_reason =~ ha + tom + matrix + mrot
+  language =~ sds + trog + vocab
+
+  ef_math ~ age
+  social_reason ~ age
+  language ~ age
+
+  ef_math ~~ 0*social_reason
+  ef_math ~~ 0*language
+  social_reason ~~ 0*language'
+
+fit_config_2 <- cfa(model_5_nocov, data = scores_wide_mat_z,
+                      group = "site", std.lv = TRUE, missing = "fiml",
+                      fixed.x = FALSE)
+
+summary(fit_configural, fit.measures = TRUE, standardized = TRUE)
+
+```
+
+### metric (keep model with fixed covariances)
+
+```{r}
+fit_metric <- cfa(model_5_nocov, data = scores_wide_mat_z,
+                  group = "site", std.lv = TRUE, missing = "fiml",
+                  fixed.x = FALSE,
+                  group.equal = "loadings")
+
+# issue: sparse data - fewer than 10% of participants have observed data for both variables in the pair
+lavInspect(fit_metric, "coverage")
+
+# check missingness for co_pilot
+scores_wide_mat_z %>%
+  group_by(site) %>%
+  summarise(across(hf:age, ~ mean(is.na(.)) * 100, .names = "{.col}_missing")) %>%
+  ungroup()
+# only ~20–35% of children in co_pilot completed each task???
+
+anova(fit_config_2, fit_metric) # metric invariance not supported
+
+```
+
+```{r}
+```
 
 
 
