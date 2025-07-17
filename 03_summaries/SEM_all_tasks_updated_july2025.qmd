@@ -466,7 +466,7 @@ graph_sem(fit_8_ca, layout = t(layout), text_size = 2.5)
 
 # Invariance testing
 
-### configural
+### configural (same factor structure across groups, all parameters freely estimated)
 
 ```{r}
 fit_config_1 <- cfa(model_5, data = scores_wide_mat_z,
@@ -500,7 +500,7 @@ summary(fit_configural, fit.measures = TRUE, standardized = TRUE)
 
 ```
 
-### metric (keep model with fixed covariances)
+### metric (constrain factor loadings to be equal across sites - asking if the relationships between items and factors the same)
 
 ```{r}
 fit_metric <- cfa(model_5_nocov, data = scores_wide_mat_z,
@@ -522,22 +522,19 @@ anova(fit_config_2, fit_metric) # metric invariance not supported
 
 ```
 
+### scaler (constrain loadings + intercepts to be equal across sites - asking if item baselines the same)
+
 ```{r}
+fit_scalar <- cfa(model_5_nocov, data = scores_wide_mat_z,
+                  group = "site", std.lv = TRUE, missing = "fiml",
+                  fixed.x = FALSE,
+                  group.equal = c("loadings", "intercepts"))
+
+# same issue as above - fewer than 10% have observed data for both variables in a pair
+lavInspect(fit_scalar, "coverage")
+
+
+anova(fit_metric, fit_scalar) # scalar invariance not supported
+
 ```
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
 
