@@ -18,13 +18,7 @@ library("tidyverse")
 library("glue")
 library("here")
 library("viridis")
-library("purrr")
-library("readr")
-library("dplyr")
-library("tidyr")
 library("quarto")
-library("forcats")
-library("ggplot2")
 
 ```
 
@@ -201,6 +195,53 @@ ggplot(tom_coefs, aes(x = item_group, y = -d, col = item_group)) +
   coord_flip()+
   theme(axis.text.x = element_text(angle = 45, hjust = 1))
 ```
+
+Find out which items are the bad ones. 
+
+```{r}
+item_raw_avgs <- tom |>
+  filter(site != "us_pilot") |>
+  group_by(item_uid, item_group, site) |>
+  summarise(
+    avg_correct = mean(correct, na.rm = TRUE),
+    n_runs = n_distinct(run_id),
+    chance = chance[1]
+  ) |>
+  arrange(avg_correct)
+
+tom_items <- left_join(tom_coefs, item_raw_avgs, by = c("item" = "item_uid", "site"))
+
+tom_items |>
+  filter(d < 10) |>
+  arrange(d) |>
+  select(item, item_group, site, d, avg_correct, n_runs) 
+
+tom_items |>
+  filter(avg_correct < .5) |>
+  arrange(avg_correct) |>
+  select(item, item_group, site, d, avg_correct, n_runs, chance) |>
+  knitr::kable(digits = 2)
+
+
+
+
+ggplot(tom_items, aes(x = d, y = avg_correct)) +
+  geom_point(aes( col = item_group)) +
+  geom_smooth(method = "lm", aes(group = 1)) + 
+  facet_wrap(~site) +
+  labs(
+    title = "IRT item difficulty estimates vs. raw accuracy",
+    x = "Difficulty (IRT d)",
+    y = "Average correct",
+    colour = "Item group"
+  ) +
+  theme_minimal() 
+```
+
+
+
+
+
 # Hostile Attribution
 
 
