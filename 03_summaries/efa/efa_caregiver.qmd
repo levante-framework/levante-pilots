@@ -142,42 +142,6 @@ caregiver_tidy <- bind_rows(caregiver_tidy, extra_rows)
 
 
 
-```{r}
-reverse_items <- c(#"ChildSDQ11", "ChildSDQ14", "ChildSDQ17", #already reversed
-                   "ChildSCS10", "ChildSCS9", "ChildSCS8", "ChildSCS7", "ChildSCS6",
-                   "ChildSCS3", "ChildJukes14", "ChildJukes10", "ChildCBQ1")
-
-
-sdq_data <- caregiver_data %>%
-  filter(question_type == "Measurement",
-         construct_sdq == TRUE,
-         !is.na(value)) %>%
-  mutate(form_construct = "SDQ") %>%
-  select(site, user_id, child_id, variable, value, form_construct) %>%
-  group_by(site, form_construct, user_id, child_id, variable) %>%
-  filter(n() == 1) %>%
-  ungroup() %>%
-  nest(data = c(user_id, child_id, variable, value)) %>%
-  mutate(df_vals = map(data, function(df) {
-    df_wide <- df %>%
-      pivot_wider(names_from = variable, values_from = value)
-    
-    # reverse items
-    for (item in reverse_items) {
-      new_name <- paste0(item, "_r")
-      df_wide[[new_name]] <- 3 - df_wide[[item]]
-    }
-    
-    df_wide <- df_wide %>%
-      select(-all_of(reverse_items))
-    
-    df_wide
-  }))
-
-
-caregiver_tidy <- bind_rows(caregiver_tidy, sdq_data)
-```
-
 ### Select & scale data
 
 ```{R}
