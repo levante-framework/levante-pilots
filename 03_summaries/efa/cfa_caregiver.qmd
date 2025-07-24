@@ -1,5 +1,5 @@
 
-# EFA analysis for surveys for students
+# CFA analysis for surveys for caregiver
 
 ## Data preparation
 ```{r}
@@ -98,7 +98,7 @@ constructs = as.vector(unique(caregiver_tidy$form_construct))
 site_pal <- solarized_pal()(length(sites) + 2)[c(1:2, 5)] |> rlang::set_names(unique(caregiver_data$site))
 ```
 
-## SDQ
+## SDQ Data preparation
 
 ```{r}
 item_map <- tibble::tribble(
