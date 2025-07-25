@@ -1,0 +1,200 @@
+---
+title: "understanding_dataflow_fionnuala"
+format: html
+editor: visual
+---
+```{r setup}
+library(tidyverse)
+library(here)
+library(glue)
+library(lavaan)
+library(tidySEM)
+library(ggthemes)
+library(dplyr)
+library(tidyr)
+
+source(here("02_score_data","irt_helpers.R"))
+source(here("03_summaries", "plotting_helper.R"))
+source(here("03_explore_tasks/explore_helper.R"))
+
+```
+
+# Checking n's in fetched_data (task_data_nested)
+
+```{r}
+task_data_nested <- read_rds(here(glue("01_fetched_data/task_data_nested.rds")))
+colnames(task_data_nested)
+unique(task_data_nested$item_task)
+unique(task_data_nested$site)
+
+# unique users per task
+user_counts <- task_data_nested |>
+  unnest(data) |>
+  distinct(site, item_task, user_id) |>
+  count(site, item_task, name = "n_unique_users") |>
+  arrange(site, desc(n_unique_users))
+user_countsgi
+knitr::kable(user_counts)
+
+# task names reminder
+# math
+# matrix, mrot, 
+# lang-lit: pa, sre, swr, tom, trog, vocab (remember to add in swr-es, sre-es, pa-es, swr-de, sre-de)
+# exec function: mg, sds, hf
+# social cog: tom, ha
+
+```
+
+# Understanding "multigroup_scores.rd"
+
+```{r}
+multigroup <- read_rds(here("02_scoring_outputs","scores",
+                             "multigroup_scores.rds"))
+colnames(multigroup)
+
+glimpse(multigroup)
+
+```
+### user_id
+```{r}
+n_distinct(multigroup$user_id)
+
+# total n's per task (doesn't include roar tasks)
+multigroup %>%
+  count(item_task) %>%
+  arrange(desc(n))
+
+```
+### run_id
+```{r}
+n_distinct(multigroup$run_id)
+```
+### metric type
+```{r}
+multigroup %>%
+  count(metric_type)
+
+multigroup %>%
+  group_by(item_task) %>%
+  summarise(
+    mean = mean(metric_value, na.rm = TRUE),
+    sd = sd(metric_value, na.rm = TRUE),
+    min = min(metric_value, na.rm = TRUE),
+    max = max(metric_value, na.rm = TRUE),
+    n = n()
+  )
+
+```
+### site
+```{r}
+multigroup %>%
+  count(site)
+
+multigroup %>%
+  count(site, item_task) %>%
+  pivot_wider(names_from = site, values_from = n, values_fill = 0)
+```
+
+# Understanding "scores_general.rds" (only contains mefs, pa and sre)
+
+```{r}
+general <- read_rds(here("02_scoring_outputs","scores",
+                          "scores_general.rds"))
+colnames(general)
+glimpse(general) # looks similar to 'multigroup_scores'
+```
+### user_id
+```{r}
+n_distinct(general$user_id)
+
+# total n's per task (doesn't include roar tasks)
+general %>%
+  count(item_task) %>%
+  arrange(desc(n))
+
+```
+### run_id
+```{r}
+n_distinct(general$run_id)
+```
+### metric type
+```{r}
+general %>%
+  count(metric_type)
+
+general %>%
+  group_by(item_task) %>%
+  summarise(
+    mean = mean(metric_value, na.rm = TRUE),
+    sd = sd(metric_value, na.rm = TRUE),
+    min = min(metric_value, na.rm = TRUE),
+    max = max(metric_value, na.rm = TRUE),
+    n = n()
+  )
+
+```
+### site
+```{r}
+general %>%
+  count(site)
+
+general %>%
+  count(site, item_task) %>%
+  pivot_wider(names_from = site, values_from = n, values_fill = 0)
+```
+# ROAR
+```{r}
+roar <- (read_rds(here("02_scoring_outputs","scores",
+                          "roar_thetas.rds")))
+colnames(roar)
+
+```
+# user_id
+```{r}
+n_distinct(roar$user_id)
+
+# total n's per task (doesn't include roar tasks)
+roar %>%
+  count(item_task) %>%
+  arrange(desc(n)) # this only contains swr
+
+```
+### run_id
+```{r}
+n_distinct(roar$run_id)
+```
+### metric type
+```{r}
+roar %>%
+  count(metric_type)
+
+roar %>%
+  group_by(item_task) %>%
+  summarise(
+    mean = mean(metric_value, na.rm = TRUE),
+    sd = sd(metric_value, na.rm = TRUE),
+    min = min(metric_value, na.rm = TRUE),
+    max = max(metric_value, na.rm = TRUE),
+    n = n()
+  )
+
+```
+### site
+```{r}
+roar %>%
+  count(site)
+
+roar %>%
+  count(site, item_task) %>%
+  pivot_wider(names_from = site, values_from = n, values_fill = 0)
+```
+
+```
+
+```{r}
+
+```
+
+```{r}
+
+```
