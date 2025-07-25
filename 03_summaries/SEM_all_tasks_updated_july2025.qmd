@@ -19,9 +19,9 @@ source(here("03_summaries", "plotting_helper.R"))
 source(here("03_explore_tasks/explore_helper.R"))
 ```
 
-# Part 1: EFA - 9 core tasks
+# Part 1: EFA - 10 core tasks
 
-### load thetas for 9 core tasks (not ROAR or mefs)
+### load thetas for 10 core tasks (not ROAR or mefs)
 
 ```{r}
 multigroup <- read_rds(here("02_scoring_outputs","scores",
