@@ -15,7 +15,8 @@ library(tidyr)
 #                      list(name = "de_leipzig_pilot:6c0n",            version = "5.28"),
 #                      list(name = "ca_western_pilot:97mt",            version = "5.24"))
 
-dataset_spec <- list(list(name = "us_downward_extension_pilot:a6kb", version = "current"),
+dataset_spec <- list(list(name = "partner_sparklab_us:4n9e",         version = "current"),
+                     list(name = "us_downward_extension_pilot:a6kb", version = "current"),
                      list(name = "co_bogota_pilot:3j4z",             version = "current"),
                      list(name = "co_rural_pilot:66d2",              version = "current"),
                      list(name = "de_leipzig_pilot:6c0n",            version = "current"),
@@ -43,11 +44,26 @@ write_rds(survey_data_nested, here("01_fetched_data/survey_data_nested.rds"),
 ```
 
 ```{r}
-trials <- get_trials(dataset_spec,
-                     remove_incomplete_runs = FALSE,
-                     remove_invalid_runs = FALSE,
-                     remove_invalid_trials = FALSE)
+# trials <- get_trials(dataset_spec,
+#                      remove_incomplete_runs = FALSE,
+#                      remove_invalid_runs = FALSE,
+#                      remove_invalid_trials = FALSE)
 
+trials_prelim <- get_trials_prelim(dataset_spec,
+                                   remove_incomplete_runs = FALSE,
+                                   remove_invalid_runs = FALSE,
+                                   remove_invalid_trials = FALSE)
+
+trials <- trials_prelim |>
+  rlevante:::add_item_ids() |>
+  rlevante:::add_item_metadata() |>
+  rlevante:::add_trial_numbers() |>
+  arrange(.data$dataset, .data$task_id, .data$user_id, .data$run_id, .data$trial_number) |>
+  select("dataset", "task_id", "user_id", "run_id", "trial_id", "trial_number",
+         "item_uid", "item_task", "item_group", "item", "chance",
+         "correct", "rt", "rt_numeric", "response", "answer",
+         timestamp = "server_timestamp", "valid_trial", "validation_msg_trial")
+  
 trial_data <- trials |>
   separate_wider_delim(dataset, names = c("dataset", "ref", "version"),
                        delim = ":") |>
