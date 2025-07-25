@@ -52,7 +52,7 @@ trial_data_filtered <- trial_data_coded |> #trial_data_coded_nosds |>
 
 ```{r}
 task_data_nested <- trial_data_filtered |>
-  nest(data = -c(item_task, item_task, site))
+  nest(data = -c(item_task, site))
 
 write_rds(task_data_nested, here("01_fetched_data/task_data_nested.rds"),
           compress = "gz")

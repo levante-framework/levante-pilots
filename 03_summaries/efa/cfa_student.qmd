@@ -30,7 +30,11 @@ student_data %>%
 
 # currently we focus on co_pilot and de_pilot
 student_tidy <- student_data %>%
-  filter(site %in% c("co_pilot", "de_pilot")) %>%  
+  mutate(site = case_when(
+    site %in% c("co_bogota", "co_rural") ~ "co_bogota_rural",
+    TRUE ~ site
+  ))  %>%
+  filter(site != 'ca_western') %>%
   select(site, user_id, variable, value, form_construct) %>%
   filter(!is.na(form_construct),
          !is.na(value),
