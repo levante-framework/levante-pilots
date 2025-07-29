@@ -19,9 +19,9 @@ source(here("03_summaries", "plotting_helper.R"))
 source(here("03_explore_tasks/explore_helper.R"))
 ```
 
-# Part 1: EFA - 10 core tasks
+# Part 1: EFA - 9 core tasks
 
-### load thetas for 10 core tasks (not ROAR or mefs)
+### load thetas for 9 core tasks (not ROAR, mefs or ha)
 
 ```{r}
 multigroup <- read_rds(here("02_scoring_outputs","scores",
@@ -82,12 +82,11 @@ scores_wide_mat %>%
   mutate(n_tasks = rowSums(!is.na(select(., all_of(efa_tasks))))) %>%
   count(n_tasks) %>%
   arrange(desc(n_tasks))
-
-# very low number of complete cases (i.e., all 10 tasks)
-
 ```
 
-### EFA for complete cases - participants with all 10 tasks
+# Part 1: Complete case EFA
+
+### EFA for complete cases - participants with all 9 tasks
 
 ```{r}
 
@@ -106,7 +105,7 @@ nrow(efa_complete)
 
 ```{r}
 library(psych)
-psych::KMO(efa_complete) # ha below 0.5 - doesn't share enough variance with the other items
+psych::KMO(efa_complete) # ha below 0.5 - doesn't share enough variance with the other items - remove.
 cortest.bartlett(cor(efa_complete), n = nrow(efa_complete))
 
 # Scree + parallel analysis
@@ -128,7 +127,7 @@ efa_complete_z <- efa_complete %>%
 
 # Define EFA model as a string
 efa_model_1 <- 'efa("block1")*F1 + efa("block1")*F2 + efa("block1")*F3 =~ 
-  ha + hf + math + matrix + mg + mrot + sds + tom + trog + vocab'
+  hf + math + matrix + mg + mrot + sds + tom + trog + vocab'
 
 # Fit lavaan EFA model
 efa_fit_1 <- cfa(efa_model_1,
@@ -140,7 +139,7 @@ efa_fit_1 <- cfa(efa_model_1,
 summary(efa_fit_1, fit.measures = TRUE, standardized = TRUE)
 ```
 
-### estimating using fiml
+# Part 2: estimating using fiml
 
 ```{r}
 
@@ -176,30 +175,33 @@ run_efa_model <- function(n_factors, data, tasks) {
   })
 }
 
-
 ```
 
+### running models with 1-5 factors
+
 ```{r}
-# Set up task list (if not already done)
-efa_tasks <- c("hf", "math", "matrix", "mg", "mrot", "sds", "tom", "trog", "vocab")  # omit ha
+# Scree + parallel analysis
+fa.parallel(scores_wide_mat_z, fa = "fa", fm = "ml")
 
-# Run models
+# task list
+efa_tasks <- c("hf", "math", "matrix", "mg", "mrot", "sds", "tom", "trog", "vocab")  # ha removed
+
+# run models
 efa_results <- purrr::map(1:5, ~run_efa_model(.x, data = scores_wide_mat_z, tasks = efa_tasks))
-names(efa_results) <- paste0("efa_", 1:5)
+names(efa_results) <- paste0("efa_", 1:5) # only 1-3 running. 4 and 5 are failing (not enough data, over-parameterized)
 
-# Remove NULL entries
+# remove NULL entries
 efa_results_clean <- efa_results[!purrr::map_lgl(efa_results, is.null)]
 
-length(efa_results_clean)  # Should be < 5 if some failed
+length(efa_results_clean)  
 names(efa_results_clean)
 
-# only 1-3 running. 4 and 5 are failing (not enough data, over-parameterized)
 
 ```
 
-```{r}
-# Compare
+### compare
 
+```{r}
 # check each fit_measures length
 efa_fits_df <- efa_results_clean |>
   purrr::keep(~ !is.null(.x$fit_measures) && length(.x$fit_measures) == 6) |>
@@ -207,10 +209,12 @@ efa_fits_df <- efa_results_clean |>
     tibble::as_tibble_row(.x$fit_measures) |> dplyr::mutate(model = .y)
   })
 print(efa_fits_df)
-# 2 fa structure seems to be the best.
+
+# 2 fa structure seems to be the best fitting
+
 ```
 
-### print loadings
+### print loadings - 2 factor model
 
 ```{r}
 efa_2_loadings <- efa_results_clean[["efa_2"]]$loadings
@@ -219,9 +223,11 @@ efa_2_loadings %>%
   filter(abs(est) > 0.2) %>%
   arrange(lhs, desc(abs(est)))
 
-# graph
-library(ggplot2)
+```
 
+### graph - 2 factor model
+
+```{r}
 efa_2_loadings %>%
   filter(abs(est) > 0.2) %>%
   ggplot(aes(x = rhs, y = est, fill = lhs)) +
@@ -229,16 +235,14 @@ efa_2_loadings %>%
   labs(x = "Task", y = "Standardised Loading", fill = "Factor") +
   theme_minimal()
 
-
-
 ```
 
 ### CFA for 2 factor model
 
 ```{r}
 model_2f <- '
-factor1 =~ hf + mg + math + sds
-factor2 =~ tom + matrix + mrot + trog + vocab
+factor1 =~ hf + math + matrix + mg + mrot
+factor2 =~ sds + tom + trog + vocab
 
 # Add age regressions
 factor1 ~ age
@@ -247,162 +251,326 @@ factor2 ~ age
 
 fit_2f <- cfa(model_2f, data = scores_wide_mat_z,
               std.lv = TRUE, missing = "fiml",
-              bounds = list(lower = 0.001))  # optional: avoid Heywood cases
+              bounds = list(lower = 0.001)) # included to avoid heywood cases
 
 summary(fit_2f, fit.measures = TRUE, standardize = TRUE)
-
 ```
 
 ### path diagram
 
 ```{r}
-layout <- matrix(nrow = 3, ncol = 9, byrow = TRUE, data = c(
-  "hf", "mg", "math", "sds", NA, "tom", "matrix", "mrot", NA,
-  NA,   NA,   NA,    NA,    NA,  "trog", "vocab",   NA,    NA,
-  "factor1", NA, NA, NA,    NA,  "factor2", NA,      NA,    NA
+# check vars
+lavNames(fit_2f, type = "ov")   # observed variables 
+lavNames(fit_2f, type = "lv")   # latent variables 
+lavNames(fit_2f, type = "all")  # all variables
+
+layout <- matrix(nrow = 5, ncol = 10, byrow = TRUE, data = c(
+  "hf",    "mg",    "math",   "sds", NA,  "tom",  "matrix", "mrot",  "trog", "vocab",
+  NA,      NA,      NA,       NA,    NA,  NA,     NA,       NA,      NA,     NA,
+  "factor1", NA,    NA,       NA,    NA,  "factor2", NA,    NA,      NA,     NA,
+  NA,      NA,      NA,       NA,    NA,  NA,     NA,       NA,      NA,     NA,
+  NA,      NA,      NA,       NA,  "age", NA,     NA,       NA,      NA,     NA
 ))
 
-graph_sem(fit_2f, layout = t(layout), text_size = 2.5)
+graph_sem(fit_2f, layout = layout, text_size = 2.5)
+
+# dubug
+library(tidySEM)
+get_nodes(fit_2f)
+
+```
+
+### try alternative diagram
+
+```{r}
+library(tidySEM)
+graph <- tidySEM::prepare_graph(fit_2f)
+str(graph)
+
+graph$layout <- graph$layout |>
+  mutate(
+    x = case_when(
+      label %in% c("hf", "mg", "math", "sds") ~ 1,
+      label == "factor1" ~ 2,
+      label %in% c("tom", "matrix", "mrot") ~ 3,
+      label == "trog" ~ 4,
+      label == "vocab" ~ 5,
+      label == "factor2" ~ 6,
+      TRUE ~ 0
+    ),
+    y = case_when(
+      label == "hf" ~ 4,
+      label == "mg" ~ 3,
+      label == "math" ~ 2,
+      label == "sds" ~ 1,
+      label == "factor1" ~ 2.5,
+      label == "tom" ~ 4,
+      label == "matrix" ~ 3,
+      label == "mrot" ~ 2,
+      label == "trog" ~ 1,
+      label == "vocab" ~ 0,
+      label == "factor2" ~ 2,
+      TRUE ~ NA_real_
+    )
+  )
+plot(graph)
 
 
 ```
 
+### 3 factor model
 
+### print loadings
+```{r}
+efa_3_loadings <- efa_results_clean[["efa_3"]]$loadings
+
+efa_3_loadings %>%
+  filter(abs(est) > 0.2) %>%
+  arrange(lhs, desc(abs(est)))
+
+# nothing loading on factor 2 - structure unstable
+```
+
+```{r}
+efa_3_loadings %>%
+  filter(abs(est) > 0.2) %>%
+  ggplot(aes(x = rhs, y = est, fill = lhs)) +
+  geom_col(position = "dodge") +
+  labs(x = "Task", y = "Standardised Loading", fill = "Factor") +
+  theme_minimal()
+
+```
+
+```{r}
+
+model_3f <- '
+factor1 =~ mg + math + sds + tom + matrix + mrot + trog + vocab
+factor2 =~ hf
+
+# Add age regressions
+factor1 ~ age
+factor2 ~ age
+'
+
+fit_3f <- cfa(model_3f, data = scores_wide_mat_z,
+              std.lv = TRUE, missing = "fiml",
+              bounds = list(lower = 0.001)) # included to avoid heywood cases
+
+summary(fit_3f, fit.measures = TRUE, standardize = TRUE)
+```
 
 ### path diagram
 
 ```{r}
-model_5 <- '
-ef_math =~ hf + mg + math
-social_reason =~ ha + tom + matrix + mrot
-language =~ sds + trog + vocab
-
-# add age
-ef_math ~ age
-social_reason ~ age
-language ~ age'
-
-fit_5 <- cfa(model_5, data = scores_wide_mat_z,
-           std.lv = TRUE, missing = "fiml",
-           bounds = list(lower = 0.001))
-# heywood cases still persisting even when residuals are constrained - suggests over-fitting.
-
-summary(fit_5, fit.measures=TRUE, standardize=TRUE)
-
-layout <- matrix(nrow = 3, ncol = 9, byrow = TRUE, data = c(
-  "hf", "mg", "math", NA, "ha", "tom", "matrix", "mrot", NA,
-  NA,   NA,   NA,     NA, NA,   NA,     "sds",   "trog", "vocab",
-  "ef_math", NA, NA, NA, "social_reason", NA, "language", NA, NA
+layout <- matrix(nrow = 5, ncol = 10, byrow = TRUE, data = c(
+  "hf",    "mg",    "math",   "sds", NA,  "tom",  "matrix", "mrot",  "trog", "vocab",
+  NA,      NA,      NA,       NA,    NA,  NA,     NA,       NA,      NA,     NA,
+  "factor1", NA,    NA,       NA,    NA,  "factor2", NA,    NA,      NA,     NA,
+  NA,      NA,      NA,       NA,    NA,  NA,     NA,       NA,      NA,     NA,
+  NA,      NA,      NA,       NA,  "age", NA,     NA,       NA,      NA,     NA
 ))
 
-graph_sem(fit_5, layout = t(layout), text_size = 2.5)
+graph_sem(fit_3f, layout = layout, text_size = 2.5)
+
+# 3 factor model is unstable; revert to 2 factor model.
 
 ```
 
-### by site
+## By site - 2 factor model
 
 ### Columbia
 
 ```{r}
-# check n
-scores_wide_mat_z %>%
-  filter(site == "co_pilot") %>%
-  summarise(n_total = n_distinct(user_id))  #1,069 
+# filter data - co_pilot
+scores_co <- scores_wide_mat_z %>%
+  filter(site == "co_pilot")
 
-model_6_co <- '
-ef_math =~ hf + mg + math
-social_reason =~ ha + tom + matrix + mrot
-language =~ sds + trog + vocab
+# define model 
+model_2f_co <- '
+factor1 =~ hf + mg + math + sds
+factor2 =~ tom + matrix + mrot + trog + vocab
 
-# add age
-ef_math ~ age
-social_reason ~ age
-language ~ age'
+factor1 ~ age
+factor2 ~ age
+'
 
-fit_6_co <- cfa(model_6_co, 
-                filter(scores_wide_mat_z, site == "co_pilot"),
-                std.lv = TRUE, missing = "fiml",
-                bounds = list(lower = 0.001))
+# fit model
+fit_2f_co <- cfa(model_2f_co,
+                 data = scores_co,
+                 std.lv = TRUE,
+                 missing = "fiml",  
+                 bounds = list(lower = 0.001))  # avoid heywood cases
 
-summary(fit_6_co, fit.measures=TRUE, standardize=TRUE)
+summary(fit_2f_co, fit.measures = TRUE, standardized = TRUE)
 
-layout <- matrix(nrow = 3, ncol = 9, byrow = TRUE, data = c(
-  "hf", "mg", "math", NA, "ha", "tom", "matrix", "mrot", NA,
-  NA,   NA,   NA,     NA, NA,   NA,     "sds",   "trog", "vocab",
-  "ef_math", NA, NA, NA, "social_reason", NA, "language", NA, NA
+layout <- matrix(nrow = 5, ncol = 10, byrow = TRUE, data = c(
+  "hf",    "mg",    "math",   "sds", NA,  "tom",  "matrix", "mrot",  "trog", "vocab",
+  NA,      NA,      NA,       NA,    NA,  NA,     NA,       NA,      NA,     NA,
+  "factor1", NA,    NA,       NA,    NA,  "factor2", NA,    NA,      NA,     NA,
+  NA,      NA,      NA,       NA,    NA,  NA,     NA,       NA,      NA,     NA,
+  NA,      NA,      NA,       NA,  "age", NA,     NA,       NA,      NA,     NA
 ))
 
-graph_sem(fit_6_co, layout = t(layout), text_size = 2.5)
+graph_sem(fit_2f_co, layout = layout, text_size = 2.5)
+
+# Note: “370 cases were deleted due to missing values in exogenous variable(s), while fixed.x = TRUE.” - check why age is missing.
 
 ```
+
 ### Germany
 
 ```{r}
-# check n
-scores_wide_mat_z %>%
-  filter(site == "de_pilot") %>%
-  summarise(n_total = n_distinct(user_id))  #320
+scores_de <- scores_wide_mat_z %>%
+  filter(site == "de_pilot")
 
-model_7_de <- '
-ef_math =~ hf + mg + math
-social_reason =~ ha + tom + matrix + mrot
-language =~ sds + trog + vocab
+# define model 
+model_2f_de <- '
+factor1 =~ hf + mg + math + sds
+factor2 =~ tom + matrix + mrot + trog + vocab
 
-# add age
-ef_math ~ age
-social_reason ~ age
-language ~ age'
+factor1 ~ age
+factor2 ~ age
+'
 
-fit_7_de <- cfa(model_7_de, 
-                filter(scores_wide_mat_z, site == "de_pilot"),
-                std.lv = TRUE, missing = "fiml",
-                bounds = list(lower = 0.001))
+# fit model
+fit_2f_de <- cfa(model_2f_de,
+                 data = scores_de,
+                 std.lv = TRUE,
+                 missing = "fiml", 
+                 bounds = list(lower = 0.001))  
 
-summary(fit_7_de, fit.measures=TRUE, standardize=TRUE)
+summary(fit_2f_de, fit.measures = TRUE, standardized = TRUE)
 
-layout <- matrix(nrow = 3, ncol = 9, byrow = TRUE, data = c(
-  "hf", "mg", "math", NA, "ha", "tom", "matrix", "mrot", NA,
-  NA,   NA,   NA,     NA, NA,   NA,     "sds",   "trog", "vocab",
-  "ef_math", NA, NA, NA, "social_reason", NA, "language", NA, NA
+layout <- matrix(nrow = 5, ncol = 10, byrow = TRUE, data = c(
+  "hf",    "mg",    "math",   "sds", NA,  "tom",  "matrix", "mrot",  "trog", "vocab",
+  NA,      NA,      NA,       NA,    NA,  NA,     NA,       NA,      NA,     NA,
+  "factor1", NA,    NA,       NA,    NA,  "factor2", NA,    NA,      NA,     NA,
+  NA,      NA,      NA,       NA,    NA,  NA,     NA,       NA,      NA,     NA,
+  NA,      NA,      NA,       NA,  "age", NA,     NA,       NA,      NA,     NA
 ))
 
-graph_sem(fit_7_de, layout = t(layout), text_size = 2.5)
+graph_sem(fit_2f_de, layout = layout, text_size = 2.5)
+
 
 ```
+
 ### Canada
 
 ```{r}
-# check n
-scores_wide_mat_z %>%
-  filter(site == "ca_pilot") %>%
-  summarise(n_total = n_distinct(user_id))  #84
+scores_ca <- scores_wide_mat_z %>%
+  filter(site == "ca_pilot")
 
-model_8_ca <- '
-ef_math =~ hf + mg + math
-social_reason =~ ha + tom + matrix + mrot
-language =~ sds + trog + vocab
+# define model 
+model_2f_ca <- '
+factor1 =~ hf + mg + math + sds
+factor2 =~ tom + matrix + mrot + trog + vocab
 
-# add age
-ef_math ~ age
-social_reason ~ age
-language ~ age'
+factor1 ~ age
+factor2 ~ age
+'
 
-fit_8_ca <- cfa(model_8_ca, 
-                filter(scores_wide_mat_z, site == "ca_pilot"),
-                std.lv = TRUE, missing = "fiml",
-                bounds = list(lower = 0.001))
+# fit model
+fit_2f_ca <- cfa(model_2f_ca,
+                 data = scores_ca,
+                 std.lv = TRUE,
+                 missing = "fiml", 
+                 bounds = list(lower = 0.001))  
 
-summary(fit_8_ca, fit.measures=TRUE, standardize=TRUE)
+summary(fit_2f_ca, fit.measures = TRUE, standardized = TRUE)
 
-layout <- matrix(nrow = 3, ncol = 9, byrow = TRUE, data = c(
-  "hf", "mg", "math", NA, "ha", "tom", "matrix", "mrot", NA,
-  NA,   NA,   NA,     NA, NA,   NA,     "sds",   "trog", "vocab",
-  "ef_math", NA, NA, NA, "social_reason", NA, "language", NA, NA
+layout <- matrix(nrow = 5, ncol = 10, byrow = TRUE, data = c(
+  "hf",    "mg",    "math",   "sds", NA,  "tom",  "matrix", "mrot",  "trog", "vocab",
+  NA,      NA,      NA,       NA,    NA,  NA,     NA,       NA,      NA,     NA,
+  "factor1", NA,    NA,       NA,    NA,  "factor2", NA,    NA,      NA,     NA,
+  NA,      NA,      NA,       NA,    NA,  NA,     NA,       NA,      NA,     NA,
+  NA,      NA,      NA,       NA,  "age", NA,     NA,       NA,      NA,     NA
 ))
 
-graph_sem(fit_8_ca, layout = t(layout), text_size = 2.5)
+graph_sem(fit_2f_ca, layout = layout, text_size = 2.5)
 
 ```
+
+# Step 3: IMV to Compare 1-, 2-, and 3-Factor Models
+
+### define models - 1 factor
+
+```{r}
+# Install Lijin's package
+install.packages("devtools")
+devtools::install_github("zhanglj37/imv4sem")
+library(imv4sem)
+```
+
+
+```{r}
+model_1f <- '
+cog =~ hf + math + matrix + mg + mrot + sds + tom + trog + vocab
+'
+```
+
+### 2 factors
+
+```{r}
+model_2f <- '
+EF =~ hf + mg + math + sds
+Social_cog =~ tom + matrix + mrot + trog + vocab
+'
+```
+
+### 3 factors
+
+```{r}
+model_3f <- '
+EF =~ hf + sds + mg
+Spatial =~ math + matrix + mrot
+Language =~ tom + trog + vocab
+'
+```
+
+```{r}
+```
+
+```{r}
+```
+
+```{r}
+```
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+# OLD
 
 # Invariance testing
 
@@ -668,3 +836,31 @@ loadings_wide <- loadings_comparison_filtered %>%
 
 print(loadings_wide)
 ```
+
+### path diagram
+
+```{r}
+model_5 <- '
+ef_math =~ hf + mg + math
+social_reason =~ ha + tom + matrix + mrot
+language =~ sds + trog + vocab
+
+# add age
+ef_math ~ age
+social_reason ~ age
+language ~ age'
+
+fit_5 <- cfa(model_5, data = scores_wide_mat_z,
+           std.lv = TRUE, missing = "fiml",
+           bounds = list(lower = 0.001))
+# heywood cases still persisting even when residuals are constrained - suggests over-fitting.
+
+summary(fit_5, fit.measures=TRUE, standardize=TRUE)
+
+layout <- matrix(nrow = 3, ncol = 9, byrow = TRUE, data = c(
+  "hf", "mg", "math", NA, "ha", "tom", "matrix", "mrot", NA,
+  NA,   NA,   NA,     NA, NA,   NA,     "sds",   "trog", "vocab",
+  "ef_math", NA, NA, NA, "social_reason", NA, "language", NA, NA
+))
+
+graph_sem(fit_5, layout = t(layout), text_size = 2.5)
