@@ -145,8 +145,6 @@ generate_model_str_numeric <- function(df, df_prepped, item_type, f) { # f = num
 # wrapper to fit mirt model with supplied arguments
 fit_mirt <- function(i, df, item_type, model_str, model_type, item_task, guess, verbose = FALSE) {
   message(glue("fitting row {i}: {item_task} model {item_type} with {model_type} dims"))
-  # TODO: temporarily disabled guessing params due to upstream data problem
-  
   if (nrow(df) > 0) {
     mirt(df, itemtype = item_type, model = model_str, guess = guess,
          technical = list(NCYCLES = 5000), verbose = verbose)
