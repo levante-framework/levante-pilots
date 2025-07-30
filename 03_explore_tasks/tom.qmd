@@ -8,6 +8,7 @@ format:
   html: 
     code-fold: true
 ---
+
 Required packages
 
 ```{r}
@@ -196,9 +197,9 @@ ggplot(tom_coefs, aes(x = item_group, y = -d, col = item_group)) +
   theme(axis.text.x = element_text(angle = 45, hjust = 1))
 ```
 
-Find out which items are the bad ones. 
+Find out which items are the bad ones.
 
-```{r}
+```{r fig.width = 8, fig.height = 3}
 item_raw_avgs <- tom |>
   filter(site != "us_pilot") |>
   group_by(item_uid, item_group, site) |>
@@ -209,7 +210,7 @@ item_raw_avgs <- tom |>
   ) |>
   arrange(avg_correct)
 
-tom_items <- left_join(tom_coefs, item_raw_avgs, by = c("item" = "item_uid", "site"))
+tom_items <- left_join(tom_coefs, item_raw_avgs, by = c("item" = "item_uid", "site", "item_group"))
 
 tom_items |>
   filter(d < 10) |>
@@ -238,12 +239,7 @@ ggplot(tom_items, aes(x = d, y = avg_correct)) +
   theme_minimal() 
 ```
 
-
-
-
-
 # Hostile Attribution
-
 
 ```{r}
 ha <- load_task_data("ha")
@@ -278,7 +274,6 @@ ggsave(
 )
 ```
 
-
 ```{r}
 multigroup_scores_ha <- multigroup_scores |>
   filter(item_task == "ha", site != "us_pilot") |>
@@ -306,4 +301,3 @@ ggsave(
   dpi = 300
 )
 ```
-
