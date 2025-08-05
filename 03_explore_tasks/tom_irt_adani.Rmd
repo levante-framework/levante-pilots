@@ -89,12 +89,12 @@ Hmisc::describe(tom_data_long$dataset)
 
 ```
 
-There are 6 **item groups** (deception, interpretation, moral reasoning, reality/false
-belief, reference, and second order), spanning **19 items** total.
+There are **38 items** total, clustered into 6 **item groups** (deception, interpretation,
+moral reasoning, reality/false belief, reference, and second order).
 
 There are also **three test sites**: CA, CO, and DE
 
-For each, there are **four different IRT models** to run:
+For each, we have **four different IRT models** we want to run:
 
 1.  1PL/Rasch model
 2.  1PL/Rasch model but with configural scoring
@@ -105,21 +105,114 @@ For each, there are **four different IRT models** to run:
 
 # IRT Models
 
+Now we want to compute **item difficulties and item discrimination at the item level**. We
+have 38 items, all of which were administered at each of the 3 sites, so we should end up
+with **116 entries**.
+
 ```{r}
 
+# create wide df
 tom_irt_data =
   tom_data_long %>%
-  select(user_id, group, item, item_uid,
-         item_group, response, answer, correct) %>%
-  pivot_wider(names_from = item_uid,
-              values_from = correct) %>%
-  column_to_rownames("user_id")
+  select(user_id, group, run_id, group, item, item_uid,
+         item_group, timestamp, trial_id, response, answer, correct) %>%
+  # if there are multiple responses for the same item, keep only the *last* response for each child
+  arrange(user_id, item_uid) %>%
+  group_by(user_id, item_uid) %>%
+  slice_tail(n = 1) %>%
+  ungroup() %>%
+  # pivot to wide format
+  pivot_wider(id_cols = user_id,
+              names_from = item_uid,
+              values_from = correct)
 
-# Fit Rasch (1PL) model
+# create response matrix for IRT models
+# keep only "correct" col
+response_matrix =
+  tom_irt_data %>%
+  select(where(is.numeric)) %>%
+  as.data.frame()
+
+# create group vector for multigroup model
+group_vec =
+  tom_data_long %>%
+  select(user_id, group) %>%
+  distinct(user_id, group) %>%
+  filter(user_id %in% tom_data_long$user_id) %>%
+  arrange(match(user_id, tom_data_long$user_id)) %>%
+  pull(group)
+
+```
+
+```{r}
+
+# create function to fit models
+fit_irt_model =
+  function(tom_irt_data, model_type = "Rasch", group_vec = NULL) {
+    # fit model
+    if (!is.null(group_vec)) {
+      model =
+        # configural model
+        multipleGroup(data = response_matrix,
+                      # unidimensional
+                      model = 1,
+                      group = group_vec,
+                      itemtype = model_type,
+                      # no invariance
+                      invariance = "",
+                      verbose = T,
+                      technical = list(NCYCLES = 5000))
+      
+      } else
+        {
+          model =
+            # nonconfigural model
+            mirt(data = response_matrix,
+                 # unidimensional
+                 model = 1,
+                 itemtype = model_type,
+                 technical = list(NCYCLES = 5000),
+                 verbose = T)
+          }
+    return(model)
+    }
+
+```
+
+```{r}
+
+# fit 1PL Rasch model, nonconfigural
 mod_rasch =
-  mirt(tom_irt_data,
-       1,
-       itemtype = "Rasch")
+  fit_irt_model(tom_irt_data,
+                model_type = "Rasch")
 
+```
+
+```{r}
+
+# fit 2PL model, nonconfigural
+mod_2pl =
+  fit_irt_model(tom_irt_data,
+                model_type = "2PL")
+
+```
+
+```{r}
+
+# fit 1 PL Rasch model, *configural*
+mod_rasch_configural =
+  fit_irt_model(tom_irt_data,
+                model_type = "Rasch",
+                group_vec = group_vec)
+
+```
+
+```{r}
+
+# fit 2 PL Rasch model, *configural*
+mod_2pl_configural =
+  fit_irt_model(tom_irt_data,
+                model_type = "2PL",
+                group_vec = group_vec)
 
 ```
