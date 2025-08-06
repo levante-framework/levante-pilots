@@ -140,9 +140,8 @@ summary(efa_fit_1, fit.measures = TRUE, standardized = TRUE)
 
 # Part 2: estimating using fiml 
 
-# # Note: `psych::fa` provides exploratory loadings via factor analysis (e.g., for initial structure discovery),
-# while `lavaan::cfa` here is used in an exploratory SEM (ESEM) framework to estimate the same structure 
-# confirmatorily using maximum likelihood with FIML and rotation. This allows direct comparison with later CFA models.
+# Note: `psych::fa` provides exploratory loadings via factor analysis (e.g., for initial structure discovery), while `lavaan::cfa` here # is used in an exploratory SEM (ESEM) framework to estimate the same structure confirmatorily, using maximum likelihood with FIML and 
+# rotation. This allows direct comparison with later CFA models.
 
 ### 5fa
 
@@ -356,17 +355,32 @@ factor1 =~ hf + mg + math
 factor2 =~ tom + matrix + mrot 
 factor3 =~ trog + vocab + sds
 
-# Add age regressions
+# add age regressions
 factor1 ~ age
 factor2 ~ age
 factor3 ~ age
 '
+
 fit_3f <- cfa(model_3f, data = scores_wide_mat_z,
               std.lv = TRUE, missing = "fiml",
+              fixed.x = FALSE,  # so that it doesn't drop those who are missing age
               bounds = list(lower = 0.001)) # included to avoid heywood cases
 
 summary(fit_3f, fit.measures = TRUE, standardize = TRUE)
 ```
+
+### de-bugging why 370 cases are deleted because of missing age
+
+```{r}
+sum(is.na(scores_wide_mat_z$age))
+
+scores_wide_mat_z %>%
+  select(hf, mg, math, tom, matrix, mrot, trog, vocab, sds, age) %>%
+  summarise_all(~ sum(is.na(.)))
+
+
+```
+
 
 ### path diagram
 
@@ -397,6 +411,7 @@ factor2 ~ age
 
 fit_2f <- cfa(model_2f, data = scores_wide_mat_z,
               std.lv = TRUE, missing = "fiml",
+               fixed.x = FALSE,
               bounds = list(lower = 0.001)) # included to avoid heywood cases
 
 summary(fit_2f, fit.measures = TRUE, standardize = TRUE)
@@ -420,7 +435,6 @@ graph_sem(fit_2f, layout = layout, text_size = 2.5)
 ### CFA for 1 fa
 
 ```{r}
-
 model_1f <- '
 factor1 =~ mg + math + sds + tom + matrix + mrot + trog + vocab + hf
 
@@ -430,6 +444,7 @@ factor1 ~ age
 
 fit_1f <- cfa(model_1f, data = scores_wide_mat_z,
               std.lv = TRUE, missing = "fiml",
+               fixed.x = FALSE,
               bounds = list(lower = 0.001)) # included to avoid heywood cases
 
 summary(fit_1f, fit.measures = TRUE, standardize = TRUE)
@@ -446,12 +461,12 @@ layout <- matrix(nrow = 5, ncol = 10, byrow = TRUE, data = c(
   NA,      NA,      NA,       NA,    "age",  NA,       NA,      NA,     NA,     NA
 ))
 
-
 graph_sem(fit_1f, layout = layout, text_size = 2.5)
 
 # 3 factor model is unstable; revert to 2 factor model.
 
 ```
+
 ### model comparison - CFA models
 
 ```{r}
@@ -482,7 +497,7 @@ model_comparison_cfa
 # 3 fa best performing
 ```
 
-## Measurement invariance
+## Measurement invariance (not working at the mo)
 
 ```{r}
 # 3 fa model with age removed
@@ -491,37 +506,44 @@ factor1 =~ hf + mg + math
 factor2 =~ tom + matrix + mrot 
 factor3 =~ trog + vocab + sds
 '
-library(semTools)
-mi_3f <- measurementInvariance(
-  model = model_3f_mi,
+
+fit_configural <- cfa(
+  model_3f_mi,
   data = scores_wide_mat_z,
   group = "site",
-  estimator = "MLR"
+  missing = "fiml",
+  std.lv = TRUE
 )
 
-# partial (stop at metric)
-mi_3f_partial <- measurementInvariance(
-  model = model_3f_mi,
-  data = scores_wide_mat_z,
-  group = "site",
-  estimator = "MLR",
-  strict = FALSE
-)
+lavInspect(fit_configural, "coverage") #shows proportion of pairwise non-missing cases for each variable pair within each site
+# note: columbia is a problem: Near-zero coverage for mrot, sds, and tom.
 
-# look at fit
-summary(mi_3f_partial$fit.configural, fit.measures = TRUE)
-summary(mi_3f_partial$fit.metric, fit.measures = TRUE)
+# not working - too much missingness across 9 tasks
 
-anova(mi_3f_partial$fit.configural, mi_3f_partial$fit.metric)
+# check group sizes
+scores_wide_mat_z %>%
+  group_by(site) %>%
+  summarise(
+    n_total = n(),
+    n_complete = sum(complete.cases(across(c(hf, mg, math, tom, matrix, mrot, trog, vocab, sds))))
+  )
 
-# compare
-fit_config <- mi_3f_partial$fit.configural
-fit_metric <- mi_3f_partial$fit.metric
+# Germany only because it has most data across 9 tasks
+scores_de <- scores_wide_mat_z %>%
+  filter(site == "de_pilot")
 
-fitMeasures(fit_config, c("cfi", "rmsea", "aic", "bic"))
-fitMeasures(fit_metric, c("cfi", "rmsea", "aic", "bic"))
+fit_3f_mi_de <- cfa(model_3f_mi, data = scores_de, std.lv = TRUE, missing = "fiml")
+summary(fit_3f_mi_de, fit.measures = TRUE, standardized = TRUE)
 
-anova(fit_config, fit_metric)
+# Examining Columbia more closely
+scores_wide_mat_z %>%
+  filter(site == "co_pilot") %>%
+  summarise(across(c(hf, mg, math, tom, matrix, mrot, trog, vocab, sds),
+                   ~ sum(!is.na(.))))
+lavInspect(fit_configural, "coverage")$co_pilot
+coverage <- lavInspect(fit_configural, "coverage")$co_pilot
+sum(coverage < 0.10)
+
 
 
 ```
@@ -646,64 +668,16 @@ graph_sem(fit_3f_ca, layout = layout, text_size = 2.5)
 
 ```
 
-# IMV to Compare 1-, 2-, and 3-Factor Models
-
-### define models - 1 factor
-
 ```{r}
-# Install Lijin's package
-install.packages("devtools")
-devtools::install_github("zhanglj37/imv4sem")
-library(imv4sem)
 ```
 
-
 ```{r}
-# reminder of model names - model_1f, model_2f, model_3f
-### check structures - has to be numeric.
-
-scores_wide_mat_z %>%
-  select(all_of(efa_tasks)) %>%
-  summarise_all(class)
-
-scores_wide_mat_z <- scores_wide_mat_z %>%
-  mutate(across(all_of(efa_tasks), ~as.numeric(as.character(.))))
 ```
 
-### compare baseline model
-
 ```{r}
-# Model 2 vs baseline
-imv2 <- imvsem(model1 = model_2f,
-               data = scores_wide_mat_z,
-               vary = efa_tasks,
-               nfold = 5)
-plot4imv(imv2)
-
 ```
 
-### compare 2 fa v 1 fa
-
 ```{r}
-imv_2vs1 <- imvsem(model1 = model_2f,
-                   model2 = model_1f,
-                   data = scores_wide_mat_z,
-                   vary = efa_tasks,
-                   nfold = 5)
-plot4imv(imv_2vs1)
-
-```
-
-### compare 3 fa v 2 fa
-
-```{r}
-imv_3vs2 <- imvsem(model1 = model_3f,
-                   model2 = model_2f,
-                   data = scores_wide_mat_z,
-                   vary = efa_tasks,
-                   nfold = 5)
-plot4imv(imv_3vs2)
-
 ```
 
 # END. 
