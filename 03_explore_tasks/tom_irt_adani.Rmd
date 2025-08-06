@@ -33,6 +33,7 @@ library(here)
 library(glue)
 library(png)           # for working with images
 library(grid)
+library(DT)
 library(mirt)          # for IRT models
 library(patchwork)     # for multiple plots
 library(tidyverse)     # for everything else
@@ -79,7 +80,7 @@ tom_data_long =
 ```{r}
 
 # number of items
-Hmisc::describe(tom_data_long$item)
+Hmisc::describe(tom_data_long$item_uid)
 
 # number of item groups
 Hmisc::describe(tom_data_long$item_group)
@@ -89,12 +90,49 @@ Hmisc::describe(tom_data_long$dataset)
 
 ```
 
+Simple item and subject statistics
+
+```{r}
+
+# % correct per item per site
+tom_data_long %>%
+  rename("site" = group) %>%
+  filter(site != "us_pilot") |>
+  group_by(site, item_uid) %>%
+  summarise(n = n(),
+            n_correct = sum(correct == 1),
+            pct_correct = round(mean(correct == 1), 3)) %>%
+  arrange(site, pct_correct) %>%
+  datatable()
+
+# subject-level descriptives
+tom %>%
+  filter(site != "us_pilot") %>%
+  group_by(site, user_id, run_id) %>%
+  summarise(
+    correct = mean(correct, na.rm = T),  
+    age = mean(age, na.rm = T),          
+    n_items = n_distinct(item_uid))
+
+```
+
 There are **38 items** total, clustered into 6 **item groups** (deception, interpretation,
 moral reasoning, reality/false belief, reference, and second order).
 
-There are also **three test sites**: CA, CO, and DE
+There are also **three test sites**: CA, CO, and DE, but not all test sites have data for
+all 38 items. That's how we end up with 102 table entries (rather than 3\*38 = 114).
 
-For each, we have **four different IRT models** we want to run:
+```{r}
+
+tom_data_long %>%
+  filter(!is.na(correct)) %>%
+  rename("site" = group) %>%
+  distinct(site, item_uid) %>%
+  count(site, name = "n_items_with_data")
+
+```
+
+Now, for each of these items, we have **four different IRT models** we want to run:
 
 1.  1PL/Rasch model
 2.  1PL/Rasch model but with configural scoring
@@ -105,71 +143,80 @@ For each, we have **four different IRT models** we want to run:
 
 # IRT Models
 
-Now we want to compute **item difficulties and item discrimination at the item level**. We
-have 38 items, all of which were administered at each of the 3 sites, so we should end up
-with **116 entries**.
+Now we want to compute **item difficulties and item discrimination at the item level** for
+each of these.
+
+First, let's prep the data:
 
 ```{r}
 
 # create wide df
+run_group_df =
+  tom_data_long %>%
+  distinct(run_id, group)
+
 tom_irt_data =
   tom_data_long %>%
   select(user_id, group, run_id, group, item, item_uid,
          item_group, timestamp, trial_id, response, answer, correct) %>%
   # if there are multiple responses for the same item, keep only the *last* response for each child
-  arrange(user_id, item_uid) %>%
-  group_by(user_id, item_uid) %>%
+  arrange(run_id, item_uid) %>%
+  group_by(run_id, item_uid) %>%
   slice_tail(n = 1) %>%
   ungroup() %>%
   # pivot to wide format
-  pivot_wider(id_cols = user_id,
+  pivot_wider(id_cols = run_id,
               names_from = item_uid,
-              values_from = correct)
+              values_from = correct) %>%
+  left_join(run_group_df, by = "run_id")
 
-# create response matrix for IRT models
-# keep only "correct" col
+# exclude our one item on which % correct was 100% to avoid model fitting issues
+problem_items = c("tom_second_order_reality_check_2")
+
+tom_irt_data =
+  tom_irt_data %>%
+  select(-(problem_items))
+
+# create response matrix for IRT models: keep only cols with correct/incorrect vals (1 and 0)
 response_matrix =
   tom_irt_data %>%
-  select(where(is.numeric)) %>%
+  column_to_rownames("run_id") %>%
+  select(-c(group)) %>%
   as.data.frame()
 
 # create group vector for multigroup model
 group_vec =
-  tom_data_long %>%
-  select(user_id, group) %>%
-  distinct(user_id, group) %>%
-  filter(user_id %in% tom_data_long$user_id) %>%
-  arrange(match(user_id, tom_data_long$user_id)) %>%
+  tom_irt_data %>%
+  distinct(run_id, group) %>%
+  filter(run_id %in% rownames(response_matrix)) %>%
+  arrange(match(run_id, rownames(response_matrix))) %>%
   pull(group)
 
 ```
 
+Then, let's prep our functions for running our IRT models.
+
 ```{r}
 
-# create function to fit models
 fit_irt_model =
   function(tom_irt_data, model_type = "Rasch", group_vec = NULL) {
-    # fit model
     if (!is.null(group_vec)) {
       model =
-        # configural model
+        # configural multigroup model
         multipleGroup(data = response_matrix,
-                      # unidimensional
-                      model = 1,
+                      model = 1, # unidimensional
                       group = group_vec,
                       itemtype = model_type,
-                      # no invariance
-                      invariance = "",
+                      invariance = "", # configural = no constraints
                       verbose = T,
                       technical = list(NCYCLES = 5000))
       
       } else
         {
+          # nonconfigural model
           model =
-            # nonconfigural model
             mirt(data = response_matrix,
-                 # unidimensional
-                 model = 1,
+                 model = 1, # unidimensional
                  itemtype = model_type,
                  technical = list(NCYCLES = 5000),
                  verbose = T)
@@ -179,12 +226,17 @@ fit_irt_model =
 
 ```
 
+Now, using the function we defined above, let's run our four models for all of the items:
+
 ```{r}
 
 # fit 1PL Rasch model, nonconfigural
 mod_rasch =
   fit_irt_model(tom_irt_data,
                 model_type = "Rasch")
+
+mod_coefs_1pl =
+  coef(mod_rasch, simplify = T)
 
 ```
 
@@ -194,6 +246,9 @@ mod_rasch =
 mod_2pl =
   fit_irt_model(tom_irt_data,
                 model_type = "2PL")
+
+mod_coefs_2pl =
+  coef(mod_2pl, simplify = T)
 
 ```
 
@@ -214,5 +269,139 @@ mod_2pl_configural =
   fit_irt_model(tom_irt_data,
                 model_type = "2PL",
                 group_vec = group_vec)
+
+```
+
+```{r}
+
+# create function to extract parameters for plotting
+item_params =
+  function(model,
+           model_name = "unknown_model") {
+    # Get raw coefficients
+    coefs_raw = coef(model, simplify = T)
+    
+    # Check if it's a multigroup model
+    if ("GroupPars" %in% names(coefs_raw)) {
+      # Multigroup model
+      group_names =
+        setdiff(names(coefs_raw), c("GroupPars", "means", "cov"))
+    
+      map_dfr(group_names, function(g) {
+        coefs = coefs_raw[[g]]
+        tibble(item_uid = rownames(coefs),
+               a = coefs[, "a1"],
+               d = coefs[, "d"],
+               b = -coefs[, "d"] / coefs[, "a1"], 
+               site = g,
+               model = model_name)
+        })
+      } else
+        {# Single-group model
+          coefs = coefs_raw$items
+          tibble(item_uid = rownames(coefs),
+                 a = coefs[, "a1"],
+                 d = coefs[, "d"],
+                 b = -coefs[, "d"] / coefs[, "a1"],
+                 site = "pooled",
+                 model = model_name)
+        }
+    }
+
+```
+
+```{r}
+
+# grab parameters
+item_params_all =
+  bind_rows(item_params(mod_rasch,
+                        "rasch"),
+            item_params(mod_2pl,
+                        "2pl"))
+                            # item_params(mod_rasch_configural,
+                            #             "rasch_configural"),
+                            # item_params(mod_2pl_configural,
+                            #             "2pl_configural"))
+
+```
+
+```{r}
+
+# plot item difficulties for each item, faceted by model and site
+ggplot(item_params_all,
+       aes(x = item_uid,
+           y = b,
+           color = model,
+           group = model)) +
+  geom_point(position = position_dodge(width = 0.1),
+             size = 2.5) +
+  labs(title = "Item Difficulties by Model",
+       y = "Difficulty (b)",
+       x = "Item") +
+  ylim(-10, 10) +
+  theme_minimal(base_size = 14) +
+  theme(axis.text.x = element_text(angle = 60, hjust = 1)) +
+  coord_flip()
+
+```
+
+```{r}
+
+# plot item discrimination for each item, faceted by model and site
+ggplot(item_params_all,
+       aes(x = item_uid,
+           y = a,
+           color = model,
+           group = model)) +
+  geom_point(position = position_dodge(width = 0.1),
+             size = 2.5) +
+  labs(title = "Item Discrimination by Model",
+       y = "Discrimination (a)",
+       x = "Item") +
+  ylim(-10, 10) +
+  theme_minimal(base_size = 14) +
+  theme(axis.text.x = element_text(angle = 60, hjust = 1)) +
+  coord_flip()
+
+```
+
+```{r}
+
+# create function to grab info to generate ICC plots
+# get_icc =
+#   function(model,
+#            item_names = NULL,
+#            theta_range = seq(-4, 4,
+#                              length.out = 100)) {
+#     n_items =
+#       extract.mirt(model, "nitems")
+#     
+#     # Loop through each item and collect ICCs
+#     map_dfr(1:n_items, function(i) {
+#       item = extract.item(model, i)
+#       probs = itemplot(item, Theta = matrix(theta_range), plot = FALSE)
+#       tibble(theta = theta_range,
+#              p = probs$ProbTrace[, 2],
+#              item = item_names[i])
+#     })
+#     }
+
+```
+
+```{r}
+
+# icc_df =
+#   get_icc(mod_rasch,
+#           item_names = colnames(tom_irt_data)[-1])
+# 
+# ggplot(icc_df,
+#        aes(x = theta, y = p)) +
+#   geom_line(color = "#0072B2", size = 1.2) +
+#   facet_wrap(~ item, scales = "free_y") +
+#   labs(title = "Item Characteristic Curves (Rasch Model)",
+#        x = expression(theta),
+#        y = "P(correct response)") +
+#   theme_minimal(base_size = 14) +
+#   theme(strip.text = element_text(size = 12))
 
 ```
