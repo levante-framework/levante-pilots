@@ -132,7 +132,7 @@ ggplot(plot_data, aes(x = age, y = ability, color = site)) +
   color = "Site"
   )
 
-
+# is the rural sample older than the younger sample or outlier?
 
 
 
@@ -151,9 +151,6 @@ slopes
 
 library(ggplot2)
 library(dplyr)
-
-# Assume your regression results are in a dataframe called `slopes`
-# with columns: task, site, estimate, std.error
 
 # Create 95% confidence intervals
 slopes <- slopes |>
@@ -176,8 +173,6 @@ ggplot(slopes, aes(x = estimate, y = site)) +
     y = NULL
   ) +
   theme_minimal()
-
-
 
 ```
 
@@ -249,6 +244,8 @@ Examine factor structure in younger and older age groups (split by median)
 ```{r}
 scores_wide_mat <- scores_wide_mat |> 
   mutate(age_group = if_else(age <= median(age, na.rm = TRUE), "younger", "older"))
+table(scores_wide_mat$age_group) #551 older; 552 younger
+
 
 # define model
 model_2 <- '
@@ -259,35 +256,183 @@ Social_cog =~ tom
 '
 
 # multigroup cfa to check if factor structure and covariances differ by age
-fit_multigroup <- cfa(model_2, 
-                      data = scores_wide_mat, 
-                      group = "age_group",
-                      std.lv = TRUE, 
-                      missing = "fiml",
-                      fixed.x = FALSE, 
-                      bounds = list(lower = 0.001))
+fit_age_group <- cfa(model_2, 
+                     data = scores_wide_mat |> filter(!is.na(age_group)),
+                     group = "age_group",
+                     std.lv = TRUE, 
+                     missing = "fiml",
+                     fixed.x = FALSE)
 
+fitMeasures(fit_age_group, c("cfi", "rmsea", "srmr", "aic", "bic"))
 
 # warning 1: how many participants are missing age
 sum(is.na(scores_wide_mat$age))
 
 # warning 2: look at the factor covariance matrix
-lavInspect(fit_multigroup, "cov.lv")  
+lavInspect(fit_age_group, "cov.lv")[[1]]  # younger
+lavInspect(fit_age_group, "cov.lv")[[2]]  # older
+
 
 # Covariances are all very high >1 suggesting implausibly strong or indistinguishable constructs for the younger age group
 ```
+
+Try higher order factor model
+
+```{r}
+model_higher_order <- '
+EF =~ hf + mg + sds
+Reasoning =~ matrix + mrot + math
+Lang =~ trog + vocab
+Social_cog =~ tom
+
+All =~ EF + Reasoning + Lang + Social_cog
+'
+
+fit_ho <- cfa(model_higher_order, 
+              data = scores_wide_mat |> filter(!is.na(age_group)),
+              group = "age_group", 
+              std.lv = FALSE, 
+              missing = "fiml", 
+              fixed.x = FALSE)
+summary(fit_ho, fit.measures = TRUE, standardized = TRUE)
+
+
+```
+
+Testing factor structure within each group separately
+
+```{r}
+# create groups
+efa_vars <- c("hf", "mg", "sds", "matrix", "mrot", "math", "trog", "vocab", "tom")
+
+younger_data <- scores_wide_mat |>
+  filter(age_group == "younger") |>
+  select(all_of(efa_vars))
+
+older_data <- scores_wide_mat |>
+  filter(age_group == "older") |>
+  select(all_of(efa_vars))
+
+```
+
+Define model
+
+```{r}
+dimen_model <- function(n_factors, vars) {
+  factors <- paste0("F", 1:n_factors)
+  lhs <- paste0("efa('block1')*", factors)
+  rhs <- paste(vars, collapse = " + ")
+  model_string <- paste(paste(lhs, rhs, sep = " =~ "), collapse = "\n")
+  return(model_string)
+}
+
+model_1f <- dimen_model(1, efa_vars)
+model_2f <- dimen_model(2, efa_vars)
+model_3f <- dimen_model(3, efa_vars)
+model_4f <- dimen_model(4, efa_vars)
+
+
+```
+
+Younger
+
+```{r}
+fit_y1 <- cfa(model_1f, data = younger_data, estimator = "MLR", missing = "fiml")
+fit_y2 <- cfa(model_2f, data = younger_data, estimator = "MLR", missing = "fiml")
+fit_y3 <- cfa(model_3f, data = younger_data, estimator = "MLR", missing = "fiml")
+fit_y4 <- cfa(model_4f, data = younger_data, estimator = "MLR", missing = "fiml")
+
+# 3- and 4-factor solutions are not well-supported in younger group (heywood cases, non-positive definite covariance matrix of parameters). Aligns with previous model - very high correlations between EF, Reasoning, and Language (0.93–0.98) suggesting a less differentiated structure.
+
+```
+
+Indices for fa 1 and 2 only (younger)
+
+```{r}
+summary(fit_y1, fit.measures = TRUE, standardized = TRUE)
+summary(fit_y2, fit.measures = TRUE, standardized = TRUE)
+
+# 2 fa strucutre fits best
+
+```
+
+Older
+
+```{r}
+fit_o1 <- cfa(model_1f, data = older_data, estimator = "ML", missing = "fiml")
+fit_o2 <- cfa(model_2f, data = older_data, estimator = "ML", missing = "fiml")
+fit_o3 <- cfa(model_3f, data = older_data, estimator = "ML", missing = "fiml")
+fit_o4 <- cfa(model_4f, data = older_data, estimator = "ML", missing = "fiml")
+
+# 3 and 4 fa models are failing. Not enough complete case pairs: Many variable pairs have <130 complete cases, which is far below what's needed to estimate stable covariances, especially when you try to extract 3–4 latent factors. 
+
+summary(fit_o1, fit.measures = TRUE, standardized = TRUE)
+summary(fit_o2, fit.measures = TRUE, standardized = TRUE)
+
+# examine pairwise correlations
+nrow(older_data)
+colSums(is.na(older_data))
+pairwise_n <- outer(efa_vars, efa_vars, Vectorize(function(i, j) {
+  sum(complete.cases(older_data[, c(i, j)]))
+}))
+rownames(pairwise_n) <- colnames(pairwise_n) <- efa_vars
+pairwise_n
+
+```
+
+Try with reduced model - vars that have enough complete case vars
+
+```{r}
+high_cov_vars <- c("hf", "mg", "matrix", "mrot", "math", "tom")
+
+make_efa_model <- function(n_factors, vars) {
+  factors <- paste0("F", 1:n_factors)
+  lhs <- paste0("efa('block1')*", factors)
+  rhs <- paste(vars, collapse = " + ")
+  model_string <- paste(paste(lhs, rhs, sep = " =~ "), collapse = "\n")
+  return(model_string)
+}
+
+model_1f_r <- make_efa_model(1, high_cov_vars)
+model_2f_r <- make_efa_model(2, high_cov_vars)
+model_3f_r <- make_efa_model(3, high_cov_vars)
+
+older_data_reduced <- older_data |> select(all_of(high_cov_vars))
+
+fit_r1 <- cfa(model_1f_r, data = older_data_reduced, estimator = "ML", missing = "fiml")
+fit_r2 <- cfa(model_2f_r, data = older_data_reduced, estimator = "ML", missing = "fiml")
+fit_r3 <- cfa(model_3f_r, data = older_data_reduced, estimator = "ML", missing = "fiml")
+
+summary(fit_r1, fit.measures = TRUE, standardized = TRUE)
+summary(fit_r2, fit.measures = TRUE, standardized = TRUE)
+
+# 3 fa model is failing. (vcov) does not appear to be positive definite.
+
+```
+
+
+
+
+
+
+
+
+
+
+
+
 
 Invariance testing
 
 ```{r}
 
-# 1. Configural (free parameters in both groups)
+# configural (free parameters in both groups)
 fit_configural <- cfa(model_1, data = scores_wide_mat, group = "age_group", std.lv = TRUE)
 
-# 2. Metric invariance (equal loadings)
+# Metric (equal loadings)
 fit_metric <- cfa(model_1, data = scores_wide_mat, group = "age_group", std.lv = TRUE, group.equal = "loadings")
 
-# 3. Scalar (equal loadings + intercepts)
+# Scalar (equal loadings + intercepts)
 fit_scalar <- cfa(model_1, data = scores_wide_mat, group = "age_group", std.lv = TRUE, group.equal = c("loadings", "intercepts"))
 
 # Compare models
