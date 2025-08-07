@@ -127,7 +127,8 @@ And then let's run simple item and subject statistics:
 tom_data_long %>%
   group_by(site, item_uid) %>%
   summarise(n = n(),
-            mean_age = round(mean(age),2),
+            mean_age = round(mean(age, na.rm = T),
+                             2),
             n_correct = sum(correct == 1),
             pct_correct = round(mean(correct == 1), 3)) %>%
   arrange(site, pct_correct) %>%
@@ -136,8 +137,10 @@ tom_data_long %>%
 # subject-level descriptives
 tom_data_long %>%
   group_by(site, user_id, run_id) %>%
-  summarise(correct = round(mean(correct, na.rm = T),2), 
-            age = round(mean(age),2),
+  summarise(correct = round(mean(correct, na.rm = T),
+                            2), 
+            age = round(mean(age, na.rm = T),
+                        2),
             n_items = n_distinct(item_uid)) %>%
   datatable()
 
@@ -337,9 +340,6 @@ mod_rasch =
   fit_irt_model(df.single,
                 model_type = "Rasch")
 
-mod_coefs_1pl =
-  coef(mod_rasch, simplify = T)
-
 ```
 
 ```{r}
@@ -349,21 +349,15 @@ mod_2pl =
   fit_irt_model(df.single,
                 model_type = "2PL")
 
-mod_coefs_2pl =
-  coef(mod_2pl, simplify = T)
-
 ```
 
 ```{r}
 
 # fit 1 PL Rasch model, *configural*
 mod_rasch_configural =
-  fit_irt_model(df.single,
+  fit_irt_model(df.multigroup,
                 model_type = "Rasch",
                 group_vec = group_vec)
-
-mod_coefs_1pl_configural =
-  coef(mod_rasch_configural, simplify = F)
 
 ```
 
@@ -371,12 +365,9 @@ mod_coefs_1pl_configural =
 
 # fit 2 PL Rasch model, *configural*
 mod_2pl_configural =
-  fit_irt_model(df.single,
+  fit_irt_model(df.multigroup,
                 model_type = "2PL",
                 group_vec = group_vec)
-
-mod_coefs_2pl_configural =
-  coef(mod_2pl_configural, simplify = F)
 
 ```
 
@@ -442,7 +433,9 @@ Let's print a big table with item difficulties and item discriminations, sorted 
 Higher discrimination values are better. For difficulty, lower value means easier item,
 higher value means harder item.
 
-***TODO: INCLUDE MODEL BIC***
+***TODO 1: INCLUDE MODEL BIC AND FIX ERRONEOUS ITEM_UID ASSIGNMENT***
+
+***TODO 2: WHY DO CONFIGURAL MODELS NOT SHOW UP?***
 
 ```{r}
 
@@ -462,7 +455,7 @@ Just item difficulties by model:
 
 # plot item difficulties for each item, faceted by model and site
 ggplot(item_params_all,
-       aes(x = item_uid,
+       aes(x = site,
            y = b,
            color = model,
            group = model)) +
@@ -485,7 +478,7 @@ there):
 
 # plot item discrimination for each item, faceted by model and site
 ggplot(item_params_all,
-       aes(x = item_uid,
+       aes(x = site,
            y = a,
            color = model,
            group = model)) +
@@ -501,7 +494,7 @@ ggplot(item_params_all,
 
 ```
 
-***TODO: PLOT ICCS***
+***TODO: Plot ICCs***
 
 ```{r}
 
