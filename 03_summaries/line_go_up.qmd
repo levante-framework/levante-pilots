@@ -17,8 +17,8 @@ source(here("03_summaries/scores_helper.R"))
 #   set_names() |>
 #   map(\(s) read_rds(here(glue("00_prepped_data/{s}/participants.rds")))) |>
 #   list_rbind(names_to = "site")
-run_ages <- read_rds(here(glue("01_fetched_data/run_data.rds"))) |>
-  select(site, task_id, user_id, run_id, age)
+# run_ages <- read_rds(here(glue("01_fetched_data/run_data.rds"))) |>
+#   select(site, task_id, user_id, run_id, age)
 ```
 
 Combine all task scores into one plot!
@@ -49,35 +49,28 @@ With just the LEVANTE original tasks.
 ```{r}
 levante_tasks <- c("hearts-and-flowers", "memory-game", "same-different-selection", 
                    "egma-math", "mental-rotation", "matrix-reasoning", "trog", "vocab", "theory-of-mind")
+ref_sites <- c("pilot_western_ca", "pilot_uniandes_co", "pilot_leuphana_de")
 
 site_labels <- scores |>
   distinct(site, site_label) |>
   deframe() |>
   as.character()
-
-task_scores |>
-  filter(model == "full pooling IRT",
-         # site != "us_pilot", 
-         task_id %in% levante_tasks) |>
-  task_plot_comparative(ylab = "Score", nr = 2)
-ggsave(here("03_summaries/plots/levante_tasks_full_pooling.png"), width = 11, height = 6)
 ```
 
 ```{r}
 task_scores |>
-  filter(model == "no pooling IRT",
-         site != "us_pilot",
-         task_id %in% levante_tasks) |>
+  filter(str_detect(model, "by_language"),
+         task_id %in% levante_tasks,
+         site %in% ref_sites) |>
   task_plot_comparative(ylab = "Score", nr = 2)
-ggsave(here("03_summaries/plots/levante_tasks_no_pooling.png"), width = 11, height = 6)
+ggsave(here("03_summaries/plots/levante_tasks_bylanguage.png"), width = 11, height = 6)
 ```
-
 
 ```{r}
 task_scores |>
-  filter(model == "partial pooling IRT",
-         site != "us_pilot",
-         task_id %in% levante_tasks) |>
+  filter(str_detect(model, "multigroup"),
+         task_id %in% levante_tasks,
+         site %in% ref_sites) |>
   task_plot_comparative(ylab = "Score", nr = 2)
 ggsave(here("03_summaries/plots/levante_tasks_multigroup.png"), width = 11, height = 6)
 ```
@@ -86,16 +79,16 @@ Everything on the plots.
 
 ```{r}
 task_scores |>
-  filter(is.na(model) | model == "partial pooling IRT", site != "us_pilot") |>
+  filter(is.na(model) | str_detect(model, "by_language")) |>
   task_plot_comparative(ylab = "Score", nr = 3)
-ggsave(here("03_summaries/plots/all_tasks_multigroup.png"), width = 11, height = 8)
+ggsave(here("03_summaries/plots/all_tasks_bylanguage.png"), width = 11, height = 8)
 ```
 
 ```{r}
 task_scores |>
-  filter(is.na(model) | model == "no pooling IRT", , site != "us_pilot") |>
+  filter(is.na(model) | str_detect(model, "multigroup")) |>
   task_plot_comparative(ylab = "Score", nr = 3)
-ggsave(here("03_summaries/plots/all_tasks_no pooling.png"), width = 11, height = 8)
+ggsave(here("03_summaries/plots/all_tasks_multigroup.png"), width = 11, height = 8)
 ```
 
 Ages. 
@@ -117,5 +110,3 @@ ggplot(ages, aes(x = age, fill = site)) +
 ggsave(here("03_summaries/plots/ages.png"), 
        width = 8, height = 3, create.dir = TRUE)
 ```
-
-
