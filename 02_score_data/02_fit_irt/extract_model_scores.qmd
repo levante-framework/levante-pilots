@@ -1,0 +1,94 @@
+```{r}
+regdir <- here("02_scoring_outputs", "model_registry")
+
+list_models <- \() {
+  mod_files <- list.files(regdir, recursive = TRUE)
+  
+  mod_files |>
+    str_split("/", simplify = TRUE) |>
+    as_tibble(.name_repair = "minimal") |>
+    set_names(c("task", "model_set", "subset", "filename")) |>
+    mutate(file = mod_files) |>
+    mutate(filename = str_remove(filename, "\\.[A-z]*$")) |>
+    separate_wider_delim(filename, delim = "_", too_few = "align_start",
+                         too_many = "merge",
+                         names = c("task_dup", "itemtype", "nfact", "invariance")) |>
+    select(-task_dup)
+}
+
+read_model_record <- \(mod_file) {
+  read_rds(file.path(regdir, mod_file))
+}
+
+load_models <- \(mod_df) {
+  mod_df |> mutate(mod_rec = map(file, read_model_record))
+}
+
+model_from_record <- \(mod_rec) {
+  if (model_class(mod_rec) == "SingleGroupClass") {
+    mirt(data = mod_rec@data, pars = model_vals(mod_rec), TOL = NaN)
+  } else if (model_class(mod_rec) == "MultipleGroupClass") {
+    multipleGroup(data = mod_rec@data, group = mod_rec@groups,
+                  pars = model_vals(mod_rec), TOL = NaN)
+  }
+}
+```
+
+```{r}
+mods <- list_models() |> load_models() |> select(-file)
+
+mod_objs <- mods |>
+  filter(subset == "overlap_items") |>
+  mutate(mod = map(mod_rec, model_from_record))
+
+mods_best <- mods |>
+  mutate(bic = map_dbl(mod_rec, BIC)) |>
+  group_by(task, model_set, subset) |>
+  filter(bic == min(bic)) |>
+  ungroup()
+
+# run_info <- read_rds(here(glue("01_fetched_data/run_data.rds"))) |>
+#   select(site, dataset, language, user_id, run_id, adaptive, age)
+
+scores <- mods_best |>
+  mutate(scores = map(mod_rec, scores)) |>
+  select(-mod_rec) |>
+  unnest(scores)
+
+scores_labeled <- scores |>
+  mutate(itemtype = fct_recode(itemtype, "Rasch" = "rasch", "2PL" = "2pl"),
+         nfact = fct_recode(nfact, "1D" = "f1"), #"2D" = "f2"),
+         invariance = replace_na(invariance, "configural"),
+         metric_type = glue("ability ({itemtype}-{nfact}-{invariance})"),
+         model = glue("{model_set} ({subset})"),
+         model_legacy = fct_recode(model_set,
+                                   "no pooling IRT" = "by_language",
+                                   "partial pooling IRT" = "multigroup_site")) |>
+  select(item_task = task, run_id, metric_type, metric_value = ability, model) #, model_legacy)
+  # left_join(run_info)
+
+write_rds(scores_labeled, here("02_scoring_outputs", "scores", "registry_scores.rds"),
+          compress = "gz")
+
+# ggplot(all_scores_labeled, aes(x = age, y = metric_value, color = metric_type)) +
+#   facet_wrap(vars(item_task, model)) +
+#   geom_point()
+
+# mod_rec <- mods$mod_rec[[1]]
+
+# mod_coefs <- \(mod_rec) {
+#   model_vals(mod_rec) |>
+#     as_tibble() |>
+#     filter(group != "GROUP", item != "GROUP") |>
+#     select(group, item, name, value) |>
+#     pivot_wider(names_from = name, values_from = value) |>
+#     mutate(item = str_remove(item, glue("{item_sep}[0-9]+$"))) |>
+#     distinct()
+# }
+# 
+# all_coefs <- mods |>
+#   mutate(coefs = map(mod_rec, mod_coefs)) |>
+#   select(-mod_rec) |>
+#   unnest(coefs)
+
+```

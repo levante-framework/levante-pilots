@@ -18,6 +18,7 @@ fit_task_models_pooled <- \(task_data, models, task, subset_var, subset_val, reg
   trials <- task_data |>
     filter(item_task == task) |>
     filter(!!subset_var == subset_val) |>
+    # filter(language == "en") |>
     unnest(data)
   
   # prep data for modeling
@@ -59,14 +60,14 @@ fit_task_models_pooled <- \(task_data, models, task, subset_var, subset_val, reg
 }
 
 # wrapper: given task, fit by_language model for each language
-fit_task_models <- \(task_data, models, task, registry_dir) {
+fit_bylanguage_task <- \(task_data, models, task, registry_dir) {
   task_data |> filter(item_task == task) |> pull(language) |> unique() |>
     walk(\(lang) fit_task_models_pooled(task_data, models, task, language, lang, registry_dir),
          .progress = TRUE)
 }
 
 # wrapper: given language, fit by_language model for each task
-fit_lang_models <- \(task_data, models, lang, registry_dir) {
+fit_bylanguage_lang <- \(task_data, models, lang, registry_dir) {
   task_data |> filter(language == lang) |> pull(item_task) |> unique() |>
     walk(\(task) fit_task_models_pooled(task_data, models, task, language, lang, registry_dir),
          .progress = TRUE)
@@ -74,7 +75,7 @@ fit_lang_models <- \(task_data, models, lang, registry_dir) {
 
 
 # for a given task and group variable, fit and record set of multigroup models
-fit_task_multigroup_models <- \(task_data, models, task, group = site,
+fit_task_models_multigroup <- \(task_data, models, task, group = site,
                                 overlap_items = TRUE, registry_dir) {
   
   group <- enquo(group)
@@ -86,6 +87,7 @@ fit_task_multigroup_models <- \(task_data, models, task, group = site,
     filter(item_task == task) |>
     unnest(data) |>
     rename(group = !!group)
+    # rename(group = site)
   
   # prep data for modeling
   data_filtered <- trials |> dedupe_items() |> remove_no_var_items()
@@ -133,3 +135,47 @@ fit_task_multigroup_models <- \(task_data, models, task, group = site,
       
     })
 }
+
+
+# example calls: pooled models
+
+# fit one task + one language
+# fit_task_models_pooled(task_data = task_data_irt, models = models_pooled,
+#                        task = "hf", subset_var = language, subset_val = "en")
+
+# fit one task + all languages
+# fit_bylanguage_task(task_data = task_data_irt, models = models_pooled,
+#                 task = "hf", registry_dir = regdir)
+
+# fit all tasks + one language
+# fit_bylanguage_lang(task_data = task_data_irt, models = models_pooled,
+#                 lang = "en_us", registry_dir = regdir)
+
+# fit all irt tasks + all languages
+# irt_tasks |>
+#   walk(\(task) fit_bylanguage_task(task_data = task_data_irt,
+#                                 models = models_pooled,
+#                                 task = task,
+#                                 registry_dir = regdir))
+
+
+# example calls: multigroup models
+
+# fit one task, grouped by site, only overlapping items
+# fit_task_models_multigroup(task_data = task_data_irt, models = models_multigroup,
+#                            task = "hf", group = site, overlap_items = TRUE,
+#                            registry_dir = regdir)
+
+# fit one task, grouped by site, all items
+# fit_task_models_multigroup(task_data = task_data_irt, models = models_multigroup,
+#                            task = "hf", group = site, overlap_items = FALSE,
+#                            registry_dir = regdir)
+
+# fit all irt tasks, only overlapping items
+# irt_tasks |>
+#   walk(\(task) fit_task_models_multigroup(task_data = task_data_irt,
+#                                           models = models_multigroup,
+#                                           task = task,
+#                                           group = site,
+#                                           overlap_items = TRUE,
+#                                           registry_dir = regdir))

@@ -45,26 +45,27 @@ rescore <- \(trial_data, mod_spec) {
   groups <- data_wide |> pull(group)
   
   # subset data to items present in model
-  overlap_items <- intersect(colnames(data_prepped), mod_rec@items)
+  overlap_items <- intersect(colnames(data_prepped), items(mod_rec))
   data_aligned <- data_prepped |> select(!!overlap_items)
 
   # get model parameter values
-  mod_vals <- mod_rec@model_vals |> select(-parnum)
+  mod_vals <- model_vals(mod_rec) |> select(-parnum)
   # get data parameter structure
-  if (mod_rec@model_class == "SingleGroupClass") {
+  if (model_class(mod_rec) == "SingleGroupClass") {
     data_pars <- mirt(data = data_aligned, pars = "values")
-  } else if (mod_rec@model_class == "MultipleGroupClass") {
+  } else if (model_class(mod_rec) == "MultipleGroupClass") {
     data_pars <- multipleGroup(data = data_aligned, group = groups, pars = "values")
   }
   # replace data parameter values with model values
+  # TODO: is dropping item from the model that are not in the data problematic?
   data_vals <- data_pars |>
     select(group, item, class, name, parnum) |>
     left_join(mod_vals)
   
   # set up mirt model for data using constructed parameter values  
-  if (mod_rec@model_class == "SingleGroupClass") {
+  if (model_class(mod_rec) == "SingleGroupClass") {
     mod <- mirt(data = data_aligned, pars = data_vals, TOL = NaN)
-  } else if (mod_rec@model_class == "MultipleGroupClass") {
+  } else if (model_class(mod_rec) == "MultipleGroupClass") {
     mod <- multipleGroup(data = data_aligned, group = groups, pars = data_vals, TOL = NaN)
   }
   
