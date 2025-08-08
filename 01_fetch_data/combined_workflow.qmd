@@ -8,13 +8,6 @@ library(tidyr)
 ```
 
 ```{r}
-# "frozen" dataset spec
-# dataset_spec <- list(list(name = "us_downward_extension_pilot:a6kb", version = "4.6"),
-#                      list(name = "co_bogota_pilot:3j4z",             version = "6.3"),
-#                      list(name = "co_rural_pilot:66d2",              version = "4.2"),
-#                      list(name = "de_leipzig_pilot:6c0n",            version = "5.28"),
-#                      list(name = "ca_western_pilot:97mt",            version = "5.24"))
-
 dataset_spec <- list(list(name = "partner_sparklab_us:4n9e",         version = "current"),
                      list(name = "us_downward_extension_pilot:a6kb", version = "current"),
                      list(name = "co_bogota_pilot:3j4z",             version = "current"),
@@ -26,18 +19,44 @@ runs <- get_runs(dataset_spec,
                  remove_incomplete_runs = FALSE,
                  remove_invalid_runs = FALSE)
 
+# temporarily code sites here, datasets will follow naming scheme in the future
+dataset_sites <- tribble(
+  ~dataset,                      ~site,
+  "ca_western_pilot",            "pilot_western_ca",
+  "co_bogota_pilot",             "pilot_uniandes_co",
+  "co_rural_pilot",              "pilot_uniandes_co",
+  "de_leipzig_pilot",            "pilot_leuphana_de",
+  "partner_sparklab_us",         "partner_sparklab_us",
+  "us_downward_extension_pilot", "pilot_langcog_us"
+)
+
+# code language for variants that are missing language for some reason
+missing_langs <- tribble(
+  ~variant_id,            ~lang,
+  "OYKVpWxFYhA9Qh9w58Qy", "es",
+  "zlOE3yc4n4JimAhGtQ6r", "de",
+  "KNaxHVqdpe2CtS9NLoX8", "de",
+  "rq7PRMzgtkw52HMfxvNW", "en",
+  "8NLzzprrkwJPeY18iRRH", "en"
+)
+
 run_data <- runs |>
   separate_wider_delim(dataset, names = c("dataset", "ref", "version"),
                        delim = ":") |>
-  mutate(site = dataset |> str_replace("_.*_", "_"),
-         .before = everything())
+  left_join(dataset_sites) |>
+  relocate(site, .before = everything()) |>
+  mutate(language = if_else(!is.na(language), language,
+                            str_extract(variant_name, "^[a-z][a-z]"))) |>
+  left_join(missing_langs) |>
+  mutate(language = if_else(!is.na(language), language, lang)) |>
+  select(-lang)
 
 write_rds(run_data, here("01_fetched_data/run_data.rds"), compress = "gz")
 
 survey_data <- get_surveys(dataset_spec)
 survey_data_nested <- survey_data |>
-  mutate(site = dataset |> str_extract("^.*?(?=:)") |> str_remove("_pilot"),
-         .before = everything()) |>
+  left_join(dataset_sites) |>
+  relocate(site, .before = everything()) |>
   nest(data = -survey_type)
 write_rds(survey_data_nested, here("01_fetched_data/survey_data_nested.rds"),
           compress = "gz")
@@ -67,11 +86,8 @@ trials <- trials_prelim |>
 trial_data <- trials |>
   separate_wider_delim(dataset, names = c("dataset", "ref", "version"),
                        delim = ":") |>
-  mutate(site = dataset |> str_replace("_.*_", "_"),
-         .before = everything())
-  # nest(data = -c(task_id, item_task, site))
-# write_rds(task_data_nested, here("01_fetched_data/task_data_nested.rds"),
-          # compress = "gz")
+  left_join(dataset_sites) |>
+  relocate(site, .before = everything())
 
 write_rds(trial_data, here("01_fetched_data/trial_data.rds"),
           compress = "gz")
