@@ -1,10 +1,11 @@
 source("ModelRecord.R")
+source("anova_mirt.R")
 
 invariances <- list(
   configural = "",
-  metric = c("free_means","free_variances", "intercepts", "slopes"),
-  scalar_intercepts = c("free_variances", "intercepts"),
-  scalar_slopes_and_intercepts = c("free_variances", "intercepts", "slopes"),
+  metric = c("free_means", "free_var", "intercepts", "slopes"),
+  scalar_intercepts = c("free_var", "intercepts"),
+  scalar_slopes_and_intercepts = c("free_var", "intercepts", "slopes"),
   full = c("intercepts" , "slopes")
 )
 
