@@ -1,0 +1,450 @@
+---
+title: "Age trends"
+format: html
+editor: visual
+---
+```{r setup}
+library(tidyverse)
+library(here)
+library(glue)
+library(lavaan)
+library(tidySEM)
+library(ggthemes)
+library(tidyr)
+library(knitr)
+
+source(here("02_score_data","irt_helpers.R"))
+source(here("03_summaries", "plotting_helper.R"))
+source(here("03_explore_tasks/explore_helper.R"))
+```
+
+load thetas for 9 core tasks (not ROAR, mefs or ha)
+
+```{r}
+multigroup <- read_rds(here("02_scoring_outputs","scores",
+                             "multigroup_scores.rds"))
+colnames(multigroup)
+glimpse(multigroup)
+unique(multigroup$item_task)
+
+# define tasks for EFA (remove ha)
+tasks <- c("hf", "math", "matrix", "mg", "mrot", "sds", "tom", "trog", "vocab")
+
+```
+
+run ages
+
+```{r}
+# create sites
+sites <- c("ca_pilot", "co_pilot", "de_pilot")
+
+run_ages <- read_rds(here(glue("01_fetched_data/run_data.rds"))) |>
+  select(site, task_id, user_id, run_id, age) |>
+  filter(site %in% sites)
+
+ages <- run_ages |>
+  group_by(user_id) |>
+  summarise(age = mean(age, na.rm=TRUE))
+
+```
+
+missingness for age var
+
+```{r}
+sum(is.na(run_ages$age)) #total missing values
+mean(is.na(run_ages$age)) * 100 # %missing
+
+# unique users with age data
+run_ages |>
+  filter(!is.na(age)) |>
+  distinct(user_id) |>
+  count()
+
+# by site
+run_ages |>
+  filter(!is.na(age)) |>
+  distinct(user_id, site) |>
+  count(site, name = "n_users_with_age")
+
+# tot. number of unique users per site
+n_users <- run_ages |>
+  distinct(user_id, site) |>
+  count(site, name = "n_users_total")
+
+# users with non-missing age per site
+n_users_with_age <- run_ages |>
+  filter(!is.na(age)) |>
+  distinct(user_id, site) |>
+  count(site, name = "n_users_with_age")
+
+# merge and calculate % with age per site
+user_age_summary <- n_users |>
+  left_join(n_users_with_age, by = "site") |>
+  mutate(
+    n_users_with_age = replace_na(n_users_with_age, 0),
+    pct_with_age = round(100 * n_users_with_age / n_users_total, 1)
+  )
+
+user_age_summary
+```
+
+Plot
+
+```{r}
+ability_scores <- multigroup |>
+  filter(item_task %in% tasks, str_detect(metric_type, "ability")) |>
+  select(user_id, item_task, metric_type, metric_value, site) |> 
+  rename(task = item_task, ability = metric_value)
+
+user_ages <- run_ages |>
+  group_by(user_id) |>
+  summarise(age = mean(age, na.rm = TRUE))
+
+plot_data <- ability_scores |>
+  left_join(user_ages, by = "user_id") |>
+  filter(!is.na(age), !is.na(ability))
+
+ggplot(plot_data, aes(x = age, y = ability)) +
+  geom_point(alpha = 0.3, size = 0.8) +
+  geom_smooth(method = "loess", se = TRUE, colour = "blue") +
+  facet_wrap(~ task, scales = "free_y") +
+  theme_minimal() +
+  labs(
+    title = "Ability vs. Age across Tasks",
+    x = "Age (years)",
+    y = "Ability (model-specific)"
+  )
+
+```
+by site
+
+```{r}
+ggplot(plot_data, aes(x = age, y = ability, color = site)) +
+  geom_point(alpha = 0.3, size = 0.8) +
+  geom_smooth(method = "loess", se = TRUE) +
+  facet_wrap(~ task, scales = "free_y") +
+  theme_minimal() +
+  labs(
+  title = "Ability vs. Age across Tasks by Site",
+  caption = "Ca: n = 119; Co: n = 743; De: n = 374",
+  x = "Age (years)",
+  y = "Ability (model-specific)",
+  color = "Site"
+  )
+
+# is the rural sample older than the younger sample or outlier?
+
+
+
+```
+Quantifying slope differences
+```{r}
+library(broom)
+
+slopes <- plot_data |>
+  group_by(task, site) |>
+  do(tidy(lm(ability ~ age, data = .))) |>
+  filter(term == "age") |>
+  select(task, site, estimate, std.error, p.value)
+
+slopes
+
+library(ggplot2)
+library(dplyr)
+
+# Create 95% confidence intervals
+slopes <- slopes |>
+  mutate(
+    lower = estimate - 1.96 * std.error,
+    upper = estimate + 1.96 * std.error,
+    label = paste(task, site, sep = " - ")
+  )
+
+# Plot
+ggplot(slopes, aes(x = estimate, y = site)) +
+  geom_point() +
+  geom_errorbarh(aes(xmin = lower, xmax = upper), height = 0.2) +
+  geom_vline(xintercept = 0, linetype = "dashed", colour = "grey50") +
+  facet_wrap(~ task, scales = "free_y") +
+  labs(
+    title = "Developmental Sensitivity by Task and Site",
+    caption = "Ca: n = 119; Co: n = 743; De: n = 374",
+    x = "Slope of Ability ~ Age",
+    y = NULL
+  ) +
+  theme_minimal()
+
+```
+
+highlight non significant points
+
+```{r}
+slopes <- slopes |>
+  mutate(
+    sig = ifelse(lower > 0 | upper < 0, "Significant", "Not significant")
+  )
+
+ggplot(slopes, aes(x = estimate, y = site, color = sig)) +
+  geom_point() +
+  geom_errorbarh(aes(xmin = lower, xmax = upper), height = 0.2) +
+  geom_vline(xintercept = 0, linetype = "dashed", colour = "grey50") +
+  facet_wrap(~ task, scales = "free_y") +
+  scale_color_manual(values = c("Significant" = "blue", "Not significant" = "red")) +
+  labs(
+    title = "Developmental Sensitivity by Task and Site",
+    caption = "Ca: n = 119; Co: n = 743; De: n = 374",
+    x = "Slope of Ability ~ Age",
+    y = NULL,
+    color = "Significance"
+  ) +
+  theme_minimal()
+
+```
+
+does the factor structure change by age?
+
+```{r}
+
+# long to wide — one row per participant, one column per task
+scores_wide <- multigroup |>
+  group_by(user_id, site, item_task) |>
+  summarise(metric_value = mean(metric_value, na.rm = TRUE), .groups = "drop") |>
+  pivot_wider(names_from = item_task, values_from = metric_value)
+
+# clean names and join age 
+scores_wide_mat <- scores_wide |>
+  janitor::clean_names() |>
+  left_join(ages, by = "user_id")
+
+# define model
+model_1 <- '
+EF =~ hf + mg + sds
+Reasoning =~ matrix + mrot + math
+Lang =~ trog + vocab
+Social_cog =~ tom
+
+# add age regressions
+EF ~ age
+Reasoning ~ age
+Lang ~ age
+Social_cog ~ age
+'
+
+fit_1 <- cfa(model_1, data = scores_wide_mat,
+              std.lv = TRUE, missing = "fiml",
+              fixed.x = FALSE,  # so that it doesn't drop those who are missing age
+              bounds = list(lower = 0.001)) # included to avoid heywood cases
+
+summary(fit_1, fit.measures = TRUE, standardize = TRUE)
+
+```
+
+Examine factor structure in younger and older age groups (split by median)
+
+```{r}
+scores_wide_mat <- scores_wide_mat |> 
+  mutate(age_group = if_else(age <= median(age, na.rm = TRUE), "younger", "older"))
+table(scores_wide_mat$age_group) #551 older; 552 younger
+
+
+# define model
+model_2 <- '
+EF =~ hf + mg + sds
+Reasoning =~ matrix + mrot + math
+Lang =~ trog + vocab
+Social_cog =~ tom
+'
+
+# multigroup cfa to check if factor structure and covariances differ by age
+fit_age_group <- cfa(model_2, 
+                     data = scores_wide_mat |> filter(!is.na(age_group)),
+                     group = "age_group",
+                     std.lv = TRUE, 
+                     missing = "fiml",
+                     fixed.x = FALSE)
+
+fitMeasures(fit_age_group, c("cfi", "rmsea", "srmr", "aic", "bic"))
+
+# warning 1: how many participants are missing age
+sum(is.na(scores_wide_mat$age))
+
+# warning 2: look at the factor covariance matrix
+lavInspect(fit_age_group, "cov.lv")[[1]]  # younger
+lavInspect(fit_age_group, "cov.lv")[[2]]  # older
+
+
+# Covariances are all very high >1 suggesting implausibly strong or indistinguishable constructs for the younger age group
+```
+
+Try higher order factor model
+
+```{r}
+model_higher_order <- '
+EF =~ hf + mg + sds
+Reasoning =~ matrix + mrot + math
+Lang =~ trog + vocab
+Social_cog =~ tom
+
+All =~ EF + Reasoning + Lang + Social_cog
+'
+
+fit_ho <- cfa(model_higher_order, 
+              data = scores_wide_mat |> filter(!is.na(age_group)),
+              group = "age_group", 
+              std.lv = FALSE, 
+              missing = "fiml", 
+              fixed.x = FALSE)
+summary(fit_ho, fit.measures = TRUE, standardized = TRUE)
+
+
+```
+
+Testing factor structure within each group separately
+
+```{r}
+# create groups
+efa_vars <- c("hf", "mg", "sds", "matrix", "mrot", "math", "trog", "vocab", "tom")
+
+younger_data <- scores_wide_mat |>
+  filter(age_group == "younger") |>
+  select(all_of(efa_vars))
+
+older_data <- scores_wide_mat |>
+  filter(age_group == "older") |>
+  select(all_of(efa_vars))
+
+```
+
+Define model
+
+```{r}
+dimen_model <- function(n_factors, vars) {
+  factors <- paste0("F", 1:n_factors)
+  lhs <- paste0("efa('block1')*", factors)
+  rhs <- paste(vars, collapse = " + ")
+  model_string <- paste(paste(lhs, rhs, sep = " =~ "), collapse = "\n")
+  return(model_string)
+}
+
+model_1f <- dimen_model(1, efa_vars)
+model_2f <- dimen_model(2, efa_vars)
+model_3f <- dimen_model(3, efa_vars)
+model_4f <- dimen_model(4, efa_vars)
+
+
+```
+
+Younger
+
+```{r}
+fit_y1 <- cfa(model_1f, data = younger_data, estimator = "MLR", missing = "fiml")
+fit_y2 <- cfa(model_2f, data = younger_data, estimator = "MLR", missing = "fiml")
+fit_y3 <- cfa(model_3f, data = younger_data, estimator = "MLR", missing = "fiml")
+fit_y4 <- cfa(model_4f, data = younger_data, estimator = "MLR", missing = "fiml")
+
+# 3- and 4-factor solutions are not well-supported in younger group (heywood cases, non-positive definite covariance matrix of parameters). Aligns with previous model - very high correlations between EF, Reasoning, and Language (0.93–0.98) suggesting a less differentiated structure.
+
+```
+
+Indices for fa 1 and 2 only (younger)
+
+```{r}
+summary(fit_y1, fit.measures = TRUE, standardized = TRUE)
+summary(fit_y2, fit.measures = TRUE, standardized = TRUE)
+
+# 2 fa strucutre fits best
+
+```
+
+Older
+
+```{r}
+fit_o1 <- cfa(model_1f, data = older_data, estimator = "ML", missing = "fiml")
+fit_o2 <- cfa(model_2f, data = older_data, estimator = "ML", missing = "fiml")
+fit_o3 <- cfa(model_3f, data = older_data, estimator = "ML", missing = "fiml")
+fit_o4 <- cfa(model_4f, data = older_data, estimator = "ML", missing = "fiml")
+
+# 3 and 4 fa models are failing. Not enough complete case pairs: Many variable pairs have <130 complete cases, which is far below what's needed to estimate stable covariances, especially when you try to extract 3–4 latent factors. 
+
+summary(fit_o1, fit.measures = TRUE, standardized = TRUE)
+summary(fit_o2, fit.measures = TRUE, standardized = TRUE)
+
+# examine pairwise correlations
+nrow(older_data)
+colSums(is.na(older_data))
+pairwise_n <- outer(efa_vars, efa_vars, Vectorize(function(i, j) {
+  sum(complete.cases(older_data[, c(i, j)]))
+}))
+rownames(pairwise_n) <- colnames(pairwise_n) <- efa_vars
+pairwise_n
+
+```
+
+Try with reduced model - vars that have enough complete case vars
+
+```{r}
+high_cov_vars <- c("hf", "mg", "matrix", "mrot", "math", "tom")
+
+make_efa_model <- function(n_factors, vars) {
+  factors <- paste0("F", 1:n_factors)
+  lhs <- paste0("efa('block1')*", factors)
+  rhs <- paste(vars, collapse = " + ")
+  model_string <- paste(paste(lhs, rhs, sep = " =~ "), collapse = "\n")
+  return(model_string)
+}
+
+model_1f_r <- make_efa_model(1, high_cov_vars)
+model_2f_r <- make_efa_model(2, high_cov_vars)
+model_3f_r <- make_efa_model(3, high_cov_vars)
+
+older_data_reduced <- older_data |> select(all_of(high_cov_vars))
+
+fit_r1 <- cfa(model_1f_r, data = older_data_reduced, estimator = "ML", missing = "fiml")
+fit_r2 <- cfa(model_2f_r, data = older_data_reduced, estimator = "ML", missing = "fiml")
+fit_r3 <- cfa(model_3f_r, data = older_data_reduced, estimator = "ML", missing = "fiml")
+
+summary(fit_r1, fit.measures = TRUE, standardized = TRUE)
+summary(fit_r2, fit.measures = TRUE, standardized = TRUE)
+
+# 3 fa model is failing. (vcov) does not appear to be positive definite.
+
+```
+
+
+
+
+
+
+
+
+
+
+
+
+
+Invariance testing
+
+```{r}
+
+# configural (free parameters in both groups)
+fit_configural <- cfa(model_1, data = scores_wide_mat, group = "age_group", std.lv = TRUE)
+
+# Metric (equal loadings)
+fit_metric <- cfa(model_1, data = scores_wide_mat, group = "age_group", std.lv = TRUE, group.equal = "loadings")
+
+# Scalar (equal loadings + intercepts)
+fit_scalar <- cfa(model_1, data = scores_wide_mat, group = "age_group", std.lv = TRUE, group.equal = c("loadings", "intercepts"))
+
+# Compare models
+anova(fit_configural, fit_metric, fit_scalar)
+
+```
+
+```{r}
+```
+
+```{r}
+```
+
+```{r}
+```
