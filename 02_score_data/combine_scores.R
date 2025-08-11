@@ -68,4 +68,5 @@ task_scores <- scores_combined |>
 
 task_scores |> group_by(run_id) |> filter(n() > 1)
 
-write_rds(task_scores, here("02_scoring_outputs/scores/scores_combined.rds"))
+write_rds(task_scores, here("02_scoring_outputs/scores/scores_combined.rds"),
+          compress = "gz")
