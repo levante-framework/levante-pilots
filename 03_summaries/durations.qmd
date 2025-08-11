@@ -124,6 +124,6 @@ survey_time_summary <- time_surveys |>
 
 ```
 ```{r}
-ggplot(time_surveys, aes(x = diff)) + 
+ggplot(time_surveys, aes(x = diff))
 ```
 

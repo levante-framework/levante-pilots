@@ -19,8 +19,7 @@ task_info <- tribble(
   "sre-de"   , "sentence reading"       , "reading",
   "swr-de"   , "word reading"           , "reading",
   "mefs"     , "MEFS"                   , "executive function"
-) |> mutate(task = task |> str_to_title() |> fct_inorder(),
-            task_category = task_category |> str_to_title() |> fct_inorder())
+)
 
 task_metrics <- tribble(
   ~item_task,   ~metric_type,
@@ -33,7 +32,7 @@ task_metrics <- tribble(
   "trog"     , "ability",
   "vocab"    , "ability",
   "tom"      , "ability",
-  "ha"       , "ability",
+  "ha"       , "prop_correct",
   "pa"       , "prop_correct",
   "sre"      , "guessing_adjusted_number_correct",
   "swr"      , "ability",
@@ -41,36 +40,33 @@ task_metrics <- tribble(
 )
 
 run_info <- read_rds(here(glue("01_fetched_data/run_data.rds"))) |>
-  select(site, dataset, language, task_id, user_id, run_id, adaptive, age)
+  select(site, dataset, language, task_id, variant_id, variant_name,
+         user_id, run_id, adaptive, age, time_started)
 
-combine_scores <- \() {
+score_files <- c("sumscores.rds", "roar_thetas.rds", "scores_custom.rds", "registry_scores.rds")
 
-  score_files <- c("sumscores.rds", "roar_thetas.rds", "scores_custom.rds", "registry_scores.rds")
-  
-  scores <- score_files |>
-    map(\(f) read_rds(here("02_scoring_outputs", "scores", f))) |>
-    bind_rows() |>
-    left_join(run_info)
-  
-  mefs <- read_rds(here("02_scoring_outputs", "scores", "scores_mefs.rds"))
-  
-  scores |>
-    bind_rows(mefs) |>
-    filter(!is.na(age)) |>
-    # filter(!is.na(age), age >= 5, age <= 12) |>
-    left_join(task_info) |>
-    group_by(site, task) |>
-    mutate(site_task_label = glue("{task}\n(n = {n_distinct(run_id)})")) |>
-    group_by(task) |>
-    mutate(task_label = glue("{task}\n(n = {n_distinct(run_id)})")) |>
-    ungroup() |>
-    mutate(site_label = site |>
-             fct_recode("Canada" = "pilot_western_ca",
-                        "Colombia" = "pilot_uniandes_co",
-                        "Germany" = "pilot_leuphana_de",
-                        "LangCog" = "pilot_langcog_us",
-                        "SparkLab" = "partner_sparklab_us")) |>
-    group_by(site) |>
-    mutate(site_label = glue("{site_label} (n = {n_distinct(run_id)})")) |>
-    ungroup()
-}
+scores <- score_files |>
+  map(\(f) read_rds(here("02_scoring_outputs", "scores", f))) |>
+  bind_rows() |>
+  left_join(run_info)
+
+mefs <- read_rds(here("02_scoring_outputs", "scores", "scores_mefs.rds"))
+
+scores_combined <- scores |>
+  bind_rows(mefs) |>
+  filter(!is.na(age)) |>
+  left_join(task_info)
+
+task_scores <- scores_combined |>
+  mutate(metric_type = if_else(str_detect(metric_type, "ability"), "ability", metric_type)) |>
+  filter(!is.na(metric_value)) |>
+  inner_join(task_metrics) |>
+  filter(is.na(model_class) | !str_detect(model_class, "by_language")) |>
+  group_by(item_task, user_id, variant_id) |>
+  mutate(run_index = row_number()) |>
+  ungroup()
+
+task_scores |> group_by(item_task, run_id) |> filter(n() > 1)
+
+write_rds(task_scores, here("02_scoring_outputs/scores/scores_combined.rds"),
+          compress = "gz")

@@ -1,18 +1,7 @@
 ### functions to prep data for modeling
 
-# filter to each users earliest run
-filter_repeat_runs <- function(df) {
-  df |>
-    group_by(user_id) |>
-    # filter(server_timestamp == min(server_timestamp)) |> # user's earliest trial
-    filter(timestamp == min(timestamp)) |> # user's earliest trial
-    ungroup() |>
-    distinct(user_id, run_id) |> # corresponding run id
-    inner_join(df) # filter join
-}
-
 # add identifiers for each instance of each item
-item_sep <- "_"
+item_sep <- "-"
 dedupe_items <- function(df) {
   df |>
     # group_by(user_id, item_uid) |>
@@ -74,6 +63,15 @@ to_mirt_shape <- function(df) {
     column_to_rownames("run_id") # user_id to rownames
 }
 
+# format data for mirt
+to_mirt_shape_grouped <- function(df) {
+  df |>
+    mutate(correct = as.numeric(correct)) |> # values to numeric
+    select(run_id, group, item_inst, correct) |>
+    pivot_wider(names_from = "item_inst", values_from = "correct") |> # column for each item
+    column_to_rownames("run_id") # user_id to rownames
+}
+
 paste_c <- partial(paste, collapse = ",")
 
 # generates the mirt model strings
@@ -127,7 +125,7 @@ generate_model_str_numeric <- function(df, df_prepped, item_type, f) { # f = num
   }
   constraints <- items |> map(\(item_uid) {
     # get columns with item's instances
-    matched_idx <- which(str_detect(colnames(df_prepped), paste0(item_uid,"_")))
+    matched_idx <- which(str_detect(colnames(df_prepped), paste0(item_uid, item_sep)))
     
     if (length(matched_idx) > 1) {
       # constraint for item instance: (item_1, item_2, param)
@@ -142,101 +140,31 @@ generate_model_str_numeric <- function(df, df_prepped, item_type, f) { # f = num
 }
 
 
-# wrapper to fit mirt model with supplied arguments
-fit_mirt <- function(i, df, item_type, model_str, model_type, item_task, guess, verbose = FALSE) {
-  message(glue("fitting row {i}: {item_task} model {item_type} with {model_type} dims"))
-  # TODO: temporarily disabled guessing params due to upstream data problem
-  
-  if (nrow(df) > 0) {
-    mirt(df, itemtype = item_type, model = model_str, guess = guess,
-         technical = list(NCYCLES = 5000), verbose = verbose)
-  } else {
-    return(NA)
-  }
-}
-
-# wrapper to fit multigroup mirt model with supplied arguments
-fit_multigroup <- function(i, df, item_type, group, model_str, guess,
-                           invariance, item_task, verbose = FALSE) {
-  message(glue("fitting row {i}: {item_task}, {item_type}  model, {invariance} invariance"))
-  
-  # see https://docs.google.com/presentation/d/1OyQbOBhlOnuNpX9lgHKkp-xyTplo1JHdrNenUFyfZmI/edit?slide=id.p#slide=id.p 
-  # for an illustration of how these work
-  if (invariance == "configural") {
-    invariance_list <- ""
-  } else if (invariance == "metric") {
-    invariance_list <- c("free_means","free_variances", "intercepts", "slopes")
-  } else if (invariance == "scalar_intercepts") {
-    invariance_list <- c("free_variances", "intercepts")
-  } else if (invariance == "scalar_slopes_and_intercepts") {
-    invariance_list <- c("free_variances", "intercepts", "slopes")
-  } else if (invariance == "full") {
-    invariance_list <- c("intercepts" , "slopes")
-  } else {
-    stop("invariance must be one of 'configural', 'metric', 'scalar_intercepts', 'scalar_slopes_and_intercepts', or 'full'")
-  }
-  
-  if (nrow(df) > 0) {
-    multipleGroup(df, 
-                  itemtype = item_type, 
-                  group = group, 
-                  guess = guess,
-                  model = mirt.model(model_str), 
-                  verbose = TRUE, 
-                  invariance = invariance_list,
-                  technical = list(NCYCLES = 5000))
-  } else {
-    return(NA)
-  }
-}
-
-
 # get item parameters of fitted mirt model
 mirt_coefs <- function(mod) {
-  
-  if (is.na(mod)) {
-    return(tibble()) 
-  } else {
-    coef(mod, simplify = TRUE)$items |> as_tibble(rownames = "item")
-  }
+  coef(mod, simplify = TRUE)$items |> as_tibble(rownames = "item")
 }
 
 # get participant scores of fitted mirt model
 mirt_scores <- function(mod, df, df_prepped) {
-  # scores <- fscores(mod, method = "MAP", verbose = FALSE)
-  
-  if (is.na(mod)) {
-    return(tibble())
-  } else {
-    scores <- fscores(mod, method = "EAP", verbose = FALSE)
-    user_scores <- tibble(run_id = rownames(df_prepped),
-                          ability = scores[,1]) # TODO: check this gives correct order
-    df |> distinct(user_id, run_id) |> # took out task ID here because of multi-task models
-      left_join(user_scores) 
-  }
+  scores <- fscores(mod, method = "EAP", verbose = FALSE)
+  user_scores <- tibble(run_id = rownames(df_prepped),
+                        ability = scores[,1]) # TODO: check this gives correct order
+  df |> distinct(user_id, run_id) |> # took out task ID here because of multi-task models
+    left_join(user_scores) 
 }
 
 # get AIC of fitted mirt model
 mirt_aic <- function(mod) mod@Fit$AIC
 
-# get AIC of fitted mirt model
-mirt_bic <- function(mod) {
-  if (is.na(mod)) {
-    return(NA)
-  } else {
-    mod@Fit$BIC
-  }
-}
+# get BIC of fitted mirt model
+mirt_bic <- function(mod) mod@Fit$BIC
 
 # get coefficients for multigroup model
 multigroup_coefs <- \(mod) {
-  if (is.na(mod)) {
-    return(tibble()) 
-  } else {
-    transpose(coef(mod, simplify = TRUE))$items |>
-      map(partial(as_tibble, rownames = "item")) |>
-      list_rbind(names_to = "site")
-  }
+  transpose(coef(mod, simplify = TRUE))$items |>
+    map(partial(as_tibble, rownames = "item")) |>
+    list_rbind(names_to = "site")
 }
 
 # get groups out of multigroup model
@@ -249,13 +177,4 @@ multigroup_itemfit <- \(submods, fit_stats) {
   submods |>
     map(\(submod) itemfit(submod, fit_stats = fit_stats) |> as_tibble()) |>
     list_rbind(names_to = "site")
-}
-
-# format data for mirt
-to_mirt_shape_grouped <- function(df) {
-  df |>
-    mutate(correct = as.numeric(correct)) |> # values to numeric
-    select(run_id, group, item_inst, correct) |>
-    pivot_wider(names_from = "item_inst", values_from = "correct") |> # column for each item
-    column_to_rownames("run_id") # user_id to rownames
 }

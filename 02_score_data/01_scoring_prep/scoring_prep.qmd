@@ -1,0 +1,52 @@
+```{r load-data}
+library(tidyverse)
+library(glue)
+library(here)
+library(mirt)
+
+source(here("plot_settings.R"))
+source(here("02_score_data/01_scoring_prep/scoring_prep_helpers.R"), chdir = TRUE)
+
+run_data <- read_rds(here(glue("01_fetched_data/run_data.rds")))
+trial_data <- read_rds(here(glue("01_fetched_data/trial_data.rds")))
+```
+
+```{r}
+# recode correctness for math slider items, hearts & flowers, and SDS
+# set chance values for slider items accordingly
+slider_threshold <- 0.15
+trial_data_coded <- trial_data |>
+  mutate(original_correct = correct, .after = correct) |>
+  recode_hf() |>
+  recode_sds() |>
+  recode_slider(threshold = slider_threshold) |>
+  mutate(chance = if_else(item_group == "slider", 1 / slider_threshold / 100, chance),
+         chance = chance |> replace_na(0))
+```
+
+```{r}
+# filter to runs completed and no straightlining (except for us_pilot)
+runs_filtered <- run_data |>
+  mutate(validation_msg_run = validation_msg_run |> replace_na(""),
+         straightlining = str_detect(validation_msg_run, "straightlining")) |>
+  filter(site == "us_pilot" | (completed & !straightlining)) |>
+  select(run_id, language)
+
+# filter trials to above runs, filter out too slow/fast RTs
+trial_data_filtered <- trial_data_coded |>
+  inner_join(runs_filtered) |>
+  mutate(validation_msg_trial = validation_msg_trial |> replace_na(""),
+         slow_rt = rt_numeric > 30000,
+         fast_rt = str_detect(validation_msg_trial, "fast")) |>
+  filter(task_id == "same-different-selection" | is.na(rt_numeric) | !slow_rt,
+         !fast_rt) |>
+  select(-slow_rt, -fast_rt, -valid_trial, -validation_msg_trial)
+```
+
+```{r}
+task_data_nested <- trial_data_filtered |>
+  nest(data = -c(item_task, site, language))
+
+write_rds(task_data_nested, here("01_fetched_data/task_data_nested.rds"),
+          compress = "gz")
+```

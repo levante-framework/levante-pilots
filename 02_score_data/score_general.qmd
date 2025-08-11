@@ -2,22 +2,20 @@
 library(tidyverse)
 library(glue)
 library(here)
-source(here("02_score_data/irt_helpers.R"))
+# source(here("02_score_data/irt_helpers.R"))
 
 task_data_nested <- read_rds(here(glue("01_fetched_data/task_data_nested.rds")))
-task_data_combined <- task_data_nested |>
-  unnest(data)
+task_data_combined <- task_data_nested |> unnest(data)
 
 task_map <- task_data_combined |> distinct(task_id, item_task)
 
-run_data_combined <- read_rds(here("01_fetched_data/run_data.rds"))
+run_data <- read_rds(here("01_fetched_data/run_data.rds"))
 ```
 
 Sumscores for all tasks
 
 ```{r sumscores}
 sumscores <- task_data_combined |>
-  # filter(corpus_trial_type != "Number Line Slider") |> # TODO
   group_by(site, task_id, item_task, user_id, run_id) |>
   summarise(prop_correct =  mean(correct),
             total_correct = sum(correct),
@@ -25,27 +23,25 @@ sumscores <- task_data_combined |>
   ungroup() |>
   pivot_longer(-c("site", ends_with("_id"), "item_task"),
                names_to = "metric_type", values_to = "metric_value") |>
-  mutate(item_task = str_remove(item_task, "-.*?$")) |>
-  filter(!str_detect(task_id,"pa"), !str_detect(task_id,"sre"))
+  filter(!str_detect(task_id,"pa"), !str_detect(task_id,"sre")) |>
+  select(item_task, run_id, metric_type, metric_value)
 
-write_rds(sumscores, here("02_scoring_outputs","scores","sumscores.rds"))
+write_rds(sumscores, here("02_scoring_outputs", "scores", "sumscores.rds"),
+          compress = "gz")
 ```
 
 Thetas for tasks that have them, and score
 
 ```{r thetas}
-thetas <- run_data_combined |>
+thetas <- run_data |>
   filter(!is.na(test_comp_theta_estimate)) |>
-  # group_by(site, item_task, user_id, run_id) |>
-  # filter(server_timestamp == max(server_timestamp)) |>
-  # ungroup() |>
-  mutate(metric_type = "ability (CAT)") |>
-  select(site, task_id, user_id, run_id, metric_type,
-         metric_value = test_comp_theta_estimate) |>
   left_join(task_map) |>
-  mutate(item_task = str_remove(task_id, "-.*?$"))
+  mutate(metric_type = "ability", model_class = "CAT", model = "roar_irt") |>
+  select(item_task, run_id, metric_type,
+         metric_value = test_comp_theta_estimate, model_class, model)
 
-write_rds(thetas, here("02_scoring_outputs","scores","roar_thetas.rds"))
+write_rds(thetas, here("02_scoring_outputs", "scores", "roar_thetas.rds"),
+          compress = "gz")
 ```
 
 # SRE
@@ -87,17 +83,14 @@ ggplot(tdc_sub, aes(x = num_items)) +
 ggplot(tdc_sub, aes(x = num_items)) + 
    geom_histogram() + 
   facet_wrap(~site)
-  
 ```
 
 
 So - to score fairly, we need to divide by some kind of constant. Let's start by clipping to the first 180s for Canada, then doing (correct - incorrect) / 180 - "guessing-adjusted correct per second".
 
 ```{r sre}
-
 sre_all <- task_data_combined |>
   filter(str_detect(item_task, "sre")) 
-
 
 sre <- sre_all |>
   group_by(site, item_task, user_id, run_id) |> # corpus_trial_type
@@ -105,8 +98,7 @@ sre <- sre_all |>
   filter(site != "ca_pilot" | timestamp < timestamp[min(trial_number)] + 180) |>
   summarise(metric_value = (sum(correct) - sum(!correct))/180) |>
   ungroup() |>
-  mutate(metric_type = "guessing_adjusted_number_correct") |>
-  mutate(item_task = str_remove(item_task, "-.*?$"))
+  mutate(metric_type = "guessing_adjusted_number_correct")
 ```
 
 ```{r}
@@ -126,19 +118,23 @@ pa <- task_data_combined |>
   summarise(total_correct = sum(correct),
             n_trials = n()) |>
   filter(n_trials > 3) |>
-  mutate(max_trials = case_when(site == "ca_pilot" ~ 57,
-                                site == "co_pilot" ~ 20), 
+  mutate(max_trials = case_when(site == "pilot_western_ca" ~ 57,
+                                site == "pilot_uniandes_co" ~ 20), 
          prop_correct = total_correct / max_trials) |>
   ungroup() |>
   select(-max_trials,-total_correct,-n_trials) |>
   pivot_longer(-c("site", ends_with("_id"), "item_task"),
-               names_to = "metric_type", values_to = "metric_value") |>
-  mutate(item_task = str_remove(item_task, "-.*?$")) 
-  
+               names_to = "metric_type", values_to = "metric_value")
 ```
 
+#  Combine scores
 
+```{r}
+scores_custom <- bind_rows(sre, pa) |>
+  select(item_task, run_id, metric_type, metric_value)
 
+write_rds(scores_custom, here("02_scoring_outputs/scores/scores_custom.rds"))
+```
 
 # MEFS
 
@@ -151,23 +147,17 @@ mefs_scores <- read_csv(here("02_scoring_outputs","mefs_data","LEVANTE_20250403_
          standard_score = a1_standard_score) |>
   pivot_longer(c(standard_score, total_score),
                names_to = "metric_type", values_to = "metric_value") |>
-  mutate(item_task = "mefs", run_id = user_id)
+  mutate(item_task = "mefs", run_id = user_id, language = "en", adaptive = FALSE)
 ```
 
-Figure out how many MEFS userids fit. 
+Figure out how many MEFS user_ids fit, estimate their ages. 
 
 ```{r}
-site_users <- task_data_combined |>
-  select(user_id, site) |>
-  distinct() 
+user_ages <- run_data |>
+  group_by(site, dataset, user_id) |>
+  summarise(age = mean(age, na.rm = TRUE))
 
-mefs <- left_join(mefs_scores, site_users) |>
-  filter(!is.na(site))
-```
+mefs <- mefs_scores |> inner_join(user_ages)
 
-#  Combine scores
-
-```{r}
-scores_combined <- bind_rows(sre, pa, mefs)
-write_rds(scores_combined, here("02_scoring_outputs/scores/scores_general.rds"))
+write_rds(mefs, here("02_scoring_outputs/scores/scores_mefs.rds"))
 ```

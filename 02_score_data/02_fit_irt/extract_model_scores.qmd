@@ -1,0 +1,160 @@
+```{r}
+source(here("02_score_data/02_fit_irt/irt_modular.R"), chdir = TRUE)
+
+# functions for interfacing with model registry
+
+regdir <- here("02_scoring_outputs", "model_registry")
+
+# list models in registry and parse directory structure into metadata
+list_models <- \() {
+  mod_files <- list.files(regdir, recursive = TRUE)
+  mod_files |>
+    str_split("/", simplify = TRUE) |>
+    as_tibble(.name_repair = "minimal") |>
+    set_names(c("task", "model_set", "subset", "filename")) |>
+    bind_cols(path = mod_files)
+}
+
+# read in files from path column of model df
+load_models <- \(mod_df) {
+  mod_df |> mutate(mod_rec = map(path, \(p) read_rds(file.path(regdir, p))))
+}
+
+# given ModelRecord object, instantiate mirt model object
+model_from_record <- \(mod_rec) {
+  if (model_class(mod_rec) == "SingleGroupClass") {
+    mirt(data = mod_rec@data, pars = model_vals(mod_rec), TOL = NaN)
+  } else if (model_class(mod_rec) == "MultipleGroupClass") {
+    multipleGroup(data = mod_rec@data, group = mod_rec@groups,
+                  pars = model_vals(mod_rec), TOL = NaN)
+  }
+}
+
+# map invariance as recorded in mirt
+# (subset of c("free_means", "free_var", "intercepts", "slopes"))
+# to shorthand name
+# (one of c("configural", "metric", "scalar_intercepts", "scalar_slopes_and_intercepts", "full")
+translate_invariance <- \(invariance_terms) {
+  invariances |>
+    map(\(inv) setequal(inv, invariance_terms)) |>
+    keep(identity) |>
+    names()
+}
+```
+
+```{r}
+# read in all models in registry
+mods <- list_models() |> load_models()
+
+# extract model specifications from model records
+mods_coded <- mods |>
+  mutate(nfact = map_int(mod_rec, \(mr) mr@nfact),
+         itemtype = map_chr(mod_rec, \(mr) mr@itemtype),
+         invariance_terms = map(mod_rec, \(mr) mr@invariance),
+         invariance = map_chr(invariance_terms, translate_invariance)) |>
+  select(-filename, -path, -invariance_terms)
+
+# best by language models for each task
+mods_best_language <- mods_coded |>
+  filter(model_set == "by_language") |>
+  mutate(BIC = map_dbl(mod_rec, BIC)) |>
+  group_by(task, subset) |>
+  filter(BIC == min(BIC)) |>
+  ungroup() |>
+  select(-BIC)
+
+# reconstruct model objects from model records for overlap_items models
+mods_overlap <- mods_coded |>
+  filter(subset == "overlap_items") |>
+  mutate(mod = map(mod_rec, model_from_record))
+
+# create anova of all multigroup models for each task
+task_anova <- mods_overlap |>
+  # join in model list from fit_irt_modular.qmd for sequencing models
+  left_join(models_multigroup) |>
+  arrange(task, model_set, subset, model_order) |>
+  select(task, mod, nfact, itemtype, invariance) |>
+  # run anova for each task
+  nest(task_mods = -task) |>
+  mutate(anova = map(task_mods, \(tm) anova_mirt_wrapper(tm$mod))) |>
+  # remove model objects and flatten out anova results
+  mutate(mod_info = map(task_mods, \(tm) tm |> select(-mod))) |>
+  select(task, mod_info, anova) |>
+  unnest(c(mod_info, anova)) |>
+  # identify each task's best model and compute BIC differences from it
+  group_by(task) |>
+  mutate(delta_bic = BIC - min(BIC),
+         best = delta_bic == 0,
+         X2 = replace_na(X2, 0),
+         model_type = glue("{itemtype}-{invariance}") |> fct_inorder() |> fct_rev()) |>
+  ungroup()
+
+ggplot(task_anova, aes(x = model_type, y = delta_bic,
+                       shape = best, color = itemtype, size = as.numeric(best))) +
+  facet_wrap(vars(task), scales = "free", ncol = 3) +
+  geom_point() +
+  coord_flip() +
+  scale_size_continuous(guide = FALSE, range = c(1, 2)) +
+  scale_colour_ptol() +
+  theme(axis.text.y = element_text(size = 6),
+        axis.title.y = element_blank())
+ggsave(here("02_score_data", "plots", "multigroup_anova.png"), width = 9, height = 5)
+
+# best model on overlapping items for each task
+mods_best_overlap <- task_anova |> filter(best) |> select(task, nfact, itemtype, invariance)
+# best models overall for each task (overlapping items if configural invariance,
+# otherwise all items)
+mods_best_multigroup <- mods_coded |>
+  filter(model_set == "multigroup_site") |>
+  semi_join(mods_best_overlap) |>
+  group_by(task) |>
+  filter(invariance == "configural" | subset == "all_items") |>
+  ungroup()
+
+mods_best <- bind_rows(mods_best_multigroup, mods_best_language)
+
+# run_info <- read_rds(here(glue("01_fetched_data/run_data.rds"))) |>
+#   select(site, dataset, language, user_id, run_id, adaptive, age)
+
+# extract scores from best models
+scores_best <- mods_best |>
+  mutate(scores = map(mod_rec, scores)) |>
+  select(-mod_rec) |>
+  unnest(scores)
+
+scores_labeled <- scores_best |>
+  mutate(nfact = nfact |> as_factor() |> fct_recode("1D" = "1"), #"2D" = "2"),
+         invariance = replace_na(invariance, "configural"),
+         metric_type = "ability",
+         model_class = glue("{model_set} ({subset})"),
+         model = glue("{itemtype}-{nfact}-{invariance}")) |>
+         # model_legacy = fct_recode(model_set,
+         #                           "no pooling IRT" = "by_language",
+         #                           "partial pooling IRT" = "multigroup_site")) |>
+  select(item_task = task, run_id, metric_type, metric_value = ability, model_class, model)
+  # left_join(run_info)
+
+write_rds(scores_labeled, here("02_scoring_outputs", "scores", "registry_scores.rds"),
+          compress = "gz")
+
+# ggplot(all_scores_labeled, aes(x = age, y = metric_value, color = metric_type)) +
+#   facet_wrap(vars(item_task, model)) +
+#   geom_point()
+
+# mod_rec <- mods$mod_rec[[1]]
+
+# mod_coefs <- \(mod_rec) {
+#   model_vals(mod_rec) |>
+#     as_tibble() |>
+#     filter(group != "GROUP", item != "GROUP") |>
+#     select(group, item, name, value) |>
+#     pivot_wider(names_from = name, values_from = value) |>
+#     mutate(item = str_remove(item, glue("{item_sep}[0-9]+$"))) |>
+#     distinct()
+# }
+# 
+# all_coefs <- mods |>
+#   mutate(coefs = map(mod_rec, mod_coefs)) |>
+#   select(-mod_rec) |>
+#   unnest(coefs)
+```

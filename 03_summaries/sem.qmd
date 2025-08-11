@@ -5,9 +5,13 @@ library(glue)
 library(lavaan)
 library(tidySEM)
 library(ggthemes)
+library(dplyr)
+library(tidyr)
 
-source(here("03_summaries/plotting_helper.R"))
-source(here("03_summaries/scores_helper.R"))
+source(here("02_score_data","irt_helpers.R"))
+source(here("03_summaries", "plotting_helper.R"))
+source(here("03_explore_tasks/explore_helper.R"))
+
 ```
 
 ```{r}
@@ -28,11 +32,9 @@ run_ages <- read_rds(here(glue("01_fetched_data/run_data.rds"))) |>
   filter(site %in% sites)
 ```
 
+```{r}
 
 # Factor analysis
-
-
-```{r}
 ages <- run_ages |>
   group_by(user_id) |>
   summarise(age = mean(age, na.rm=TRUE))
@@ -57,8 +59,6 @@ library(GGally)
 ggpairs(select(scores_wide, math, matrix, sds, hf, mg, mefs, mrot))
 
 ```
-
-
 
 # CFA 
 
@@ -138,7 +138,6 @@ fit_age_site <- cfa(cfa_model_age, scores_wide_mat,
                     group = "site", 
                     std.lv=TRUE, missing='fiml')
 summary(fit_age_site, fit.measures=TRUE, standardize=TRUE)
-
 
 layout_age = matrix(nrow=7, ncol = 12, 
                     data = c(
