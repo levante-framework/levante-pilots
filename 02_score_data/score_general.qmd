@@ -24,8 +24,7 @@ sumscores <- task_data_combined |>
   pivot_longer(-c("site", ends_with("_id"), "item_task"),
                names_to = "metric_type", values_to = "metric_value") |>
   filter(!str_detect(task_id,"pa"), !str_detect(task_id,"sre")) |>
-  mutate(model = NA) |>
-  select(item_task, run_id, metric_type, metric_value, model)
+  select(item_task, run_id, metric_type, metric_value)
 
 write_rds(sumscores, here("02_scoring_outputs", "scores", "sumscores.rds"),
           compress = "gz")
@@ -37,9 +36,9 @@ Thetas for tasks that have them, and score
 thetas <- run_data |>
   filter(!is.na(test_comp_theta_estimate)) |>
   left_join(task_map) |>
-  mutate(metric_type = "ability (CAT)", model = "roar_irt") |>
+  mutate(metric_type = "ability", model_class = "CAT", model = "roar_irt") |>
   select(item_task, run_id, metric_type,
-         metric_value = test_comp_theta_estimate, model)
+         metric_value = test_comp_theta_estimate, model_class, model)
 
 write_rds(thetas, here("02_scoring_outputs", "scores", "roar_thetas.rds"),
           compress = "gz")
@@ -132,8 +131,7 @@ pa <- task_data_combined |>
 
 ```{r}
 scores_custom <- bind_rows(sre, pa) |>
-  mutate(model = NA) |>
-  select(item_task, run_id, metric_type, metric_value, model)
+  select(item_task, run_id, metric_type, metric_value)
 
 write_rds(scores_custom, here("02_scoring_outputs/scores/scores_custom.rds"))
 ```
@@ -149,7 +147,7 @@ mefs_scores <- read_csv(here("02_scoring_outputs","mefs_data","LEVANTE_20250403_
          standard_score = a1_standard_score) |>
   pivot_longer(c(standard_score, total_score),
                names_to = "metric_type", values_to = "metric_value") |>
-  mutate(item_task = "mefs", run_id = user_id, language = "en", adaptive = FALSE, model = NA)
+  mutate(item_task = "mefs", run_id = user_id, language = "en", adaptive = FALSE)
 ```
 
 Figure out how many MEFS user_ids fit, estimate their ages. 

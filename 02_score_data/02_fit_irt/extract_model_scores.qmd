@@ -125,12 +125,13 @@ scores_best <- mods_best |>
 scores_labeled <- scores_best |>
   mutate(nfact = nfact |> as_factor() |> fct_recode("1D" = "1"), #"2D" = "2"),
          invariance = replace_na(invariance, "configural"),
-         metric_type = glue("ability ({itemtype}-{nfact}-{invariance})"),
-         model = glue("{model_set} ({subset})"),
-         model_legacy = fct_recode(model_set,
-                                   "no pooling IRT" = "by_language",
-                                   "partial pooling IRT" = "multigroup_site")) |>
-  select(item_task = task, run_id, metric_type, metric_value = ability, model)
+         metric_type = "ability",
+         model_class = glue("{model_set} ({subset})"),
+         model = glue("{itemtype}-{nfact}-{invariance}")) |>
+         # model_legacy = fct_recode(model_set,
+         #                           "no pooling IRT" = "by_language",
+         #                           "partial pooling IRT" = "multigroup_site")) |>
+  select(item_task = task, run_id, metric_type, metric_value = ability, model_class, model)
   # left_join(run_info)
 
 write_rds(scores_labeled, here("02_scoring_outputs", "scores", "registry_scores.rds"),
