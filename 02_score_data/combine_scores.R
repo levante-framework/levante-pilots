@@ -32,7 +32,7 @@ task_metrics <- tribble(
   "trog"     , "ability",
   "vocab"    , "ability",
   "tom"      , "ability",
-  "ha"       , "ability",
+  "ha"       , "prop_correct",
   "pa"       , "prop_correct",
   "sre"      , "guessing_adjusted_number_correct",
   "swr"      , "ability",
@@ -61,11 +61,12 @@ task_scores <- scores_combined |>
   mutate(metric_type = if_else(str_detect(metric_type, "ability"), "ability", metric_type)) |>
   filter(!is.na(metric_value)) |>
   inner_join(task_metrics) |>
-  filter(!str_detect(model_class, "by_language")) |>
+  filter(is.na(model_class) | !str_detect(model_class, "by_language")) |>
   group_by(item_task, user_id, variant_id) |>
   mutate(run_index = row_number()) |>
   ungroup()
 
-task_scores |> group_by(run_id) |> filter(n() > 1)
+task_scores |> group_by(item_task, run_id) |> filter(n() > 1)
 
-write_rds(task_scores, here("02_scoring_outputs/scores/scores_combined.rds"))
+write_rds(task_scores, here("02_scoring_outputs/scores/scores_combined.rds"),
+          compress = "gz")
