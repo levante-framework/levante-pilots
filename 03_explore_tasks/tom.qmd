@@ -301,3 +301,63 @@ ggsave(
   dpi = 300
 )
 ```
+
+
+
+```{r}
+survey_scores <- readRDS(here("03_summaries","efa","caregiver_fscore_all.rds"))
+
+survey_scores_filtered <- survey_scores |>
+  filter(site == "de_leipzig") |>
+  select(user_id = child_id, form_construct, form_subconstruct, value) 
+
+ha_wide <- ha_runs |>
+  ungroup() |>
+  filter(site == "de_pilot") |>
+  select(-run_id, -n_items) |>
+  pivot_wider(names_from = "item", values_from = "correct")
+  
+ha_surveys <- inner_join(survey_scores_filtered, ha_wide, by = "user_id")
+```
+
+```{r}
+ha_surveys$ha_composite <- (ha_surveys$action + ha_surveys$attribution)/2
+
+ggplot(ha_surveys, aes(x = value, y = action, col = age)) + 
+  geom_jitter(alpha = .5, height = .05, width = 0) +
+  geom_smooth(method = "lm", aes(group = 1), col = "blue") + 
+  facet_wrap(~form_subconstruct)
+    
+ggplot(ha_surveys, aes(x = value, y = attribution, col = age)) + 
+  geom_jitter(alpha = .5, height = .05, width = 0) +
+  geom_smooth(method = "lm", aes(group = 1), col = "blue") + 
+  facet_wrap(~form_subconstruct)
+    
+ggplot(ha_surveys, aes(x = value, y = ha_composite, col = age)) + 
+  geom_point(alpha = .5) +
+  geom_smooth(method = "lm", aes(group = 1), col = "blue") + 
+  facet_wrap(~form_subconstruct)
+    
+```
+
+
+```{r}
+ha_surveys |>
+  group_by(form_subconstruct) |>
+  summarise(attribution_corr = cor(value, attribution), 
+            action_corr = cor(value, action), 
+            ha_composite_corr = cor(value, ha_composite)) |>
+  knitr::kable(digits = 2)
+```
+
+
+
+```{r}
+ha_surveys |>
+  filter(value > -5) |>
+  group_by(form_subconstruct) |>
+  summarise(attribution_corr = cor(value, attribution), 
+            action_corr = cor(value, action), 
+            ha_composite_corr = cor(value, ha_composite)) |>
+  knitr::kable(digits = 2)
+```
