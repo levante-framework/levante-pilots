@@ -38,7 +38,7 @@ Airtables:
 
 # Setup
 
-```{r setup, include = F, message = F, warning = F}
+```{r setup, include = T, message = F, warning = F}
 
 # load relevant libraries and functions
 library(here)
@@ -74,13 +74,11 @@ First, let's fetch the data.
 tom_data_long =
   read_rds(here("01_fetched_data/task_data_nested.rds")) %>%
   # keep only tom tasks
-  filter(item_task == "tom",
-         # keep only Canada, Colombia, Germany
-         site %in% c("ca_pilot", "co_pilot", "de_pilot")) %>%
+  filter(item_task == "tom") %>%
   # unnest
   unnest(data) %>%
   # filter out missing item uids
-  filter(!is.na(item_uid)) %>%
+  filter(site != "pilot_langcog_us") %>%
   # convert booleans to numeric
   mutate(correct = unlist(correct)) %>%
   mutate(correct = case_when(correct == T ~ 1,
@@ -203,7 +201,7 @@ tom_data_long %>%
              y = correct,
              color = site)) +
   geom_point(alpha = 0.3, size = 1) +
-  geom_smooth(method = "lm", se = T) +
+  geom_smooth(method = "loess", se = T) +
   facet_wrap(~ item_uid,
              ncol = 6) +
   scale_y_continuous(limits = c(0, 1),
@@ -333,7 +331,7 @@ fit_irt_model =
 
 Now, using the function we defined above, let's run our four models for all of the items:
 
-```{r}
+```{r message = F, warning = F}
 
 # fit 1PL Rasch model, nonconfigural
 mod_rasch =
@@ -342,7 +340,7 @@ mod_rasch =
 
 ```
 
-```{r}
+```{r message = F, warning = F}
 
 # fit 2PL model, nonconfigural
 mod_2pl =
@@ -351,7 +349,7 @@ mod_2pl =
 
 ```
 
-```{r}
+```{r echo = F, message = F, warning = F}
 
 # fit 1 PL Rasch model, *configural*
 mod_rasch_configural =
@@ -361,7 +359,7 @@ mod_rasch_configural =
 
 ```
 
-```{r}
+```{r message = F, warning = F}
 
 # fit 2 PL Rasch model, *configural*
 mod_2pl_configural =
@@ -487,7 +485,7 @@ ggplot(item_params_all,
   labs(title = "Item Discrimination by Model",
        y = "Discrimination (a)",
        x = "Item") +
-  ylim(-10, 10) +
+  ylim(-5, 5) +
   theme_minimal(base_size = 14) +
   theme(axis.text.x = element_text(angle = 60, hjust = 1)) +
   coord_flip()
