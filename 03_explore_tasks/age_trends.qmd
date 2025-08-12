@@ -21,30 +21,20 @@ source(here("03_explore_tasks/explore_helper.R"))
 load thetas for 9 core tasks (not ROAR, mefs or ha)
 
 ```{r}
-multigroup <- read_rds(here("02_scoring_outputs","scores",
-                             "multigroup_scores.rds"))
-colnames(multigroup)
-glimpse(multigroup)
-unique(multigroup$item_task)
 
-# define tasks for EFA (remove ha)
+### new, aug 11
+task_scores <- read_rds(here("02_scoring_outputs","scores",
+                              "scores_combined.rds"))
+
+colnames(task_scores)
+glimpse(task_scores)
+unique(task_scores$item_task)
+unique (task_scores$site)
+
+
+# define tasks 
 tasks <- c("hf", "math", "matrix", "mg", "mrot", "sds", "tom", "trog", "vocab")
 
-```
-
-run ages
-
-```{r}
-# create sites
-sites <- c("ca_pilot", "co_pilot", "de_pilot")
-
-run_ages <- read_rds(here(glue("01_fetched_data/run_data.rds"))) |>
-  select(site, task_id, user_id, run_id, age) |>
-  filter(site %in% sites)
-
-ages <- run_ages |>
-  group_by(user_id) |>
-  summarise(age = mean(age, na.rm=TRUE))
 
 ```
 
@@ -54,65 +44,49 @@ missingness for age var
 sum(is.na(run_ages$age)) #total missing values
 mean(is.na(run_ages$age)) * 100 # %missing
 
-# unique users with age data
-run_ages |>
-  filter(!is.na(age)) |>
-  distinct(user_id) |>
-  count()
-
-# by site
-run_ages |>
-  filter(!is.na(age)) |>
-  distinct(user_id, site) |>
-  count(site, name = "n_users_with_age")
-
-# tot. number of unique users per site
-n_users <- run_ages |>
-  distinct(user_id, site) |>
-  count(site, name = "n_users_total")
-
-# users with non-missing age per site
-n_users_with_age <- run_ages |>
-  filter(!is.na(age)) |>
-  distinct(user_id, site) |>
-  count(site, name = "n_users_with_age")
-
-# merge and calculate % with age per site
-user_age_summary <- n_users |>
-  left_join(n_users_with_age, by = "site") |>
-  mutate(
-    n_users_with_age = replace_na(n_users_with_age, 0),
-    pct_with_age = round(100 * n_users_with_age / n_users_total, 1)
+task_scores %>%
+  group_by(site) %>%
+  summarise(
+    n = n(),
+    missing_age = sum(is.na(age)),
+    perc_missing = mean(is.na(age)) * 100
   )
 
-user_age_summary
 ```
 
 Plot
 
 ```{r}
-ability_scores <- multigroup |>
-  filter(item_task %in% tasks, str_detect(metric_type, "ability")) |>
-  select(user_id, item_task, metric_type, metric_value, site) |> 
-  rename(task = item_task, ability = metric_value)
 
-user_ages <- run_ages |>
-  group_by(user_id) |>
-  summarise(age = mean(age, na.rm = TRUE))
+library(dplyr)
+library(ggplot2)
 
-plot_data <- ability_scores |>
-  left_join(user_ages, by = "user_id") |>
-  filter(!is.na(age), !is.na(ability))
+tasks <- c("hf", "math", "matrix", "mg", "mrot", "sds", "tom", "trog", "vocab")
 
-ability_age <- ggplot(plot_data, aes(x = age, y = ability)) +
+dev <- task_scores %>%
+  filter(
+    metric_type == "ability",
+    item_task %in% tasks,
+    !is.na(age), !is.na(metric_value)
+  ) %>%
+  arrange(user_id, item_task, time_started) %>%   # first run comes first
+  group_by(user_id, item_task) %>%
+  slice_head(n = 1) %>%                           # take the first run
+  ungroup() %>%
+  mutate(item_task = factor(item_task, levels = tasks)) %>%
+  transmute(user_id, item_task, site, age, ability = metric_value) %>%
+  group_by(item_task) %>%
+  mutate(ability_z = as.numeric(scale(ability))) %>%
+  ungroup()
+
+ability_age <- ggplot(dev, aes(x = age, y = ability_z)) +
   geom_point(alpha = 0.3, size = 0.8) +
   geom_smooth(method = "loess", se = TRUE, colour = "blue") +
-  facet_wrap(~ task, scales = "free_y") +
+  facet_wrap(~ item_task, scales = "free_y") +
   labs(
     title = "Ability vs. Age across Tasks",
-    x = "Age (years)",
-    y = "Ability (model-specific)"
-  )
+    x = "Age (years)", 
+    y = "Ability (Theta, model specific)") 
 ability_age
 
 ggsave(
@@ -127,17 +101,33 @@ ggsave(
 by site
 
 ```{r}
-ability_age_site <- ggplot(plot_data, aes(x = age, y = ability, color = site)) +
+
+library(dplyr)
+library(ggplot2)
+
+# counts per site (unique users and total rows)
+site_counts <- dev %>%
+  group_by(site) %>%
+  summarise(n_users = n_distinct(user_id), n_obs = n(), .groups = "drop")
+
+# label vector: names must match levels of `site`
+site_labels <- setNames(
+  paste0(site_counts$site, " (n=", site_counts$n_users, ")"),
+  site_counts$site
+)
+
+ability_age_site <- ggplot(dev, aes(x = age, y = ability_z, colour = site)) +
   geom_point(alpha = 0.3, size = 0.8) +
   geom_smooth(method = "loess", se = TRUE) +
-  facet_wrap(~ task, scales = "free_y") +
+  facet_wrap(~ item_task, scales = "free_y") +
   labs(
-  title = "Ability vs. Age across Tasks by Site",
-  caption = "Ca: n = 119; Co: n = 743; De: n = 374",
-  x = "Age (years)",
-  y = "Ability (model-specific)",
-  color = "Site"
-  )
+    title = "Ability vs. Age by Site and Task",
+    x = "Age (years)",
+    y = "Ability (Theta, model specific)",
+    colour = "Site"
+  ) +
+  scale_colour_discrete(labels = site_labels)
+
 ability_age_site
 
 # is the rural sample older than the younger sample or outlier?
@@ -153,7 +143,7 @@ ggsave(
 
 
 ```
-Quantifying slope differences
+Quantifying slope differences - start here- 12.08.2025
 ```{r}
 library(broom)
 
@@ -252,7 +242,6 @@ Social_cog =~ tom
 
 fit_1 <- cfa(model_1, data = scores_wide_mat,
               std.lv = TRUE, missing = "fiml",
-              fixed.x = FALSE,  # so that it doesn't drop those who are missing age
               bounds = list(lower = 0.001)) # included to avoid heywood cases
 
 summary(fit_1, fit.measures = TRUE, standardize = TRUE)
@@ -262,10 +251,47 @@ summary(fit_1, fit.measures = TRUE, standardize = TRUE)
 Examine factor structure in younger and older age groups (split by median)
 
 ```{r}
+
+# what is the median age?
+median_age <- median(scores_wide_mat$age, na.rm = TRUE)
+median_age
+
+# Summary statistics for the age variable
+age_summary <- summary(scores_wide_mat$age)
+
+# Minimum, maximum, and IQR
+min_age <- min(scores_wide_mat$age, na.rm = TRUE)
+max_age <- max(scores_wide_mat$age, na.rm = TRUE)
+iqr_age <- IQR(scores_wide_mat$age, na.rm = TRUE)
+
+# Output the results
+min_age
+max_age
+iqr_age
+
+library(ggplot2)
+
+# Create a histogram of the age variable
+age_dist <- ggplot(scores_wide_mat, aes(x = age)) +
+  geom_histogram(binwidth = 1, fill = "lightblue", color = "black", alpha = 0.7) +
+  labs(title = "Distribution of Age", x = "Age", y = "Frequency") 
+
+ggsave(
+  filename = here::here("03_explore_tasks", "Graphs", "age_dist.png"),
+  plot = age_dist,
+  width = 10,
+  height = 6,
+  dpi = 300
+)
+
+
+```
+
+```{r}
+
 scores_wide_mat <- scores_wide_mat |> 
   mutate(age_group = if_else(age <= median(age, na.rm = TRUE), "younger", "older"))
 table(scores_wide_mat$age_group) #551 older; 552 younger
-
 
 # define model
 model_2 <- '
@@ -298,6 +324,82 @@ lavInspect(fit_age_group, "cov.lv")[[2]]  # older
 # Covariances are all very high >1 suggesting implausibly strong or indistinguishable constructs for the younger age group
 ```
 
+diagram, younger
+
+```{r}
+
+# Filter data for the younger group
+younger_data <- scores_wide_mat |> filter(age_group == "younger")
+
+# Define layout for the younger group
+layout_younger <- matrix(nrow = 5, ncol = 12, byrow = TRUE, data = c(
+  "hf", "mg", "sds", NA,"matrix", "mrot", "math", NA, "trog", "vocab", NA, "tom",
+  NA, NA, NA, NA, NA, NA, NA, NA, NA, NA, NA, NA, 
+  "EF", NA, NA, "Reasoning", NA, NA, "Lang", NA, NA, "Social_cog", NA, NA,
+  NA, NA, NA, NA, NA, NA, NA, NA, NA, NA, NA, NA,
+  NA, NA, NA, NA, NA, NA, NA, NA, NA, NA, NA, NA
+))
+
+# Fit model for the younger group
+fit_younger <- cfa(model_2, 
+                   data = younger_data, 
+                   std.lv = TRUE, 
+                   missing = "fiml", 
+                   fixed.x = FALSE)
+
+# Generate graph for the younger group
+structure_y <- graph_sem(fit_younger, layout = layout_younger, text_size = 2.5)
+structure_y
+
+ggsave(
+  filename = here::here("03_explore_tasks", "Graphs", "structure_y.png"),
+  plot = structure_y,
+  width = 10,
+  height = 6,
+  dpi = 300
+)
+
+
+```
+
+diagram, older
+
+```{r}
+
+# Filter data for the older group
+older_data <- scores_wide_mat |> filter(age_group == "older")
+
+# Define layout for the older group
+layout_older <- matrix(nrow = 5, ncol = 12, byrow = TRUE, data = c(
+  "hf", "mg", "sds", NA,"matrix", "mrot", "math", NA, "trog", "vocab", NA, "tom",
+  NA, NA, NA, NA, NA, NA, NA, NA, NA, NA, NA, NA, 
+  "EF", NA, NA, "Reasoning", NA, NA, "Lang", NA, NA, "Social_cog", NA, NA,
+  NA, NA, NA, NA, NA, NA, NA, NA, NA, NA, NA, NA,
+  NA, NA, NA, NA, NA, NA, NA, NA, NA, NA, NA, NA
+))
+
+# Fit model for the older group
+fit_older <- cfa(model_2, 
+                 data = older_data, 
+                 std.lv = TRUE, 
+                 missing = "fiml", 
+                 fixed.x = FALSE)
+
+# Generate graph for the older group
+structure_o <- graph_sem(fit_older, layout = layout_older, text_size = 2.5)
+structure_o
+
+ggsave(
+  filename = here::here("03_explore_tasks", "Graphs", "structure_older.png"),
+  plot = structure_o,
+  width = 10,
+  height = 6,
+  dpi = 300
+)
+
+```
+
+
 Try higher order factor model
 
 ```{r}
@@ -317,6 +419,10 @@ fit_ho <- cfa(model_higher_order,
               missing = "fiml", 
               fixed.x = FALSE)
 summary(fit_ho, fit.measures = TRUE, standardized = TRUE)
+
+# factor covariance matrices
+lavInspect(fit_ho, "cov.lv")[[1]]  # younger
+lavInspect(fit_ho, "cov.lv")[[2]]  # older
 
 
 ```
