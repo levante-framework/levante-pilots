@@ -1,12 +1,18 @@
 source("ModelRecord.R")
 source("anova_mirt.R")
 
+# invariances <- list(
+#   configural = "",
+#   metric = c("free_means", "free_var", "intercepts", "slopes"),
+#   scalar_intercepts = c("free_var", "intercepts"),
+#   scalar_slopes_and_intercepts = c("free_var", "intercepts", "slopes"),
+#   full = c("intercepts", "slopes")
+# )
+
 invariances <- list(
   configural = "",
-  metric = c("free_means", "free_var", "intercepts", "slopes"),
-  scalar_intercepts = c("free_var", "intercepts"),
-  scalar_slopes_and_intercepts = c("free_var", "intercepts", "slopes"),
-  full = c("intercepts" , "slopes")
+  metric = c("slopes"),
+  scalar = c("free_means", "free_var", "intercepts", "slopes")
 )
 
 # for a given task + subsetting variable/value, fit set of pooled models

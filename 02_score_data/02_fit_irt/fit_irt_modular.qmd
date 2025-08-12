@@ -16,6 +16,7 @@ irt_tasks <- c("math",
                "mrot",
                "sds",
                "tom",
+               "ha",
                "hf",
                "mg",
                "trog",
@@ -35,15 +36,11 @@ task_data_irt <- task_data_nested |> filter(item_task %in% irt_tasks)
 models_multigroup <- tribble(
   ~nfact, ~itemtype, ~invariance,
        1,   "Rasch", "configural",
-       1,   "Rasch", "metric",
-       1,   "Rasch", "full",
+       1,   "Rasch", "scalar",
        1,     "2PL", "configural",
        1,     "2PL", "metric",
-       1,     "2PL", "scalar_intercepts",
-       1,     "2PL", "scalar_slopes_and_intercepts",
-       1,     "2PL", "full"
-) |>
-  mutate(model_order = row_number())
+       1,     "2PL", "scalar",
+)
 
 # define set of pooled models (Rasch/2PL)
 models_pooled <- models_multigroup |> distinct(nfact, itemtype)
@@ -111,10 +108,10 @@ cluster |>
 ```
 
 ```{r}
-fit_bylanguage_task(task_data = task_data_irt,
-                    models = models_pooled,
-                    task = "hf",
-                    registry_dir = regdir)
+# fit_bylanguage_task(task_data = task_data_irt,
+#                     models = models_pooled,
+#                     task = "hf",
+#                     registry_dir = regdir)
 # 
 # irt_tasks |> map(\(tsk) {
 #   fit_bylanguage_task(task_data = task_data_irt,
@@ -123,19 +120,19 @@ fit_bylanguage_task(task_data = task_data_irt,
 #                       registry_dir = regdir)
 # })
 # 
-fit_task_models_multigroup(task_data = task_data_irt,
-                           models = models_multigroup,
-                           task = "hf",
-                           group = site,
-                           overlap_items = TRUE,
-                           registry_dir = regdir)
-
-fit_task_models_multigroup(task_data = task_data_irt,
-                           models = m1,
-                           task = "hf",
-                           group = site,
-                           overlap_items = TRUE,
-                           registry_dir = regdir)
+# fit_task_models_multigroup(task_data = task_data_irt,
+#                            models = models_multigroup,
+#                            task = "hf",
+#                            group = site,
+#                            overlap_items = TRUE,
+#                            registry_dir = regdir)
+# 
+# fit_task_models_multigroup(task_data = task_data_irt,
+#                            models = m1,
+#                            task = "hf",
+#                            group = site,
+#                            overlap_items = TRUE,
+#                            registry_dir = regdir)
 # 
 # fit_task_models_multigroup(task_data = task_data_irt,
 #                            models = models_multigroup,
