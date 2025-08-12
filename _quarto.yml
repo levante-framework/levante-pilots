@@ -22,5 +22,6 @@ project:
     # (saving various to scores/)
     - 02_score_data/score_general.qmd
   
-    # line go up
-    - 03_summaries/line_go_up.qmd
+    # combine various score types into df with one score per run
+    # (save to scores/scores_combined)
+    - 02_score_data/combine_scores.qmd

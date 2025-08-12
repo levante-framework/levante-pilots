@@ -1,3 +1,4 @@
+```{r}
 task_info <- tribble(
   ~item_task , ~task                    , ~task_category,
   "hf"       , "hearts & flowers"       , "executive function",
@@ -44,11 +45,13 @@ run_info <- read_rds(here(glue("01_fetched_data/run_data.rds"))) |>
          user_id, run_id, adaptive, age, time_started)
 
 score_files <- c("sumscores.rds", "roar_thetas.rds", "scores_custom.rds", "registry_scores.rds")
+ref_sites <- c("pilot_uniandes_co", "pilot_leuphana_de", "pilot_western_ca")
 
 scores <- score_files |>
   map(\(f) read_rds(here("02_scoring_outputs", "scores", f))) |>
   bind_rows() |>
-  left_join(run_info)
+  left_join(run_info) |>
+  filter(site %in% ref_sites)
 
 mefs <- read_rds(here("02_scoring_outputs", "scores", "scores_mefs.rds"))
 
@@ -61,12 +64,10 @@ task_scores <- scores_combined |>
   mutate(metric_type = if_else(str_detect(metric_type, "ability"), "ability", metric_type)) |>
   filter(!is.na(metric_value)) |>
   inner_join(task_metrics) |>
-  filter(is.na(model_class) | !str_detect(model_class, "by_language")) |>
-  group_by(item_task, user_id, variant_id) |>
-  mutate(run_index = row_number()) |>
-  ungroup()
+  filter(is.na(model_class) | !str_detect(model_class, "by_language"))
 
-task_scores |> group_by(item_task, run_id) |> filter(n() > 1)
+# task_scores |> group_by(item_task, run_id) |> filter(n() > 1)
 
 write_rds(task_scores, here("02_scoring_outputs/scores/scores_combined.rds"),
           compress = "gz")
+```
