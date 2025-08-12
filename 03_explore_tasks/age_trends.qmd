@@ -104,26 +104,33 @@ plot_data <- ability_scores |>
   left_join(user_ages, by = "user_id") |>
   filter(!is.na(age), !is.na(ability))
 
-ggplot(plot_data, aes(x = age, y = ability)) +
+ability_age <- ggplot(plot_data, aes(x = age, y = ability)) +
   geom_point(alpha = 0.3, size = 0.8) +
   geom_smooth(method = "loess", se = TRUE, colour = "blue") +
   facet_wrap(~ task, scales = "free_y") +
-  theme_minimal() +
   labs(
     title = "Ability vs. Age across Tasks",
     x = "Age (years)",
     y = "Ability (model-specific)"
   )
+ability_age
+
+ggsave(
+  filename = here::here("03_explore_tasks", "Graphs", "ability_age.png"),
+  plot = ability_age,
+  width = 10,
+  height = 6,
+  dpi = 300
+)
 
 ```
 by site
 
 ```{r}
-ggplot(plot_data, aes(x = age, y = ability, color = site)) +
+ability_age_site <- ggplot(plot_data, aes(x = age, y = ability, color = site)) +
   geom_point(alpha = 0.3, size = 0.8) +
   geom_smooth(method = "loess", se = TRUE) +
   facet_wrap(~ task, scales = "free_y") +
-  theme_minimal() +
   labs(
   title = "Ability vs. Age across Tasks by Site",
   caption = "Ca: n = 119; Co: n = 743; De: n = 374",
@@ -131,8 +138,17 @@ ggplot(plot_data, aes(x = age, y = ability, color = site)) +
   y = "Ability (model-specific)",
   color = "Site"
   )
+ability_age_site
 
 # is the rural sample older than the younger sample or outlier?
+
+ggsave(
+  filename = here::here("03_explore_tasks", "Graphs", "ability_age_site.png"),
+  plot = ability_age_site,
+  width = 10,
+  height = 6,
+  dpi = 300
+)
 
 
 
@@ -161,7 +177,7 @@ slopes <- slopes |>
   )
 
 # Plot
-ggplot(slopes, aes(x = estimate, y = site)) +
+dev_trends <- ggplot(slopes, aes(x = estimate, y = site)) +
   geom_point() +
   geom_errorbarh(aes(xmin = lower, xmax = upper), height = 0.2) +
   geom_vline(xintercept = 0, linetype = "dashed", colour = "grey50") +
@@ -171,8 +187,8 @@ ggplot(slopes, aes(x = estimate, y = site)) +
     caption = "Ca: n = 119; Co: n = 743; De: n = 374",
     x = "Slope of Ability ~ Age",
     y = NULL
-  ) +
-  theme_minimal()
+  )
+dev_trends
 
 ```
 
@@ -184,7 +200,7 @@ slopes <- slopes |>
     sig = ifelse(lower > 0 | upper < 0, "Significant", "Not significant")
   )
 
-ggplot(slopes, aes(x = estimate, y = site, color = sig)) +
+slopes_graph <- ggplot(slopes, aes(x = estimate, y = site, color = sig)) +
   geom_point() +
   geom_errorbarh(aes(xmin = lower, xmax = upper), height = 0.2) +
   geom_vline(xintercept = 0, linetype = "dashed", colour = "grey50") +
@@ -196,8 +212,18 @@ ggplot(slopes, aes(x = estimate, y = site, color = sig)) +
     x = "Slope of Ability ~ Age",
     y = NULL,
     color = "Significance"
-  ) +
-  theme_minimal()
+  ) 
+
+slopes_graph
+
+ggsave(
+  filename = here::here("03_explore_tasks", "Graphs", "slopes_graph.png"),
+  plot = slopes_graph,
+  width = 10,
+  height = 6,
+  dpi = 300
+)
+
 
 ```
 
@@ -222,12 +248,6 @@ EF =~ hf + mg + sds
 Reasoning =~ matrix + mrot + math
 Lang =~ trog + vocab
 Social_cog =~ tom
-
-# add age regressions
-EF ~ age
-Reasoning ~ age
-Lang ~ age
-Social_cog ~ age
 '
 
 fit_1 <- cfa(model_1, data = scores_wide_mat,
@@ -250,7 +270,7 @@ table(scores_wide_mat$age_group) #551 older; 552 younger
 # define model
 model_2 <- '
 EF =~ hf + mg + sds
-Reasoning =~ matrix + mrot + math
+Reasoning =~ math + matrix + mrot
 Lang =~ trog + vocab
 Social_cog =~ tom
 '
@@ -264,6 +284,8 @@ fit_age_group <- cfa(model_2,
                      fixed.x = FALSE)
 
 fitMeasures(fit_age_group, c("cfi", "rmsea", "srmr", "aic", "bic"))
+
+summary (fit_age_group, fit.measures = TRUE, standardized = TRUE)
 
 # warning 1: how many participants are missing age
 sum(is.na(scores_wide_mat$age))
@@ -368,6 +390,10 @@ fit_o4 <- cfa(model_4f, data = older_data, estimator = "ML", missing = "fiml")
 
 summary(fit_o1, fit.measures = TRUE, standardized = TRUE)
 summary(fit_o2, fit.measures = TRUE, standardized = TRUE)
+summary(fit_o3, fit.measures = TRUE, standardized = TRUE)
+summary(fit_o4, fit.measures = TRUE, standardized = TRUE)
+
+
 
 # examine pairwise correlations
 nrow(older_data)
@@ -379,6 +405,34 @@ rownames(pairwise_n) <- colnames(pairwise_n) <- efa_vars
 pairwise_n
 
 ```
+
+Extract fit indices for 1 and 2 fac models for both younger and older age groups
+
+```{r}
+# Extract fit indices for each model
+fit_y1_indices <- fitMeasures(fit_y1)
+fit_y2_indices <- fitMeasures(fit_y2)
+fit_o1_indices <- fitMeasures(fit_o1)
+fit_o2_indices <- fitMeasures(fit_o2)
+
+# Create a summary dataframe
+fit_comparison <- data.frame(
+  Model = c("Younger 1-factor", "Younger 2-factor", "Older 1-factor", "Older 2-factor"),
+  CFI = c(fit_y1_indices["cfi"], fit_y2_indices["cfi"], fit_o1_indices["cfi"], fit_o2_indices["cfi"]),
+  TLI = c(fit_y1_indices["tli"], fit_y2_indices["tli"], fit_o1_indices["tli"], fit_o2_indices["tli"]),
+  RMSEA = c(fit_y1_indices["rmsea"], fit_y2_indices["rmsea"], fit_o1_indices["rmsea"], fit_o2_indices["rmsea"]),
+  SRMR = c(fit_y1_indices["srmr"], fit_y2_indices["srmr"], fit_o1_indices["srmr"], fit_o2_indices["srmr"]),
+  AIC = c(fit_y1_indices["aic"], fit_y2_indices["aic"], fit_o1_indices["aic"], fit_o2_indices["aic"]),
+  BIC = c(fit_y1_indices["bic"], fit_y2_indices["bic"], fit_o1_indices["bic"], fit_o2_indices["bic"])
+)
+
+# View the comparison table
+print(fit_comparison)
+
+
+```
+
+
 
 Try with reduced model - vars that have enough complete case vars
 

@@ -26,6 +26,20 @@ task_scores <- read_rds(here("02_scoring_outputs","scores",
   filter(site %in% sites)
 ```
 
+11.08.2025 Load new data
+
+```{r}
+# all scores
+
+task_scores <- read_rds(here("02_scoring_outputs","scores",
+                             "scores_combined.rds"))
+View(task_scores)
+colnames(task_scores)
+unique(task_scores$item_task)
+unique(task_scores$task_category)
+
+```
+
 ```{r}
 run_ages <- read_rds(here(glue("01_fetched_data/run_data.rds"))) |>
   select(site, task_id, user_id, run_id, age) |>
