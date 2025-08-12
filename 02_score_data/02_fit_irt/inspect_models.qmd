@@ -1,0 +1,18 @@
+```{r}
+source(here("02_score_data/02_fit_irt/irt_modular.R"), chdir = TRUE)
+source(here("02_score_data/02_fit_irt/registry_helper.R"), chdir = TRUE)
+```
+
+```{r}
+# read in all models in registry
+mods <- list_models() |> load_models()
+
+# extract model specifications from model records
+mods_coded <- mods |>
+  mutate(nfact = map_int(mod_rec, \(mr) mr@nfact),
+         itemtype = map_chr(mod_rec, \(mr) mr@itemtype),
+         invariance_terms = map(mod_rec, \(mr) mr@invariance),
+         invariance = map_chr(invariance_terms, translate_invariance)) |>
+  select(-filename, -path, -invariance_terms) |>
+  mutate(mod = map(mod_rec, model_from_record))
+```
