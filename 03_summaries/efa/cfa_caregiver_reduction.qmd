@@ -1,0 +1,290 @@
+# Run CFA analysis for surveys for caregiver
+
+```{r}
+# Extract and run code from cfa_caregiver.qmd
+knitr::purl(here::here("03_summaries", "efa", "cfa_caregiver.qmd"), output = "cfa_caregiver.R", documentation = 0)
+source("cfa_caregiver.R")
+
+caregiver_reduc <- caregiver_tidy |>
+  select(form_construct, data, df_vals, fit_configural, fit_scalar, fscore_configural)
+# some warnings: for Child Health and Social Emotional survey we failed to run the multigroup cfa 
+
+source(here::here("03_summaries", "efa", "reduction_helper.R"))
+```
+
+# Factor Similarity
+
+Please note that before the following analysis, we have already merged the following factors:
+
+EF: Inhibitory Control – Interference Suppression and Inhibitory Control – Response Inhibition into a single factor, Inhibitory Control.
+
+EF: Working Memory, Attentional Focus, Engagement, & Persistence into two factors: Attentional Focus and Working Memory.
+
+SDQ: Hyperactivity and Conduct Problem into a combined factor, Hyperactivity and Conduct Problem.
+
+Caregiver Well-being: Anxiety and Depression
+
+These combinations were made due to very high factor correlations (> 0.9) and the presence of negative covariances / non-positive definite matrix in the CFA, which failed the following modification and analysis.
+
+Additionally, for the Child Health and Social Emotional questionnaires we cannot run multi-group CFA, likely due to some sites not measuring certain variables or having very small sample sizes. Currently, no further analysis has been conducted on these two questionnaires.
+
+```{r}
+# 1. Filter configural model data
+configural_data <- caregiver_fscore_all %>%
+  filter(model == "configural") %>%
+  select(user_id, form_subconstruct, value)
+
+# 2. Convert to wide format
+wide_data <- configural_data %>%
+  pivot_wider(names_from = form_subconstruct, values_from = value)
+
+# 3. Compute correlation matrix
+cor_matrix <- cor(wide_data %>% select(-user_id), use = "pairwise.complete.obs")
+
+# 4. Convert to long format and add conditional labels
+cor_long <- melt(cor_matrix) #%>%
+  #mutate(label = ifelse(Var1 != Var2 & value > 0.95, sprintf("%.2f", value), ""))  # exclude diagonal
+
+# 5. Plot heatmap
+ggplot(cor_long, aes(Var1, Var2, fill = value)) +
+  geom_tile(color = "white") +
+  #geom_text(aes(label = label), size = 4, color = "black") +  # label only off-diagonal r > 0.9
+  scale_fill_gradient2(low = RColorBrewer::brewer.pal(3, "Set1")[2], high = RColorBrewer::brewer.pal(3, "Set1")[1], mid = "white",
+                       midpoint = 0, limit = c(-1, 1),
+                       name = "Correlation") +
+  theme_minimal() +
+  theme(axis.text.x = element_blank(),         # hide top labels
+        axis.ticks.x = element_blank(),
+        axis.text.y = element_text(size = 12), # show only left labels
+        panel.grid = element_blank()) +
+  coord_fixed() +
+  labs(x = NULL, y = NULL,
+       title = "Correlations Between Subconstruct Scores")
+
+
+# 6. table
+cor_table <- melt(cor_matrix) %>%
+  filter(Var1 != Var2, value > 0.9) %>%         # remove diagonal and only keep high correlations
+  mutate(pair = pmap_chr(list(Var1, Var2), ~ paste(sort(c(..1, ..2)), collapse = "___"))) %>%
+  distinct(pair, .keep_all = TRUE) %>%          # remove duplicate pairs (e.g., A-B and B-A)
+  select(form_subconstruct1 = Var1,
+         form_subconstruct2 = Var2,
+         correlation = value)
+
+print(cor_table)
+```
+
+
+Note that I have not combined the those factors in the following analysis --- further theoretical justification may be required. However, if any factor combination is further made, I can also re-run the subsequent analysis using the merged factors to inform item selection.
+
+# Item Selection (iteratively)
+
+For each form_construct (e.g., parenting), iteratively reduce items within each form_subconstruct by removing one item at a time until only three items remain per subconstruct.
+
+1.  Identify items violating measurement invariance
+
+-   Use Lagrange Multiplier test to detect items that violate measurement invariance.
+-   In each iteration, select the item whose freeing yields the largest model fit improvement.
+-   Free that item, refit the model, and repeat the process until all such items are identified.
+-   Mark these items as having violated measurement invariance.
+
+2.  Reduce items while ensuring at least three per subconstruct
+
+If the number of items that satisfy measurement invariance is greater than three: - Fit a scalar invariance model. For each subconstruct: While the number of items \> 3: Compute the  loading for each item. Identify the item with the smallest loading. Remove this item from the dataset. Refit the CFA model Re-extract updated loadings and repeat.
+
+If the number of items that satisfy measurement invariance is fewer than three: - Add back items previously marked as violating measurement invariance until each scale has at least three items. No further loading-based selection is performed---retain these three items as is.
+
+## Identify items with measurement noninvariance
+
+The `iter_free_noninvar` function automates a stepwise partial invariance procedure in a multi-group CFA / measurement invariance analysis.
+
+The process begins with a scalar invariance model (fit_scalar) and proceeds as follows:
+
+-   Identify non-invariant parameters using the Lagrange Multiplier (LM) test, which detects constraints that, if freed, would yield the largest improvement in model fit.
+
+-   Free the most problematic parameter in each iteration by adding it to group.partial, allowing it to vary freely across groups.
+
+-   Refit the model with the updated set of freed parameters.
+
+-   Repeat until one of the following conditions is met:
+
+    -   No parameter exceeds the chi-square threshold
+
+    -   The CFI of the current model is within 0.01 of the configural model's CFI, indicating that constraining the remaining parameters to be invariant does not meaningfully reduce model fit compared to the configural baseline.
+    
+
+
+
+```{r}
+caregiver_reduc_invar <- caregiver_reduc %>%
+  # skip fit_scalar  = NA
+  filter(!purrr::map_lgl(fit_scalar, is.null)) %>%
+  mutate(
+    noninvar_table = pmap(
+      list(data, df_vals, fit_configural, fit_scalar, form_construct),
+      function(data1, df_vals1, fit_configural, fit_scalar1, formi) {
+        iter_free_noninvar(
+          data1      = data1,
+          df_vals1   = df_vals1,
+          fit_configural = fit_configural,
+          fit_scalar = fit_scalar1,
+          group_equal = c("loadings", "intercepts"),
+          alpha = 0.05
+        )
+      }
+    )
+  )
+
+save(caregiver_reduc_invar, file = "caregiver_reduc_invar.RData")
+```
+
+
+
+## Select 3 items per subconstruct based on loadings
+
+```{r}
+caregiver_reduc_invar_load <- caregiver_reduc_invar %>%
+  slice(1, 3, 4) |>
+  mutate(
+    tmp = pmap(
+      list(df_vals, data, form_construct, noninvar_table),
+      ~ reduce_items_and_refit(..1, ..2, ..3, ..4, group_equal = c("loadings", "intercepts"))
+    ),
+    fit_scalar_reducted = map(tmp, ~ .x$fit_scalar_reducted[[1]]),
+    #fit_configural_reducted = map(tmp, ~ .x$fit_configural_reducted[[1]]),
+    scalar_params = map(tmp, ~ .x$scalar_params[[1]]),
+    item_table   = map(tmp, ~ .x$item_table[[1]])
+  ) %>%
+  select(-tmp)
+
+
+#save(caregiver_tidy_reduc, file = "caregiver_tidy_reduc.RData")
+
+# reasons for not running sdq and eq: after removing non-invariant items, these models failed to converge
+# for sdq we have correlation between Hyperactivity_and_Conduct_Problem & emotional problems > 1
+# for EF we have high correlation across all variables:
+#                                     A_F__W Cgnt_F Inhb_C Pln__O
+#Attentional_Focus_and_Working_Memory  1.000                     
+#Cognitive_Flexibility                 0.958  1.000              
+#Inhibitory_Control                    0.918  0.776  1.000       
+#Planning_and_Organization             0.948  0.931  0.975  1.000
+```
+
+
+# Plot Parameters
+
+```{r}
+for (i in seq_len(nrow(caregiver_reduc_invar_load))) {
+  formi <- caregiver_reduc_invar_load$form_construct[i]
+  params_df <- caregiver_reduc_invar_load$scalar_params[[i]]
+  fit_stats <- fitMeasures(caregiver_reduc_invar_load$fit_scalar_reducted[[i]])
+
+  if (is.null(params_df)) next
+
+  # Extract CFI, TLI, and RMSEA
+  cfi <- fit_stats["cfi"]
+  tli <- fit_stats["tli"]
+  rmsea <- fit_stats["rmsea"]
+
+  # Prepare data for the heatmap (no site split)
+  params_long <- params_df %>%
+    select(item, value, type, form_subconstruct) %>%
+    filter(!is.na(value))
+
+  # Create the heatmap
+  p <- ggplot(params_long, aes(x = type, y = item, fill = value)) +
+    geom_tile(color = "white") + 
+    geom_text(aes(label = sprintf("%.2f", value)), size = 4) +
+    scale_fill_gradient2(
+      low = pal$blue, mid = "white", high = pal$red,
+      midpoint = 0, space = "Lab", name = "Estimate"
+    ) +
+    facet_grid(form_subconstruct ~ ., scales = "free_y", space = "free_y") +  # Removed 'site' from facet
+    theme_classic() + 
+    labs(
+      x = "Parameter Type",
+      y = "Item",
+      title = paste(formi, "\nCFI:", round(cfi, 3), "TLI:", round(tli, 3), "RMSEA:", round(rmsea, 3))
+    ) + 
+    theme(
+      axis.text.x = element_text(hjust = 1),
+      axis.text.y = element_text(size = 9),
+      strip.text = element_text(face = "bold", size = 14),
+      plot.title = element_text(hjust = 0.5, face = "bold", size = 14)
+    )
+
+  print(p)
+
+  # Uncomment to save the plot
+  # ggsave(filename = here::here(paste0("03_summaries/efa/fig/cfa_", gsub("[/\"']", "_reduc_", formi), ".png")), plot = p, width = 12, height = 6, dpi = 300)
+}
+
+```
+
+# Factor Score Comparison
+
+before and after reducing items
+
+```{r}
+caregiver_reduc_invar_load = caregiver_reduc_invar_load |>
+  mutate(
+    #fscore_config = map2(fit_configural, df_vals, extract_fscore_mf) , 
+    fscore_scalar = map2(fit_scalar, df_vals, extract_fscore_mf) ,
+    fscore_scalar_reducted = map2(fit_scalar_reducted, df_vals, extract_fscore_mf)  
+  )
+
+
+for (formi in caregiver_reduc_invar_load$form_construct) {
+  
+  row <- caregiver_reduc_invar_load %>% filter(form_construct == formi)
+  fs_s  <- row$fscore_scalar[[1]]
+  fs_sr <- row$fscore_scalar_reducted[[1]]
+  
+  if (is.null(fs_s) || is.null(fs_sr)) next
+  
+  factor_names <- setdiff(colnames(fs_s), c("site", "user_id", "child_id"))
+  
+  for (f in factor_names) {
+    
+    df <- list(
+      fs_s %>% select(site, user_id, !!f) %>% rename(Scalar = !!f),
+      fs_sr %>% select(site, user_id, !!f) %>% rename(Scalar_Reduced = !!f)
+    ) %>%
+      reduce(full_join, by = c("site", "user_id")) %>%
+      drop_na()
+    
+
+    cor_overall <- cor(df$Scalar, df$Scalar_Reduced, method = "pearson")
+    
+
+    cor_table <- df %>%
+      group_by(site) %>%
+      summarise(r = cor(Scalar, Scalar_Reduced, method = "pearson"), .groups = "drop")
+    
+
+    subtitle_text <- paste0(
+      "Overall r = ", round(cor_overall, 3), " | ",
+      paste0(cor_table$site, ": r = ", round(cor_table$r, 3), collapse = " | ")
+    )
+    
+
+    p <- ggplot(df, aes(x = Scalar, y = Scalar_Reduced, color = site)) +
+      geom_point(alpha = 0.7) +
+      scale_color_manual(values = site_pal) +
+      theme_classic() +
+      theme(
+        legend.position = "right",
+        legend.title = element_text(size = 10),
+        legend.text = element_text(size = 9)
+      ) +
+      labs(
+        title = paste0(formi, " - ", f),
+        subtitle = subtitle_text,
+        x = "Scalar",
+        y = "Scalar Reduced"
+      )
+    
+    print(p)
+  }
+}
+```

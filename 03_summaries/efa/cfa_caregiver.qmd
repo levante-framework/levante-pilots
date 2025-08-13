@@ -3,6 +3,7 @@
 
 ## Data preparation
 ```{r}
+source(here::here("plot_settings.R"))
 source(here::here("03_summaries", "efa", "cfa_helpers.R"))
 survey_data_nested <- read_rds(here::here("01_fetched_data/survey_data_nested.rds"))
 
@@ -31,7 +32,7 @@ caregiver_data <- caregiver_data %>%
     site %in% c("co_bogota", "co_rural") ~ "co_bogota_rural",
     TRUE ~ site
   ))  %>%
-  filter(site != 'ca_western')
+  filter(site != 'ca_western') 
 
 caregiver_filtered <- caregiver_data %>%
   filter(question_type == "Measurement") %>%   
@@ -44,20 +45,20 @@ caregiver_filtered <- caregiver_data %>%
     form_construct = case_when(
       form_construct == "Social Emotional" & grepl("Jukes", variable) ~ "ChildJukes",
       form_construct == "Social Emotional" & !grepl("Jukes", variable) ~ "Social Emotional",
-      TRUE ~ form_construct
-    ),
-    form_subconstruct = case_when(
-      form_subconstruct %in% c("Prosocial Behavior", "Prosocial-Communication") ~ "Prosocial Behavior Communication",
-      TRUE ~ form_subconstruct
-    ),
-    form_subconstruct = case_when(
-      form_subconstruct %in% c("Inhibitory Control - Interference Suppression", "Inhibitory Control - Response Inhibition") ~ "Inhibitory Control",
-      TRUE ~ form_subconstruct
-    ),
-    form_subconstruct = case_when(
-      form_subconstruct %in% c("Working Memory", "Attentional Focus, Engagement, & Persistence") ~ "Attentional Focus and Working Memory",
-      TRUE ~ form_subconstruct
-    )
+      TRUE ~ form_construct),
+    # form_subconstruct = case_when(
+    #   form_subconstruct %in% c("Prosocial Behavior", "Prosocial-Communication") ~ "Prosocial Behavior Communication",
+    #   TRUE ~ form_subconstruct
+    # ),
+     form_subconstruct = case_when(
+       form_subconstruct %in% c("Depression", "Anxiety") ~ "Depression Anxiety",
+       TRUE ~ form_subconstruct),
+     form_subconstruct = case_when(
+       form_subconstruct %in% c("Inhibitory Control - Interference Suppression", "Inhibitory Control - Response Inhibition") ~ "Inhibitory Control",
+       TRUE ~ form_subconstruct),
+     form_subconstruct = case_when(
+       form_subconstruct %in% c("Working Memory", "Attentional Focus, Engagement, & Persistence") ~ "Attentional Focus and Working Memory",
+       TRUE ~ form_subconstruct)
   ) %>%
   filter(
     !(form_construct == "Child Health/Well-Being" & !grepl("SDQ", variable, ignore.case = TRUE))
@@ -105,30 +106,30 @@ item_map <- tibble::tribble(
   ~variable,           ~new_subconstruct,
   "ChildSCS7",         "Prosocial",
   "ChildCBQ1",         "Prosocial",
-  "ChildSDQ2",         "Hyperactivity",
+  "ChildSDQ2",         "Hyperactivity and Conduct Problem",#"Hyperactivity",
   "ChildSDQ3",         "Emotional Problems",
   "ChildSCS9",         "Prosocial",
   "ChildSCS8",         "Emotional Problems",
   "ChildSDQ6",         "Peer Problems",
-  "ChildSCS6",         "Conduct Problems",
+  "ChildSCS6",         "Hyperactivity and Conduct Problem",#"Conduct Problems",
   "ChildSDQ8",         "Emotional Problems",
   "ChildSCS10",        "Prosocial",
-  "ChildSDQ10",        "Hyperactivity",
+  "ChildSDQ10",        "Hyperactivity and Conduct Problem",#"Hyperactivity",
   "ChildSDQ11",        "Peer Problems",
-  "ChildBullyOthers",  "Conduct Problems",
+  "ChildBullyOthers",  "Hyperactivity and Conduct Problem",#"Conduct Problems",
   "ChildSDQ13",        "Emotional Problems",
   "ChildSDQ14",        "Peer Problems",
-  "ChildSDQ15",        "Hyperactivity",
+  "ChildSDQ15",        "Hyperactivity and Conduct Problem",#"Hyperactivity",
   "ChildSDQ16",        "Emotional Problems",
   "ChildSDQ17",        "Prosocial",
-  "ChildSDQ18",        "Conduct Problems",
+  "ChildSDQ18",        "Hyperactivity and Conduct Problem",#"Conduct Problems",
   "ChildBullied",      "Peer Problems",
-  "ChildSCS3",         "Hyperactivity",
-  "ChildSDQ22",        "Conduct Problems",
+  "ChildSCS3",         "Hyperactivity and Conduct Problem",#"Hyperactivity",
+  "ChildSDQ22",        "Hyperactivity and Conduct Problem",#"Conduct Problems",
   "ChildSDQ23",        "Peer Problems",
   "ChildSDQ24",        "Emotional Problems",
-  "ChildJukes10",      "Hyperactivity",
-  "ChildJukes14",      "Hyperactivity"
+  "ChildJukes10",      "Hyperactivity and Conduct Problem",#"Hyperactivity",
+  "ChildJukes14",      "Hyperactivity and Conduct Problem"#"Hyperactivity"
 )
 reverse_items <- c(
   "ChildSCS10", "ChildSCS9", "ChildSCS8", "ChildSCS7",
@@ -311,5 +312,7 @@ for (formi in caregiver_tidy$form_construct) {
 
 }
 ```
+
+
 
 

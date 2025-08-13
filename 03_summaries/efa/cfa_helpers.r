@@ -162,7 +162,7 @@ build_multifactor_model_default <- function(subconstruct_map) {
 
 
 
-fit_invariance_model_mf <- function(formi, df_val, data_long, group_equal = NULL, estim="ML") {
+fit_invariance_model_mf <- function(formi, df_val, data_long, group_equal = NULL, group.partial = NULL, estim="ML") {
   # map subconstruct → item 
   var_map <- data_long %>%
     distinct(form_subconstruct, variable) %>%
@@ -183,6 +183,7 @@ fit_invariance_model_mf <- function(formi, df_val, data_long, group_equal = NULL
       group = "site",
       estimator = estim,
       group.equal = group_equal,
+      group.partial = group.partial,
       ordered = if (estim == "WLSMV") item_names else NULL
     )
   }, error = function(e) NULL)
@@ -195,10 +196,10 @@ fit_invariance_model_mf <- function(formi, df_val, data_long, group_equal = NULL
 
 
 
-extract_parameters_multiF <- function(fit, data_long) {
+extract_parameters_multiF <- function(fit, data_long, std = F) {
   if (is.null(fit)) return(NULL)
   
-  params <- parameterEstimates(fit, standardized = FALSE)
+  params <- parameterEstimates(fit, standardized = std)
   group_labels <- lavInspect(fit, "group.label")
   item_map <- data_long %>%
     distinct(variable, form_subconstruct) %>%
@@ -212,7 +213,7 @@ extract_parameters_multiF <- function(fit, data_long) {
       factor = lhs,
       item = rhs,
       form_subconstruct = item_map[rhs],
-      value = est,
+      value = if (std) std.all else est,
       type = "loading"
     )
   
@@ -223,7 +224,7 @@ extract_parameters_multiF <- function(fit, data_long) {
       site = factor(group, labels = group_labels),
       item = lhs,
       form_subconstruct = item_map[lhs],
-      value = est,
+      value = if (std) std.all else est,
       type = "intercept"
     )
   
@@ -257,3 +258,5 @@ extract_fscore_mf <- function(fit, df_val) {
     )
   })
 }
+
+
