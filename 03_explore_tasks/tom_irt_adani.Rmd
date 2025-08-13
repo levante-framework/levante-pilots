@@ -195,7 +195,7 @@ items.
 
 As a sanity check, let's plot % correct per item across age:
 
-```{r}
+```{r fig.width = 12, fig.height = 8}
 
 tom_data_long %>%
   ggplot(aes(x = age,
@@ -355,7 +355,7 @@ fit_irt_model =
 
 Now, using the function we defined above, let's run our four models for all of the items:
 
-```{r message = F, warning = F, echo = F}
+```{r message = F, warning = F}
 
 # fit 1PL Rasch model, nonconfigural
 mod_rasch =
@@ -366,7 +366,7 @@ mod_rasch =
 
 ```
 
-```{r message = F, warning = F, echo = F}
+```{r message = F, warning = F}
 
 # fit 2PL model, nonconfigural
 mod_2pl =
@@ -377,7 +377,7 @@ mod_2pl =
 
 ```
 
-```{r echo = F, message = F, warning = F}
+```{r message = F, warning = F}
 
 # fit 1 PL Rasch model, *configural*
 mod_rasch_configural =
@@ -388,7 +388,7 @@ mod_rasch_configural =
 
 ```
 
-```{r message = F, warning = F, echo = F}
+```{r message = F, warning = F}
 
 # fit 2 PL Rasch model, *configural*
 mod_2pl_configural =
@@ -445,10 +445,6 @@ Let's print a big table with item difficulties and item discriminations, sorted 
 Higher discrimination values are better. For difficulty, lower value means easier item,
 higher value means harder item.
 
-***TODO 1: INCLUDE MODEL BIC AND FIX ERRONEOUS ITEM_UID ASSIGNMENT***
-
-***TODO 2: WHY DO CONFIGURAL MODELS NOT SHOW UP?***
-
 ```{r}
 
 item_params_all %>%
@@ -483,6 +479,24 @@ item_params_all %>%
 
 ```
 
+If we look at JUST RASCH CONFIGURAL (overall 'winning' model for TOM on overlapping
+items):
+
+```{r}
+
+item_params_all %>%
+  select(item_uid, site, model, a, b) %>%
+  mutate(across(c(a, b), ~ round(.x, 3))) %>%
+  rename(discr = a,
+         diff = b) %>%
+  arrange(model, site, diff) %>%
+  filter(item_uid %in% prev_worst_performers) %>%
+  filter(model == "rasch_configural") %>%
+  arrange(diff, decreasing = T) %>%
+  datatable()
+
+```
+
 ## Corr Matrix
 
 Run correlation matrix to check how consistent item difficulty and item discrimination
@@ -506,8 +520,7 @@ cor_a =
   correlate(method = "pearson")
 
 cor_a %>%
-  shave(upper = T) %>%
-  fashion()
+  shave(upper = T)
 
 # correlate difficulty (b)
 cor_b =
@@ -516,20 +529,31 @@ cor_b =
   correlate(method = "pearson")
 
 cor_b %>%
-  shave(upper = T) %>%
-  fashion()
+  shave(upper = T)
 
 ```
 
-```{r}
+```{r fig.width = 10, fig.height = 10}
 
-
+cor_b %>%
+  select(-c(term)) %>%
+  as.matrix() %>%
+  corPlot(main = "Correlations between Item DIFFICULTY Parameters across Models",
+          numbers = T,
+          upper = T,
+          cex = 1)
 
 ```
 
-```{r}
+```{r fig.width = 10, fig.height = 10}
 
-
+cor_a %>%
+  select(-c(term)) %>%
+  as.matrix() %>%
+  corPlot(main = "Correlations between Item DISCRIMINATION Parameters across Models",
+          numbers = T,
+          upper = T,
+          cex = 1)
 
 ```
 
@@ -546,7 +570,11 @@ ggplot(item_params_all,
            color = model,
            group = model)) +
   geom_point(position = position_dodge(width = 0.1),
-             size = 4) +
+             size = 4,
+             alpha = .5) +
+  geom_hline(yintercept = 0,
+             color = "black",
+             linetype = "dashed") +
   labs(title = "Item Difficulties by Model",
        subtitle = "higher is harder, lower is easier",
        y = "Difficulty (b)",
@@ -572,12 +600,17 @@ ggplot(item_params_all,
            color = model,
            group = model)) +
   geom_point(position = position_dodge(width = 0.1),
-             size = 4) +
+             size = 4,
+             alpha = .5) +
+  geom_hline(yintercept = 1,
+             color = "darkgreen",
+             linetype = "dashed") +
   labs(title = "Item Discrimination by Model",
        subtitle = "closer to 0 is worse, ≥ 1 is desirable",
        y = "Discrimination (a)",
        x = "Item") +
-  ylim(-5, 5) +
+  scale_y_continuous(limits = c(-5, 5),
+                     breaks = c(seq(-5, 5, 1))) +
   theme_minimal(base_size = 28) +
   theme(axis.text.x = element_text(angle = 60, hjust = 1)) +
   coord_flip()
@@ -616,25 +649,55 @@ icc_curves_all =
 
 icc_curves_all %>%
   ggplot(aes(x = theta, y = prob, color = model)) +
-  geom_line(size = 1, alpha = .5) +
+  geom_line(size = 2, alpha = .5) +
   facet_wrap(~ item_uid, scales = "free_y") +
   labs(title = "Item Characteristic Curves (ICCs)",
        x = "Theta",
        y = "Estimate for P(correct response)",
        color = "Model") +
-  theme_minimal(base_size = 24) +
+  theme_classic(base_size = 24) +
   theme(legend.position = "top")
 
 ```
 
-------------------------------------------------------------------------------------------
+Just the worst performing items:
 
-# Test-Retest Data
+```{r fig.width = 10, fig.height = 15}
 
-TODO
+icc_curves_all %>%
+  filter(item_uid %in% prev_worst_performers) %>% 
+  ggplot(aes(x = theta, y = prob, color = model, group = model)) +
+  geom_line(size = 2, alpha = .5) +
+  facet_wrap(~ item_uid + model, scales = "free_y", ncol = 4) +
+  labs(title = "Item Characteristic Curves (ICCs)",
+       subtitle = "Only Worst Performers",
+       x = "Theta",
+       y = "Estimate for P(correct response)",
+       color = "Model") +
+  ylim(0, 1) +
+  theme_classic(base_size = 10) +
+  theme(legend.position = "top")
 
-```{r}
+```
 
+If we look at JUST RASCH CONFIGURAL (overall 'winning' model for TOM on overlapping
+items):
 
+```{r fig.height = 3, fig.width = 12}
+
+icc_curves_all %>%
+  filter(item_uid %in% prev_worst_performers) %>% 
+  filter(model == "rasch_configural") %>% 
+  ggplot(aes(x = theta, y = prob)) +
+  geom_line(size = 2, alpha = .5) +
+  facet_wrap(~ item_uid, scales = "free_y", ncol = 5) +
+  labs(title = "Item Characteristic Curves (ICCs)",
+       subtitle = "Only Worst Performers",
+       x = "Theta",
+       y = "Estimate for P(correct response)",
+       color = "Model") +
+  ylim(0, 1) +
+  theme_classic(base_size = 10) +
+  theme(legend.position = "top")
 
 ```
