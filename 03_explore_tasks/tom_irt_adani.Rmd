@@ -22,7 +22,7 @@ Info on data structure:
 
 TOM item bank:
 
-<https://docs.google.com/spreadsheets/d/11qBJS3RZn0wuLY5UcwoiVy8q-DFhXQJzfJv1jxDEu3s/edit?gid=1557292668#gid=1557292668>
+<https://docs.google.com/spreadsheets/d/1MlU4eOd45XVMg7HrnTDGZ3rv1cfNjvjpdc8e_edQqQk/edit?gid=520489060#gid=520489060>
 
 Automated runs through tasks:
 
@@ -47,6 +47,7 @@ library(png)
 library(grid)
 library(patchwork)
 library(DT)            # for nicer tables
+library(corrr)         # for correlations
 library(mirt)          # for IRT models
 library(tidyverse)     # for everything else
 library(dplyr)
@@ -100,10 +101,10 @@ Let's have a look at key aspects of the data:
 
 ```{r}
 
-# number of subjects (672)
+# number of subjects (681)
 Hmisc::describe(tom_data_long$user_id)
 
-# number of runs (792)
+# number of runs (787)
 Hmisc::describe(tom_data_long$run_id)
 
 # number of items (38)
@@ -112,7 +113,7 @@ Hmisc::describe(tom_data_long$item_uid)
 # number of item groups (6)
 Hmisc::describe(tom_data_long$item_group)
 
-# test sites (3)
+# test sites (4)
 Hmisc::describe(tom_data_long$dataset)
 
 ```
@@ -136,7 +137,7 @@ tom_data_long %>%
 tom_data_long %>%
   group_by(site, user_id, run_id) %>%
   summarise(correct = round(mean(correct, na.rm = T),
-                            2), 
+                            2),
             age = round(mean(age, na.rm = T),
                         2),
             n_items = n_distinct(item_uid)) %>%
@@ -202,15 +203,15 @@ tom_data_long %>%
              color = site)) +
   geom_point(alpha = 0.3, size = 1) +
   geom_smooth(method = "loess", se = T) +
-  facet_wrap(~ item_uid,
-             ncol = 6) +
   scale_y_continuous(limits = c(0, 1),
                      labels = scales::percent) +
   labs(x = "Age (years)",
        y = "% correct",
        color = "Site",
-       title = "% correct by Item, Age, and Site") +
-  theme_classic(base_size = 8) +
+       title = "% correct by item, age, and site") +
+  facet_wrap(~ item_uid,
+             ncol = 6) +
+  theme_classic(base_size = 12) +
   theme(legend.position = "bottom")
 
 ```
@@ -265,7 +266,7 @@ df.single =
 
 df.multigroup =
   tom_irt_data %>%
-  select(-(items_to_remove))
+  select(-c(novar_items, nonshared_items))
 
 ```
 
@@ -274,25 +275,38 @@ Now let's create a response matrix for our IRT models:
 ```{r}
 
 # keep only cols with correct/incorrect vals (1 and 0)
-response_matrix_single =
+response_matrix =
   df.single %>%
   column_to_rownames("run_id") %>%
   select(-c(site)) %>%
   as.data.frame()
 
+group_vec =
+  df.single %>%
+  distinct(run_id, site) %>%
+  filter(run_id %in% rownames(response_matrix)) %>%
+  arrange(match(run_id, rownames(response_matrix))) %>%
+  pull(site)
+
+names(group_vec) =
+  rownames(response_matrix)
+
+# create group vector with site information
 response_matrix_multigroup =
   df.multigroup %>%
   column_to_rownames("run_id") %>%
   select(-c(site)) %>%
   as.data.frame()
 
-# create group vector with site information for multigroup model
-group_vec =
+group_vec_multigroup =
   df.multigroup %>%
   distinct(run_id, site) %>%
   filter(run_id %in% rownames(response_matrix_multigroup)) %>%
   arrange(match(run_id, rownames(response_matrix_multigroup))) %>%
   pull(site)
+
+names(group_vec_multigroup) =
+  rownames(response_matrix_multigroup)
 
 ```
 
@@ -300,30 +314,40 @@ Now let's prep our functions for running our IRT models.
 
 ```{r}
 
+# The function takes two parameters: the model type (1pl vs 2pl), and the invariance structure (configural vs nonconfigural)
 fit_irt_model =
-  function(tom_irt_data_clean, model_type = "Rasch", group_vec = NULL) {
+  function(response_matrix,
+           group_vec = NULL,
+           model_type = "Rasch",
+           configural = T) {
+    
     if (!is.null(group_vec)) {
-      model =
-        # configural multigroup model
-        multipleGroup(data = response_matrix_multigroup,
-                      model = 1, # unidimensional
-                      group = group_vec,
-                      itemtype = model_type,
-                      invariance = c(colnames(response_matrix_multigroup),
-                                     "free_means", "free_var"), # group means and variance can vary, but item parameters are fixed
-                      verbose = T,
-                      technical = list(NCYCLES = 5000))
-      
-      } else
-        {
-          # pooled model
-          model =
-            mirt(data = response_matrix_multigroup,
-                 model = 1, # unidimensional
-                 itemtype = model_type,
-                 technical = list(NCYCLES = 5000),
-                 verbose = T)
-          }
+    # configural model: all parameters can vary freely
+    invariance_setting = if (configural) {
+      NULL
+      }
+    # nonconfigural model: group means and variance can vary, but item parameters are fixed
+    else {
+      c(colnames(response_matrix),
+        "free_means", "free_var")
+    }
+    
+    model = 
+      multipleGroup(data = response_matrix_multigroup,
+                    model = 1, # unidimensional
+                    itemtype = model_type,
+                    group = group_vec,
+                    invariance = invariance_setting,
+                    verbose = T,
+                    technical = list(NCYCLES = 5000))
+    } else {
+      model = mirt(data = response_matrix,
+                   model = 1,
+                   itemtype = model_type,
+                   verbose = TRUE,
+                   technical = list(NCYCLES = 5000))
+    }
+    
     return(model)
     }
 
@@ -331,21 +355,25 @@ fit_irt_model =
 
 Now, using the function we defined above, let's run our four models for all of the items:
 
-```{r message = F, warning = F}
+```{r message = F, warning = F, echo = F}
 
 # fit 1PL Rasch model, nonconfigural
 mod_rasch =
-  fit_irt_model(df.single,
-                model_type = "Rasch")
+  fit_irt_model(response_matrix,
+                group_vec = NULL,
+                model_type = "Rasch",
+                configural = F)
 
 ```
 
-```{r message = F, warning = F}
+```{r message = F, warning = F, echo = F}
 
 # fit 2PL model, nonconfigural
 mod_2pl =
-  fit_irt_model(df.single,
-                model_type = "2PL")
+  fit_irt_model(response_matrix,
+                group_vec = NULL,
+                model_type = "2PL",
+                configural = F)
 
 ```
 
@@ -353,19 +381,21 @@ mod_2pl =
 
 # fit 1 PL Rasch model, *configural*
 mod_rasch_configural =
-  fit_irt_model(df.multigroup,
+  fit_irt_model(response_matrix_multigroup,
                 model_type = "Rasch",
-                group_vec = group_vec)
+                group_vec = NULL,
+                configural = T)
 
 ```
 
-```{r message = F, warning = F}
+```{r message = F, warning = F, echo = F}
 
 # fit 2 PL Rasch model, *configural*
 mod_2pl_configural =
-  fit_irt_model(df.multigroup,
+  fit_irt_model(response_matrix_multigroup,
                 model_type = "2PL",
-                group_vec = group_vec)
+                group_vec = NULL,
+                configural = T)
 
 ```
 
@@ -373,38 +403,22 @@ mod_2pl_configural =
 
 # create function to extract parameters for plotting
 item_params = function(model, model_name = "unknown_model") {
-  coefs_raw = coef(model, simplify = F)
+  # extract item-level coefficients
+  coefs = coef(model, simplify = T)$items
 
-  if ("GroupPars" %in% names(coefs_raw)) {
-    group_names = setdiff(names(coefs_raw), c("GroupPars", "means", "cov"))
+  if (is.null(coefs) || nrow(coefs) == 0) return(tibble())
 
-    map_dfr(group_names, function(g) {
-      coefs = coefs_raw[[g]]
-      if (is.null(coefs) || nrow(coefs) == 0) return(tibble())
-
-      tibble(
-        item_uid = rownames(coefs),
-        a = coefs[, "a1"],
-        d = coefs[, "d"],
-        b = -coefs[, "d"] / coefs[, "a1"],
-        site = g,
-        model = model_name
-      )
-    })
-
-  } else {
-    coefs = coefs_raw$items
-    if (is.null(coefs) || nrow(coefs) == 0) return(tibble())
-
-    tibble(
-      item_uid = rownames(coefs),
-      a = coefs[, "a1"],
-      d = coefs[, "d"],
-      b = -coefs[, "d"] / coefs[, "a1"],
-      site = "pooled",
-      model = model_name
-    )
-  }
+  bic_value = model@Fit[["BIC"]]
+  
+  tibble(
+    item_uid = rownames(coefs),
+    a = coefs[, "a1"],
+    d = coefs[, "d"],
+    b = -coefs[, "d"] / coefs[, "a1"],
+    BIC = bic_value,
+    site = "pooled",
+    model = model_name
+  )
 }
 
 ```
@@ -438,61 +452,186 @@ higher value means harder item.
 ```{r}
 
 item_params_all %>%
+  select(item_uid, model, a, b, BIC) %>%
+  mutate(across(c(a, b, BIC), ~ round(.x, 3))) %>%
+  rename(discr = a,
+         diff = b) %>%
+  arrange(model, diff) %>%
+  datatable()
+
+```
+
+And here is a table showing only the items that performed worst in previous analyses:
+
+```{r}
+
+prev_worst_performers = c("tom_reference_reference",
+                          "tom_moral_reasoning_reality_check_1",
+                          "tom_moral_reasoning_reality_check_2",
+                          "tom_deception_reality_check_3",
+                          "tom_deception_reality_check_1")
+
+item_params_all %>%
   select(item_uid, site, model, a, b) %>%
   mutate(across(c(a, b), ~ round(.x, 3))) %>%
   rename(discr = a,
          diff = b) %>%
   arrange(model, site, diff) %>%
+  filter(item_uid %in% prev_worst_performers) %>%
+  arrange(diff, decreasing = T) %>%
   datatable()
 
 ```
 
-Just item difficulties by model:
+## Corr Matrix
+
+Run correlation matrix to check how consistent item difficulty and item discrimination
+estimates are across models:
 
 ```{r}
 
-# plot item difficulties for each item, faceted by model and site
+params_wide =
+  item_params_all %>%
+  select(item_uid, model, a, b) %>%
+  pivot_wider(names_from = model,
+              values_from = c(a, b))
+
+# correlate discrimination (a)
+cor_a =
+  params_wide %>%
+  select(starts_with("a_")) %>%
+  # exclude Rasch models because discrimination is constant
+  select(-starts_with("a_rasch")) %>%
+  select(-starts_with("a_rasch_configural")) %>%
+  correlate(method = "pearson")
+
+cor_a %>%
+  shave(upper = T) %>%
+  fashion()
+
+# correlate difficulty (b)
+cor_b =
+  params_wide %>%
+  select(starts_with("b_")) %>%
+  correlate(method = "pearson")
+
+cor_b %>%
+  shave(upper = T) %>%
+  fashion()
+
+```
+
+```{r}
+
+
+
+```
+
+```{r}
+
+
+
+```
+
+## Item Difficulty
+
+Just item difficulties by model:
+
+```{r fig.width = 14, fig.height = 13}
+
+# plot item difficulties for each item
 ggplot(item_params_all,
-       aes(x = site,
+       aes(x = item_uid,
            y = b,
            color = model,
            group = model)) +
   geom_point(position = position_dodge(width = 0.1),
-             size = 2.5) +
+             size = 4) +
   labs(title = "Item Difficulties by Model",
+       subtitle = "higher is harder, lower is easier",
        y = "Difficulty (b)",
        x = "Item") +
   ylim(-10, 10) +
-  theme_minimal(base_size = 14) +
+  theme_minimal(base_size = 28) +
   theme(axis.text.x = element_text(angle = 60, hjust = 1)) +
   coord_flip()
 
 ```
+
+## Item Discrimination
 
 Just item discrimination by model (discrimination is fixed for Rasch model, so no variance
 there):
 
-```{r}
+```{r fig.width = 14, fig.height = 13}
 
-# plot item discrimination for each item, faceted by model and site
+# plot item discrimination for each item
 ggplot(item_params_all,
-       aes(x = site,
+       aes(x = item_uid,
            y = a,
            color = model,
            group = model)) +
   geom_point(position = position_dodge(width = 0.1),
-             size = 2.5) +
+             size = 4) +
   labs(title = "Item Discrimination by Model",
+       subtitle = "closer to 0 is worse, ≥ 1 is desirable",
        y = "Discrimination (a)",
        x = "Item") +
   ylim(-5, 5) +
-  theme_minimal(base_size = 14) +
+  theme_minimal(base_size = 28) +
   theme(axis.text.x = element_text(angle = 60, hjust = 1)) +
   coord_flip()
 
 ```
 
-***TODO: Plot ICCs***
+# ICCs
+
+```{r}
+
+# set function
+compute_icc_curve =
+  function(a, b, item_uid, model,
+           theta_range = seq(-4, 4, length.out = 100)) {
+    tibble(theta = theta_range,
+           prob = 1 / (1 + exp(-a * (theta_range - b))),
+           a = a,
+           b = b,
+           item_uid = item_uid,
+           model = model)
+    }
+
+# apply accros items
+icc_curves_all =
+  item_params_all %>%
+  select(a, b, item_uid, model) %>%
+  # ..1 = a, ..2 = b, ..3 = item_uid, ..4 = model
+  pmap_dfr(~ compute_icc_curve(a = ..1,
+                               b = ..2,
+                               item_uid = ..3,
+                               model = ..4))
+
+```
+
+```{r fig.width = 39, fig.height = 20}
+
+icc_curves_all %>%
+  ggplot(aes(x = theta, y = prob, color = model)) +
+  geom_line(size = 1, alpha = .5) +
+  facet_wrap(~ item_uid, scales = "free_y") +
+  labs(title = "Item Characteristic Curves (ICCs)",
+       x = "Theta",
+       y = "Estimate for P(correct response)",
+       color = "Model") +
+  theme_minimal(base_size = 24) +
+  theme(legend.position = "top")
+
+```
+
+------------------------------------------------------------------------------------------
+
+# Test-Retest Data
+
+TODO
 
 ```{r}
 
