@@ -37,3 +37,12 @@ translate_invariance <- \(invariance_terms) {
     keep(identity) |>
     names()
 }
+
+# count number of items with non-NA responses for each run
+count_items <- \(mod_rec) {
+  counts <- mod_rec@data |> negate(is.na)() |> rowSums()
+  props <- counts / ncol(mod_rec@data)
+  props |>
+    set_names(mod_rec@runs) |>
+    enframe(name = "run_id", value = "prop_items")
+}

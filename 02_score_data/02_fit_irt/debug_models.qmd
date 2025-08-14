@@ -1,0 +1,63 @@
+```{r}
+library(tidyverse)
+library(here)
+library(glue)
+library(rlang)
+library(mirt)
+
+source(here("02_score_data/02_fit_irt/irt_modular.R"), chdir = TRUE)
+source(here("02_score_data/02_fit_irt/registry_helper.R"))
+source(here("plot_settings.R"))
+```
+
+```{r}
+# read in all models in registry
+mods <- list_models() |> load_models()
+
+# extract scores and item accounts for rasch_f1_scalar multigroup models
+debug_mods <- mods |>
+  filter(model_set == "multigroup_site",
+         str_detect(filename, "rasch_f1_scalar")) |>
+  mutate(scores = map(mod_rec, scores),
+         item_counts = map(mod_rec, count_items),
+         subset = subset |> fct_recode("full" = "all_items", "overlap" = "overlap_items"))
+
+# separate out scores
+debug_scores <- debug_mods |>
+  select(task, subset, scores) |>
+  unnest(scores)
+# separate out item counts
+debug_item_counts <- debug_mods |>
+  select(task, subset, item_counts) |>
+  unnest(item_counts)
+
+# load run info
+run_info <- read_rds(here(glue("01_fetched_data/run_data.rds"))) |>
+  select(site, dataset, language, user_id, run_id, adaptive, age)
+
+# combine scores, item count, and run info
+debug_vals <- full_join(debug_scores, debug_item_counts) |>
+  pivot_wider(names_from = subset, values_from = c(ability, se, prop_items)) |>
+  left_join(run_info) |>
+  mutate(prop_items_full = replace_na(prop_items_full, 0),
+         full_items = cut(prop_items_full, include.lowest = TRUE, breaks = seq(0, 1, 0.25)))
+         # full_items = cut(prop_items_full, include.lowest = TRUE,
+         #                     breaks = quantile(prop_items_full, seq(0, 1, 0.5),
+         #                                       na.rm = TRUE)))
+
+ggplot(debug_vals, aes(x = ability_overlap, y = ability_full)) +
+  # facet_wrap(vars(site, task)) +
+  facet_grid(vars(site), vars(task)) +
+  coord_equal() +
+  geom_abline(color = "grey", linewidth = 0.1) +
+  geom_hline(yintercept = 0, color = "grey", linewidth = 0.1) +
+  geom_vline(xintercept = 0, color = "grey", linewidth = 0.1) +
+  geom_point(aes(colour = full_items), alpha = 0.6, size = 0.3) +
+  scale_colour_viridis_d(direction = -1) +
+  labs(caption = "Model: 1-factor Rasch with scalar invariance",
+       x = "Ability (using overlapping items)",
+       y = "Ability (using all items)",
+       colour = "Participant's proportion of all items") +
+  theme(legend.position = "bottom")
+ggsave(here("02_score_data/plots/ability_comparison.png"), width = 11, height = 4.5)
+```
