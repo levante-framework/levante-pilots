@@ -1,14 +1,6 @@
 source("ModelRecord.R")
 source("anova_mirt.R")
 
-# invariances <- list(
-#   configural = "",
-#   metric = c("free_means", "free_var", "intercepts", "slopes"),
-#   scalar_intercepts = c("free_var", "intercepts"),
-#   scalar_slopes_and_intercepts = c("free_var", "intercepts", "slopes"),
-#   full = c("intercepts", "slopes")
-# )
-
 invariances <- list(
   configural = "",
   metric = c("slopes"),
@@ -83,12 +75,10 @@ fit_bylanguage_lang <- \(task_data, models, lang, registry_dir) {
 
 # for a given task and group variable, fit and record set of multigroup models
 fit_task_models_multigroup <- \(task_data, models, task, group = site,
-                                overlap_items = TRUE, registry_dir) {
+                                registry_dir) {
   
   group <- enquo(group)
-  overlap <- if (overlap_items) "overlap_items" else "all_items"
-  if (!overlap_items) models <- models |> filter(invariance != "configural")
-  
+
   # filter task data to given task
   trials <- task_data |>
     filter(item_task == task) |>
@@ -97,21 +87,22 @@ fit_task_models_multigroup <- \(task_data, models, task, group = site,
     # rename(group = site)
   
   # prep data for modeling
-  data_filtered <- trials |> dedupe_items() |> remove_no_var_items()
-  if (overlap_items) {
-    data_filtered <- data_filtered |>
-      remove_nonshared_items() |>
-      remove_no_var_items_bygroup()
-  }
-  data_wide <- data_filtered |> to_mirt_shape_grouped()
-  data_prepped <- data_wide |> select(-group)
-  groups <- data_wide |> pull(group)
-  
+  data_filtered_full <- trials |> dedupe_items() |> remove_no_var_items()
+  data_wide_full <- data_filtered_full |> to_mirt_shape_grouped()
+  data_prepped_full <- data_wide_full |> select(-group)
+
   # pull out chance values
-  guess <- data_filtered |> distinct(item_inst, chance) |> pull(chance)
+  guess_full <- data_filtered_full |> distinct(item_inst, chance) |> pull(chance)
+  
+  data_filtered_overlap <- data_filtered_full |>
+    remove_nonshared_items() |>
+    remove_no_var_items_bygroup()
+  data_wide_overlap <- data_filtered_overlap |> to_mirt_shape_grouped()
+  data_prepped_overlap <- data_wide_overlap |> select(-group)
+  guess_overlap <- data_filtered_overlap |> distinct(item_inst, chance) |> pull(chance)
   
   # construct output directory
-  out_dir <- file.path(registry_dir, task, paste0("multigroup_", as_name(group)), overlap)
+  out_dir <- file.path(registry_dir, task, paste0("multigroup_", as_name(group)))
   dir.create(out_dir, recursive = TRUE, showWarnings = FALSE)
   
   mods <- models |> pmap(
@@ -119,30 +110,78 @@ fit_task_models_multigroup <- \(task_data, models, task, group = site,
       message(glue("fitting {task} multigroup model ({nfact} factor {itemtype} with {invariance} invariance)"))
       
       # generate model string with item constraints + dimensionality
-      model_str <- generate_model_str_numeric(data_filtered, data_prepped, itemtype, nfact)
+      model_str_overlap <- generate_model_str_numeric(data_filtered_overlap, data_prepped_overlap, itemtype, nfact)
       
-      # fit model!
-      mod <- multipleGroup(
-        data = data_prepped,
+      # fit overlap items model
+      mod_overlap <- multipleGroup(
+        data = data_prepped_overlap,
         itemtype = itemtype,
-        model = mirt.model(model_str),
-        group = data_wide$group,
+        model = mirt.model(model_str_overlap),
+        group = data_wide_overlap$group,
         invariance = invariances[[invariance]],
-        guess = guess,
+        guess = guess_overlap,
         verbose = TRUE,
         technical = list(NCYCLES = 5000)
       )
       
       # construct model record out of model
-      mod_rec <- modelrecord(mod, rownames(data_prepped))
+      mod_rec_overlap <- modelrecord(mod_overlap, rownames(data_prepped_overlap))
+      mod_file <- glue("{task}_{str_to_lower(itemtype)}_f{nfact}_{invariance}.rds")
+      out_dir_overlap <- file.path(out_dir, "overlap_items")
+      dir.create(out_dir_overlap, recursive = TRUE, showWarnings = FALSE)
+      write_rds(mod_rec_overlap, file.path(out_dir_overlap, mod_file), compress = "gz")
+      
+      if (invariance == "configural") return()
+      
+      # get item parameter values from overlap model
+      overlap_vals <- mod2values(mod_overlap) |> #as_tibble() |>
+        select(group, item, name, fixed_value = value) |>
+        # remove group mean/cov
+        filter(item != "GROUP") |>
+        # mark params to not be estimated
+        mutate(fixed_est = FALSE)
+      
+      # set up parameter structure of full model
+      mod_pars <- multipleGroup(
+        data = data_prepped_full,
+        itemtype = itemtype,
+        group = data_wide_full$group,
+        pars = "values"
+      ) #|> as_tibble()
+      
+      # change values for overlap items to values from overlap model
+      mod_pars_fixed <- mod_pars |> left_join(overlap_vals) |>
+        mutate(value = if_else(!is.na(fixed_value), fixed_value, value),
+               est = if_else(!is.na(fixed_est), fixed_est, est)) |>
+        select(-fixed_value, -fixed_est)
+      
+      # generate model string with item constraints + dimensionality
+      model_str_full <- generate_model_str_numeric(data_filtered_full, data_prepped_full, itemtype, nfact)
+      
+      # fit full items model
+      mod_full <- multipleGroup(
+        data = data_prepped_full,
+        itemtype = itemtype,
+        model = mirt.model(model_str_full),
+        group = data_wide_full$group,
+        invariance = invariances[[invariance]],
+        pars = mod_pars_fixed,
+        guess = guess_full,
+        verbose = TRUE,
+        technical = list(NCYCLES = 5000)
+      )
+      
+      # construct model record out of model
+      mod_rec_full <- modelrecord(mod_full, rownames(data_prepped_full))
       
       # save model record
       mod_file <- glue("{task}_{str_to_lower(itemtype)}_f{nfact}_{invariance}.rds")
-      write_rds(mod_rec, file.path(out_dir, mod_file), compress = "gz")
+      out_dir_full <- file.path(out_dir, "all_items")
+      dir.create(out_dir_full, recursive = TRUE, showWarnings = FALSE)
+      write_rds(mod_rec_full, file.path(out_dir_full, mod_file), compress = "gz")
       
     })
 }
-
 
 # example calls: pooled models
 
@@ -168,21 +207,14 @@ fit_task_models_multigroup <- \(task_data, models, task, group = site,
 
 # example calls: multigroup models
 
-# fit one task, grouped by site, only overlapping items
+# fit one task, grouped by site
 # fit_task_models_multigroup(task_data = task_data_irt, models = models_multigroup,
-#                            task = "hf", group = site, overlap_items = TRUE,
-#                            registry_dir = regdir)
+#                            task = "matrix", group = site, registry_dir = regdir)
 
-# fit one task, grouped by site, all items
-# fit_task_models_multigroup(task_data = task_data_irt, models = models_multigroup,
-#                            task = "hf", group = site, overlap_items = FALSE,
-#                            registry_dir = regdir)
-
-# fit all irt tasks, only overlapping items
+# fit all irt tasks, grouped by site
 # irt_tasks |>
 #   walk(\(task) fit_task_models_multigroup(task_data = task_data_irt,
 #                                           models = models_multigroup,
 #                                           task = task,
 #                                           group = site,
-#                                           overlap_items = TRUE,
 #                                           registry_dir = regdir))
