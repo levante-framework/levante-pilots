@@ -8,29 +8,25 @@ library(tidyr)
 ```
 
 ```{r}
-dataset_spec <- list(list(name = "partner_sparklab_us:4n9e",         version = "current"),
-                     list(name = "us_downward_extension_pilot:a6kb", version = "current"),
-                     list(name = "co_bogota_pilot:3j4z",             version = "current"),
-                     list(name = "co_rural_pilot:66d2",              version = "current"),
-                     list(name = "de_leipzig_pilot:6c0n",            version = "current"),
-                     list(name = "ca_western_pilot:97mt",            version = "current"))
+dataset_spec <- list(
+  list(name = "pilot_uniandes_co_bogota:3j4z",  version = "current"),
+  list(name = "pilot_uniandes_co_rural:66d2",   version = "current"),
+  list(name = "pilot_leuphana_de_main:6c0n",    version = "current"),
+  list(name = "pilot_western_ca_main:97mt",     version = "current"))
+  #list(name = "partner_sparklab_us:4n9e",         version = "current"),
+  #list(name = "us_downward_extension_pilot:a6kb", version = "current"),
 
 runs <- get_runs(dataset_spec,
                  remove_incomplete_runs = FALSE,
                  remove_invalid_runs = FALSE)
 
-# temporarily code sites here, datasets will follow naming scheme in the future
-dataset_sites <- tribble(
-  ~dataset,                      ~site,
-  "ca_western_pilot",            "pilot_western_ca",
-  "co_bogota_pilot",             "pilot_uniandes_co",
-  "co_rural_pilot",              "pilot_uniandes_co",
-  "de_leipzig_pilot",            "pilot_leuphana_de",
-  "partner_sparklab_us",         "partner_sparklab_us",
-  "us_downward_extension_pilot", "pilot_langcog_us"
-)
+dataset_sites <- runs |>
+  distinct(dataset) |>
+  separate_wider_delim(dataset, names = c("dataset_name", "ref", "version"),
+                       delim = ":", cols_remove = FALSE) |>
+  mutate(site = str_extract(dataset, "^[^_]*_[^_]*_[^_]*"))
 
-# code language for variants that are missing language for some reason
+# code language for variants that are missing language & variant name
 missing_langs <- tribble(
   ~variant_id,            ~lang,
   "OYKVpWxFYhA9Qh9w58Qy", "es",
@@ -41,10 +37,10 @@ missing_langs <- tribble(
 )
 
 run_data <- runs |>
-  separate_wider_delim(dataset, names = c("dataset", "ref", "version"),
-                       delim = ":") |>
   left_join(dataset_sites) |>
-  relocate(site, .before = everything()) |>
+  relocate(site, dataset_name, ref, version, .before = everything()) |>
+  select(-dataset) |>
+  rename(dataset = dataset_name) |>
   mutate(language = if_else(!is.na(language), language,
                             str_extract(variant_name, "^[a-z][a-z]"))) |>
   left_join(missing_langs) |>
@@ -56,13 +52,17 @@ write_rds(run_data, here("01_fetched_data/run_data.rds"), compress = "gz")
 survey_data <- get_surveys(dataset_spec)
 survey_data_nested <- survey_data |>
   left_join(dataset_sites) |>
-  relocate(site, .before = everything()) |>
+  relocate(site, dataset_name, ref, version, .before = everything()) |>
+  select(-dataset) |>
+  rename(dataset = dataset_name) |>
   nest(data = -survey_type)
 write_rds(survey_data_nested, here("01_fetched_data/survey_data_nested.rds"),
           compress = "gz")
 ```
 
 ```{r}
+# get_trials() call -- do equivalent below but separate into first doing
+# get_trials_prelim() and then various metadata joins for flexibility
 # trials <- get_trials(dataset_spec,
 #                      remove_incomplete_runs = FALSE,
 #                      remove_invalid_runs = FALSE,
@@ -84,10 +84,10 @@ trials <- trials_prelim |>
          timestamp = "server_timestamp", "valid_trial", "validation_msg_trial")
   
 trial_data <- trials |>
-  separate_wider_delim(dataset, names = c("dataset", "ref", "version"),
-                       delim = ":") |>
   left_join(dataset_sites) |>
-  relocate(site, .before = everything())
+  relocate(site, dataset_name, ref, version, .before = everything()) |>
+  select(-dataset) |>
+  rename(dataset = dataset_name)
 
 write_rds(trial_data, here("01_fetched_data/trial_data.rds"),
           compress = "gz")
