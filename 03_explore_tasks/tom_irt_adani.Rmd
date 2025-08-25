@@ -50,6 +50,7 @@ library(DT)            # for nicer tables
 library(corrr)         # for correlations
 library(mirt)          # for IRT models
 library(tidyverse)     # for everything else
+library(psych)
 library(dplyr)
 
 # set default code chunk options
@@ -101,10 +102,10 @@ Let's have a look at key aspects of the data:
 
 ```{r}
 
-# number of subjects (681)
+# number of subjects
 Hmisc::describe(tom_data_long$user_id)
 
-# number of runs (787)
+# number of runs
 Hmisc::describe(tom_data_long$run_id)
 
 # number of items (38)
@@ -113,7 +114,7 @@ Hmisc::describe(tom_data_long$item_uid)
 # number of item groups (6)
 Hmisc::describe(tom_data_long$item_group)
 
-# test sites (4)
+# test sites
 Hmisc::describe(tom_data_long$dataset)
 
 ```
@@ -121,6 +122,15 @@ Hmisc::describe(tom_data_long$dataset)
 And then let's run simple item and subject statistics:
 
 ```{r}
+
+# first, filter out erroneous leuphana_DE runs
+unique(tom_data_long$response)
+
+tom_data_long =
+  tom_data_long %>%
+  filter(answer != "hostile-attribution-scene3-q2-ans1")
+
+unique(tom_data_long$response)
 
 # % correct per item per site
 tom_data_long %>%
@@ -191,9 +201,7 @@ items.
 
 ------------------------------------------------------------------------------------------
 
-# IRT Models
-
-As a sanity check, let's plot % correct per item across age:
+As a sanity check, let's first plot % correct per item across age:
 
 ```{r fig.width = 12, fig.height = 8}
 
@@ -309,6 +317,8 @@ names(group_vec_multigroup) =
   rownames(response_matrix_multigroup)
 
 ```
+
+# First Pass: Various IRT Models
 
 Now let's prep our functions for running our IRT models.
 
@@ -551,9 +561,10 @@ cor_a %>%
   select(-c(term)) %>%
   as.matrix() %>%
   corPlot(main = "Correlations between Item DISCRIMINATION Parameters across Models",
+          symbols = T,
           numbers = T,
           upper = T,
-          cex = 1)
+          cex = 1,)
 
 ```
 
@@ -576,7 +587,7 @@ ggplot(item_params_all,
              color = "black",
              linetype = "dashed") +
   labs(title = "Item Difficulties by Model",
-       subtitle = "higher is harder, lower is easier",
+       subtitle = "higher/+ is harder, lower/- is easier",
        y = "Difficulty (b)",
        x = "Item") +
   ylim(-10, 10) +
@@ -606,7 +617,7 @@ ggplot(item_params_all,
              color = "darkgreen",
              linetype = "dashed") +
   labs(title = "Item Discrimination by Model",
-       subtitle = "closer to 0 is worse, ≥ 1 is desirable",
+       subtitle = "closer to 0 & - is worse, ≥ 1 is desirable",
        y = "Discrimination (a)",
        x = "Item") +
   scale_y_continuous(limits = c(-5, 5),
@@ -617,7 +628,7 @@ ggplot(item_params_all,
 
 ```
 
-# ICCs
+## ICCs
 
 ```{r}
 
@@ -683,21 +694,112 @@ icc_curves_all %>%
 If we look at JUST RASCH CONFIGURAL (overall 'winning' model for TOM on overlapping
 items):
 
-```{r fig.height = 3, fig.width = 12}
+```{r fig.height = 3, fig.width = 9}
 
 icc_curves_all %>%
+  # filter(item_uid == "tom_reference_reference") %>%
   filter(item_uid %in% prev_worst_performers) %>% 
   filter(model == "rasch_configural") %>% 
   ggplot(aes(x = theta, y = prob)) +
   geom_line(size = 2, alpha = .5) +
   facet_wrap(~ item_uid, scales = "free_y", ncol = 5) +
-  labs(title = "Item Characteristic Curves (ICCs)",
-       subtitle = "Only Worst Performers",
+  labs(title = "Item Characteristic Curve (ICC)",
+       # subtitle = "Only Worst Performers",
        x = "Theta",
        y = "Estimate for P(correct response)",
        color = "Model") +
   ylim(0, 1) +
   theme_classic(base_size = 10) +
   theme(legend.position = "top")
+
+```
+
+------------------------------------------------------------------------------------------
+
+# Second Pass: Just 2PL Scalar Model
+
+First, let's create a dataframe without the problematic items:
+
+<https://docs.google.com/document/d/1lJRC68uo-kbo2RNXxjv8ebEXcNyVnNBtA5_mUmWuQ0g/edit?tab=t.0>
+
+```{r}
+
+stinker_items = 
+  c("tom_reference_reference",
+    "tom_moral_reasoning_reality_check_1",
+    "tom_moral_reasoning_reality_check_2",
+    "tom_deception_reality_check_1",
+    "tom_deception_reality_check_3")
+
+df.downward_extension =
+  tom_irt_data %>%
+  select(-(stinker_items))
+
+# keep only cols with correct/incorrect vals (1 and 0)
+response_matrix_downward_extension =
+  df.downward_extension %>%
+  column_to_rownames("run_id") %>%
+  select(-c(site)) %>%
+  as.data.frame()
+
+group_vec_downward_extension =
+  df.downward_extension %>%
+  distinct(run_id, site) %>%
+  filter(run_id %in% rownames(response_matrix_downward_extension)) %>%
+  arrange(match(run_id, rownames(response_matrix_downward_extension))) %>%
+  pull(site)
+
+names(group_vec) =
+  rownames(response_matrix_downward_extension)
+
+```
+
+```{r}
+
+# fit model
+mod_2pl_scalar =
+  multipleGroup(data = response_matrix_downward_extension,
+                model = 1,
+                group = group_vec_downward_extension,
+                itemtype = "2PL",
+                invariance = c(colnames(response_matrix_downward_extension),
+                               "free_means", "free_var"),
+                verbose = T,
+                technical = list(NCYCLES = 5000))
+
+```
+
+```{r}
+
+# grab parameters
+item_params_scalar = function(model, model_name = "2pl_scalar") {
+  coefs_raw = coef(model, simplify = FALSE)
+
+  # Filter out metadata elements
+  group_names = setdiff(names(coefs_raw), c("GroupPars", "means", "cov"))
+
+  # Grab shared difficulty values (same for all groups)
+  shared_d = map_dbl(coefs_raw[[group_names[1]]], ~ .x["d"])
+  shared_item_names = names(coefs_raw[[group_names[1]]])
+  
+  # Return one row per item per group
+  item_params =
+    map_dfr(group_names, function(g) {
+      group_coefs = coefs_raw[[g]]
+      
+      tibble(
+        item_uid = names(group_coefs),
+        a = map_dbl(group_coefs, ~ .x["a1"]),
+        d = shared_d,
+        b = -shared_d / map_dbl(group_coefs, ~ .x["a1"]),
+        site = g,
+        model = model_name
+      )
+    })
+
+  return(item_params)
+}
+
+item_params_2pl_scalar = item_params_scalar(mod_2pl_scalar)
 
 ```
