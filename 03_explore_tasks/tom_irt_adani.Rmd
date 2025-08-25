@@ -450,7 +450,8 @@ item_params_all =
 
 ```
 
-Let's print a big table with item difficulties and item discriminations, sorted by model.
+First, let's print a big table with item difficulties and item discriminations, sorted by
+model.
 
 Higher discrimination values are better. For difficulty, lower value means easier item,
 higher value means harder item.
@@ -718,7 +719,7 @@ icc_curves_all %>%
 
 # Second Pass: Just 2PL Scalar Model
 
-First, let's create a dataframe without the problematic items:
+First, let's create a data frame without the problematic items as listed here:
 
 <https://docs.google.com/document/d/1lJRC68uo-kbo2RNXxjv8ebEXcNyVnNBtA5_mUmWuQ0g/edit?tab=t.0>
 
@@ -735,13 +736,14 @@ df.downward_extension =
   tom_irt_data %>%
   select(-(stinker_items))
 
-# keep only cols with correct/incorrect vals (1 and 0)
+# create a new matrix; keep only cols with correct/incorrect vals (1 and 0)
 response_matrix_downward_extension =
   df.downward_extension %>%
   column_to_rownames("run_id") %>%
   select(-c(site)) %>%
   as.data.frame()
 
+# create new object with group info
 group_vec_downward_extension =
   df.downward_extension %>%
   distinct(run_id, site) %>%
@@ -754,6 +756,8 @@ names(group_vec) =
 
 ```
 
+Then, let's fit our 2PL scalar model:
+
 ```{r}
 
 # fit model
@@ -763,43 +767,149 @@ mod_2pl_scalar =
                 group = group_vec_downward_extension,
                 itemtype = "2PL",
                 invariance = c(colnames(response_matrix_downward_extension),
-                               "free_means", "free_var"),
+                               mean = "free", var = "free"),
                 verbose = T,
                 technical = list(NCYCLES = 5000))
 
 ```
 
+Now grab the parameter estimates from the model:
+
 ```{r}
 
 # grab parameters
-item_params_scalar = function(model, model_name = "2pl_scalar") {
-  coefs_raw = coef(model, simplify = FALSE)
+item_params_scalar = function(model, model_name = "2pl_scalar", item_names) {
+  group_names = model@Data$groupNames
+  num_items = length(item_names)
 
-  # Filter out metadata elements
-  group_names = setdiff(names(coefs_raw), c("GroupPars", "means", "cov"))
+  # Extract shared difficulty parameters from Group 1
+  item_par_objects_group1 = model@ParObjects$pars[[1]]@ParObjects$pars[1:num_items]
 
-  # Grab shared difficulty values (same for all groups)
-  shared_d = map_dbl(coefs_raw[[group_names[1]]], ~ .x["d"])
-  shared_item_names = names(coefs_raw[[group_names[1]]])
-  
-  # Return one row per item per group
-  item_params =
-    map_dfr(group_names, function(g) {
-      group_coefs = coefs_raw[[g]]
-      
-      tibble(
-        item_uid = names(group_coefs),
-        a = map_dbl(group_coefs, ~ .x["a1"]),
-        d = shared_d,
-        b = -shared_d / map_dbl(group_coefs, ~ .x["a1"]),
-        site = g,
-        model = model_name
-      )
+  d_vals = map_dbl(item_par_objects_group1, function(x) {
+    d_idx = which(x@parnames == "d")
+    x@par[d_idx]
+  })
+
+  # Extract site-specific discriminations and compute difficulty
+  all_params = map_dfr(seq_along(group_names), function(g) {
+    group_pars = model@ParObjects$pars[[g]]@ParObjects$pars[1:num_items]
+
+    a_vals = map_dbl(group_pars, function(x) {
+      a_idx = which(x@parnames == "a1")
+      x@par[a_idx]
     })
 
-  return(item_params)
+    tibble(
+      item_uid = item_names,
+      a = a_vals,
+      d = d_vals,
+      b = -d_vals / a_vals,
+      site = group_names[g],
+      model = model_name
+    )
+  })
+
+  return(all_params)
 }
 
-item_params_2pl_scalar = item_params_scalar(mod_2pl_scalar)
+item_names = colnames(response_matrix_downward_extension)
+
+item_params_2pl_scalar = item_params_scalar(
+  mod_2pl_scalar,
+  item_names = item_names
+)
 
 ```
+
+First, let's put all the estimates into a table, grouped by item and site:
+
+```{r}
+
+item_params_2pl_scalar %>%
+  select(item_uid, model, a, b, site) %>%
+  mutate(across(c(a, b), ~ round(.x, 3))) %>%
+  rename(discr = a,
+         diff = b) %>%
+  arrange(model, diff) %>%
+  datatable()
+
+```
+
+And then plot them. Item difficulties are held constant, so let's look at item
+discrimination:
+
+```{r fig.width = 20, fig.height = 22}
+
+# plot item discrimination for each item
+ggplot(item_params_2pl_scalar,
+       aes(x = item_uid,
+           y = a,
+           color = site)) +
+  geom_point(position = position_dodge(width = 0.1),
+             size = 4,
+             alpha = .5) +
+  geom_hline(yintercept = 1,
+             color = "darkgreen",
+             linetype = "dashed") +
+  labs(title = "Item Discrimination by Model",
+       subtitle = "closer to 0 & - is worse, ≥ 1 is desirable",
+       y = "Discrimination (a)",
+       x = "Item") +
+  scale_y_continuous(limits = c(-20, 20),
+                     breaks = c(seq(-15, 15, 5))) +
+  facet_grid(~site) +
+  theme_minimal(base_size = 36) +
+  theme(axis.text.x = element_text(angle = 60, hjust = 1),
+        legend.position = "none") +
+  coord_flip()
+
+```
+
+And then ICC:
+
+**The lines are identical across sites so we only see 1 (instead of 3).**
+
+```{r fig.width = 30, fig.height = 30}
+
+compute_icc_curve = function(a, b, item_uid, model, site) {
+  tibble(
+    theta = seq(-4, 4, length.out = 200),
+    prob = 1 / (1 + exp(-a * (theta - b))),
+    item_uid = item_uid,
+    model = model,
+    site = site
+  )
+}
+
+icc_curves_nonstinker =
+  item_params_2pl_scalar %>%
+  select(a, b, item_uid, model, site) %>%
+  # ..1 = a, ..2 = b, ..3 = item_uid, ..4 = model
+  pmap_dfr(~ compute_icc_curve(a = ..1,
+                               b = ..2,
+                               item_uid = ..3,
+                               model = ..4,
+                               site = ..5))
+
+icc_curves_nonstinker %>%
+  ggplot(aes(x = theta, y = prob, color = site)) +
+  geom_line(size = 1.2, alpha = .5) +
+  facet_wrap(~ item_uid, scales = "free_y",
+             ncol = 6) +
+  ylim(0, 1) +
+  annotate("text", x = 0, y = 0.1,
+         label = "identical parameters across sites",
+         size = 3.5, hjust = 0, color = "gray30") +
+  labs(title = "ICCs by Item + Site",
+       subtitle = "Scalar 2PL model",
+       x = "Theta",
+       y = "Estimate for P(correct response)",
+       color = "Site") +
+  theme_classic(base_size = 20) +
+  theme(legend.position = "top")
+
+```
+
+------------------------------------------------------------------------------------------
+
+**\*\* TODO \*\***: Model outfit statistics
