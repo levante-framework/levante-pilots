@@ -835,6 +835,8 @@ item_params_2pl_scalar %>%
 
 ```
 
+## Item Discrimination
+
 And then plot them. Item difficulties are held constant, so let's look at item
 discrimination:
 
@@ -864,6 +866,8 @@ ggplot(item_params_2pl_scalar,
   coord_flip()
 
 ```
+
+## ICCs
 
 And then ICC:
 
@@ -912,4 +916,18 @@ icc_curves_nonstinker %>%
 
 ------------------------------------------------------------------------------------------
 
-**\*\* TODO \*\***: Model outfit statistics
+## Model Statistics
+
+This throws an error right now - need to fix later
+
+```{r}
+
+# fit statistics
+# item_fit_scalar = itemfit(mod_2pl_scalar)
+# 
+# item_params_with_fit =
+#   item_params_2pl_scalar %>%
+#   left_join(item_fit_scalar %>% 
+#               rownames_to_column("item_uid"), by = "item_uid")
+
+```
