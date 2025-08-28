@@ -882,32 +882,34 @@ ggplot(item_params_2pl_scalar,
 
 ## ICCs
 
-And then ICC:
-
-**The lines are identical across sites so we only see 1 (instead of 3).**
+And then ICC (note: curves are identical across sites so we only see 1 in the plot rather
+than 3)
 
 ```{r fig.width = 34, fig.height = 20}
 
-compute_icc_curve = function(a, b, item_uid, model, site) {
-  tibble(
-    theta = seq(-4, 4, length.out = 200),
-    prob = 1 / (1 + exp(-a * (theta - b))),
-    item_uid = item_uid,
-    model = model,
-    site = site
-  )
-}
+# set function
+compute_icc_curve =
+  function(a, b, item_uid, model, site) {
+    tibble(theta = seq(-4, 4, length.out = 200),
+           # logistic function
+           prob = 1 / (1 + exp(-a * (theta - b))),
+           item_uid = item_uid,
+           model = model,
+           site = site)
+    }
 
+# run function over item parameters
 icc_curves_nonstinker =
   item_params_2pl_scalar %>%
   select(a, b, item_uid, model, site) %>%
-  # ..1 = a, ..2 = b, ..3 = item_uid, ..4 = model
+  # ..1 = a, ..2 = b, ..3 = item_uid, ..4 = model, ..5 = site
   pmap_dfr(~ compute_icc_curve(a = ..1,
                                b = ..2,
                                item_uid = ..3,
                                model = ..4,
                                site = ..5))
 
+# plot curves
 icc_curves_nonstinker %>%
   ggplot(aes(x = theta, y = prob, color = site)) +
   geom_line(size = 1.2, alpha = .5) +
