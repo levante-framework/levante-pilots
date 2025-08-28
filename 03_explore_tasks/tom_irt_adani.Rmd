@@ -52,6 +52,7 @@ library(mirt)          # for IRT models
 library(tidyverse)     # for everything else
 library(psych)
 library(dplyr)
+library(reshape2)
 
 # set default code chunk options
 knitr::opts_chunk$set(echo = T, warning = F, message = F)
@@ -931,6 +932,35 @@ icc_curves_nonstinker %>%
 
 ------------------------------------------------------------------------------------------
 
+## Polychoric Cor Matrix
+
+```{r}
+
+polychoric_output =
+  psych::polychoric(response_matrix_downward_extension)
+
+cor_matrix = polychoric_output$rho
+
+melted_cor = melt(cor_matrix)
+
+```
+
+```{r fig.width = 15, fig.height = 15}
+
+ggplot(melted_cor,
+       aes(x = Var1, y = Var2,
+           fill = value)) +
+  geom_tile(color = "white") +
+  scale_fill_viridis_c(option = "C", limits = c(-1, 1)) +
+  labs(title = "Polychoric Correlation Matrix",
+       x = "Item",
+       y = "Item",
+       fill = "Correlation") +
+  theme_minimal(base_size = 20) +
+  theme(axis.text.x = element_text(angle = 90, vjust = 0.5))
+
+```
+
 ## Model Statistics
 
 This throws an error right now - need to fix later
@@ -938,11 +968,13 @@ This throws an error right now - need to fix later
 ```{r}
 
 # fit statistics
-# item_fit_scalar = itemfit(mod_2pl_scalar)
+# item_fit_scalar =
+#   itemfit(mod_2pl_scalar, na.rm = F,
+#           fit_stats = "infit")
 # 
 # item_params_with_fit =
 #   item_params_2pl_scalar %>%
-#   left_join(item_fit_scalar %>% 
+#   left_join(item_fit_scalar %>%
 #               rownames_to_column("item_uid"), by = "item_uid")
 
 ```
