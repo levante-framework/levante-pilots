@@ -1,13 +1,13 @@
 ---
-title             : "Creating LEVANTE, the Learning Variability Network Exchange: A global framework for measuring children’s learning variability through collaborative data sharing"
+title             : "Creation and validation of the LEVANTE core tasks: Internationalized measures of learning and development for children ages 5-12 years"
 shorttitle        : "LEVANTE"
 
 author: 
   - name          : ""
     affiliation   : "1"
     corresponding : yes    # Define only one corresponding author
-    address       : "Postal address"
-    email         : ""
+    address       : "Building 420, 450 Jane Stanford Way, Stanford, CA 94305"
+    email         : "mcfrank@stanford.edu"
     role: # Contributorship roles (e.g., CRediT, https://credit.niso.org/)
       - "Conceptualization"
       - "Writing - Original Draft Preparation"
@@ -30,26 +30,56 @@ authornote: |
   Enter author note here.
 
 abstract: |
-  We present the Learning Variability Network Exchange (LEVANTE) core tasks, which are designed to assess literacy, numeracy, and a number of core cognitive skills (reasoning, executive function, spatial cognition, social cognition, and language), as well as social constructs related to the home and school environment. We focus on the design, psychometric properties and factor structure of the instruments in an initial sample of Colombian, German, and Canadian children, 5-12 years of age. We address the challenges of choosing, translating, and revising the instruments, and demontrate the promise of using them as adaptive assessments in order to collect a global longitudinal dataset to capture variability in children's development.
+  We present the Learning Variability Network Exchange (LEVANTE) core tasks, which are designed to assess literacy, numeracy, and a number of core cognitive skills (reasoning, executive function, spatial cognition, social cognition, and language), as well as social constructs related to the home and school environment. We focus on the design, psychometric properties and factor structure of the instruments in an initial sample of Colombian, German, and Canadian children, 5-12 years of age. We address the challenges of choosing, translating, and revising the instruments, and demonstrate the promise of using them as adaptive assessments in order to collect a global longitudinal dataset to capture variability in children's development.
   
   
-keywords          : "cognitive development"
-wordcount         : "X"
+keywords: "cognitive development"
+wordcount: "X"
 
-bibliography      : "library.bib"
+bibliography: "library.bib"
 
-floatsintext      : no
-linenumbers       : yes
-draft             : no
-mask              : no
+floatsintext: no
+linenumbers: yes
+draft: no
+mask: no
 
-figurelist        : no
-tablelist         : no
-footnotelist      : no
+figurelist: no
+tablelist: no
+footnotelist: no
 
-classoption       : "man"
-output            : papaja::apa6_pdf
+classoption: "man"
+output: papaja::apa6_pdf
 ---
+
+
+```{r, include = FALSE}
+# authors
+# Kachergis*, O’Reilly* 
+# 
+# Major contributors:
+# Mika
+# Doria
+# Mike
+# Nilàm
+# 
+# Other authors:
+# Rebecca 
+# Amy
+# Zach
+# Lijin
+# Ben
+# 
+# Pilot data contributors
+# DE: Luise & Manuel
+# CO: Camila & Julian
+# CA: Nichola & Daniel 
+# 
+# Task contributors
+# Jason, Tonya (TROG), Anya (VV) 
+# Michael Sulik, Jelena Obradovic (EF)
+
+```
+
 
 ```{r setup, include = FALSE}
 library("papaja")
@@ -62,80 +92,129 @@ set.seed(42)
 knitr::opts_chunk$set(cache.extra = knitr::rand_seed)
 ```
 
+# Introduction
+
 Variability is a common denominator in the study of learning and development, but currently dominant methods tend to favor group averages, short snapshots of time, and single environments. Studying variability could facilitate our understanding of why variability might be especially prevalent in specific groups or contextual circumstances, however, and researchers also must investigate individual variability to promote more effective customized learning interventions. Yet studying variability requires large datasets and diverse samples. 
 
 We introduce the Learning Variability Network Exchange (LEVANTE), a framework for collecting and sharing developmental data with the aim of understanding the nature of developmental variability. LEVANTE aims to provide researchers worldwide with a framework for examining these topics that includes a set of core constructs and measures, while also allowing for some flexibility in data collection procedures. Our goal is to gather a large, rich, multi-context dataset with global scope that measures developmental change over time in children ages 2 – 12 years. LEVANTE embraces open science values, aiming to create measures and data that are permissively licensed and reusable by the international research community. 
 
 LEVANTE includes direct assessments of children's learning and cognition. These aspects of individual children will be examined in light of contextual constructs at the level of the self, the home and family, the school, and the community, measured through parent report and teacher report. 
-To create our direct assessment suite, we selected pre-existing measures from the literature that tapped each of these constructs, when possible prioritizing measures with strong psychometric properties, previous use across a broad range of cultures, applicability across a broad range of ages, and lack of commercial or licensing constraints. This process yielded a series of measures in an open source web platform, including:
-Language and literacy: vocabulary, grammar, phoneme awareness, single word reading, and sentence reading efficiency (based on the Rapid Online Assessment of Reading platform);
-Math: number knowledge, arithmetic, and fractions (based on upward extension of the RTI EGMA);
-Social and emotional processes: theory of mind, emotional reasoning, and hostile attribution;
-Reasoning and spatial cognition: mental rotation and matrix reasoning;
-Executive function: hearts and flowers, spatial sequence working memory, and the same-different selection task. 
+
+To create our direct assessment suite, we selected pre-existing measures from the literature that tapped each of these constructs, when possible prioritizing measures with strong psychometric properties, previous use across a broad range of cultures, applicability across a broad range of ages, and lack of commercial or licensing constraints. This process yielded a series of measures in an open source web platform, shown in Table 1. 
+
+[TABLE 1: MEASURES AND CONSTRUCTS]
 
 Thus far, data has been collected on these tasks with over 500 students 5-12 years of age in Bogota, Colombia; Leipzig, Germany; and Ottawa, Canada. The psychometric properties and factor structure of the tasks will be discussed, as well as criteria for revising the item banks. Finally, we will discuss the process by which each task is made adaptive using item response theory models and computer adaptive testing techniques. 
 
 LEVANTE will yield a large, open access longitudinal dataset for long-term research use, as well as a set of psychometrically normed, open access measures. These tools will not only facilitate the science of learning variability, but also constitute the backbone of a larger multidisciplinary research network working toward improving children's learning and development globally.
 
+<!-- Ensure to back-reference construct selection from prior LEVANTE paper -->
 
-# Methods
+# Task selection
 
-### Math.
-EGMA + fraction arithmetic + number line slider (number-to-line) and numberline-to-number
+## Language 
 
+### Sentence Understanding
 
+The Test for Reception of Grammar (TROG; Bishop, 1982) is a multiple-choice measure of receptive grammatical understanding. On each trial, the child hears a spoken sentence and is asked to select one of four pictures that best matches its meaning. The test comprises 20 blocks, each containing four items that assess the same grammatical structure. The blocks increase in grammatical complexity as the test progresses. A block is considered passed only if the child answers all four items correctly, making the task sensitive to consistent understanding rather than chance performance.
 
-### Matrix Reasoning.
-MarsIB
-
-
-### Mental Rotation.
+### Vocabulary
 
 
-### Hearts & Flowers.
+## Math
 
 
-### Memory Game. 
-(i.e. Corsi Block Task)
+## Reasoning
+
+### Matrix Reasoning
+
+### Shape Rotation
 
 
-### Same-Different Selection (SDS).
+## Executive Function
+
+### Same Difference Selection
+
+The Same Different Selection task (Obradovi\'c \& Sulik, year?) is designed to assess cognitive flexibility in children. It draws upon elements from the ‘Something's the Same’ task (Willoughby et al., 2012) and the ‘Flexible Item Selection Task’ (Jacques \& Zelazo, 2001). In this task, children are presented with sets of items that vary along multiple dimensions, such as shape, color, size, and number. They are required to identify similarities and differences between items based on these dimensions, thereby engaging their ability to shift attention and adapt to changing rules or criteria.
+
+### Hearts and Flowers
+
+The Hearts and Flowers task (Davidson et al., 2006) assesses inhibitory control and cognitive flexibility in individuals aged 3.5 years to adulthood. Participants respond according to stimulus type: pressing a key on the same side as a heart (congruent rule), and on the opposite side for a flower (incongruent rule). The task includes three blocks - congruent (hearts only), incongruent (flowers only), and mixed (hearts and flowers). The congruent block serves as a baseline with minimal executive demands. Inhibitory control is typically measured via performance on the incongruent block, which requires overriding a spatially dominant response, while cognitive flexibility is assessed using the mixed block, which demands switching between rules based on the stimulus (Wright \& Diamond, 2014).
+
+### Memory Game
+
+The Corsi Block task is a widely used measure of visuospatial short-term memory [@corsi1972]. In the standard version, a set of four blocks is arranged in a fixed spatial configuration. During each trial, a subset of blocks lights up one at a time in a specific sequence. The child is required to reproduce the sequence by clicking the blocks in the same order. The task begins with short sequences (e.g., two items) and gradually increases in difficulty (up to five or more) until the child fails two sequences of the same length. The longest correctly reproduced sequence reflects their visuospatial span. When adapted for younger children or digital administration, the number of visible blocks may be reduced (e.g., four blocks), and span lengths are typically capped at five to reduce task complexity.
+
+## Social Cognition
 
 
-### Theory of Mind.
-
-
-### Hostile Attribution.
-
-
-### Phoneme Awareness.
-
-
-### Lexical Decision.
-
-
-### Syntax.
-77 4AFC items from the Test of Reception of Grammar (TROG) and 23 novel items.
-
-
-### Vocabulary.
-170 4AFC items
-
-
-## Participants
-
-## Materials & Procedure
+### Stories task
 
 
 
-## Data analysis
+# Pilot Data Collection
+
+# Scoring
+
+## IRT Calibration and Model Selection
+## Multigroup Calibration and Measurement Invariance 
+<!-- Configural Invariance -->
+<!-- Metric Invariance -->
+<!-- Scalar Invariance -->
 
 
-# Results
+Model comparisons employed likelihood ratio test (?), changes in Bayesian Information Criterion ($\Delta$ BIC). 
+
+## Item-Level Diagnostics
+
+Classical indices included proportion correct (flagged if <0.20 or >0.90) and point-biserial correlations (flagged if <0.20). 
+IRT-based fit statistics included infit and outfit mean squares.
+DIF
+Removal and Revision of Problematic Items
+Ability Estimation
+CAT-Specific Scoring
+
+Multigroup models and invariance
+Model selection approach
+1PL/2PL and different degrees of invariance
+Item-level diagnostics
+Removal of outlier items
+Tests for item-level DIF in cases where we use multigroup scoring
+
+# Psychometric properties of tasks
+
+## Developmental change (adapt from presentation on Aug 12th - Fionnuala)
+
+## Reliability 
+
+## Marginal reliability estimate 
+
+(table)
+
+## Test-retest
+
+(german data only)
+
+## Validity 
+
+Construct validity: SEMs within each construct for language, number, EF?
+External validity
+MEFS and ROAR
+
+# Adaptive task construction
+
+Many of the LEVANTE tasks have been adapted and piloted as CATs (Computerized Adaptive Tests). To date, these include the Test For Reception of Grammar (TROG), Vocabulary, Mental Rotation, Matrix Reasoning, Same Difference Selection, and Math. These tasks maintain an ability score, theta, as an estimate of the participant’s skill level that is updated at the end of each trial. They then present participants with the item best suited to their estimated ability, which both improves test-taker experience and yields more information on participant skill per item, allowing for a shorter task with fewer items. 
+
+The CAT tasks use an adaptive algorithm made available by the jsCat JavaScript library [@ma2025], which offers an implementation of an Item Response Theory (IRT) model including up to 4 parameters: discrimination, a value representing the item’s informativeness in distinguishing high and low ability test-takers, guessing, the probability of selecting the correct response at random, upper asymptote, the maximum likelihood of a correct answer, and difficulty. The present LEVANTE CAT implementation varies difficulty and guessing for each item while holding both discrimination and upper asymptote constant at 1. Items are selected based on Maximum Fisher Information, and theta is updated according to a maximum likelihood estimator, with limits of -6 and 6. 
+
+The LEVANTE CATs are configurable with respect to the initial value of theta and the conditions for ending the task. The starting theta is set at 0 for all CAT tasks currently in use, but can be lowered or raised according to the researcher’s prior expectation of participant ability, for example according to age. Current CAT implementations use stopping rules based on either time or number of items. TROG, Mental Rotation, and Vocabulary each have time limits currently set to 4 minutes, with Matrix Reasoning set to 6 minutes to allow for the increased time typically required to complete items in this task. Items in these tasks are presented together in a single block. Same Difference Selection and Math are each divided into three blocks presented sequentially, with per-block stopping based on number of items. These CATs select from the list of items specific to their current block and proceed to the next block once the target number of items is reached, maintaining one overarching ability estimate for the entire task. Same Difference Selection and Math have time limits of 6 minutes and 8 minutes, respectively. 
 
 # Discussion
 
+* Using the LEVANTE tasks: Future steps
+* Plans for internationalization
+* Plans for scoring
+* Plans for updates
 
 
 
@@ -143,5 +222,5 @@ MarsIB
 
 # References
 
-::: {#refs custom-style="Bibliography"}
-:::
+<!-- ::: {#refs custom-style="Bibliography"} -->
+<!-- ::: -->

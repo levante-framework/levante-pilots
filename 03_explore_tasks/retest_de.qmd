@@ -13,25 +13,19 @@ library(glue)
 library(here)
 library(viridis)
 
-source(here("02_score_data","irt_helpers.R"))
-source(here("03_summaries", "plotting_helper.R"))
-source(here("03_explore_tasks/explore_helper.R"))
-runs <- read_rds(here("01_fetched_data/run_data.rds"))
-
+# source(here("02_score_data","irt_helpers.R"))
+# source(here("03_summaries", "plotting_helper.R"))
+# source(here("03_explore_tasks/explore_helper.R"))
+scores <- readRDS(here("02_scoring_outputs","scores","scores_combined.rds"))
 ```
 
 Examine test/retest reliability in German data.
 
-
-# Independent model scores
-
 ```{r}
-independent_thetas <- read_rds(here("02_scoring_outputs/scores/independent_scores.rds"))
+# independent_thetas <- read_rds(here("02_scoring_outputs/scores/independent_scores.rds"))
 
-de_retest_scores <- independent_thetas |> 
-  filter(site == "de_pilot", item_task != "ha") |> 
-  left_join(select(runs, user_id, run_id, age, completed, valid_run)) |>
-  filter(completed, valid_run) |>
+de_retest_scores <- scores |> 
+  filter(site == "pilot_leuphana_de", !(item_task %in% c("ha", "swr"))) |>
   group_by(user_id, item_task) |>
   arrange(user_id ,item_task, age) |>
   filter(n() > 1) |>
@@ -74,71 +68,7 @@ ggplot(retest_wide,
   xlab("Score 1") + ylab("Score 2") + 
   ggtitle("Test-retest reliability (DE)")
 ```
-
-# Multigroup model scores
-
-```{r}
-multigroup_thetas <- read_rds(here("02_scoring_outputs/scores/multigroup_scores.rds"))
-
-de_retest_scores_mg <- multigroup_thetas |> 
-  filter(site == "de_pilot", item_task != "ha") |> 
-  left_join(select(runs, user_id, run_id, age, completed, valid_run)) |>
-  filter(completed, valid_run) |>
-  group_by(user_id, item_task) |>
-  arrange(user_id ,item_task, age) |>
-  filter(n() > 1) |>
-  mutate(run_number = row_number(),
-         age_gap = c(0, diff(age))) 
-
-retest_wide_mg <- de_retest_scores_mg |>
-  group_by(user_id, item_task) |>
-  mutate(has_retest = any(age_gap > .05), 
-         mean_age = mean(age), 
-         age_gap = max(age_gap)) |>
-  filter(has_retest) |>
-  ungroup() |>  
-  pivot_wider(
-    id_cols = c(user_id, item_task, mean_age, age_gap),
-    names_from = run_number,
-    values_from = metric_value,
-    names_prefix = "run_"
-  ) |>
-  select(user_id, item_task, age = mean_age, age_gap, run_1, run_2)
-
-multigroup_trt <- retest_wide_mg |>
-  group_by(item_task) |>
-  summarise(test_retest_r = cor(run_1, run_2, use = "complete.obs"), 
-            n = n(), 
-            age_gap = mean(age_gap)*12) |>
-  mutate(model = "multigroup")
-  
-```
-
-```{r}
-ggplot(retest_wide_mg, 
-       aes(x = run_1, y = run_2, col = age)) +
-  geom_point() + 
-  geom_smooth(aes(group = 1), col = "blue", method = "lm") + 
-  scale_color_viridis() + 
-  facet_wrap(~item_task) 
-```
-
-# Missing DE
-
-```{r}
-filter(multigroup_thetas, site == "de_pilot", item_task == "matrix")
-filter(independent_thetas, site == "de_pilot", item_task == "matrix")
-```
-
-# Combine
-
-```{r}
-retest_results <- independent_trt |> 
-  bind_rows(multigroup_trt) |>
-  pivot_wider(names_from = "model", values_from = "test_retest_r") 
-
-knitr::kable(retest_results, digits = 2)
-```
+# Further exploration
 
 ```{r}
 retest_directions <- retest_wide_mg |>
