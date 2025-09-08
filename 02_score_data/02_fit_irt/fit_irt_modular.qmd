@@ -43,7 +43,11 @@ models_multigroup <- tribble(
 )
 
 # define set of pooled models (Rasch/2PL)
-models_pooled <- models_multigroup |> distinct(nfact, itemtype)
+models_pooled <- tribble(
+  ~nfact, ~itemtype,
+       1,   "Rasch",
+       1,   "2PL"
+)
 ```
 
 ```{r}
@@ -94,16 +98,6 @@ cluster |>
                                           models = models_multigroup,
                                           task = task,
                                           group = site,
-                                          overlap_items = TRUE,
-                                          registry_dir = regdir))
-
-cluster |>
-  cluster_assign_each(task = irt_tasks) |>
-  cluster_send(fit_task_models_multigroup(task_data = task_data_irt,
-                                          models = models_multigroup,
-                                          task = task,
-                                          group = site,
-                                          overlap_items = FALSE,
                                           registry_dir = regdir))
 ```
 
@@ -125,19 +119,5 @@ cluster |>
 #                            task = "hf",
 #                            group = site,
 #                            overlap_items = TRUE,
-#                            registry_dir = regdir)
 # 
-# fit_task_models_multigroup(task_data = task_data_irt,
-#                            models = m1,
-#                            task = "hf",
-#                            group = site,
-#                            overlap_items = TRUE,
-#                            registry_dir = regdir)
-# 
-# fit_task_models_multigroup(task_data = task_data_irt,
-#                            models = models_multigroup,
-#                            task = "hf",
-#                            group = site,
-#                            overlap_items = FALSE,
-#                            registry_dir = regdir)
 ```

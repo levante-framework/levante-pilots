@@ -4,6 +4,7 @@ library(here)
 library(glue)
 library(ggforce)
 library(ggthemes)
+library(ggh4x)
 
 source(here("plot_settings.R"))
 source(here("03_summaries/plotting_helper.R"))
@@ -25,6 +26,7 @@ Combine all task scores into one plot!
 
 ```{r}
 scores <- combine_scores()
+# scores <- read_rds(here("02_scoring_outputs/scores/scores_combined.rds"))
 ```
 
 ```{r}
@@ -59,36 +61,50 @@ site_labels <- scores |>
 
 ```{r}
 task_scores |>
-  filter(str_detect(model, "by_language"),
-         task_id %in% levante_tasks,
+  filter(task_id %in% levante_tasks,
          site %in% ref_sites) |>
   task_plot_comparative(ylab = "Score", nr = 2)
-ggsave(here("03_summaries/plots/levante_tasks_bylanguage.png"), width = 11, height = 6)
+ggsave(here("03_summaries/plots/levante_tasks.png"), width = 11, height = 6)
 ```
 
 ```{r}
-task_scores |>
-  filter(str_detect(model, "multigroup"),
-         task_id %in% levante_tasks,
-         site %in% ref_sites) |>
-  task_plot_comparative(ylab = "Score", nr = 2)
-ggsave(here("03_summaries/plots/levante_tasks_multigroup.png"), width = 11, height = 6)
+# task_scores |>
+#   filter(str_detect(model_class, "by_language"),
+#          task_id %in% levante_tasks,
+#          site %in% ref_sites) |>
+#   task_plot_comparative(ylab = "Score", nr = 2)
+# ggsave(here("03_summaries/plots/levante_tasks_bylanguage.png"), width = 11, height = 6)
+```
+
+```{r}
+# task_scores |>
+#   filter(str_detect(model_class, "multigroup"),
+#          task_id %in% levante_tasks,
+#          site %in% ref_sites) |>
+#   task_plot_comparative(ylab = "Score", nr = 2)
+# ggsave(here("03_summaries/plots/levante_tasks_multigroup.png"), width = 11, height = 6)
 ```
 
 Everything on the plots.
 
 ```{r}
 task_scores |>
-  filter(is.na(model) | str_detect(model, "by_language")) |>
   task_plot_comparative(ylab = "Score", nr = 3)
-ggsave(here("03_summaries/plots/all_tasks_bylanguage.png"), width = 11, height = 8)
+ggsave(here("03_summaries/plots/all_tasks.png"), width = 11, height = 8)
 ```
 
 ```{r}
-task_scores |>
-  filter(is.na(model) | str_detect(model, "multigroup")) |>
-  task_plot_comparative(ylab = "Score", nr = 3)
-ggsave(here("03_summaries/plots/all_tasks_multigroup.png"), width = 11, height = 8)
+# task_scores |>
+#   filter(is.na(model) | str_detect(model_class, "by_language")) |>
+#   task_plot_comparative(ylab = "Score", nr = 3)
+# ggsave(here("03_summaries/plots/all_tasks_bylanguage.png"), width = 11, height = 8)
+```
+
+```{r}
+# task_scores |>
+#   filter(is.na(model) | str_detect(model_class, "multigroup")) |>
+#   task_plot_comparative(ylab = "Score", nr = 3)
+# ggsave(here("03_summaries/plots/all_tasks_multigroup.png"), width = 11, height = 8)
 ```
 
 Ages. 

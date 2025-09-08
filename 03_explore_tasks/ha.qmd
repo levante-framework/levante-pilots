@@ -1,0 +1,60 @@
+---
+title: "HA"
+format: html
+editor: visual
+---
+
+```{r}
+```{r setup}
+library(tidyverse)
+library(here)
+library(glue)
+library(lavaan)
+library(tidySEM)
+library(ggthemes)
+library(tidyr)
+library(knitr)
+
+source(here("02_score_data","irt_helpers.R"))
+source(here("03_summaries", "plotting_helper.R"))
+source(here("03_explore_tasks/explore_helper.R"))
+```
+
+# Part 1: EFA - 9 core tasks
+
+### load thetas for 9 core tasks (not ROAR, mefs or ha)
+
+```{r}
+scores <- read_rds(here("02_scoring_outputs","scores",
+                             "scores_combined.rds"))
+colnames(scores)
+glimpse(scores)
+unique(scores$item_task)
+
+```
+
+```{r}
+# keep only the 'ha' task
+scores_ha <- scores |>
+  filter(item_task == "ha")
+
+# (optional) if you only want the theta/ability metric, keep this line:
+# scores_ha <- scores_ha |> filter(metric_type %in% c("theta","ability"))
+
+# collapse to one row per participant (avg across repeats if any)
+ha_by_person <- scores_ha |>
+  group_by(user_id, site, age) |>
+  summarise(ha = mean(metric_value, na.rm = TRUE), .groups = "drop")
+
+dplyr::count(ha_by_person, site, name = "n_participants")
+summary(ha_by_person$ha)
+
+library(ggplot2)
+ggplot(ha_by_person, aes(age, ha)) +
+  geom_point(alpha = 0.3, size = 0.8) +
+  geom_smooth(method = "loess", se = TRUE) +
+  labs(title = "HA vs Age", x = "Age (years)", y = "HA (theta)")
+
+
+
+```

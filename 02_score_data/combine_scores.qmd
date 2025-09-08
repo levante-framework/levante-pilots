@@ -63,9 +63,9 @@ scores_combined <- scores |>
 task_scores <- scores_combined |>
   mutate(metric_type = if_else(str_detect(metric_type, "ability"), "ability", metric_type)) |>
   filter(!is.na(metric_value)) |>
-  inner_join(task_metrics) |>
-  filter(is.na(model_class) | !str_detect(model_class, "by_language"))
+  inner_join(task_metrics)
 
+# should be empty (i.e. each run has only one score)
 # task_scores |> group_by(item_task, run_id) |> filter(n() > 1)
 
 write_rds(task_scores, here("02_scoring_outputs/scores/scores_combined.rds"),
