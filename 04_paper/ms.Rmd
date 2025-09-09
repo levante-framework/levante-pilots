@@ -106,46 +106,63 @@ knitr::opts_chunk$set(echo=FALSE, message=FALSE, warning=FALSE, cache=FALSE)
 
 # Introduction
 
-<!-- Variability is a common denominator in the study of learning and development, but currently dominant methods tend to favor group averages, short snapshots of time, and single environments. Studying variability could facilitate our understanding of why variability might be especially prevalent in specific groups or contextual circumstances, however, and researchers also must investigate individual variability to promote more effective customized learning interventions. Yet studying variability requires large datasets and diverse samples.  -->
+Developmental variability and change during childhood is a focus of intense theoretical and practical interest. From tracking children's growth over time to evaluating intervention outcomes or exploring environmental and contextual moderators, a wide range of scientific goals require accurate assessments. Ideal psychological measures provide efficient, reliable, and valid measures of particular constructs that can be applied across a range of ages, situations, and contexts. Yet, in most cases, a large gap separates the situation of a researcher searching for measures from this ideal. 
 
-<!-- We introduce the Learning Variability Network Exchange (LEVANTE), a framework for collecting and sharing developmental data with the aim of understanding the nature of developmental variability. LEVANTE aims to provide researchers worldwide with a framework for examining these topics that includes a set of core constructs and measures, while also allowing for some flexibility in data collection procedures. Our goal is to gather a large, rich, multi-context dataset with global scope that measures developmental change over time in children ages 2 – 12 years. LEVANTE embraces open science values, aiming to create measures and data that are permissively licensed and reusable by the international research community.  -->
+Because children's overall capacities are so dependent on their age, it can be very challenging to use the same measure across children of different ages. Young children require simple tasks that are not verbally demanding, while older children can answer more complicated questions. In addition, younger children typically require shorter tasks, often reducing measurement reliability. Yet giving different tasks to different ages can mean that scores are not comparable to one another, making tracking developmental growth challenging in many domains.  
 
-<!-- LEVANTE includes direct assessments of children's learning and cognition. These aspects of individual children will be examined in light of contextual constructs at the level of the self, the home and family, the school, and the community, measured through parent report and teacher report.  -->
+A second set of challenges concern cross-context comparisons.  Ideal developmental measures should be validated in a global context and applicable to children across many cultures and languages. Child development is an issue of global importance [LANCET CITES], yet the vast majority of measures are developed in very specific (often English-speaking) contexts. Providing cross-culturally validated measures allows for the collection of comparable data across contexts, opening up opportunities for theoretical synthesis.
 
-To create our direct assessment suite, we selected pre-existing measures from the literature that tapped each of these constructs, when possible prioritizing measures with strong psychometric properties, previous use across a broad range of cultures, applicability across a broad range of ages, and lack of commercial or licensing constraints. This process yielded a series of measures in an open source web platform, shown in Table 1. 
+A final set of challenges has to do with accessibility. Many gold-standard measures are commercially distributed. They are costly for researchers to use, and in addition, publishers may place barriers on new translation and adaptation. Publishers also typically hold both item information and normative data closely, blocking many types of secondary investigation. 
 
-```{r, output="asis"}
-tasks <- tribble(~`Construct`, ~`LEVANTE name`, ~`Prior names / Source task name`, ~Reference,
-                 "Executive Function", "Hearts and Flowers", "Hearts and Flowers", "XYZ",
-                 "", "Memory", "Corsi Block Task", "",
-                 "", "Same and Different", "Same Different Selection Task", "",
-                 "Language", "Vocabulary", "Picture Vocabulary", "",
-                 "", "Sentence Understanding", "Test for Reception of Grammar (TROG)", "",
-                 "Math", "Math", "Early Grades Math Assessment (EGMA)", "",
-                 "Reasoning", "Pattern Matching", "Matrix Reasoning", "",
-                 "", "Shape Rotation", "Mental Rotation", "",
-                 "Social Cognition", "Stories", "Theory of Mind", "")
+In the context of these challenges, we describe the Learning Variability Network Exchange (LEVANTE) [@frank2025]. LEVANTE provides a technical framework for data collection: researchers can use the LEVANTE dashboard to assign both surveys and tasks to children, caregivers, and teachers. Data collected via the dashboard are harmonized and validated and become accessible through a data repository, first to the researchers who collect them and eventually -- through regular releases -- to the broader research community. Through a partnership with the Jacobs Foundation, sites around the world are funded to collect longitudinal data from children using the LEVANTE framework. The eventual goal of LEVANTE is to create a large dataset documenting children's learning and development across contexts. 
+
+The current manuscript introduces the LEVANTE core tasks, the behavioral measures for children developed for LEVANTE. In our initial development of the framework, we cast a broad net for important constructs in child development with well-accepted measures that had been used internationally. This process is described in @frank2025. The broad constructs that we selected were executive function, language, mathematics, reasoning, and social cognition, with these being instantiated through a number of well-accepted tasks. 
+
+To create our core tasks, we selected pre-existing measures from the literature that tapped each of these constructs, when possible prioritizing measures with strong psychometric properties, previous use across a broad range of cultures, applicability across a broad range of ages, and lack of commercial or licensing constraints. This process yielded a series of measures, which we implemented in an open source web platform. Table \@ref(tab:tasks) shows these tasks, organized by construct. 
+
+In addition to the constructs described above, we were also interested in the assessment of literacy. The LEVANTE core tasks battery makes use of a number of previously-validated literacy tasks from the Rapid Online Assessment of Reading [@yeatman2021] , including single word reading, sentence reading efficiency, and phonological awareness. We do not report on these tasks here, though we make use of them for validation of language measures. Similarly, we included a commercially-available broad measure of executive function, the Minnesota Executive Function Scale (MEFS) [@mefs] for validation purposes. 
+ 
+
+```{r tasks, output="asis"}
+tasks <- tribble(~`Construct`, ~`LEVANTE name`, ~`Prior names / Source task name`, ~`Adaptive?`, ~Reference,
+                 "Executive Function", "Hearts and Flowers", "Hearts and Flowers", "", "XYZ",
+                 "", "Memory", "Corsi Block Task", "X", "",
+                 "", "Same and Different", "Same Different Selection Task", "X", "",
+                 "Language", "Vocabulary", "Picture Vocabulary", "X", "",
+                 "", "Sentence Understanding", "Test for Reception of Grammar (TROG)", "X","",
+                 "Math", "Math", "Early Grades Math Assessment (EGMA)", "X", "",
+                 "Reasoning", "Pattern Matching", "Matrix Reasoning", "X", "",
+                 "", "Shape Rotation", "Mental Rotation", "X", "",
+                 "Social Cognition", "Stories", "Theory of Mind", "X", "")
 
 papaja::apa_table(tasks, caption = "The LEVANTE core tasks, presented with their internal label as well as prior labels used in the literature.")
 ```
 
+Here we report on the development and validation of these tasks. This is an iterative process in which data from 5--12 year old children has been collected across three sites: Bogota, Colombia; Leipzig, Germany; and Ottawa, Canada. In some cases that we note below, we used these data during the data collection process to make minor changes to the tasks. We use data from these three pilot sites both to provide initial evidence on the reliability and validity of the measures and to develop efficient, computer adaptive (CAT) versions of nearly all of the tasks. 
 
-Thus far, data has been collected on these tasks with over 500 students 5-12 years of age in Bogota, Colombia; Leipzig, Germany; and Ottawa, Canada. The psychometric properties and factor structure of the tasks will be discussed, as well as criteria for revising the item banks. Finally, we will discuss the process by which each task is made adaptive using item response theory models and computer adaptive testing techniques. 
+A key component of this process is the use of psychometric models based on item-response theory (IRT) [@embretson2001]. IRT models provide a family of models that allow the joint estimation of the difficulty of individual task items (e.g., math questions) and the ability of individual children. A fitted IRT model provides task parameters that can be used to estimate the ability of a new test taker given their responses on some or all of the same items. In addition, IRT parameters are used in the construction of CATs, which choose the most relevant items to give to estimate the ability of a particular individual. Critically for our purposes, the use of IRT models means that we can provide comparable scores on the same scale to a younger child who saw mostly easier task items and an older child who saw harder items; these models thus allow us to address our first key challenge posed above.  
 
-LEVANTE will yield a large, open access longitudinal dataset for long-term research use, as well as a set of psychometrically normed, open access measures. These tools will not only facilitate the science of learning variability, but also constitute the backbone of a larger multidisciplinary research network working toward improving children's learning and development globally.
+Because our data come from three sites, each with their own translations and adaptations of the specific tasks, we can also use multi-group IRT models to explore the question of invariance: whether measures function similarly across different groups [@bornstein2016]. While measurement invariance is more commonly discussed in the factor analytic literature, it is also applicable to IRT (where it is sometimes analyzed at the level of individual test items as "differential item function" across groups) [@thissen2024]. Here we use multigroup model comparisons (described below) to investigate whether our tasks measure similarly structured constructs across groups. In particular, where possible, we aim for *scalar invariance*, in which individuals from different groups still show the same relative ordering of difficulty across items (e.g., they still find fractions items harder than division items in a math test). In some cases, we may fall back to *metric invariance*, in which items show different difficulties across groups, or *configural invariance*, in which items show different degrees of ability discrimination as well (e.g., if some problem types are unfamiliar to children in one group and so do not discriminate between high and low ability children). These models allow us to begin to address the second challenge posed above.
 
-<!-- Ensure to back-reference construct selection from prior LEVANTE paper -->
+<!-- https://www.tandfonline.com/doi/10.1080/00273171.2024.2396148 -->
 
-# Task selection
+In what follows, we begin by describing the nine LEVANTE core tasks, organized by construct. We then discuss the process of translation and adaptation that produced the Spanish and German versions of these tasks from the original English source. We then discuss our pilot data collection efforts in Colombia, Germany, and Canada. We present our IRT-based scoring techniques and the results of multi-group comparison. Using scores from these analyses, we then present preliminary evidence on the reliability and validity of the tasks, recognizing that in many cases these tasks are still under construct and we anticipate increases in reliability as we iteratively improve items. 
+
+We end by discussing future plans for further internationalization and downward extension of the tasks. Critically, LEVANTE embraces open science values, aiming to create measures and data that are permissively licensed and reusable and extensible by the international research community. These values address our final challenge posed above: the aim of LEVANTE is to minimize barriers to reuse, accelerating progress towards a global science of learning and development. 
+
+# The LEVANTE core tasks
+
+The LEVANTE core tasks are implemented using jsPsych [@deleeuw] and can be presented in a web browser on a tablet or laptop, with responses possible using a touchscreen, keyboard, or mouse. Because of this variability in format of administration, they focus on response correctness not reaction time and so they are mostly untimed. The tasks are designed for simplicity and clarity so as to be accessible to children across a wide age range, and so with only modest exceptions, nearly all are in the format of a multi-alternative forced choice with a maximum of four choices. This uniformity of format means that in most cases instructions can be short and easy to understand, minimizing delays when the tasks are given in sequence as a battery. Figure \@ref{fig:tasks} shows screenshots from a number of tasks. In the remainder of this section, we briefly present each of the LEVANTE core tasks.
 
 ## Language 
 
 ### Sentence Understanding
 
-The Test for Reception of Grammar (TROG; Bishop, 1982) is a multiple-choice measure of receptive grammatical understanding. On each trial, the child hears a spoken sentence and is asked to select one of four pictures that best matches its meaning. The test comprises 20 blocks, each containing four items that assess the same grammatical structure. The blocks increase in grammatical complexity as the test progresses. A block is considered passed only if the child answers all four items correctly, making the task sensitive to consistent understanding rather than chance performance.
+The Test for Reception of Grammar (TROG) [@bishop1982] is a multiple-choice measure of receptive grammatical understanding. On each trial, the child hears a spoken sentence and is asked to select one of four pictures that best matches its meaning. The original test contained 20 blocks, each with four items assessing the same grammatical structure. In our adaptation (based on the original TROG, which was permissively licensed for reuse), we removed a small number of items due to changes in cultural norms. In addition, based on early pilot testing showing that many trials were easy for older children, we added a set of several dozen more challenging sentences. All illustrations were remade with details intended to be accessible across a broad range of cultures. 
 
 ### Vocabulary
 
+The Vocabulary task was developed as a non-commercial, open alternative to tasks such as the Peabody Picture Vocabulary [@peabody] and the NIH Toolbox Picture Vocabulary Task [@nihtoolbox]. 
 
 ## Math
 
@@ -243,6 +260,14 @@ ggplot(ages, aes(x = age, fill = site)) +
 
 # Scoring
 
+
+
+```{r invariance, output="asis"}
+invariances <- read_csv(here("04_paper","display","invariance.csv"))
+
+papaja::apa_table(select(invariances, -`lavaan code`, -`mirt docs`, -`mirt code`),
+                  caption = "Measurement invariance across factor analysis and item response theory.")
+```
 ## IRT Calibration and Model Selection
 ## Multigroup Calibration and Measurement Invariance 
 <!-- Configural Invariance -->
