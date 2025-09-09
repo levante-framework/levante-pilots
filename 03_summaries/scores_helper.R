@@ -1,24 +1,24 @@
 task_info <- tribble(
   ~item_task , ~task                    , ~task_category,
-  "hf"       , "hearts & flowers"       , "executive function",
-  "sds"      , "same & different"       , "executive function",
-  "mg"       , "memory"                 , "executive function",
-  "math"     , "math"                   , "math",
-  "matrix"   , "pattern matching"       , "reasoning",
-  "mrot"     , "shape rotation"         , "spatial cognition",
-  "trog"     , "sentence understanding" , "language",
-  "vocab"    , "vocabulary"             , "language",
-  "tom"      , "theory of mind"         , "social cognition",
-  "ha"       , "social attribution"     , "social cognition",
-  "pa"       , "language sounds"        , "reading",
-  "sre"      , "sentence reading"       , "reading",
-  "swr"      , "word reading"           , "reading",
-  "pa-es"    , "language sounds"        , "reading",
-  "sre-es"   , "sentence reading"       , "reading",
-  "swr-es"   , "word reading"           , "reading",
-  "sre-de"   , "sentence reading"       , "reading",
-  "swr-de"   , "word reading"           , "reading",
-  "mefs"     , "MEFS"                   , "executive function"
+  "hf"       , "Hearts & Flowers"       , "Executive function",
+  "sds"      , "Same & Different"       , "Executive function",
+  "mg"       , "Memory"                 , "Executive function",
+  "math"     , "Math"                   , "Math",
+  "matrix"   , "Pattern Matching"       , "Reasoning",
+  "mrot"     , "Shape Rotation"         , "Reasoning",
+  "trog"     , "Sentence Understanding" , "Language",
+  "vocab"    , "Vocabulary"             , "Language",
+  "tom"      , "Theory of Mind"         , "Social cognition",
+  "ha"       , "Social Attribution"     , "Social cognition",
+  "pa"       , "Language Sounds"        , "Reading",
+  "sre"      , "Sentence Reading"       , "Reading",
+  "swr"      , "Word Reading"           , "Reading",
+  "pa-es"    , "Language Sounds"        , "Reading",
+  "sre-es"   , "Sentence Reading"       , "Reading",
+  "swr-es"   , "Word Reading"           , "Reading",
+  "sre-de"   , "Sentence Reading"       , "Reading",
+  "swr-de"   , "Word Reading"           , "Reading",
+  "mefs"     , "MEFS"                   , "Executive function"
 ) |> mutate(task = task |> str_to_title() |> fct_inorder(),
             task_category = task_category |> str_to_title() |> fct_inorder())
 
@@ -39,6 +39,8 @@ task_metrics <- tribble(
   "swr"      , "ability",
   "mefs"     , "standard_score"
 )
+
+core_tasks <- c("hf","sds","mg","math","matrix","mrot","trog","vocab","tom")
 
 run_info <- read_rds(here(glue("01_fetched_data/run_data.rds"))) |>
   select(site, dataset, language, task_id, user_id, run_id, adaptive, age)

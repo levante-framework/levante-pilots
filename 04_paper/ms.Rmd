@@ -29,10 +29,10 @@ authornote: |
 
   Enter author note here.
 
-abstract: |
-  We present the Learning Variability Network Exchange (LEVANTE) core tasks, which are designed to assess literacy, numeracy, and a number of core cognitive skills (reasoning, executive function, spatial cognition, social cognition, and language), as well as social constructs related to the home and school environment. We focus on the design, psychometric properties and factor structure of the instruments in an initial sample of Colombian, German, and Canadian children, 5-12 years of age. We address the challenges of choosing, translating, and revising the instruments, and demonstrate the promise of using them as adaptive assessments in order to collect a global longitudinal dataset to capture variability in children's development.
-  
-  
+abstract: | 
+  We present the Learning Variability Network Exchange (LEVANTE) core tasks, a set of nine short and engaging computer adaptive tasks designed to assess learning and development in children ages 5--12 years across a wide range of languages and cultures. Using a simple and uniform multi-alternative forced choice format, these tasks measure constructs including math, execxutive function, reasoning, and social cognition and can be administered on a tablet or computer both in person or remotely. We describe the design and selection of these instruments, and then report on their reliability and validity in a pilot sample of XYZ children recruited in Colombia, Germany, and Canada. Tasks are scored using item response theory models. These models can be used to create computer adaptive versions of the tasks, allowing the entire battery to be given in under an hour. We discuss the use and extension of these tasks in the service of creating an open dataset to describe variability in children's development and learning across contexts. 
+
+
 keywords: "cognitive development"
 wordcount: "X"
 
@@ -64,6 +64,7 @@ output: papaja::apa6_pdf
 # 
 # Other authors:
 # Rebecca 
+# Kat
 # Amy
 # Zach
 # Lijin
@@ -82,27 +83,52 @@ output: papaja::apa6_pdf
 
 
 ```{r setup, include = FALSE}
-library("papaja")
-r_refs("r-references.bib")
+library(here)
+library(papaja)
+library(tidyverse)
+library(glue)
+library(viridis)
+source(here("03_summaries","plotting_helper.R"))
+source(here("plot_settings.R"))
+source(here("03_summaries","scores_helper.R"))
+
+sites <- c("Colombia", "Germany", "Canada") #, "pilot_langcog_us", 
+site_pal <- solarized_pal()(length(sites)) |> rlang::set_names(sites)
+# r_refs("r-references.bib")
 ```
 
 ```{r analysis-preferences}
 # Seed for random number generation
 set.seed(42)
 knitr::opts_chunk$set(cache.extra = knitr::rand_seed)
+knitr::opts_chunk$set(echo=FALSE, message=FALSE, warning=FALSE, cache=FALSE)
 ```
 
 # Introduction
 
-Variability is a common denominator in the study of learning and development, but currently dominant methods tend to favor group averages, short snapshots of time, and single environments. Studying variability could facilitate our understanding of why variability might be especially prevalent in specific groups or contextual circumstances, however, and researchers also must investigate individual variability to promote more effective customized learning interventions. Yet studying variability requires large datasets and diverse samples. 
+<!-- Variability is a common denominator in the study of learning and development, but currently dominant methods tend to favor group averages, short snapshots of time, and single environments. Studying variability could facilitate our understanding of why variability might be especially prevalent in specific groups or contextual circumstances, however, and researchers also must investigate individual variability to promote more effective customized learning interventions. Yet studying variability requires large datasets and diverse samples.  -->
 
-We introduce the Learning Variability Network Exchange (LEVANTE), a framework for collecting and sharing developmental data with the aim of understanding the nature of developmental variability. LEVANTE aims to provide researchers worldwide with a framework for examining these topics that includes a set of core constructs and measures, while also allowing for some flexibility in data collection procedures. Our goal is to gather a large, rich, multi-context dataset with global scope that measures developmental change over time in children ages 2 – 12 years. LEVANTE embraces open science values, aiming to create measures and data that are permissively licensed and reusable by the international research community. 
+<!-- We introduce the Learning Variability Network Exchange (LEVANTE), a framework for collecting and sharing developmental data with the aim of understanding the nature of developmental variability. LEVANTE aims to provide researchers worldwide with a framework for examining these topics that includes a set of core constructs and measures, while also allowing for some flexibility in data collection procedures. Our goal is to gather a large, rich, multi-context dataset with global scope that measures developmental change over time in children ages 2 – 12 years. LEVANTE embraces open science values, aiming to create measures and data that are permissively licensed and reusable by the international research community.  -->
 
-LEVANTE includes direct assessments of children's learning and cognition. These aspects of individual children will be examined in light of contextual constructs at the level of the self, the home and family, the school, and the community, measured through parent report and teacher report. 
+<!-- LEVANTE includes direct assessments of children's learning and cognition. These aspects of individual children will be examined in light of contextual constructs at the level of the self, the home and family, the school, and the community, measured through parent report and teacher report.  -->
 
 To create our direct assessment suite, we selected pre-existing measures from the literature that tapped each of these constructs, when possible prioritizing measures with strong psychometric properties, previous use across a broad range of cultures, applicability across a broad range of ages, and lack of commercial or licensing constraints. This process yielded a series of measures in an open source web platform, shown in Table 1. 
 
-[TABLE 1: MEASURES AND CONSTRUCTS]
+```{r, output="asis"}
+tasks <- tribble(~`Construct`, ~`LEVANTE name`, ~`Prior names / Source task name`, ~Reference,
+                 "Executive Function", "Hearts and Flowers", "Hearts and Flowers", "XYZ",
+                 "", "Memory", "Corsi Block Task", "",
+                 "", "Same and Different", "Same Different Selection Task", "",
+                 "Language", "Vocabulary", "Picture Vocabulary", "",
+                 "", "Sentence Understanding", "Test for Reception of Grammar (TROG)", "",
+                 "Math", "Math", "Early Grades Math Assessment (EGMA)", "",
+                 "Reasoning", "Pattern Matching", "Matrix Reasoning", "",
+                 "", "Shape Rotation", "Mental Rotation", "",
+                 "Social Cognition", "Stories", "Theory of Mind", "")
+
+papaja::apa_table(tasks, caption = "The LEVANTE core tasks, presented with their internal label as well as prior labels used in the literature.")
+```
+
 
 Thus far, data has been collected on these tasks with over 500 students 5-12 years of age in Bogota, Colombia; Leipzig, Germany; and Ottawa, Canada. The psychometric properties and factor structure of the tasks will be discussed, as well as criteria for revising the item banks. Finally, we will discuss the process by which each task is made adaptive using item response theory models and computer adaptive testing techniques. 
 
@@ -151,8 +177,69 @@ The Corsi Block task is a widely used measure of visuospatial short-term memory 
 ### Stories task
 
 
+# Translation and Adaptation
+
+Need some discussion here of how translation was done and checked by sites
+
 
 # Pilot Data Collection
+
+```{r data}
+mefs <- read_rds(here("02_scoring_outputs", "scores", "scores_mefs.rds"))
+
+all_scores <- readRDS(here("02_scoring_outputs","scores","scores_combined.rds")) |>
+  bind_rows(mefs) |>
+  group_by(user_id, item_task) |>
+  arrange(time_started) |>
+  mutate(run_number = 1:n(),
+         age_gap = age - age[1]) 
+
+# weird tidyverse bug means this doesn't work in pipe chain
+all_scores$site_label <- fct_recode(all_scores$site, 
+                                    "Canada" = "pilot_western_ca",
+                                    "Colombia" = "pilot_uniandes_co",
+                                    "Germany" = "pilot_leuphana_de") 
+
+included_scores <- all_scores |>
+  filter(!is.na(age), age >= 5, age <= 12) |>
+  filter(run_number == 1 | (run_number == 2 & age_gap > 1/6))
+
+coretask_scores <- included_scores |>
+  filter(item_task %in% core_tasks)
+
+coretask_firstrun_scores <- coretask_scores |>
+  filter(run_number==1)
+```
+
+
+```{r}
+ages <- coretask_scores |>
+  group_by(site, site_label, dataset, user_id) |>
+  summarise(age = min(age), 
+            n_runs = n())
+
+site_labels <- coretask_scores |>
+  pull(site_label) |>
+  unique() 
+```
+
+```{r}
+ggplot(ages, aes(x = age, fill = site)) + 
+  geom_histogram(binwidth = 1) +
+  scale_fill_solarized(guide = FALSE) +
+  facet_wrap(~site_label) + 
+  theme(legend.position = "bottom") +
+  xlab("Age (years)") + 
+  ylab("Number of children")
+```
+
+
+## Colombia
+
+## Germany 
+
+## Canada
+
 
 # Scoring
 
@@ -183,22 +270,103 @@ Tests for item-level DIF in cases where we use multigroup scoring
 
 # Psychometric properties of tasks
 
-## Developmental change (adapt from presentation on Aug 12th - Fionnuala)
+## Developmental change
+
+```{r}
+ggplot(coretask_scores, aes(x = age, y = metric_value)) +
+    ggh4x::facet_nested_wrap(vars(task_category, task),
+                             nest_line = element_line(), solo_line = TRUE,
+                             axes = "x",
+                             scales = "free_y") +
+    geom_smooth(aes(group = site_label, color = site_label),
+                method = "gam", formula = y ~ s(x, bs = "re")) +
+    geom_point(aes(colour = site_label), alpha = 0.3) +
+    scale_x_continuous(breaks = seq(6, 14, 2)) +
+    .scale_colour_site() +
+    guides(color = guide_legend(override.aes = list(fill = "white"))) +
+    labs(x = "Age (years)", y = "Ability (IRT score)", colour = "Site") +
+    theme(legend.position = "bottom")
+
+```
 
 ## Reliability 
 
-## Marginal reliability estimate 
 
-(table)
 
-## Test-retest
+### Marginal reliability estimate 
 
-(german data only)
+
+
+### Test-retest
+
+```{r, output="asis"}
+de_retest_scores <- coretask_scores |> 
+  filter(site == "pilot_leuphana_de") |>
+  group_by(user_id, task) |>
+  arrange(user_id, task, age) |>
+  filter(n() > 1) 
+
+retest_wide <- de_retest_scores |>
+  group_by(user_id, task) |>
+  mutate(has_retest = any(age_gap > .05), 
+         mean_age = mean(age), 
+         age_gap = max(age_gap)) |>
+  filter(has_retest) |>
+  ungroup() |>  
+  pivot_wider(
+    id_cols = c(user_id, task, mean_age, age_gap),
+    names_from = run_number,
+    values_from = metric_value,
+    names_prefix = "run_"
+  ) |>
+  select(user_id, task, age = mean_age, age_gap, run_1, run_2)
+
+trt <- retest_wide |>
+  group_by(task) |>
+  summarise(test_retest_r = cor(run_1, run_2, use = "complete.obs"), 
+            n = n(), 
+            age_gap = mean(age_gap)*12) |>
+  rename(`Task` = task,
+         `r` = test_retest_r, 
+         `N` = n, 
+         `Retest interval (months)` = age_gap)
+
+papaja::apa_table(trt, digits = 2, caption = "Task-wise test-retest correlations computed for Germany data.")
+```
+
+```{r}
+ggplot(retest_wide, 
+       aes(x = run_1, y = run_2, col = age)) +
+  geom_point() + 
+  geom_smooth(aes(group = 1), col = "blue", method = "lm") + 
+  scale_color_viridis() + 
+  facet_wrap(~task) +
+  xlab("Score 1") + ylab("Score 2") 
+```
+
+
+```{r}
+ggplot(retest_wide, 
+       aes(x = run_1, y = run_2, col = age)) +
+  geom_point() + 
+  geom_smooth(aes(group = 1), col = "blue", method = "lm") + 
+  scale_color_viridis() + 
+  facet_wrap(~task) +
+  xlab("Score 1") + ylab("Score 2") + 
+  ggtitle("Test-retest reliability (DE)")
+```
 
 ## Validity 
 
-Construct validity: SEMs within each construct for language, number, EF?
-External validity
+### Construct validity
+
+SEMs within each construct for language, number, EF?
+
+
+### External validity
+
+We next assessed external validity by examining correlations with other measures. In particular, we used ...
+
 MEFS and ROAR
 
 # Adaptive task construction
@@ -209,11 +377,17 @@ The CAT tasks use an adaptive algorithm made available by the jsCat JavaScript l
 
 The LEVANTE CATs are configurable with respect to the initial value of theta and the conditions for ending the task. The starting theta is set at 0 for all CAT tasks currently in use, but can be lowered or raised according to the researcher’s prior expectation of participant ability, for example according to age. Current CAT implementations use stopping rules based on either time or number of items. TROG, Mental Rotation, and Vocabulary each have time limits currently set to 4 minutes, with Matrix Reasoning set to 6 minutes to allow for the increased time typically required to complete items in this task. Items in these tasks are presented together in a single block. Same Difference Selection and Math are each divided into three blocks presented sequentially, with per-block stopping based on number of items. These CATs select from the list of items specific to their current block and proceed to the next block once the target number of items is reached, maintaining one overarching ability estimate for the entire task. Same Difference Selection and Math have time limits of 6 minutes and 8 minutes, respectively. 
 
+
+```{r}
+# insert durations table here
+
+```
+
+
 # Discussion
 
-* Using the LEVANTE tasks: Future steps
 * Plans for internationalization
-* Plans for scoring
+* Plans for downward extension
 * Plans for updates
 
 
