@@ -209,6 +209,10 @@ Need some discussion here of how translation was done and checked by sites
 ```{r data}
 # mefs <- read_rds(here("02_scoring_outputs", "scores", "scores_mefs.rds"))
 
+site_labels <- c("Canada" = "pilot_western_ca",
+                 "Colombia" = "pilot_uniandes_co",
+                 "Germany" = "pilot_leuphana_de")
+
 all_scores <- readRDS(here("02_scoring_outputs","scores","scores_combined.rds")) |>
   # bind_rows(mefs) |>
   group_by(user_id, item_task) |>
@@ -216,10 +220,7 @@ all_scores <- readRDS(here("02_scoring_outputs","scores","scores_combined.rds"))
   mutate(run_number = 1:n(),
          age_gap = age - age[1]) |>
   ungroup() |>
-  mutate(site_label = site |>
-           fct_recode("Canada" = "pilot_western_ca",
-                      "Colombia" = "pilot_uniandes_co",
-                      "Germany" = "pilot_leuphana_de")) |>
+  mutate(site_label = site |> fct_recode(!!!site_labels)) |>
   mutate(task = task |> str_to_title() |> fct_inorder(),
          task_category = task_category |> str_to_title() |> fct_inorder())
 
@@ -240,10 +241,6 @@ ages <- coretask_scores |>
   group_by(site, site_label, dataset, user_id) |>
   summarise(age = min(age), 
             n_runs = n())
-
-site_labels <- coretask_scores |>
-  pull(site_label) |>
-  unique() 
 ```
 
 ```{r, fig.height = 3}
@@ -326,8 +323,27 @@ ggplot(coretask_scores, aes(x = age, y = metric_value)) +
 
 
 
-### Marginal reliability estimate 
+### Marginal reliability estimates
 
+```{r}
+task_rxx <- read_rds(here("02_scoring_outputs", "task_rxx.rds"))
+
+task_map <- all_scores |> distinct(item_task, task)
+
+task_rxx_table <- task_rxx |>
+  rename(item_task = task) |>
+  left_join(task_map) |>
+  mutate(site_label = site |> fct_recode(!!!site_labels),
+         itemtype = itemtype |> fct_recode("Rasch" = "rasch", "2PL" = "2pl"),
+         invariance = invariance |> str_to_title(),
+         model_label = paste(itemtype, invariance) |> str_trim()) |>
+  select(task, model_label, site_label, rxx) |>
+  pivot_wider(names_from = site_label, values_from = rxx) |>
+  arrange(task)
+
+papaja::apa_table(task_rxx_table |> rename(Task = task, `Best model` = model_label),
+                  col_spanners = list("Marginal reliability" = c(3,5)))
+```
 
 
 ### Test-retest

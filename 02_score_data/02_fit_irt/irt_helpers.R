@@ -172,6 +172,11 @@ multigroup_extract_groups <- \(mod) {
   mod@Data$groupNames |> set_names() |> map(\(gr) extract.group(mod, group = gr))
 }
 
+# extract_groups <- \(mod) {
+#   if (class(mod) == "SingleGroupClass") return(list(mod))
+#   mod@Data$groupNames |> set_names() |> map(\(gr) extract.group(mod, group = gr))
+# }
+
 # get item fits out of multigroup model
 multigroup_itemfit <- \(submods, fit_stats) {
   submods |>

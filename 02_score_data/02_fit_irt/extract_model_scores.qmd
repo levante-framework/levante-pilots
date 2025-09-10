@@ -101,10 +101,41 @@ configural_tasks <- mods_best_overlap |>
 
 # best by language model for each task for which overlap winner is configural
 mods_best_configural <- mods_best_language |>
-  semi_join(configural_tasks)
+  semi_join(configural_tasks) |>
+  mutate(invariance = "configural")
 
 mods_best <- bind_rows(mods_best_multigroup, mods_best_configural)
+```
 
+```{r}
+mods_best_objs <- mods_best |> mutate(mod = map(mod_rec, model_from_record))
+
+mods_group <- mods_best_objs |>
+  filter(model_set == "multigroup_site") |>
+  mutate(site = map(mod, \(m) m@Data$groupNames),
+         group_models = map(mod, multigroup_extract_groups))
+
+mods_group_rxx <- mods_group |>
+  select(site, task, itemtype, nfact, invariance, group_models) |>
+  unnest(cols = c("group_models", "site")) |>
+  mutate(rxx = map_dbl(group_models, marginal_rxx)) |>
+  select(site, task, itemtype, nfact, invariance, rxx)
+
+mods_lang_rxx <- mods_best_objs |>
+  filter(model_set == "by_language") |>
+  mutate(site = subset |> fct_recode("pilot_leuphana_de" = "de",
+                                     "pilot_uniandes_co" = "es",
+                                     "pilot_western_ca" = "en")) |>
+  mutate(rxx = map_dbl(mod, marginal_rxx)) |>
+  select(site, task, itemtype, nfact, invariance, rxx)
+
+task_rxx <- bind_rows(mods_group_rxx, mods_lang_rxx)
+# pivot_wider(names_from = "site", values_from = "rxx")
+# write_rds(task_rxx_wide, here("02_scoring_outputs", "task_rxx_wide.rds"))
+write_rds(task_rxx, here("02_scoring_outputs", "task_rxx.rds"))
+```
+
+```{r}
 # extract scores from best models
 scores_best <- mods_best |>
   mutate(scores = map(mod_rec, scores)) |>
