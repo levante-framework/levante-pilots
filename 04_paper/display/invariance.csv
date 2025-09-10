@@ -1,16 +1,10 @@
-Goal,LEVANTE name,FA name,lavaan code,itemtype,mirt docs,mirt code,IRT explanation,Interpretation
+Goal,LEVANTE name,Factor analysis name,lavaan code,itemtype,mirt docs,mirt code,IRT explanation,Interpretation
 Exploratory,,Multifactor EFA: Groups differ in # of factors and configuration of loadings,,,,,Not possible [IRT assumes unidimensionality],Groups differ in meaning of construct
-Measurement Invariance,2PL Configural,"Configural: Same # of factors, loadings = 0 for same items","group.equal = """"",2PL,“Configural”,"invariance = c("""")",Non-uniform DIF: Groups differ  in all item characteristics,Groups express construct in different ways 
-Measurement Invariance,Rasch Configural ,,,Rasch,“Configural”,"invariance = c("""")",Non-uniform DIF: Groups differ  in all item characteristics,Groups express construct in different ways 
-Measurement Invariance,2PL Metric,Metric (weak): Equal item factor loadings,"group.equal = c(""loadings"")",2PL,“Metric”,"invariance = c(""slopes"")",Uniform DIF: Equal item discriminations,Groups express construct in similar ways
-,,,,,,,a = ag,
-Measurement Invariance,2PL Scalar,Scalar (strong): Equal item factor loadings & item intercepts,"group.equal = c(""loadings"", ""intercepts"")",2PL,“Scalar 2”,"invariance = c(""slopes"", ""intercepts"", ""free_means"", ""free_vars"")",No DIF: Equal item discriminations & item difficulties,Factor scores are on same scale and can be compared across groups
-,,,,,,,"a = ag, d = dg",
-Measurement Invariance,Rasch Scalar ,,,Rasch,,"invariance = c(""intercepts"", ""free_means"", ""free_vars"")",No DIF: Equal item difficulties,Factor scores are on same scale and can be compared across groups
-,,,,,,,d = dg,
-Measurement Invariance,,"Full (strict): Equal item factor loadings, intercepts, residual variances","group.equal = c(""loadings"", ""intercepts"", ""residuals"")",,,Not possible [because no residual variances with binary items in IRT],NA,Factor scores are on same scale and can be compared across groups
-,,,,,,,,Reliabilities also equivalent
-Group Differences in Factor Scores,,Group Mean Difference: Equal latent variable means,"group.equal = c(""intercepts"", ""loadings"",  ""residuals”,",2PL,“Scalar 1”,"invariance = c(""slopes"", ""intercepts"", ""free_vars"")",Group Mean Difference: Equal latent variable means,Group A and Group B have same means on the latent construct
-,,,“means”),,,,,
-Group Differences in Factor Scores,,Group Variance Difference: Equal latent variable variances,"group.equal = c(""intercepts"", ""loadings"",  ""residuals”,",,,"invariance = c(""slopes"", ""intercepts"")",Group Variance Difference: Equal latent variable variances,Group A and Group B have same variances on the latent construct
-,,,"“means”, “lv.variances”)",,,,,
+Measurement Invariance,2PL Configural,"Configural: Same # of factors, loadings = 0 for same items","group.equal = """"",2PL,"""Configural""","invariance = c("""")",Non-uniform DIF: Groups differ  in all item characteristics,Groups express construct in different ways
+Measurement Invariance,Rasch Configural,,,Rasch,"""Configural""","invariance = c("""")",Non-uniform DIF: Groups differ  in all item characteristics,Groups express construct in different ways
+Measurement Invariance,2PL Metric,Metric (weak): Equal item factor loadings,"group.equal = c(""loadings"")",2PL,"""Metric""","invariance = c(""slopes"")",Uniform DIF: Equal item discriminations (a = a_g),Groups express construct in similar ways
+Measurement Invariance,2PL Scalar,Scalar (strong): Equal item factor loadings & item intercepts,"group.equal = c(""loadings"", ""intercepts"")",2PL,Scalar 2,"invariance = c(""slopes"", ""intercepts"", ""free_means"", ""free_vars"")","No DIF: Equal item discriminations & item difficulties (a = a_g, d = d_g)",Factor scores are on same scale and can be compared across groups
+Measurement Invariance,Rasch Scalar,,,Rasch,,"invariance = c(""intercepts"", ""free_means"", ""free_vars"")",No DIF: Equal item difficulties (d = d_g),Factor scores are on same scale and can be compared across groups
+Measurement Invariance,,"Full (strict): Equal item factor loadings, intercepts, residual variances","group.equal = c(""loadings"", ""intercepts"", ""residuals"")",,,,Not possible [because no residual variances with binary items in IRT],Factor scores are on same scale and can be compared across groups; Reliabilities also equivalent
+Group Differences in Factor Scores,,Group Mean Difference: Equal latent variable means,"group.equal = c(""intercepts"", ""loadings"", ""residuals"", ""means"")",2PL,Scalar 1,"invariance = c(""slopes"", ""intercepts"", ""free_vars"")",Group Mean Difference: Equal latent variable means,Group A and Group B have same means on the latent construct
+Group Differences in Factor Scores,,Group Variance Difference: Equal latent variable variances,"group.equal = c(""intercepts"", ""loadings"", ""residuals"", ""means"", ""lv.variances"")",,,"invariance = c(""slopes"", ""intercepts"")",Group Variance Difference: Equal latent variable variances,Group A and Group B have same variances on the latent construct
