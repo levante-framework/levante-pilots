@@ -335,14 +335,18 @@ task_rxx_table <- task_rxx |>
   left_join(task_map) |>
   mutate(site_label = site |> fct_recode(!!!site_labels),
          itemtype = itemtype |> fct_recode("Rasch" = "rasch", "2PL" = "2pl"),
-         invariance = invariance |> str_to_title(),
-         model_label = paste(itemtype, invariance) |> str_trim()) |>
-  select(task, model_label, site_label, rxx) |>
+         invariance = invariance |> str_to_title()) |>
+         # model_label = paste(itemtype, invariance) |> str_trim()) |>
+  select(task, itemtype, invariance, site_label, rxx) |>
   pivot_wider(names_from = site_label, values_from = rxx) |>
+  # mutate(across(everything(), \(v) v |> replace_na("–"))) |>
   arrange(task)
 
-papaja::apa_table(task_rxx_table |> rename(Task = task, `Best model` = model_label),
-                  col_spanners = list("Marginal reliability" = c(3,5)))
+options(papaja.na_string = "–")
+task_rxx_table |>
+  rename(Task = task, Parameters = itemtype, Invariance = invariance) |>
+  papaja::apa_table(col_spanners = list("Marginal reliability" = c(4, 6)))
+options(papaja.na_string = "NA")
 ```
 
 
