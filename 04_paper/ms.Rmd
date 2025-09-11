@@ -424,8 +424,27 @@ The LEVANTE CATs are configurable with respect to the initial value of theta and
 
 
 ```{r}
-# insert durations table here
+task_time_summary <- read_csv(here("03_summaries/tables/task_time_summary.csv"))
 
+task_time_table <- task_time_summary |>
+  filter(!is.na(is_cat)) |>
+  filter(item_task %in% core_tasks) |>
+  mutate(site_label = site |> fct_recode(!!!site_labels),
+         adaptive = if_else(is_cat, "Adaptive", "Non-adaptive")) |>
+  left_join(task_map) |>
+  select(task, site_label, adaptive, median_diff) |>
+  pivot_wider(names_from = c(adaptive, site_label), values_from = median_diff) |>
+  select(task, starts_with("Non"), , starts_with("Adaptive")) |>
+  arrange(task)
+
+options(papaja.na_string = "–")
+task_time_table |>
+  papaja::apa_table(
+    col.names = c("Task", rep(c("Germany", "Colombia", "Canada"), 2)),
+    col_spanners = list("Non-adaptive" = c(2, 4), "Adaptive" = c(5, 7)),
+    align = c("l", rep("r", 6)),
+    caption = "Median task durations (minutes).")
+options(papaja.na_string = "NA")
 ```
 
 

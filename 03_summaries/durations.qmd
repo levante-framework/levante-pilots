@@ -43,61 +43,47 @@ ggsave(here("03_summaries", "plots", "data_waves.png"),
 
 
 ```{r}
-de_cat_tasks <- c("trog","vocab","mental-rotation")
-co_cat_tasks <- c("trog","vocab","mental-rotation","matrix-reasoning")
-ca_cat_tasks <- c("trog","vocab","mental-rotation","matrix-reasoning","egma-math")
-
 time_summary <- task_data |>
-  mutate(timestamp = as_datetime(timestamp)) |>
-  mutate(task_id = str_replace(task_id, "-es", ""),
-         task_id = str_replace(task_id, "-de", ""), 
-         is_cat = case_when(
-           site == "co_pilot" & task_id %in% co_cat_tasks & task_data$timestamp > "2025-03-15" ~ TRUE, 
-           site == "de_pilot" & task_id %in% de_cat_tasks & task_data$timestamp > "2025-03-15" ~ TRUE, 
-           site == "ca_pilot" & task_id %in% ca_cat_tasks & task_data$timestamp > "2025-04-25" ~ TRUE, 
-           TRUE ~ FALSE)) |>
-  arrange(user_id, run_id, timestamp) |>
-  group_by(site, task_id, run_id, user_id, is_cat) |>
+  arrange(run_id, timestamp) |>
+  group_by(site, item_task, run_id) |>
   summarise(trials = n(),
             start = min(timestamp), end = max(timestamp)) |>
   ungroup() |>
   mutate(diff = difftime(end, start, units = "mins")) |>
-  left_join(select(runs, run_id, completed)) |>
-  left_join(task_categories, by = c("task_id" = "task")) |>
-  filter(trials > 2, completed = TRUE)
+  left_join(runs |> select(run_id, is_cat = adaptive, completed)) |>
+  filter(trials > 2, completed)
 
 # ggplot(time_summary, aes(x = diff)) +
 #   facet_wrap(vars(site, task_id)) +
 #   geom_histogram()
 
 task_time_summary <- time_summary |>
-  group_by(site, task_category, task_id, is_cat) |>
+  group_by(site, item_task, is_cat) |>
   summarise(median_diff = median(diff),
             min_diff = min(diff),
             max_diff = max(diff)) |>
   ungroup() |>
   mutate(across(contains("diff"), \(d) round(d, 2))) |>
   mutate(combined_diff = glue("{median_diff} [{min_diff}, {max_diff}]"))
+
+write_csv(task_time_summary, here("03_summaries","tables","task_time_summary.csv"))
 ```
 
 
 ```{r}
-write_csv(task_time_summary, here("03_summaries","tables","task_time_summary.csv"))
-
 task_time_wide_nocat <- task_time_summary |>
   filter(!is_cat) |>
-  select(-combined_diff, -min_diff, -max_diff) |>
+  select(item_task, site, median_diff) |>
   pivot_wider(names_from = site, values_from = median_diff)
 
 write_csv(task_time_wide, here("03_summaries","tables","task_time_wide.csv"))
 
 task_time_wide_cat <- task_time_summary |>
   filter(is_cat) |>
-  select(-combined_diff, -min_diff, -max_diff) |>
+  select(item_task, site, median_diff) |>
   pivot_wider(names_from = site, values_from = median_diff)
 
 write_csv(task_time_wide_cat, here("03_summaries","tables","task_time_wide_cat.csv"))
-
 ```
 
 # Survey durations
@@ -123,7 +109,7 @@ survey_time_summary <- time_surveys |>
             max_diff = max(diff))
 
 ```
+
 ```{r}
 ggplot(time_surveys, aes(x = diff))
 ```
-
