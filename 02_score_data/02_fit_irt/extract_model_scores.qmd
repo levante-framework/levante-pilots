@@ -104,7 +104,18 @@ mods_best_configural <- mods_best_language |>
   semi_join(configural_tasks)
 
 mods_best <- bind_rows(mods_best_multigroup, mods_best_configural)
+```
 
+Extract reliabilities and store best models table.
+
+```{r}
+
+```
+
+
+
+
+```{r}
 # extract scores from best models
 scores_best <- mods_best |>
   mutate(scores = map(mod_rec, scores)) |>

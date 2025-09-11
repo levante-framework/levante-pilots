@@ -250,6 +250,28 @@ ggplot(ages, aes(x = age, fill = site)) +
   ylab("Number of children")
 ```
 
+For each site, exclusions (raw numbers + percent of site total):
+- runs excluded due to:
+  - missing metadata
+  - duplicate run
+  - too short / incomplete
+  - validation failures (keymashing)
+  - kids excluded due to 
+    - missing metadata
+    - age out of range
+
+  
+Example: Germany recorded a total of X runs, of which N (X%) were excluded due to reason.
+
+Of the included runs, there were a total of NNN trials, of which XYZ were excluded. For reasons of space we do not disaggregate these exclusions by task, but (descriptive text, like most of them were excluded from these two tasks). 
+
+Trial exclusions
+- due to RT issues
+
+
+After exclusion, we ended up with XYZ kids in the site (% of total kids with any runs at all before exclusions). These kids had a total of XYZ tasks (average XYZ, range). 
+(note Germany needs retest description too)
+
 
 ## Colombia
 
