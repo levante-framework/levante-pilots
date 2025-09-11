@@ -3,15 +3,50 @@ title             : "Creation and validation of the LEVANTE core tasks: Internat
 shorttitle        : "LEVANTE"
 
 author: 
-  - name          : ""
+  - name          : "George Kachergis*"
     affiliation   : "1"
-    corresponding : yes    # Define only one corresponding author
-    address       : "Building 420, 450 Jane Stanford Way, Stanford, CA 94305"
-    email         : "mcfrank@stanford.edu"
-    role: # Contributorship roles (e.g., CRediT, https://credit.niso.org/)
-      - "Conceptualization"
-      - "Writing - Original Draft Preparation"
-      - "Writing - Review & Editing"
+  - name          : "Fionnuala O'Reilly*"
+    affiliation   : "1"
+  - name          : "Mika Braginsky"
+    affiliation   : "1"
+  - name          : "Amy Lightbody"
+    affiliation   : "1"
+  - name          : "Katherine Adams Shannon"
+    affiliation   : "1"
+  - name          : "Zachary Watson"
+    affiliation   : "1"
+  - name          : "Doria Xiao"
+    affiliation   : "1"
+  - name          : "Lijin Zhang"
+    affiliation   : "1"
+  - name          : "Rebecca Zhu"
+    affiliation   : "1"
+  - name          : "Anya Wanjing Ma"
+    affiliation   : "1"
+  - name          : "Tonya Murray"
+    affiliation   : "1"
+  - name          : "Jason Yeatman"
+    affiliation   : "1"
+  - name          : "Michael Sulik"
+    affiliation   : "1"    
+  - name          : "Jelena Obradović"
+    affiliation   : "1"
+  - name          : "Nichola Jenkins"
+    affiliation   : "2"
+  - name          : "Daniel Ansari"
+    affiliation   : "2"
+  - name          : "Maria Camilla Perfetti"
+    affiliation   : "3"
+  - name          : "Julian Mariño"
+    affiliation   : "3"
+  - name          : "Luise Hornoff"
+    affiliation   : "4"  
+  - name          : "Manuel Bohn"
+    affiliation   : "5"  
+  - name          : "Nilam Ram"
+    affiliation   : "1"
+  - name          : "Benjamin Domingue"
+    affiliation   : "1"    
   - name          : "Michael C. Frank"
     affiliation   : "1"
     role:
@@ -23,6 +58,14 @@ author:
 affiliation:
   - id            : "1"
     institution   : "Stanford University"
+  - id            : "2"
+    institution   : "Western University"
+  - id            : "3"
+    institution   : "Universidad de los Andes"
+  - id            : "4"
+    institution   : "Max Planck Institute for Evolutionary Anthropology"
+  - id            : "5"
+    institution   : "Leuphana University"
 
 authornote: |
   Add complete departmental affiliations for each author here. Each new line herein must be indented, like this line.
@@ -296,7 +339,7 @@ invariances <- read_csv(here("04_paper","display","invariance.csv")) |>
   mutate(across(everything(), \(v) replace_na(v, "")))
 
 papaja::apa_table(
-  invariances |> select(Goal, `LEVANTE name`, `Factor analysis name`,
+  invariances |> select(`Invariance`, `Model`, `Factor analysis name`,
                         `IRT explanation`, `Interpretation`),
   align = c("m{2cm}", "m{3cm}", "m{5cm}", "m{5cm}", "m{5cm}"),
   caption = "Measurement invariance across factor analysis and item response theory.",
