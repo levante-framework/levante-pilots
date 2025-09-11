@@ -201,10 +201,11 @@ The Corsi Block task is a widely used measure of visuospatial short-term memory 
 
 # Translation and Adaptation
 
-Need some discussion here of how translation was done and checked by sites
-
+Initially designed in English, core tasks were subsequently adapted for Spanish and German following a set of internationalization procedures in collaboration with the sites collecting pilot data in Colombia and Germany. Files were first seeded with AI generated translations of task instructions, items, and other key terminology such as encouragement phrases that appear throughout the core tasks. A professional translator then reviewed and edited the AI translations prior to a pilot site representative confirming context and appropriateness to the task. Back translation using AI technology facilitated evaluation of meaning and context with discussion of items or wording as needed to ensure both cultural relevance and task integrity. For tasks evaluating language skills (e.g. Vocabulary; Sentence Understanding), an additional step was employed. Linguists with expertise in language acquisition reviewed items and made recommendations about relevant changes or additions specific to the Spanish and German languages.
 
 # Pilot Data Collection
+
+The pilot site partnership represents an integral component of the core task development. Across three countries and three languages, pilot sites provided collaboration on task adaptation and functionality, iterative task testing, and diverse settings for infrastructure deployment. Data collected from pilot sites allowed analyses of construct validity, measurement invariance, test-retest reliability, parameters for computer adaptive testing, and a demonstration of developmental growth measured by the tasks across constructs.  
 
 ```{r data}
 # mefs <- read_rds(here("02_scoring_outputs", "scores", "scores_mefs.rds"))
@@ -252,34 +253,40 @@ ggplot(ages, aes(x = age, fill = site)) +
   labs(x = "Age (years)", y = "Number of children")
 ```
 
-For each site, exclusions (raw numbers + percent of site total):
-- runs excluded due to:
-  - missing metadata
-  - duplicate run
-  - too short / incomplete
-  - validation failures (keymashing)
-  - kids excluded due to 
-    - missing metadata
-    - age out of range
-
-  
-Example: Germany recorded a total of X runs, of which N (X%) were excluded due to reason.
-
-Of the included runs, there were a total of NNN trials, of which XYZ were excluded. For reasons of space we do not disaggregate these exclusions by task, but (descriptive text, like most of them were excluded from these two tasks). 
-
-Trial exclusions
-- due to RT issues
+<!-- For each site, exclusions (raw numbers + percent of site total): -->
+<!-- - runs excluded due to: -->
+<!--   - missing metadata -->
+<!--   - duplicate run -->
+<!--   - too short / incomplete -->
+<!--   - validation failures (keymashing) -->
+<!--   - kids excluded due to  -->
+<!--     - missing metadata -->
+<!--     - age out of range -->
 
 
-After exclusion, we ended up with XYZ kids in the site (% of total kids with any runs at all before exclusions). These kids had a total of XYZ tasks (average XYZ, range). 
-(note Germany needs retest description too)
+<!-- Example: Germany recorded a total of X runs, of which N (X%) were excluded due to reason. -->
+
+<!-- Of the included runs, there were a total of NNN trials, of which XYZ were excluded. For reasons of space we do not disaggregate these exclusions by task, but (descriptive text, like most of them were excluded from these two tasks).  -->
+
+<!-- Trial exclusions -->
+<!-- - due to RT issues -->
+
+
+<!-- After exclusion, we ended up with XYZ kids in the site (% of total kids with any runs at all before exclusions). These kids had a total of XYZ tasks (average XYZ, range).  -->
+<!-- (note Germany needs retest description too) -->
 
 
 ## Colombia
 
-## Germany 
+Partners at the Universidad de Los Andes, led by Julián Mariño, utilized school-based data collection across four schools in Bogotá and three schools in the rural areas of Caquetá and Boyacá, Colombia. By partnering with schools, the research team oversaw task data collection with children using a group testing format on tablets provided by the team. The Colombia site collected data from XX children (XX female; XX male), ages 5-12 years. 
+
+## Germany
+
+Partners at Max Planck Institute for Evolutionary Anthropology, led by Manuel Bohn, collected data using family-based remote data collection. Participants were recruited via an existing database by first contacting families via telephone with an invitation to participate in the study. Upon agreement, families received an email with information to log into the LEVANTE system and complete the tasks assigned to them at home using their own computer or tablet. Germany provided retest data with follow-up assignments sent to families 3-6 months after initial completion of the tasks. The Germany site collected data from XX children (XX female; XX male), ages 5-12 years with XX children completing the retest assignments.
 
 ## Canada
+
+Partners at Western University, led by Daniel Ansari, recruited participants from the local community and tested children individually in a clinic setting. The Canadian site collected data from XX children (XX female; XX male), ages 5-12 years. 
 
 
 # Scoring
