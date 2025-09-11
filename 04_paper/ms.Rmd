@@ -414,8 +414,17 @@ if (knitr::is_latex_output()) {
   )
 }
 ```
+Across the set of LEVANTE core tasks, model calibration indicated that the Rasch model generally provided an adequate description of item responses. For the majority of tasks, item discriminations did not vary substantially, and the more parsimonious one-parameter specification was sufficient. In contrast, the Mental Rotation and Same–Different Selection tasks were better fit by the two-parameter logistic model, reflecting heterogeneity in how strongly items differentiated between children with higher and lower ability.
+
+Estimates of marginal reliability further highlighted differences across tasks. Math, Matrix Reasoning, the Multigroup composite, Mental Rotation, and Same–Different Selection all achieved high reliability (rxx values above .80), suggesting that these measures provide stable and precise estimates of ability even in the pilot data. Vocabulary and Sentence Understanding (TROG) showed moderate reliability, consistent with tasks that are informative but may benefit from additional refinement. Two tasks—Hearts and Flowers and Theory of Mind—showed low reliability, indicating that the current implementations are limited in the amount of psychometric information they provide.
+
+Taken together, these findings suggest that Rasch calibration is sufficient for most tasks, while allowing variable discriminations improves model fit for more heterogeneous tasks. The relatively high reliability of several tasks indicates their readiness for use in adaptive testing, whereas tasks with lower reliability will require further development and item revision before they can support valid cross-site comparisons.
 
 ## Multigroup Calibration and Measurement Invariance 
+
+To evaluate the comparability of task scores across sites, we estimated a sequence of multigroup IRT models in which increasingly restrictive constraints were applied to item parameters. At the configural level, the same factor structure was specified in each group, but parameters were freely estimated. This model served as a baseline for subsequent comparisons. Moving to the metric level, item discriminations were constrained to equality across groups, while difficulties remained free. At the scalar level, both discriminations and difficulties were constrained to equality, imposing the strongest form of invariance.
+
+Model comparisons were conducted using differences in the Bayesian Information Criterion ($\Delta$BIC), supplemented by likelihood ratio tests where applicable. Scalar invariance was retained when $\Delta$BIC values indicated no meaningful loss of fit relative to less constrained models. In such cases, items functioned equivalently across sites, supporting the use of a single scoring scale. When only metric invariance was supported, items showed comparable slopes across groups but differed in their difficulty estimates, suggesting that cross-site comparisons are possible but may require adjustment for baseline differences. In cases where only configural invariance held, tasks exhibited group-specific patterns of item functioning, highlighting the need for further adaptation and validation before pooled analyses can be conducted.
 
 ```{r invariance-results, echo=FALSE, message=FALSE, warning=FALSE, results='asis'}
 
@@ -472,8 +481,16 @@ papaja::apa_table(
   caption = "Measurement invariance mapping across factor analysis and IRT. Scalar invariance supports direct cross-site score comparability; metric and configural indicate progressively weaker comparability."
 )
 ```
+The table summarizes the correspondence between factor-analytic definitions of invariance and their IRT counterparts. Configural invariance indicates that the same overall construct is measured across groups, though item parameters may differ, reflecting non-uniform DIF. Metric invariance constrains item discriminations to equality, representing uniform DIF: items discriminate equally well across groups, though their difficulties may vary. Scalar invariance adds equality of item difficulties, eliminating DIF altogether and supporting direct comparability of latent scores across groups. More restrictive forms such as strict invariance, requiring equality of residual variances, are not estimable in binary IRT models. Once scalar invariance is established, differences in group means and variances can be interpreted on a common scale.
+
+Taken together, these definitions provide the basis for evaluating whether the LEVANTE tasks function equivalently across languages and contexts. Evidence for scalar invariance in several tasks supports direct cross-site comparisons, whereas tasks showing only metric or configural invariance highlight areas for further adaptation and refinement.
+
 
 ## Item-Level Diagnostics
+
+In addition to overall model calibration, we examined item-level performance to identify potential weaknesses in the pilot instruments. Classical item statistics included the proportion correct and point-biserial item–total correlations. Items with very low or very high proportions correct (below .20 or above .90) were flagged as potentially uninformative, and items with point-biserial correlations below .20 were flagged as weakly discriminating. Complementary IRT-based diagnostics included inspection of item infit and outfit statistics, although these results are not displayed here. Together, these indices provide a first pass at identifying problematic items that may warrant revision, removal, or further testing in subsequent piloting rounds.
+
+.... DORIA stopped here ....
 
 Classical indices included proportion correct (flagged if <0.20 or >0.90) and point-biserial correlations (flagged if <0.20). 
 IRT-based fit statistics included infit and outfit mean squares.
