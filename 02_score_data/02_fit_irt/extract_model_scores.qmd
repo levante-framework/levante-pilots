@@ -107,6 +107,7 @@ mods_best_configural <- mods_best_language |>
 mods_best <- bind_rows(mods_best_multigroup, mods_best_configural)
 ```
 
+
 ```{r}
 mods_best_objs <- mods_best |> mutate(mod = map(mod_rec, model_from_record))
 
