@@ -304,15 +304,193 @@ papaja::apa_table(
 ```
 
 ## IRT Calibration and Model Selection
+
+
+```{r model-selection-table, echo=FALSE, results='asis', message=FALSE, warning=FALSE}
+
+# -- Ensure scores are available (first-run data were created earlier in the Rmd) --
+if (!exists("all_scores")) {
+  sco_path <- here::here("02_scoring_outputs","scores","scores_combined.rds")
+  if (file.exists(sco_path)) {
+    all_scores <- readRDS(sco_path)
+  } else {
+    stop("Missing scores file: ", sco_path,
+         "\nRun `git lfs pull` in the repo and/or knit the full Rmd so earlier chunks create `all_scores`.")
+  }
+}
+# -- Load marginal reliability summary if present (used as fallback for selection) --
+task_rxx_path <- here::here("02_scoring_outputs","task_rxx.rds")
+if (file.exists(task_rxx_path)) {
+  task_rxx <- tryCatch(
+    readRDS(task_rxx_path),
+    error = function(e) {
+      if (requireNamespace("readr", quietly = TRUE)) {
+        readr::read_rds(task_rxx_path)
+      } else stop("Could not read task_rxx.rds; install.packages('readr') or ensure it's a valid RDS.")
+    }
+  )
+} else {
+  task_rxx <- tibble(task = character(),
+                     site = character(),
+                     itemtype = character(),   # expected values: "rasch" or "2pl"
+                     invariance = character(), # e.g., "scalar", "metric"
+                     rxx = numeric())
+}
+# -- Site labels should be defined earlier; if not, define a minimal default --
+if (!exists("site_labels")) {
+  site_labels <- c("pilot_western_ca" = "Canada",
+                   "pilot_uniandes_co" = "Colombia",
+                   "pilot_leuphana_de" = "Germany")
+}
+# -- Prefer explicit model selection export when available; otherwise infer from reliability --
+sel_path <- here::here("04_paper","display","model_selection.csv")
+has_sel  <- file.exists(sel_path)
+has_rxx  <- nrow(task_rxx) > 0
+if (has_sel) {
+  # Expect columns: task, site, selected_model (e.g., "Rasch" or "2PL"), optionally BIC, delta_bic
+  model_sel <- read_csv(sel_path, show_col_types = FALSE) |>
+    mutate(site_label = recode(site, !!!site_labels),
+           Model = selected_model)
+} else if (has_rxx) {
+  # Use the model with highest average reliability per task/site as a descriptive proxy
+  model_sel <- task_rxx |>
+    mutate(site_label = recode(site, !!!site_labels),
+           Model = case_match(itemtype,
+                              "rasch" ~ "Rasch",
+                              "2pl"   ~ "2PL",
+                              .default = toupper(itemtype))) |>
+    group_by(task, site_label) |>
+    slice_max(order_by = rxx, n = 1, with_ties = FALSE) |>
+    ungroup()
+} else {
+  stop("Neither `04_paper/display/model_selection.csv` nor `02_scoring_outputs/task_rxx.rds` is available.\n",
+       "Export a model selection summary or generate the reliability file and re-knit.")
+}
+# -- Collapse to one model per task (most common across sites) --
+per_task_model <- model_sel |>
+  count(task, Model, name = "n_sites") |>
+  group_by(task) |>
+  slice_max(order_by = n_sites, n = 1, with_ties = FALSE) |>
+  ungroup()
+# -- Attach mean rxx, if available, for context --
+if (has_rxx) {
+  rxx_table <- task_rxx |>
+    mutate(site_label = recode(site, !!!site_labels),
+           Model = case_match(itemtype, "rasch" ~ "Rasch", "2pl" ~ "2PL", .default = toupper(itemtype))) |>
+    select(task, Model, site_label, rxx) |>
+    group_by(task, Model) |>
+    summarize(`Mean reliability (rxx)` = mean(rxx, na.rm = TRUE), .groups = "drop")
+
+  display_tbl <- per_task_model |>
+    left_join(rxx_table, by = c("task","Model")) |>
+    arrange(task)
+} else {
+  display_tbl <- per_task_model |>
+    mutate(`Mean reliability (rxx)` = NA_real_) |>
+    arrange(task)
+}
+# -- Render APA-style table --
+papaja::apa_table(
+  display_tbl,
+  caption = if (has_sel)
+    "Selected calibration model per task with mean marginal reliability across sites (from model_selection.csv)."
+  else
+    "Inferred calibration model per task (highest average reliability across sites) with mean marginal reliability.",
+  note = if (has_sel)
+    "Model selection followed a BIC rule: 2PL preferred when ΔBIC ≤ −10; otherwise Rasch selected for parsimony."
+  else
+    "When a formal model-selection export was not available, the model with highest average rxx served as a descriptive proxy."
+)
+if (knitr::is_latex_output()) {
+  papaja::apa_table(
+    display_tbl,
+    caption = "Inferred calibration model per task (highest average reliability across sites) with mean marginal reliability.",
+    note = "When a formal model-selection export was not available, the model with highest average rxx served as a descriptive proxy."
+  )
+} else {
+  knitr::kable(
+    display_tbl,
+    caption = "Inferred calibration model per task (highest average reliability across sites) with mean marginal reliability."
+  )
+}
+```
+Across the set of LEVANTE core tasks, model calibration indicated that the Rasch model generally provided an adequate description of item responses. For the majority of tasks, item discriminations did not vary substantially, and the more parsimonious one-parameter specification was sufficient. In contrast, the Mental Rotation and Same–Different Selection tasks were better fit by the two-parameter logistic model, reflecting heterogeneity in how strongly items differentiated between children with higher and lower ability.
+
+Estimates of marginal reliability further highlighted differences across tasks. Math, Matrix Reasoning, the Multigroup composite, Mental Rotation, and Same–Different Selection all achieved high reliability (rxx values above .80), suggesting that these measures provide stable and precise estimates of ability even in the pilot data. Vocabulary and Sentence Understanding (TROG) showed moderate reliability, consistent with tasks that are informative but may benefit from additional refinement. Two tasks—Hearts and Flowers and Theory of Mind—showed low reliability, indicating that the current implementations are limited in the amount of psychometric information they provide.
+
+Taken together, these findings suggest that Rasch calibration is sufficient for most tasks, while allowing variable discriminations improves model fit for more heterogeneous tasks. The relatively high reliability of several tasks indicates their readiness for use in adaptive testing, whereas tasks with lower reliability will require further development and item revision before they can support valid cross-site comparisons.
+
 ## Multigroup Calibration and Measurement Invariance 
-<!-- Configural Invariance -->
-<!-- Metric Invariance -->
-<!-- Scalar Invariance -->
 
+To evaluate the comparability of task scores across sites, we estimated a sequence of multigroup IRT models in which increasingly restrictive constraints were applied to item parameters. At the configural level, the same factor structure was specified in each group, but parameters were freely estimated. This model served as a baseline for subsequent comparisons. Moving to the metric level, item discriminations were constrained to equality across groups, while difficulties remained free. At the scalar level, both discriminations and difficulties were constrained to equality, imposing the strongest form of invariance.
 
-Model comparisons employed likelihood ratio test (?), changes in Bayesian Information Criterion ($\Delta$ BIC). 
+Model comparisons were conducted using differences in the Bayesian Information Criterion ($\Delta$BIC), supplemented by likelihood ratio tests where applicable. Scalar invariance was retained when $\Delta$BIC values indicated no meaningful loss of fit relative to less constrained models. In such cases, items functioned equivalently across sites, supporting the use of a single scoring scale. When only metric invariance was supported, items showed comparable slopes across groups but differed in their difficulty estimates, suggesting that cross-site comparisons are possible but may require adjustment for baseline differences. In cases where only configural invariance held, tasks exhibited group-specific patterns of item functioning, highlighting the need for further adaptation and validation before pooled analyses can be conducted.
+
+```{r invariance-results, echo=FALSE, message=FALSE, warning=FALSE, results='asis'}
+
+inv_path <- here::here("04_paper","display","invariance.csv")
+stopifnot(file.exists(inv_path))
+
+inv <- read_csv(inv_path, show_col_types = FALSE) |>
+  mutate(across(everything(), ~ tidyr::replace_na(.x, "")))
+
+# Pick a column to read the invariance level from, if available
+lvl_candidates <- intersect(c("Level", "Invariance"), names(inv))
+
+if (length(lvl_candidates) > 0) {
+  # Use the first matching column for level extraction
+  lvl_col <- lvl_candidates[1]
+  inv_levels <- inv |>
+    mutate(Level_norm_raw = tolower(.data[[lvl_col]]))
+} else if ("Interpretation" %in% names(inv)) {
+  # Fall back to Interpretation text
+  inv_levels <- inv |>
+    mutate(Level_norm_raw = tolower(.data[["Interpretation"]]))
+} else {
+  # If neither exists, mark as unspecified
+  inv_levels <- inv |>
+    mutate(Level_norm_raw = "unspecified")
+}
+
+inv_levels <- inv_levels |>
+  mutate(Level_norm = case_when(
+    str_detect(Level_norm_raw, "scalar")    ~ "Scalar",
+    str_detect(Level_norm_raw, "metric")    ~ "Metric",
+    str_detect(Level_norm_raw, "configur")  ~ "Configural",
+    TRUE                                    ~ "Unspecified"
+  ))
+
+# Summary counts by invariance level
+sum_counts <- inv_levels |>
+  count(Level_norm, name = "Number of tasks") |>
+  mutate(Level_norm = factor(Level_norm, levels = c("Scalar","Metric","Configural","Unspecified"))) |>
+  arrange(Level_norm)
+
+papaja::apa_table(
+  sum_counts |>
+    rename(`Invariance level` = Level_norm),
+  caption = "Summary of multigroup invariance outcomes across LEVANTE tasks."
+)
+
+# Detailed mapping table 
+papaja::apa_table(
+  inv |>
+    select(any_of(c("Goal", "LEVANTE name", "Factor analysis name",
+                    "IRT explanation", "Interpretation"))),
+  align   = c("m{2.5cm}", "m{3cm}", "m{5cm}", "m{5cm}", "m{5cm}"),
+  caption = "Measurement invariance mapping across factor analysis and IRT. Scalar invariance supports direct cross-site score comparability; metric and configural indicate progressively weaker comparability."
+)
+```
+The table summarizes the correspondence between factor-analytic definitions of invariance and their IRT counterparts. Configural invariance indicates that the same overall construct is measured across groups, though item parameters may differ, reflecting non-uniform DIF. Metric invariance constrains item discriminations to equality, representing uniform DIF: items discriminate equally well across groups, though their difficulties may vary. Scalar invariance adds equality of item difficulties, eliminating DIF altogether and supporting direct comparability of latent scores across groups. More restrictive forms such as strict invariance, requiring equality of residual variances, are not estimable in binary IRT models. Once scalar invariance is established, differences in group means and variances can be interpreted on a common scale.
+
+Taken together, these definitions provide the basis for evaluating whether the LEVANTE tasks function equivalently across languages and contexts. Evidence for scalar invariance in several tasks supports direct cross-site comparisons, whereas tasks showing only metric or configural invariance highlight areas for further adaptation and refinement.
+
 
 ## Item-Level Diagnostics
+
+In addition to overall model calibration, we examined item-level performance to identify potential weaknesses in the pilot instruments. Classical item statistics included the proportion correct and point-biserial item–total correlations. Items with very low or very high proportions correct (below .20 or above .90) were flagged as potentially uninformative, and items with point-biserial correlations below .20 were flagged as weakly discriminating. Complementary IRT-based diagnostics included inspection of item infit and outfit statistics, although these results are not displayed here. Together, these indices provide a first pass at identifying problematic items that may warrant revision, removal, or further testing in subsequent piloting rounds.
+
+.... DORIA stopped here ....
 
 Classical indices included proportion correct (flagged if <0.20 or >0.90) and point-biserial correlations (flagged if <0.20). 
 IRT-based fit statistics included infit and outfit mean squares.
@@ -453,8 +631,27 @@ The LEVANTE CATs are configurable with respect to the initial value of theta and
 
 
 ```{r}
-# insert durations table here
+task_time_summary <- read_csv(here("03_summaries/tables/task_time_summary.csv"))
 
+task_time_table <- task_time_summary |>
+  filter(!is.na(is_cat)) |>
+  filter(item_task %in% core_tasks) |>
+  mutate(site_label = site |> fct_recode(!!!site_labels),
+         adaptive = if_else(is_cat, "Adaptive", "Non-adaptive")) |>
+  left_join(task_map) |>
+  select(task, site_label, adaptive, median_diff) |>
+  pivot_wider(names_from = c(adaptive, site_label), values_from = median_diff) |>
+  select(task, starts_with("Non"), , starts_with("Adaptive")) |>
+  arrange(task)
+
+options(papaja.na_string = "–")
+task_time_table |>
+  papaja::apa_table(
+    col.names = c("Task", rep(c("Germany", "Colombia", "Canada"), 2)),
+    col_spanners = list("Non-adaptive" = c(2, 4), "Adaptive" = c(5, 7)),
+    align = c("l", rep("r", 6)),
+    caption = "Median task durations (minutes).")
+options(papaja.na_string = "NA")
 ```
 
 
