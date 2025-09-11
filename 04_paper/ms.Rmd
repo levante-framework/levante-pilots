@@ -48,7 +48,10 @@ tablelist: no
 footnotelist: no
 
 classoption: "man"
-output: papaja::apa6_pdf
+output:
+  papaja::apa6_pdf:
+    includes:
+      in_header: preamble.tex
 ---
 
 
@@ -135,7 +138,9 @@ tasks <- tribble(~`Construct`, ~`LEVANTE name`, ~`Prior names / Source task name
                  "", "Shape Rotation", "Mental Rotation", "X", "",
                  "Social Cognition", "Stories", "Theory of Mind", "X", "")
 
-papaja::apa_table(tasks, caption = "The LEVANTE core tasks, presented with their internal label as well as prior labels used in the literature.")
+papaja::apa_table(
+  tasks, landscape = TRUE,
+  caption = "The LEVANTE core tasks, presented with their internal label as well as prior labels used in the literature.")
 ```
 
 Here we report on the development and validation of these tasks. This is an iterative process in which data from 5--12 year old children has been collected across three sites: Bogota, Colombia; Leipzig, Germany; and Ottawa, Canada. In some cases that we note below, we used these data during the data collection process to make minor changes to the tasks. We use data from these three pilot sites both to provide initial evidence on the reliability and validity of the measures and to develop efficient, computer adaptive (CAT) versions of nearly all of the tasks. 
@@ -202,20 +207,22 @@ Need some discussion here of how translation was done and checked by sites
 # Pilot Data Collection
 
 ```{r data}
-mefs <- read_rds(here("02_scoring_outputs", "scores", "scores_mefs.rds"))
+# mefs <- read_rds(here("02_scoring_outputs", "scores", "scores_mefs.rds"))
+
+site_labels <- c("Canada" = "pilot_western_ca",
+                 "Colombia" = "pilot_uniandes_co",
+                 "Germany" = "pilot_leuphana_de")
 
 all_scores <- readRDS(here("02_scoring_outputs","scores","scores_combined.rds")) |>
-  bind_rows(mefs) |>
+  # bind_rows(mefs) |>
   group_by(user_id, item_task) |>
   arrange(time_started) |>
   mutate(run_number = 1:n(),
-         age_gap = age - age[1]) 
-
-# weird tidyverse bug means this doesn't work in pipe chain
-all_scores$site_label <- fct_recode(all_scores$site, 
-                                    "Canada" = "pilot_western_ca",
-                                    "Colombia" = "pilot_uniandes_co",
-                                    "Germany" = "pilot_leuphana_de") 
+         age_gap = age - age[1]) |>
+  ungroup() |>
+  mutate(site_label = site |> fct_recode(!!!site_labels)) |>
+  mutate(task = task |> str_to_title() |> fct_inorder(),
+         task_category = task_category |> str_to_title() |> fct_inorder())
 
 included_scores <- all_scores |>
   filter(!is.na(age), age >= 5, age <= 12) |>
@@ -225,7 +232,7 @@ coretask_scores <- included_scores |>
   filter(item_task %in% core_tasks)
 
 coretask_firstrun_scores <- coretask_scores |>
-  filter(run_number==1)
+  filter(run_number == 1)
 ```
 
 
@@ -234,20 +241,15 @@ ages <- coretask_scores |>
   group_by(site, site_label, dataset, user_id) |>
   summarise(age = min(age), 
             n_runs = n())
-
-site_labels <- coretask_scores |>
-  pull(site_label) |>
-  unique() 
 ```
 
-```{r}
+```{r, fig.height = 3}
 ggplot(ages, aes(x = age, fill = site)) + 
-  geom_histogram(binwidth = 1) +
-  scale_fill_solarized(guide = FALSE) +
-  facet_wrap(~site_label) + 
-  theme(legend.position = "bottom") +
-  xlab("Age (years)") + 
-  ylab("Number of children")
+  facet_wrap(vars(site_label)) + 
+  geom_histogram(binwidth = 1, color = "white") +
+  scale_fill_solarized(guide = "none") +
+  scale_y_continuous(expand = expansion(0, 0)) +
+  labs(x = "Age (years)", y = "Number of children")
 ```
 
 For each site, exclusions (raw numbers + percent of site total):
@@ -282,14 +284,18 @@ After exclusion, we ended up with XYZ kids in the site (% of total kids with any
 
 # Scoring
 
-
-
 ```{r invariance, output="asis"}
-invariances <- read_csv(here("04_paper","display","invariance.csv"))
+invariances <- read_csv(here("04_paper","display","invariance.csv")) |>
+  mutate(across(everything(), \(v) replace_na(v, "")))
 
-papaja::apa_table(select(invariances, -`lavaan code`, -`mirt docs`, -`mirt code`),
-                  caption = "Measurement invariance across factor analysis and item response theory.")
+papaja::apa_table(
+  invariances |> select(Goal, `LEVANTE name`, `Factor analysis name`,
+                        `IRT explanation`, `Interpretation`),
+  align = c("m{2cm}", "m{3cm}", "m{5cm}", "m{5cm}", "m{5cm}"),
+  caption = "Measurement invariance across factor analysis and item response theory.",
+  landscape = TRUE)
 ```
+
 ## IRT Calibration and Model Selection
 ## Multigroup Calibration and Measurement Invariance 
 <!-- Configural Invariance -->
@@ -319,7 +325,7 @@ Tests for item-level DIF in cases where we use multigroup scoring
 
 ## Developmental change
 
-```{r}
+```{r, fig.width = 8, fig.height = 8}
 ggplot(coretask_scores, aes(x = age, y = metric_value)) +
     ggh4x::facet_nested_wrap(vars(task_category, task),
                              nest_line = element_line(), solo_line = TRUE,
@@ -333,15 +339,37 @@ ggplot(coretask_scores, aes(x = age, y = metric_value)) +
     guides(color = guide_legend(override.aes = list(fill = "white"))) +
     labs(x = "Age (years)", y = "Ability (IRT score)", colour = "Site") +
     theme(legend.position = "bottom")
-
 ```
 
 ## Reliability 
 
 
 
-### Marginal reliability estimate 
+### Marginal reliability estimates
 
+```{r}
+task_rxx <- read_rds(here("02_scoring_outputs", "task_rxx.rds"))
+
+task_map <- all_scores |> distinct(item_task, task)
+
+task_rxx_table <- task_rxx |>
+  rename(item_task = task) |>
+  left_join(task_map) |>
+  mutate(site_label = site |> fct_recode(!!!site_labels),
+         itemtype = itemtype |> fct_recode("Rasch" = "rasch", "2PL" = "2pl"),
+         invariance = invariance |> str_to_title()) |>
+         # model_label = paste(itemtype, invariance) |> str_trim()) |>
+  select(task, itemtype, invariance, site_label, rxx) |>
+  pivot_wider(names_from = site_label, values_from = rxx) |>
+  # mutate(across(everything(), \(v) v |> replace_na("–"))) |>
+  arrange(task)
+
+options(papaja.na_string = "–")
+task_rxx_table |>
+  rename(Task = task, Parameters = itemtype, Invariance = invariance) |>
+  papaja::apa_table(col_spanners = list("Marginal reliability" = c(4, 6)))
+options(papaja.na_string = "NA")
+```
 
 
 ### Test-retest
@@ -361,12 +389,12 @@ retest_wide <- de_retest_scores |>
   filter(has_retest) |>
   ungroup() |>  
   pivot_wider(
-    id_cols = c(user_id, task, mean_age, age_gap),
+    id_cols = c(user_id, task_category, task, mean_age, age_gap),
     names_from = run_number,
     values_from = metric_value,
     names_prefix = "run_"
   ) |>
-  select(user_id, task, age = mean_age, age_gap, run_1, run_2)
+  select(user_id, task_category, task, age = mean_age, age_gap, run_1, run_2)
 
 trt <- retest_wide |>
   group_by(task) |>
@@ -381,26 +409,18 @@ trt <- retest_wide |>
 papaja::apa_table(trt, digits = 2, caption = "Task-wise test-retest correlations computed for Germany data.")
 ```
 
-```{r}
-ggplot(retest_wide, 
-       aes(x = run_1, y = run_2, col = age)) +
-  geom_point() + 
-  geom_smooth(aes(group = 1), col = "blue", method = "lm") + 
-  scale_color_viridis() + 
-  facet_wrap(~task) +
-  xlab("Score 1") + ylab("Score 2") 
-```
-
-
-```{r}
-ggplot(retest_wide, 
-       aes(x = run_1, y = run_2, col = age)) +
-  geom_point() + 
-  geom_smooth(aes(group = 1), col = "blue", method = "lm") + 
-  scale_color_viridis() + 
-  facet_wrap(~task) +
-  xlab("Score 1") + ylab("Score 2") + 
-  ggtitle("Test-retest reliability (DE)")
+```{r, fig.width = 8, fig.height = 8}
+ggplot(retest_wide, aes(x = run_1, y = run_2, color = age)) +
+  ggh4x::facet_nested_wrap(vars(task_category, task),
+                         nest_line = element_line(), solo_line = TRUE,
+                         axes = "x",
+                         scales = "free_y") +
+    # facet_wrap(vars(task)) +
+  geom_point() +
+  geom_smooth(aes(group = 1), color = "darkgrey", method = "lm") +
+  scale_color_viridis(limits = c(5, 12)) +
+  labs(x = "Score 1", y = "Score 2", color = "Age (years)") +
+  theme(legend.position = "bottom")
 ```
 
 ## Validity 

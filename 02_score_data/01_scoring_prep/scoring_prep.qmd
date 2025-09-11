@@ -34,12 +34,13 @@ runs_filtered <- run_data |>
   group_by(user_id, task_id, variant_id, administration_id) |>
   arrange(time_started) |>
   slice(1) |>
-  ungroup() |>
-  select(run_id, language)
+  ungroup()
+write_rds(runs_filtered, here("01_fetched_data/runs_filtered.rds"),
+          compress = "gz")
 
 # filter trials to above runs, filter out too slow/fast RTs
 trial_data_filtered <- trial_data_coded |>
-  inner_join(runs_filtered) |>
+  inner_join(runs_filtered |> select(run_id, language)) |>
   mutate(validation_msg_trial = validation_msg_trial |> replace_na(""),
          slow_rt = rt_numeric > 30000,
          fast_rt = str_detect(validation_msg_trial, "fast")) |>

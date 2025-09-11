@@ -9,7 +9,8 @@ task_data_combined <- task_data_nested |> unnest(data)
 
 task_map <- task_data_combined |> distinct(task_id, item_task)
 
-run_data <- read_rds(here("01_fetched_data/run_data.rds"))
+# run_data <- read_rds(here("01_fetched_data/run_data.rds"))
+runs_filtered <- read_rds(here("01_fetched_data/runs_filtered.rds"))
 ```
 
 Sumscores for all tasks
@@ -33,7 +34,7 @@ write_rds(sumscores, here("02_scoring_outputs", "scores", "sumscores.rds"),
 Thetas for tasks that have them, and score
 
 ```{r thetas}
-thetas <- run_data |>
+thetas <- runs_filtered |>
   filter(!is.na(test_comp_theta_estimate)) |>
   left_join(task_map) |>
   mutate(metric_type = "ability", model_class = "CAT", model = "roar_irt") |>
@@ -153,7 +154,7 @@ mefs_scores <- read_csv(here("02_scoring_outputs","mefs_data","LEVANTE_20250403_
 Figure out how many MEFS user_ids fit, estimate their ages. 
 
 ```{r}
-user_ages <- run_data |>
+user_ages <- runs_filtered |>
   group_by(site, dataset, user_id) |>
   summarise(age = mean(age, na.rm = TRUE))
 
