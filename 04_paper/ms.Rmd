@@ -304,13 +304,174 @@ papaja::apa_table(
 ```
 
 ## IRT Calibration and Model Selection
+
+
+```{r model-selection-table, echo=FALSE, results='asis', message=FALSE, warning=FALSE}
+
+# -- Ensure scores are available (first-run data were created earlier in the Rmd) --
+if (!exists("all_scores")) {
+  sco_path <- here::here("02_scoring_outputs","scores","scores_combined.rds")
+  if (file.exists(sco_path)) {
+    all_scores <- readRDS(sco_path)
+  } else {
+    stop("Missing scores file: ", sco_path,
+         "\nRun `git lfs pull` in the repo and/or knit the full Rmd so earlier chunks create `all_scores`.")
+  }
+}
+# -- Load marginal reliability summary if present (used as fallback for selection) --
+task_rxx_path <- here::here("02_scoring_outputs","task_rxx.rds")
+if (file.exists(task_rxx_path)) {
+  task_rxx <- tryCatch(
+    readRDS(task_rxx_path),
+    error = function(e) {
+      if (requireNamespace("readr", quietly = TRUE)) {
+        readr::read_rds(task_rxx_path)
+      } else stop("Could not read task_rxx.rds; install.packages('readr') or ensure it's a valid RDS.")
+    }
+  )
+} else {
+  task_rxx <- tibble(task = character(),
+                     site = character(),
+                     itemtype = character(),   # expected values: "rasch" or "2pl"
+                     invariance = character(), # e.g., "scalar", "metric"
+                     rxx = numeric())
+}
+# -- Site labels should be defined earlier; if not, define a minimal default --
+if (!exists("site_labels")) {
+  site_labels <- c("pilot_western_ca" = "Canada",
+                   "pilot_uniandes_co" = "Colombia",
+                   "pilot_leuphana_de" = "Germany")
+}
+# -- Prefer explicit model selection export when available; otherwise infer from reliability --
+sel_path <- here::here("04_paper","display","model_selection.csv")
+has_sel  <- file.exists(sel_path)
+has_rxx  <- nrow(task_rxx) > 0
+if (has_sel) {
+  # Expect columns: task, site, selected_model (e.g., "Rasch" or "2PL"), optionally BIC, delta_bic
+  model_sel <- read_csv(sel_path, show_col_types = FALSE) |>
+    mutate(site_label = recode(site, !!!site_labels),
+           Model = selected_model)
+} else if (has_rxx) {
+  # Use the model with highest average reliability per task/site as a descriptive proxy
+  model_sel <- task_rxx |>
+    mutate(site_label = recode(site, !!!site_labels),
+           Model = case_match(itemtype,
+                              "rasch" ~ "Rasch",
+                              "2pl"   ~ "2PL",
+                              .default = toupper(itemtype))) |>
+    group_by(task, site_label) |>
+    slice_max(order_by = rxx, n = 1, with_ties = FALSE) |>
+    ungroup()
+} else {
+  stop("Neither `04_paper/display/model_selection.csv` nor `02_scoring_outputs/task_rxx.rds` is available.\n",
+       "Export a model selection summary or generate the reliability file and re-knit.")
+}
+# -- Collapse to one model per task (most common across sites) --
+per_task_model <- model_sel |>
+  count(task, Model, name = "n_sites") |>
+  group_by(task) |>
+  slice_max(order_by = n_sites, n = 1, with_ties = FALSE) |>
+  ungroup()
+# -- Attach mean rxx, if available, for context --
+if (has_rxx) {
+  rxx_table <- task_rxx |>
+    mutate(site_label = recode(site, !!!site_labels),
+           Model = case_match(itemtype, "rasch" ~ "Rasch", "2pl" ~ "2PL", .default = toupper(itemtype))) |>
+    select(task, Model, site_label, rxx) |>
+    group_by(task, Model) |>
+    summarize(`Mean reliability (rxx)` = mean(rxx, na.rm = TRUE), .groups = "drop")
+
+  display_tbl <- per_task_model |>
+    left_join(rxx_table, by = c("task","Model")) |>
+    arrange(task)
+} else {
+  display_tbl <- per_task_model |>
+    mutate(`Mean reliability (rxx)` = NA_real_) |>
+    arrange(task)
+}
+# -- Render APA-style table --
+papaja::apa_table(
+  display_tbl,
+  caption = if (has_sel)
+    "Selected calibration model per task with mean marginal reliability across sites (from model_selection.csv)."
+  else
+    "Inferred calibration model per task (highest average reliability across sites) with mean marginal reliability.",
+  note = if (has_sel)
+    "Model selection followed a BIC rule: 2PL preferred when ΔBIC ≤ −10; otherwise Rasch selected for parsimony."
+  else
+    "When a formal model-selection export was not available, the model with highest average rxx served as a descriptive proxy."
+)
+if (knitr::is_latex_output()) {
+  papaja::apa_table(
+    display_tbl,
+    caption = "Inferred calibration model per task (highest average reliability across sites) with mean marginal reliability.",
+    note = "When a formal model-selection export was not available, the model with highest average rxx served as a descriptive proxy."
+  )
+} else {
+  knitr::kable(
+    display_tbl,
+    caption = "Inferred calibration model per task (highest average reliability across sites) with mean marginal reliability."
+  )
+}
+```
+
 ## Multigroup Calibration and Measurement Invariance 
-<!-- Configural Invariance -->
-<!-- Metric Invariance -->
-<!-- Scalar Invariance -->
 
+```{r invariance-results, echo=FALSE, message=FALSE, warning=FALSE, results='asis'}
 
-Model comparisons employed likelihood ratio test (?), changes in Bayesian Information Criterion ($\Delta$ BIC). 
+inv_path <- here::here("04_paper","display","invariance.csv")
+stopifnot(file.exists(inv_path))
+
+inv <- read_csv(inv_path, show_col_types = FALSE) |>
+  mutate(across(everything(), ~ tidyr::replace_na(.x, "")))
+
+# Pick a column to read the invariance level from, if available
+lvl_candidates <- intersect(c("Level", "Invariance"), names(inv))
+
+if (length(lvl_candidates) > 0) {
+  # Use the first matching column for level extraction
+  lvl_col <- lvl_candidates[1]
+  inv_levels <- inv |>
+    mutate(Level_norm_raw = tolower(.data[[lvl_col]]))
+} else if ("Interpretation" %in% names(inv)) {
+  # Fall back to Interpretation text
+  inv_levels <- inv |>
+    mutate(Level_norm_raw = tolower(.data[["Interpretation"]]))
+} else {
+  # If neither exists, mark as unspecified
+  inv_levels <- inv |>
+    mutate(Level_norm_raw = "unspecified")
+}
+
+inv_levels <- inv_levels |>
+  mutate(Level_norm = case_when(
+    str_detect(Level_norm_raw, "scalar")    ~ "Scalar",
+    str_detect(Level_norm_raw, "metric")    ~ "Metric",
+    str_detect(Level_norm_raw, "configur")  ~ "Configural",
+    TRUE                                    ~ "Unspecified"
+  ))
+
+# Summary counts by invariance level
+sum_counts <- inv_levels |>
+  count(Level_norm, name = "Number of tasks") |>
+  mutate(Level_norm = factor(Level_norm, levels = c("Scalar","Metric","Configural","Unspecified"))) |>
+  arrange(Level_norm)
+
+papaja::apa_table(
+  sum_counts |>
+    rename(`Invariance level` = Level_norm),
+  caption = "Summary of multigroup invariance outcomes across LEVANTE tasks."
+)
+
+# Detailed mapping table 
+papaja::apa_table(
+  inv |>
+    select(any_of(c("Goal", "LEVANTE name", "Factor analysis name",
+                    "IRT explanation", "Interpretation"))),
+  align   = c("m{2.5cm}", "m{3cm}", "m{5cm}", "m{5cm}", "m{5cm}"),
+  caption = "Measurement invariance mapping across factor analysis and IRT. Scalar invariance supports direct cross-site score comparability; metric and configural indicate progressively weaker comparability."
+)
+```
 
 ## Item-Level Diagnostics
 
