@@ -171,7 +171,6 @@ The Vocabulary task was developed as a non-commercial, open alternative to tasks
 
 ## Math
 
-
 ## Reasoning
 
 ### Matrix Reasoning

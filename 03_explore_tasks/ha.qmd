@@ -5,7 +5,6 @@ editor: visual
 ---
 
 ```{r}
-```{r setup}
 library(tidyverse)
 library(here)
 library(glue)
@@ -20,8 +19,6 @@ source(here("03_summaries", "plotting_helper.R"))
 source(here("03_explore_tasks/explore_helper.R"))
 ```
 
-# Part 1: EFA - 9 core tasks
-
 ### load thetas for 9 core tasks (not ROAR, mefs or ha)
 
 ```{r}
@@ -35,25 +32,22 @@ unique(scores$item_task)
 
 ```{r}
 # keep only the 'ha' task
-scores_ha <- scores |>
+ha <- scores |>
   filter(item_task == "ha")
 
-# (optional) if you only want the theta/ability metric, keep this line:
-# scores_ha <- scores_ha |> filter(metric_type %in% c("theta","ability"))
+# Plot HA (hostile attribution) the same way as TOM
+ha_irt <- ggplot(ha, aes(x = age, y = metric_value, col = site)) + 
+  geom_point() + 
+  geom_smooth() +
+  labs(
+    title = "Developmental trends in Hostile Attribution ability by site",
+    subtitle = "IRT-based theta estimates smoothed with GAM",
+    x = "Age (years)",
+    y = "Ability (IRT Theta Score)",
+    colour = "Site"
+  )
 
-# collapse to one row per participant (avg across repeats if any)
-ha_by_person <- scores_ha |>
-  group_by(user_id, site, age) |>
-  summarise(ha = mean(metric_value, na.rm = TRUE), .groups = "drop")
-
-dplyr::count(ha_by_person, site, name = "n_participants")
-summary(ha_by_person$ha)
-
-library(ggplot2)
-ggplot(ha_by_person, aes(age, ha)) +
-  geom_point(alpha = 0.3, size = 0.8) +
-  geom_smooth(method = "loess", se = TRUE) +
-  labs(title = "HA vs Age", x = "Age (years)", y = "HA (theta)")
+print(ha_irt)
 
 
 

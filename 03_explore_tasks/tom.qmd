@@ -28,7 +28,6 @@ Helper functions
 ```{r}
 #| echo: false
 
-source(here("02_score_data","irt_helpers.R"))
 source(here::here("plot_settings.R"))
 source(here("03_explore_tasks/explore_helper.R"))
 
@@ -134,29 +133,31 @@ ggsave(
 Load IRT results
 
 ```{r}
-best_multigroup <- readRDS(here("02_scoring_outputs", "irt_outputs", "multigroup_best_models.rds"))
-multigroup_scores <- readRDS(here("02_scoring_outputs", "scores", "multigroup_scores.rds"))
-best_multigroup_coefs <- best_multigroup |>
-  select(item_task, item_type, invariance_type, coefs) |>
-  unnest(coefs)
+scores <- read_rds(here("02_scoring_outputs","scores",
+                             "scores_combined.rds"))
+colnames(scores)
+glimpse(scores)
+unique(scores$item_task)
+
+tom_irt_scores <- scores |>
+  filter(item_task == "tom")
+
+unique(tom_irt_scores$task_category)
+
 
 ```
 
 Age-related trends in ToM ability estimates by site
 
 ```{r}
-run_ages <- tom |>
-  select(site, run_id, user_id, age) |>
-  distinct()
 
-multigroup_scores_tom <- multigroup_scores |>
-  filter(item_task == "tom", site != "us_pilot") |>
-  select(site, item_task, user_id, run_id, metric_type, metric_value) |>
-  left_join(run_ages)
+tom_irt <- scores %>%
+  filter(item_task == "tom") %>% 
+  select(site, item_task, user_id, run_id, metric_type, metric_value, age)
 
-glimpse(multigroup_scores_tom)
+glimpse(tom_irt)
 
-tom_irt <- ggplot(multigroup_scores_tom, aes(x = age, y = metric_value, col = site)) + 
+tom_irt_plot <- ggplot(tom_irt, aes(x = age, y = metric_value, col = site)) + 
   geom_point() + 
   geom_smooth() +
   labs(
@@ -166,7 +167,7 @@ tom_irt <- ggplot(multigroup_scores_tom, aes(x = age, y = metric_value, col = si
     y = "Ability (IRT Theta Score)",
     colour = "Site"
   )
-print(tom_irt)
+print(tom_irt_plot)
 
 ggsave(
   filename = here::here("03_explore_tasks", "Graphs", "tom_irt.png"),
@@ -177,12 +178,14 @@ ggsave(
 )
 
 ```
-
+Not working - item_group no longer in 'scores_combined' - check with Mika.
 ```{r}
-tom_coefs <- best_multigroup_coefs |>
+
+# old
+tom_coefs <- scores |>
   filter(item_task == "tom") |>
   mutate(item = str_replace(item, "_[12]","")) |>
-  left_join(select(tom, item = item_uid, item_group) |> distinct()) 
+  left_join(select(tom, item = task_id, item_group) |> distinct()) 
 
 ggplot(tom_coefs, aes(x = item_group, y = -d, col = item_group)) +
   geom_point() +
@@ -224,8 +227,6 @@ tom_items |>
   knitr::kable(digits = 2)
 
 
-
-
 ggplot(tom_items, aes(x = d, y = avg_correct)) +
   geom_point(aes( col = item_group)) +
   geom_smooth(method = "lm", aes(group = 1)) + 
@@ -235,8 +236,7 @@ ggplot(tom_items, aes(x = d, y = avg_correct)) +
     x = "Difficulty (IRT d)",
     y = "Average correct",
     colour = "Item group"
-  ) +
-  theme_minimal() 
+  ) 
 ```
 
 # Hostile Attribution
@@ -260,7 +260,7 @@ ha_sum_scores <- ggplot(ha_runs, aes(x = age, y = correct)) +
   facet_grid(item~site) +
   labs(
     x = "Age (years)",
-    y = "Proportion hostile"
+    y = "Proportion Correct"
   )
 
 print(ha_sum_scores)
@@ -275,17 +275,17 @@ ggsave(
 ```
 
 ```{r}
-multigroup_scores_ha <- multigroup_scores |>
-  filter(item_task == "ha", site != "us_pilot") |>
-  select(site, item_task, user_id, run_id, metric_type, metric_value) |>
-  left_join(run_ages)
 
 
-ha_irt <- ggplot(multigroup_scores_ha, aes(x = age, y = metric_value, col = site)) + 
+ha_irt_scores <- scores |>
+  filter(item_task == "ha")
+
+
+ha_irt <- ggplot(ha_irt_scores, aes(x = age, y = metric_value, col = site)) + 
   geom_point() + 
   geom_smooth() +
   labs(
-    title = "Developmental trends in Social Attribution by site",
+    title = "Developmental trends in Hostile Attribution by site",
     subtitle = "IRT-based theta estimates smoothed with GAM",
     x = "Age (years)",
     y = "Ability (IRT Theta Score)",
@@ -307,39 +307,126 @@ ggsave(
 ```{r}
 survey_scores <- readRDS(here("03_summaries","efa","caregiver_fscore_all.rds"))
 
+colnames(survey_scores)
+unique(survey_scores$site)
+
 survey_scores_filtered <- survey_scores |>
   filter(site == "de_leipzig") |>
   select(user_id = child_id, form_construct, form_subconstruct, value) 
 
+# how many unique participants
+survey_scores_filtered %>%
+  summarise(n_participants = n_distinct(user_id))
+
+
 ha_wide <- ha_runs |>
   ungroup() |>
-  filter(site == "de_pilot") |>
+  filter(site == "pilot_leuphana_de") |>
   select(-run_id, -n_items) |>
   pivot_wider(names_from = "item", values_from = "correct")
   
 ha_surveys <- inner_join(survey_scores_filtered, ha_wide, by = "user_id")
+
+# debug
+colnames(ha_runs)
+unique(ha_runs$site)
 ```
+
+Action
 
 ```{r}
 ha_surveys$ha_composite <- (ha_surveys$action + ha_surveys$attribution)/2
 
-ggplot(ha_surveys, aes(x = value, y = action, col = age)) + 
+ha_action <- ggplot(ha_surveys, aes(x = value, y = action, col = age)) + 
   geom_jitter(alpha = .5, height = .05, width = 0) +
   geom_smooth(method = "lm", aes(group = 1), col = "blue") + 
-  facet_wrap(~form_subconstruct)
-    
-ggplot(ha_surveys, aes(x = value, y = attribution, col = age)) + 
-  geom_jitter(alpha = .5, height = .05, width = 0) +
-  geom_smooth(method = "lm", aes(group = 1), col = "blue") + 
-  facet_wrap(~form_subconstruct)
-    
-ggplot(ha_surveys, aes(x = value, y = ha_composite, col = age)) + 
-  geom_point(alpha = .5) +
-  geom_smooth(method = "lm", aes(group = 1), col = "blue") + 
-  facet_wrap(~form_subconstruct)
-    
+  facet_wrap(~form_subconstruct) +
+  labs(
+    title = "Survey scores vs. Hostile Attribution (action), by subconstruct & age",
+    x = "Survey score",
+    y = "Hostile attribution (action)"
+  ) +
+  theme(
+    plot.title = element_text(size = 13),   # smaller title
+    strip.text = element_text(size = 8),
+    strip.text.x = element_text(angle = 0),
+    strip.placement = "outside"
+  )
+
+print(ha_action)
+
+ggsave(
+  filename = here::here("03_explore_tasks", "Graphs", "ha_action.png"),
+  plot = ha_action,
+  width = 6,
+  height = 4,
+  dpi = 300
+)
+
 ```
 
+Attribution
+
+```{r}
+
+ha_attribution <- ggplot(ha_surveys, aes(x = value, y = attribution, col = age)) + 
+  geom_jitter(alpha = .5, height = .05, width = 0) +
+  geom_smooth(method = "lm", aes(group = 1), col = "blue") + 
+  facet_wrap(~form_subconstruct) +
+  labs(
+    title = "Survey scores vs. Hostile Attribution (attribution), by subconstruct & age",
+    x = "Survey score",
+    y = "Hostile attribution (attribution)"
+  ) +
+  theme(
+    plot.title = element_text(size = 11),
+    strip.text = element_text(size = 8),
+    strip.text.x = element_text(angle = 0),
+    strip.placement = "outside"
+  )
+
+print(ha_attribution)
+
+ggsave(
+  filename = here::here("03_explore_tasks", "Graphs", "ha_attribution.png"),
+  plot = ha_attribution,
+  width = 6,
+  height = 4,
+  dpi = 300
+)
+
+```
+
+Composite
+
+```{r}
+ha_composite_graph <- ggplot(ha_surveys, aes(x = value, y = ha_composite, col = age)) + 
+  geom_jitter(alpha = .5, height = .05, width = 0) +
+  geom_smooth(method = "lm", aes(group = 1), col = "blue") + 
+  facet_wrap(~form_subconstruct) +
+  labs(
+    title = "Survey scores vs. Hostile Attribution (composite), by subconstruct & age",
+    x = "Survey score",
+    y = "Hostile attribution (composite)"
+  ) +
+  theme(
+    plot.title = element_text(size = 11),
+    strip.text = element_text(size = 8),
+    strip.text.x = element_text(angle = 0),
+    strip.placement = "outside"
+  )
+print(ha_composite_graph)
+
+ggsave(
+  filename = here::here("03_explore_tasks", "Graphs", "ha_composite.png"),
+  plot = ha_composite_graph,
+  width = 6,
+  height = 4,
+  dpi = 300
+)
+```
+
+Correlation table
 
 ```{r}
 ha_surveys |>
@@ -348,9 +435,24 @@ ha_surveys |>
             action_corr = cor(value, action), 
             ha_composite_corr = cor(value, ha_composite)) |>
   knitr::kable(digits = 2)
+
+
+#export
+ha_table <- ha_surveys |>
+  group_by(form_subconstruct) |>
+  summarise(
+    Attribution_r = round(cor(value, attribution, use = "pairwise.complete.obs"), 2),
+    Action_r      = round(cor(value, action,      use = "pairwise.complete.obs"), 2),
+    Composite_r   = round(cor(value, ha_composite,use = "pairwise.complete.obs"), 2)
+  )
+
+write_csv(ha_table, "ha_correlations.csv")
+getwd()
+
+
 ```
 
-
+trimming out extreme low survey scores
 
 ```{r}
 ha_surveys |>
@@ -360,4 +462,16 @@ ha_surveys |>
             action_corr = cor(value, action), 
             ha_composite_corr = cor(value, ha_composite)) |>
   knitr::kable(digits = 2)
+
+# export
+ha_trimmed <- ha_surveys |>
+  group_by(form_subconstruct) |>
+  summarise(
+    Attribution_r = round(cor(value, attribution, use = "pairwise.complete.obs"), 2),
+    Action_r      = round(cor(value, action,      use = "pairwise.complete.obs"), 2),
+    Composite_r   = round(cor(value, ha_composite,use = "pairwise.complete.obs"), 2)
+  )
+
+write_csv(ha_table, "ha_correlations_trimmed.csv")
+getwd()
 ```

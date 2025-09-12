@@ -88,7 +88,6 @@ colMeans(is.na(scores_wide[core_tasks])) * 100
 
 ```
 
-
 # Part 1: Complete case EFA
 
 ### EFA for complete cases - participants with all 9 tasks
@@ -464,7 +463,6 @@ model_comparison_cfa
 ```
 
 ### OLD, needs updating
-
 
 ## Measurement invariance (not working at the mo)
 

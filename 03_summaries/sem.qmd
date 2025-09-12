@@ -7,23 +7,15 @@ library(tidySEM)
 library(ggthemes)
 library(dplyr)
 library(tidyr)
+library(GGally)
+library(ggplot2)
+library(corrplot)
+
 
 source(here("02_score_data","irt_helpers.R"))
 source(here("03_summaries", "plotting_helper.R"))
 source(here("03_explore_tasks/explore_helper.R"))
 
-```
-
-```{r}
-sites <- c("ca_pilot", "co_pilot", "de_pilot")
-
-task_scores <- read_rds(here("02_scoring_outputs","scores",
-                             "multigroup_scores.rds"))  |>
-  bind_rows(read_rds(here("02_scoring_outputs","scores",
-                          "scores_general.rds")))  |>
-  bind_rows(read_rds(here("02_scoring_outputs","scores",
-                          "roar_thetas.rds"))) |>
-  filter(site %in% sites)
 ```
 
 11.08.2025 Load new data
@@ -36,70 +28,95 @@ task_scores <- read_rds(here("02_scoring_outputs","scores",
 View(task_scores)
 colnames(task_scores)
 unique(task_scores$item_task)
-unique(task_scores$task_category)
+table(task_scores$item_task)
+
+# age
+summary(task_scores$age)
+view(task_scores$age)
+unique(task_scores$age)
 
 ```
+
+correlation matrix
 
 ```{r}
-run_ages <- read_rds(here(glue("01_fetched_data/run_data.rds"))) |>
-  select(site, task_id, user_id, run_id, age) |>
-  filter(site %in% sites)
+
+vars <- c("math","matrix","mrot","sds","hf","mg",
+          "trog","vocab","tom","swr","sre","pa","mefs")
+
+per_task_first <- task_scores %>%
+  filter(item_task %in% vars) %>%
+  arrange(user_id, item_task, time_started) %>%
+  group_by(user_id, item_task) %>%
+  slice(1) %>%
+  ungroup()
+
+# wide format
+wide_scores <- per_task_first %>%
+  select(user_id, item_task, metric_value) %>%
+  pivot_wider(names_from = item_task, values_from = metric_value)
+
+# get one age + site per child (earliest run overall)
+age_site_df <- task_scores %>%
+  arrange(user_id, time_started) %>%
+  group_by(user_id) %>%
+  slice(1) %>%
+  ungroup() %>%
+  transmute(user_id,
+            age  = as.numeric(age),
+            site = site)
+
+# join back to wide_scores
+wide_scores <- wide_scores %>%
+  left_join(age_site_df, by = "user_id") %>%
+  as.data.frame()
+
+# correlation matrix
+cor_mat <- wide_scores %>%
+  select(all_of(vars)) %>%
+  as.data.frame() %>%
+  cor(use = "pairwise.complete.obs", method = "pearson")
+cor_mat
+
+corrplot(cor_mat,
+         method = "color",        
+         type = "lower",          
+         addCoef.col = "black",   
+         tl.col = "black",        
+         tl.cex = 0.7,            
+         number.cex = 0.6)
 ```
-
-```{r}
-
-# Factor analysis
-ages <- run_ages |>
-  group_by(user_id) |>
-  summarise(age = mean(age, na.rm=TRUE))
-
-
-scores_wide <- task_scores |>
-  select(item_task, metric_value, user_id, site) |>
-  pivot_wider(names_from = "item_task", values_from = "metric_value", 
-              id_cols = c("user_id","site"), 
-              values_fn = mean) 
-
-scores_wide_mat <- scores_wide |>
-  janitor:::clean_names() |>
-  mutate(across(ha:swr, ~ scale(.x)[,1])) |>
-  left_join(ages)
-```
-
-# EFA
-
-```{r}
-library(GGally)
-ggpairs(select(scores_wide, math, matrix, sds, hf, mg, mefs, mrot))
-
-```
-
 # CFA 
 
 ```{r}
 cfa_model <-  "
 reasoning =~ matrix + mrot 
 ef =~ hf + mg + sds + mefs
-social =~ ha + tom
+social =~ tom
 language =~ trog + vocab + sre + swr + pa
 maths =~ math
 "
 
-fit <- cfa(cfa_model, scores_wide_mat, std.lv=TRUE, missing='fiml')
+fit <- cfa(cfa_model, wide_scores, std.lv=TRUE, missing='fiml')
 summary(fit, fit.measures=TRUE, standardize=TRUE)
+print(fitMeasures(fit, c("cfi","tli","rmsea","srmr")))
+
 ```
 
 ```{r}
-layout = matrix(nrow=4, ncol = 14, 
-                data = c("matrix", "mrot", "hf","mg", "sds", "mefs", "tom","ha", "trog","vocab","sre","swr","pa","math",
-                         NA, NA, NA, NA, NA, NA, NA, NA, NA, NA, NA, NA, NA, NA, 
-                         NA, NA, NA, NA, NA, NA, NA, NA, NA, NA, NA, NA, NA, NA,
-                         "reasoning",NA, "ef", NA, NA, NA, "social", NA,  "language",NA, NA, NA, NA,
-                         "maths"
-                ), byrow = TRUE)
+layout <- matrix(
+  nrow = 4, ncol = 14, byrow = TRUE,
+  data = c(
+  "matrix","mrot","hf","mg","sds","mefs","tom","trog","vocab","sre","swr","pa","math", NA,
+  NA,NA,NA,NA,NA,NA,NA,NA,NA,NA,NA,NA,NA,NA,
+  NA,NA,NA,NA,NA,NA,NA,NA,NA,NA,NA,NA,NA,NA,
+  "reasoning", NA, "ef", NA, NA, NA, "social", "language", NA, NA, NA, NA, "maths", NA
+  )
+)
 
-graph_sem(model = fit, text_size = 3, layout = t(layout)) + 
+graph_sem(model = fit, text_size = 3, layout = t(layout)) +
   theme(panel.background = element_rect(fill = "white"))
+
 ggsave(here("03_summaries/plots/sem_all.png"), width = 14, height = 10)
 
 ```
@@ -111,7 +128,7 @@ cfa_model_age <-  "
 # measurement
 reasoning =~ matrix + mrot 
 ef =~ hf + mg + sds + mefs
-social =~ ha + tom
+social =~ tom
 language =~ trog + vocab + sre + swr + pa
 maths =~ math
 
@@ -123,52 +140,358 @@ language ~ age
 maths ~ age
 "
 
-fit_age <- cfa(cfa_model_age, scores_wide_mat, std.lv=TRUE, missing='fiml')
+fit_age <- cfa(cfa_model_age, wide_scores, std.lv=TRUE, missing='fiml')
 summary(fit_age, fit.measures=TRUE, standardize=TRUE)
+print(fitMeasures(fit_age, c("cfi","tli","rmsea","srmr")))
 
 
-layout_age = matrix(nrow=7, ncol = 14, 
-                data = c("matrix", "mrot", "hf","mg", "sds", "mefs", "tom","ha", "trog","vocab","sre","swr","pa","math",
-                         NA, NA, NA, NA, NA, NA, NA, NA, NA, NA, NA, NA, NA, NA, 
-                         NA, NA, NA, NA, NA, NA, NA, NA, NA, NA, NA, NA, NA, NA, 
-                         "reasoning",NA, "ef", NA, NA, NA,  "social", NA, "language",NA, NA, NA, NA, "maths",
-                         NA, NA, NA, NA, NA, NA, NA, NA,  NA, NA, NA, NA, NA,NA, 
-                         NA, NA, NA, NA, NA, NA, NA, NA,  NA, NA, NA, NA, NA,NA, 
-                         NA, NA, NA, NA, NA, NA, "age", NA, NA,  NA, NA, NA, NA,NA
-                         
-                ), byrow = TRUE)
-
+layout_age <- matrix(
+  nrow = 4, ncol = 14, byrow = TRUE,
+  data = c(
+  "matrix","mrot","hf","mg","sds","mefs","tom","trog","vocab","sre","swr","pa","math", NA,
+  NA,NA,NA,NA,NA,NA,NA,NA,NA,NA,NA,NA,NA,NA,
+  NA,NA,NA,NA,NA,NA,NA,NA,NA,NA,NA,NA,NA,NA,
+  "reasoning", NA, "ef", NA, NA, NA, "social", "language", NA, NA, NA, NA, "maths", NA
+  )
+)
 
 graph_sem(model = fit_age, text_size = 3, layout = t(layout_age)) + 
   theme(panel.background = element_rect(fill = "white"))
 ggsave(here("03_summaries/plots/sem_age.png"), width = 14, height = 10)
 ```
-## Invariance
 
-Add site grouping - this is an invariant mdoel tha
+check Canada - too few data points for CFA; need to drop MEFS
 
 ```{r}
-fit_age_site <- cfa(cfa_model_age, scores_wide_mat, 
-                    group = "site", 
-                    std.lv=TRUE, missing='fiml')
-summary(fit_age_site, fit.measures=TRUE, standardize=TRUE)
+unique(wide_scores$site)
+table(wide_scores$site)
 
-layout_age = matrix(nrow=7, ncol = 12, 
-                    data = c(
-                      "matrix_reasoning", "mental_rotation", "hearts_and_flowers","memory_game", "same_different_selection", "theory_of_mind","trog","vocab","sre","swr","pa","egma_math",
-                      NA, NA, NA, NA, NA, NA, NA, NA, NA, NA, NA, NA, 
-                      NA, NA, NA, NA, NA, NA, NA, NA, NA, NA, NA, NA, 
-                      "reasoning",NA, "ef", NA, NA, "social","language",NA, NA, NA, NA,
-                      "math",
-                      NA, NA, NA, NA, NA, NA, NA, NA,  NA, NA, NA, NA, 
-                      NA, NA, NA, NA, NA, NA, NA, NA,  NA, NA, NA, NA, 
-                      NA, NA, NA, NA, NA, NA, "age", NA, NA,  NA, NA, NA
-                    ), byrow = TRUE)
+by_stats <- lapply(split(wide_scores, wide_scores$site), function(df){
+  data.frame(
+    var = vars,
+    prop_missing = colMeans(is.na(df[vars])),
+    sd = sapply(df[vars], sd, na.rm = TRUE),
+    n = nrow(df)
+  )
+})
+by_stats$pilot_western_ca  # inspect this first
 
-graph_sem(model = fit_age, text_size = 3, layout = t(layout_age)) + 
-  theme(panel.background = element_rect(fill = "white"))
-ggsave(here("03_summaries/plots/sem_age.png"), width = 14, height = 10)
+# drop MEFS, and ROAR tasks in the cfa
+
 ```
+
+cfa - core tasks only with age, 09.10
+
+```{r}
+library(lavaan)
+
+vars_ind <- c("matrix","mrot","hf","mg","sds","trog","vocab","math","tom")
+wide_std <- wide_scores
+wide_std[vars_ind] <- lapply(wide_std[vars_ind], function(x) as.numeric(scale(x)))
+wide_std$site <- factor(wide_std$site)
+
+cfa_model_age_2 <- '
+  reasoning =~ matrix + mrot + math
+  ef =~ hf + mg + sds
+  language =~ trog + vocab
+  social =~ tom 
+
+  reasoning ~ age
+  ef        ~ age
+  language  ~ age
+  social ~ age'
+
+fit_cfg <- sem(cfa_model_age_2, data = wide_std,
+               group = "site", std.lv = TRUE, missing = "fiml")
+
+print(fitMeasures(fit_cfg, c("cfi","tli","rmsea","srmr")))
+print(summary(fit_cfg, fit.measures = TRUE, standardized = TRUE))
+
+```
+
+plot, 09.10
+
+```{r}
+
+layout_age2 <- matrix(
+  byrow = TRUE, nrow = 3,
+  data = c(
+    "matrix","mrot","math","hf","mg","sds","trog","vocab","tom","age",
+    NA,       NA,    NA,   NA,  NA,  NA,   NA,    NA,     NA,  NA,
+    "reasoning", NA,  NA, "ef", NA,  NA, "language", NA, "social", NA
+  )
+)
+
+plot_site <- function(st) {
+  fit <- sem(cfa_model_age_2, data = subset(wide_std, site == st),
+             std.lv = TRUE, missing = "fiml")
+  graph_sem(fit, layout = layout_age2, text_size = 6, edge_label = "est_std") +
+    ggplot2::ggtitle(st)
+}
+
+for (st in levels(wide_std$site)) {
+  ragg::agg_png(here::here("03_summaries/plots", paste0("sem_age_", st, ".png")),
+                width = 16, height = 8, units = "in", res = 600)
+  print(plot_site(st))
+  dev.off()
+}
+
+plot_site(levels(wide_std$site)[1])
+plot_site(levels(wide_std$site)[2])
+plot_site(levels(wide_std$site)[3])
+
+# save
+sites <- levels(wide_std$site)
+
+for (st in sites) {
+  p_site <- plot_site(st)  # your function from earlier
+  fname  <- here::here(
+    "03_summaries","plots",
+    paste0("sem_age_", str_replace_all(st, "[^A-Za-z0-9]+", "_"), ".png")
+  )
+  ggplot2::ggsave(
+    filename = fname,
+    plot     = p_site,
+    width    = 12, height = 7, units = "in",
+    dpi      = 600,
+    device   = ragg::agg_png  # crisp text; optional
+  )
+}
+
+```
+
+### MEFS
+
+```{r}
+mefs <- task_scores %>%
+  filter(item_task == "mefs") %>%
+  select(user_id, run_id, time_started, site, age, mefs = metric_value)
+
+summary(mefs)
+
+# Count by site
+by_site <- task_scores %>%
+  filter(item_task == "mefs", !is.na(metric_value)) %>%
+  distinct(user_id, site) %>%
+  count(site, name = "n_participants") %>%
+  arrange(desc(n_participants))
+
+by_site
+```
+
+Histogram
+
+```{r}
+mefs_scores <- task_scores %>%
+  filter(item_task == "mefs") %>%
+  select(user_id, site, age, metric_value)
+
+summary(mefs_scores$metric_value)
+hist(mefs_scores$metric_value, breaks = 30,
+     main = "Distribution of MEFS IRT scores", xlab = "θ (executive function ability)")
+```
+
+By site
+
+```{r}
+ggplot(mefs, aes(metric_value)) +
+  geom_histogram(bins = 30, color = "white") +
+  facet_wrap(~ site, scales = "free_y") +
+  labs(x = "MEFS IRT score (θ)", y = "Count") 
+
+
+```
+
+Scatterplot age
+
+```{r}
+ggplot(mefs, aes(age, metric_value)) +
+  geom_point(alpha = 0.5) +
+  geom_smooth(method = "lm", se = TRUE) +
+  labs(x = "Age", y = "MEFS IRT score (θ)") +
+  theme_minimal()
+
+```
+
+# Executive Funciton - SEM
+
+```{r}
+ef_vars <- c("hf", "mg", "sds", "mefs")
+ef_std <- wide_scores |>
+  mutate(across(all_of(ef_vars), ~as.numeric(scale(.))))
+
+cfa_ef <-  "
+executive_function =~ hf + mg + sds + mefs
+executive_function ~ age
+"
+
+# check mefs which I'm analysing; one is percentile and one is a standard score (std scores goes up with age)
+
+fit_ef <- cfa(cfa_ef, ef_std, std.lv=TRUE, missing='fiml')
+summary(fit_ef, fit.measures=TRUE, standardize=TRUE)
+print(fitMeasures(fit_ef, c("cfi","tli","rmsea","srmr")))
+
+```
+
+plot
+
+```{r}
+layout_ef <- matrix(
+  byrow = TRUE, nrow = 3,
+  data = c(
+    "hf","mg","sds","mefs", NA,  "age",
+     NA,  NA,   NA,   NA,   NA,  NA,
+     NA,  NA, "executive_function", NA, NA, NA
+  )
+)
+
+p_ef <- tidySEM::graph_sem(
+  model = fit_ef,
+  layout = layout_ef,
+  text_size = 4,
+  edge_label = "std"
+)
+p_ef
+
+```
+
+save
+
+```{r}
+ggsave(
+  filename = here("03_summaries","plots","sem_ef.png"),
+  plot     = p_ef,
+  width    = 10, height = 6, units = "in", dpi = 600
+)
+```
+
+# Language - SEM
+
+```{r}
+lang_vars <- c("swr", "sre", "pa", "vocab", "trog")
+lang_std <- wide_scores |>
+  mutate(across(all_of(lang_vars), ~as.numeric(scale(.))))
+
+cfa_lang <-  "
+Language =~ swr + sre + pa + trog + vocab
+Language ~ age
+"
+
+fit_lang <- cfa(cfa_lang, lang_std, std.lv=TRUE, missing='fiml')
+summary(fit_lang, fit.measures=TRUE, standardize=TRUE)
+print(fitMeasures(fit_lang, c("cfi","tli","rmsea","srmr")))
+```
+
+Plot
+
+```{r}
+layout_lang <- matrix(
+  byrow = TRUE, nrow = 3,
+  data = c(
+    "swr","sre","pa","trog","vocab", NA,  "age",
+    NA,    NA,   NA,  NA, NA, NA, NA,
+    NA,   "Language", NA,  NA,    NA, NA,  NA
+  )
+)
+
+p_lang <- tidySEM::graph_sem(
+  model      = fit_lang,
+  layout     = layout_lang,
+  text_size  = 3,
+  edge_label = "std",                 
+  show       = c("paths","loadings","residuals")
+)
+p_lang
+
+# check sre scoring (not a theta)
+```
+
+Pa, sre and swr problematic - check
+
+```{r}
+
+pe <- lavaan::parameterEstimates(fit_lang, standardized = TRUE)
+pe[pe$op %in% c("=~","~~") & pe$lhs %in% c("lang","swr","sre","pa","trog","vocab"), 
+   c("lhs","op","rhs","est","std.all","se","pvalue")]
+# no heywood case
+
+inds <- c("swr","sre","pa","trog","vocab")
+pe <- lavaan::parameterEstimates(fit_lang, standardized = TRUE)
+res <- pe %>%
+  filter(op == "~~", lhs == rhs, lhs %in% inds) %>%
+  transmute(indicator = lhs,
+            theta_std = std.all,
+            R2 = 1 - std.all,
+            loading_std = sqrt(pmax(0, 1 - std.all)))
+res
+
+```
+
+Try 2-fa solution
+
+```{r}
+
+cfa_lang2 <-  "
+language_comp =~ swr + sre + pa 
+reading_skills =~ trog + vocab 
+
+language_comp ~ age
+reading_skills ~ age
+"
+
+fit_lang2 <- cfa(cfa_lang2, wide_scores, std.lv=TRUE, missing='fiml')
+summary(fit_lang2, fit.measures=TRUE, standardize=TRUE)
+print(fitMeasures(fit_lang2, c("cfi","tli","rmsea","srmr")))
+
+```
+
+plot
+
+```{r}
+layout_lang2 <- matrix(
+  byrow = TRUE, nrow = 3,
+  data = c(
+    "swr","sre","pa",  NA,  "trog","vocab",  NA, "age",
+     NA,   NA,   NA,   NA,    NA,    NA,     NA,  NA,
+    "language_comp", NA, NA, NA, "reading_skills", NA, NA, NA
+  )
+)
+
+p_lang2 <- tidySEM::graph_sem(fit_lang2, layout = layout_lang2,
+                        text_size = 3, edge_label = "std",
+                        show = c("paths","loadings","residuals"))
+print(p_lang2)
+
+```
+
+Invariance testing - language
+
+```{r}
+
+lang_vars <- c("swr","sre","pa","trog","vocab")
+wide_std <- wide_scores
+wide_std[lang_vars] <- lapply(wide_std[lang_vars], scale)
+wide_std$site <- factor(wide_std$site)
+
+cfa_lang2 <- '
+  language_comp =~ swr + sre + pa
+  reading_skills =~ trog + vocab
+  
+  language_comp  ~ age
+  reading_skills ~ age
+'
+```
+
+configural - not running because too few data points for canada
+
+```{r}
+fit_cfg_lang <- cfa(cfa_lang2, data = wide_std, group = "site",
+               std.lv = TRUE, missing = "fiml", estimator = "MLR")
+
+```
+
+
+
 
 # Alternative models
 
