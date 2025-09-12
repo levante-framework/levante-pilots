@@ -19,6 +19,7 @@ trial_data_coded <- trial_data |>
   mutate(original_correct = correct, .after = correct) |>
   recode_hf() |>
   recode_sds() |>
+  recode_de_v19() |>
   recode_slider(threshold = slider_threshold) |>
   mutate(chance = if_else(item_group == "slider", 1 / slider_threshold / 100, chance),
          chance = chance |> replace_na(0))
