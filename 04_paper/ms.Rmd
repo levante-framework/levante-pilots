@@ -276,6 +276,9 @@ coretask_scores <- included_scores |>
 
 coretask_firstrun_scores <- coretask_scores |>
   filter(run_number == 1)
+
+
+
 ```
 
 
@@ -570,8 +573,6 @@ ggplot(coretask_scores, aes(x = age, y = metric_value)) +
 
 ## Reliability 
 
-
-
 ### Marginal reliability estimates
 
 ```{r}
@@ -597,7 +598,6 @@ task_rxx_table |>
   papaja::apa_table(col_spanners = list("Marginal reliability" = c(4, 6)))
 options(papaja.na_string = "NA")
 ```
-
 
 ### Test-retest
 
@@ -651,17 +651,321 @@ ggplot(retest_wide, aes(x = run_1, y = run_2, color = age)) +
 ```
 
 ## Validity 
-
 ### Construct validity
 
 SEMs within each construct for language, number, EF?
 
+```{r prep for sem, include = FALSE}
+
+# one row per user (metadata + task scores from first run)
+meta <- coretask_firstrun_scores %>%
+  group_by(user_id) %>%
+  summarise(
+    age        = min(age, na.rm = TRUE),
+    site       = dplyr::first(na.omit(site)),
+    site_label = dplyr::first(na.omit(site_label)),
+    dataset    = dplyr::first(na.omit(dataset)),
+    .groups = "drop"
+  )
+
+# wide task scores (first run only)
+wide_scores <- coretask_firstrun_scores %>%
+  select(user_id, item_task, metric_value) %>%
+  distinct() %>%  # guard against accidental duplicates
+  tidyr::pivot_wider(
+    names_from  = item_task,
+    values_from = metric_value
+  ) %>%
+  left_join(meta, by = "user_id") %>%
+  relocate(user_id, site, site_label, dataset, age)
+
+# keep only the core task columns + metadata
+vars_core <- c("math","matrix","mrot","sds","hf","mg","trog","vocab","tom")
+wide_scores <- wide_scores %>%
+  select(user_id, site, site_label, dataset, age, any_of(vars_core))
+
+# standardise
+z <- function(x) (x - mean(x, na.rm = TRUE)) / sd(x, na.rm = TRUE)
+vars_core_std <- wide_scores %>%
+  mutate(across(all_of(vars_core), ~ z(as.numeric(.x))))
+str(vars_core_std[vars_core])
+
+```
+
+
+```{r semplot, fig.width = 6, fig.height = 6}
+
+library(lavaan)
+cfa_1 <- '
+  reasoning =~ matrix + mrot
+  ef        =~ hf + mg + sds + math
+  language  =~ trog + vocab
+  social    =~ 1*tom
+  tom ~~ (1 - 0.75)*tom   #(residual variance = 0.25)
+'
+
+fit_1 <- cfa(cfa_1, data = vars_core_std,
+             estimator = "MLR", std.lv = TRUE, missing = "fiml")
+print(summary(fit_1, fit.measures = TRUE, standardized = TRUE))
+head(lavaan::modindices(fit_1, sort.=TRUE, minimum.value=10), 15)
+
+semPlot::semPaths(fit_1, whatLabels="std",
+                  residuals=FALSE, intercepts=FALSE,
+                  layout="tree")
+```
+
+factors are very highly correlated - try with g factor
+
+```{r}
+model_g <- '
+  reasoning =~ matrix + mrot
+  ef        =~ hf + mg + sds + math
+  language  =~ trog + vocab
+  g =~ reasoning + ef + language'
+
+fit_g <- cfa(model_g, data = vars_core_std,
+             estimator = "MLR", std.lv = TRUE, missing = "fiml")
+print(summary(fit_g, fit.measures = TRUE, standardized = TRUE))
+head(lavaan::modindices(fit_g, sort.=TRUE, minimum.value=10), 15)
+
+semPlot::semPaths(fit_g, whatLabels="std",
+                  residuals=FALSE, intercepts=FALSE,
+                  layout="tree")
+```
+
+Checking Indices and loadings across both fit_1 and g
+
+```{r}
+# compare
+fitMeasures(fit_1, c("cfi","tli","rmsea","srmr","chisq","df"))
+fitMeasures(fit_g, c("cfi","tli","rmsea","srmr","chisq","df"))
+
+# loadings, fit_1
+pe <- parameterEstimates(fit_1, standardized = TRUE)
+pe_g <- parameterEstimates(fit_g, standardized = TRUE)
+
+loadings_fit_1 <- pe %>%
+  filter(op == "=~") %>%
+  transmute(factor = lhs, item = rhs,
+            lambda = std.all, p = pvalue)
+print(loadings_fit_1)
+
+# loadings, fit_g
+loadings_fit_g <- pe_g %>%
+  filter(op == "=~") %>%
+  transmute(factor = lhs, item = rhs,
+            lambda = std.all, p = pvalue)
+print(loadings_fit_g)
+
+# Convergent validity (AVE) and Internal consistency (CR) - fit_1
+theta_tbl_fit_1 <- pe %>%
+  filter(op == "~~", lhs == rhs, rhs %in% vars_core) %>%
+  transmute(item = rhs, theta = std.all)
+
+ave_cr_fit_1 <- loadings_fit_1 %>%
+  left_join(theta_tbl_fit_1, by = "item") %>%
+  group_by(factor) %>%
+  summarise(
+    n   = n(),
+    AVE = mean(lambda^2, na.rm = TRUE),
+    CR  = (sum(lambda, na.rm = TRUE)^2) /
+          ((sum(lambda, na.rm = TRUE)^2) + sum(theta, na.rm = TRUE)),
+    .groups = "drop"
+  ) %>%
+  mutate(across(c(AVE, CR), ~ round(., 3)))
+
+print(ave_cr_fit_1)     # Rule: AVE ≥ .50, CR ≥ .70 # sds causing ef factor to be lower on both AVE and CR.
+
+# Convergent validity (AVE) and Internal consistency (CR) - fit_g
+theta_tbl_g <- pe_g %>%
+  filter(op == "~~", lhs == rhs, rhs %in% vars_core) %>%
+  transmute(item = rhs, theta = std.all)
+
+ave_cr_g <- loadings_fit_g %>%
+  left_join(theta_tbl_g, by = "item") %>%
+  group_by(factor) %>%
+  summarise(
+    n   = n(),
+    AVE = mean(lambda^2, na.rm = TRUE),
+    CR  = (sum(lambda, na.rm = TRUE)^2) /
+          ((sum(lambda, na.rm = TRUE)^2) + sum(theta, na.rm = TRUE)),
+    .groups = "drop"
+  ) %>%
+  mutate(across(c(AVE, CR), ~ round(., 3)))
+
+print(ave_cr_g) 
+
+```
+
+Invariance testing?
+
+```{r}
+
+```
 
 ### External validity
 
 We next assessed external validity by examining correlations with other measures. In particular, we used ...
 
 MEFS and ROAR
+
+Executive Function
+
+```{r fig.width = 6, fig.height = 4}
+
+ef_tasks <- c("hf","mg","sds","mefs")
+
+# Filter to ef tasks (from included_scores), keep first run 
+ef_firstrun_scores <- included_scores %>%
+  filter(item_task %in% ef_tasks) %>%
+  arrange(user_id, item_task, run_number, time_started) %>%
+  group_by(user_id, item_task) %>%
+  slice(1) %>%
+  ungroup()
+
+# one row per user
+meta_ef <- ef_firstrun_scores %>%
+  group_by(user_id) %>%
+  summarise(
+    age        = min(age, na.rm = TRUE),
+    site       = dplyr::first(na.omit(site)),
+    site_label = dplyr::first(na.omit(site_label)),
+    dataset    = dplyr::first(na.omit(dataset)),
+    .groups = "drop"
+  )
+
+# Wide ef task scores (first run only)
+ef_wide_scores <- ef_firstrun_scores %>%
+  select(user_id, item_task, metric_value) %>%
+  distinct() %>%  # guard against accidental duplicates
+  pivot_wider(
+    names_from  = item_task,
+    values_from = metric_value
+  ) %>%
+  left_join(meta_ef, by = "user_id") %>%
+  relocate(user_id, site, site_label, dataset, age)
+
+# keep only ef columns + metadata
+vars_ef <- ef_tasks
+ef_wide_scores <- ef_wide_scores %>%
+  select(user_id, site, site_label, dataset, age, any_of(vars_ef))
+
+# Standardise ef indicators (same z() you used)
+z <- function(x) (x - mean(x, na.rm = TRUE)) / sd(x, na.rm = TRUE)
+ef_wide_std <- ef_wide_scores %>%
+  mutate(across(all_of(vars_ef), ~ z(as.numeric(.x))))
+
+str(ef_wide_std[vars_ef])
+
+cfa_ef <-  '
+executive_function =~ hf + mg + sds + mefs
+executive_function ~ age
+'
+
+fit_ef <- cfa(cfa_ef, data = ef_wide_std,
+              estimator = "MLR", std.lv = TRUE, missing = "fiml")
+
+summary(fit_ef, fit.measures = TRUE, standardized = TRUE)
+
+print(fitMeasures(fit_ef, c("cfi","tli","rmsea","srmr")))
+
+
+# plot
+layout_ef <- matrix(
+  byrow = TRUE, nrow = 3,
+  data = c(
+    "hf","mg","sds","mefs", NA,  "age",
+     NA,  NA,   NA,   NA,   NA,  NA,
+     NA,  NA, "executive_function", NA, NA, NA
+  )
+)
+
+p_ef <- tidySEM::graph_sem(
+  model = fit_ef,
+  layout = layout_ef,
+  text_size = 3,
+  edge_label = "std"
+)
+p_ef
+
+```
+
+Language
+
+```{r fig.width = 6, fig.height = 4}
+lang_vars <- c("swr","sre","pa","vocab","trog")
+
+# first run per user–task
+lang_firstrun_scores <- included_scores %>%
+  filter(item_task %in% lang_vars) %>%
+  arrange(user_id, item_task, run_number, time_started) %>%
+  group_by(user_id, item_task) %>%
+  slice(1) %>%
+  ungroup()
+
+meta_lang <- lang_firstrun_scores %>%
+  group_by(user_id) %>%
+  summarise(
+    age        = min(age, na.rm = TRUE),
+    site       = dplyr::first(na.omit(site)),
+    site_label = dplyr::first(na.omit(site_label)),
+    dataset    = dplyr::first(na.omit(dataset)),
+    .groups = "drop"
+  )
+
+# create wide df 
+lang_wide_scores <- lang_firstrun_scores %>%
+  select(user_id, item_task, metric_value) %>%
+  distinct() %>%
+  pivot_wider(
+    names_from  = item_task,
+    values_from = metric_value
+  ) %>%
+  left_join(meta_lang, by = "user_id") %>%
+  relocate(user_id, site, site_label, dataset, age)
+
+# keep only language columns + metadata
+lang_wide_scores <- lang_wide_scores %>%
+  select(user_id, site, site_label, dataset, age, any_of(lang_vars))
+
+# standardise 
+z <- function(x) (x - mean(x, na.rm = TRUE)) / sd(x, na.rm = TRUE)
+lang_wide_std <- lang_wide_scores %>%
+  mutate(across(all_of(intersect(lang_vars, names(.))), ~ z(as.numeric(.x))))
+
+# model
+cfa_lang <-  '
+Language =~ swr + sre + pa + trog + vocab
+Language ~ age
+'
+
+fit_lang <- cfa(cfa_lang, data = lang_wide_std,
+                estimator = "MLR", std.lv = TRUE, missing = "fiml")
+print(fitMeasures(fit_lang, c("cfi","tli","rmsea","srmr")))
+
+layout_lang <- matrix(
+  byrow = TRUE, nrow = 3,
+  data = c(
+    "swr","sre","pa","trog","vocab", NA,  "age",
+    NA,    NA,   NA,  NA, NA, NA, NA,
+    NA,   "Language", NA,  NA,    NA, NA,  NA
+  )
+)
+
+p_lang <- tidySEM::graph_sem(
+  model      = fit_lang,
+  layout     = layout_lang,
+  text_size  = 3,
+  edge_label = "std",                 
+  show       = c("paths","loadings","residuals")
+)
+p_lang
+```
+
+
+
+
+
 
 # Adaptive task construction
 
