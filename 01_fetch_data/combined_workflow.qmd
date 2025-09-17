@@ -78,10 +78,10 @@ trials <- trials_prelim |>
   rlevante:::add_item_metadata() |>
   rlevante:::add_trial_numbers() |>
   arrange(.data$dataset, .data$task_id, .data$user_id, .data$run_id, .data$trial_number) |>
-  select("dataset", "task_id", "user_id", "run_id", "trial_id", "trial_number",
-         "item_uid", "item_task", "item_group", "item", "chance",
-         "correct", "rt", "rt_numeric", "response", "item_original", "answer",
-         "distractors", timestamp = "server_timestamp",
+  select("dataset", "task_id", "user_id", "run_id", "trial_id",
+         "trial_number", "item_uid", "item_task", "item_group", "item",
+         "chance", "correct", "rt", "rt_numeric", "response", "item_original",
+         "answer", "distractors", timestamp = "server_timestamp",
          "valid_trial", "validation_msg_trial")
   
 trial_data <- trials |>
