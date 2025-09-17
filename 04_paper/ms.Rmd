@@ -200,19 +200,51 @@ We end by discussing future plans for further internationalization and downward 
 
 # The LEVANTE core tasks
 
+
+```{r}
+task_time_summary <- read_csv(here("03_summaries/tables/task_time_summary.csv"))
+
+task_time_table <- task_time_summary |>
+  filter(!is.na(is_cat)) |>
+  filter(item_task %in% core_tasks) |>
+  mutate(site_label = site |> fct_recode(!!!site_labels),
+         adaptive = if_else(is_cat, "Adaptive", "Non-adaptive")) |>
+  left_join(task_map) |>
+  select(task, site_label, adaptive, median_diff) |>
+  pivot_wider(names_from = c(adaptive, site_label), values_from = median_diff) |>
+  select(task, starts_with("Non"), , starts_with("Adaptive")) |>
+  arrange(task)
+
+options(papaja.na_string = "–")
+task_time_table |>
+  papaja::apa_table(
+    col.names = c("Task", rep(c("Germany", "Colombia", "Canada"), 2)),
+    col_spanners = list("Non-adaptive" = c(2, 4), "Adaptive" = c(5, 7)),
+    align = c("l", rep("r", 6)),
+    caption = "Median task durations (minutes).")
+options(papaja.na_string = "NA")
+```
+
+
 The LEVANTE core tasks are implemented using jsPsych [@deleeuw] and can be presented in a web browser on a tablet or laptop, with responses possible using a touchscreen, keyboard, or mouse. Because of this variability in format of administration, they focus on response correctness not reaction time and so they are mostly untimed. The tasks are designed for simplicity and clarity so as to be accessible to children across a wide age range, and so with only modest exceptions, nearly all are in the format of a multi-alternative forced choice with a maximum of four choices. This uniformity of format means that in most cases instructions can be short and easy to understand, minimizing delays when the tasks are given in sequence as a battery. Figure \@ref{fig:tasks} shows screenshots from a number of tasks. In the remainder of this section, we briefly present each of the LEVANTE core tasks.
+
+General task lengths are described below and average task durations are given in Table \@ref(tab:durations). Because of our interest in testing children across a wide range of ages, we intentionally included trials that we anticipated would be both very easy and very hard for children. Overall we worried that this strategy would lead to frustration for children, however, so during pilot testing, we experimented with a number of different stopping rules. In early iterations of pilot testing in Bogota, Colombia, we ended tasks after three incorrect trials; we later modified this rule to end tasks after six incorrect trials. 
+
+All tasks are available for demonstration purposes at [http://researcher.levante-network.org](). Source code for the tasks is available at [https://github.com/levante-framework/core-tasks](). Task code and assets are licensed CC-BY-NC 4.0 for non-commercial reuse (including educational use by not-for-profit and governmental entities) with appropriate attribution. Please see repository license for more details.
 
 ## Language 
 
 ### Sentence Understanding
 
-The Test for Reception of Grammar (TROG) [@bishop1982] is a multiple-choice measure of receptive grammatical understanding. On each trial, the child hears a spoken sentence and is asked to select one of four pictures that best matches its meaning. The original test contained 20 blocks, each with four items assessing the same grammatical structure. In our adaptation (based on the original TROG, which was permissively licensed for reuse), we removed a small number of items due to changes in cultural norms. In addition, based on early pilot testing showing that many trials were easy for older children, we added a set of several dozen more challenging sentences. All illustrations were remade with details intended to be accessible across a broad range of cultures. 
+The Test for Reception of Grammar (TROG) [@bishop1982] is a multiple-choice measure of receptive grammatical understanding. On each trial, the child hears a spoken sentence and is asked to select one of four pictures that best matches its meaning. The original test contained 20 blocks, each with four items assessing the same grammatical structure. In our adaptation (based on the original TROG, which was permissively licensed for reuse), we removed a small number of items due to changes in cultural norms. In addition, based on early pilot testing showing that many trials were easy for older children, we added a set of several dozen more challenging sentences. All illustrations were remade with details intended to be accessible across a broad range of cultures. The task had 103 separate items.
 
 ### Vocabulary
 
-The Vocabulary task was developed as a non-commercial, open alternative to tasks such as the Peabody Picture Vocabulary [@peabody] and the NIH Toolbox Picture Vocabulary Task [@nihtoolbox]. 
+The Vocabulary task was developed as a non-commercial, open alternative to tasks such as the Peabody Picture Vocabulary [@peabody] and the NIH Toolbox Picture Vocabulary Task [@nihtoolbox]; see @long_ma_tan_silverman_frank_yeatman_2025 for more details. In this task, children are presented with a word and four pictures. Children must select the correct picture over the distractor picture. Targets and distractors were selected from the THINGS dataset [@hebart2019things], specifically from the permissively-licensed subset of the data. Each image had a semantically close and semantically far distractor as well as an unrelated distractor image (e.g., target word "acorn" with close distractor being a coconut, and the far and unrelated distractors being keys and laundry). The task included 170 total items. 
 
 ## Math
+
+We developed the Math task based on the EGMA (Early Grade Mathematics Assessment) [@egma]. This short, paper-and-pencil assessment is widely administered in international contexts for children ages 5--8 and includes number identification, number comparison, missing number, addition, and subtraction sub-tests. In our adaptation, we increased the breadth of the initial item bank, added multiplication, division, and fractions items to extend the age range up. We also added number line identification problems in which children had to place a marker on a number line across a range of different scales (including simpler 0--10 trials and more challenging larger scales as well as a fraction scale). Number line problems of this type have been suggested to be strongly related to math ability [@siegler other refs]. The primary version of this task included 275 items (though no child saw all of these) and the secondary version for retest purposes included an additional 237. 
 
 ## Reasoning
 
@@ -249,6 +281,8 @@ Initially designed in English, core tasks were subsequently adapted for Spanish 
 # Pilot Data Collection
 
 The pilot site partnership represents an integral component of the core task development. Across three countries and three languages, pilot sites provided collaboration on task adaptation and functionality, iterative task testing, and diverse settings for infrastructure deployment. Data collected from pilot sites allowed analyses of construct validity, measurement invariance, test-retest reliability, parameters for computer adaptive testing, and a demonstration of developmental growth measured by the tasks across constructs.  
+
+One key feature of the LEVANTE framework is that all data are completely de-identified, reducing legal and ethical obstacles to data sharing. No demographic information or other identifiers are ever entered into the LEVANTE dashboard by the sites, and ages are only given to a one month precision [@frank2025]. We anticipate that sites will add sociodemographic information into the dataset at a later time via an app that is currently under development that ensures that there is no statistical reidentification risk for  individuals (e.g., due to rare combinations of traits in a community). For this reason, here we provide only minimal demographic characterization and analysis of the children from our pilot sites.  
 
 ```{r data}
 # mefs <- read_rds(here("02_scoring_outputs", "scores", "scores_mefs.rds"))
@@ -706,8 +740,8 @@ cfa_1 <- '
 
 fit_1 <- cfa(cfa_1, data = vars_core_std,
              estimator = "MLR", std.lv = TRUE, missing = "fiml")
-print(summary(fit_1, fit.measures = TRUE, standardized = TRUE))
-head(lavaan::modindices(fit_1, sort.=TRUE, minimum.value=10), 15)
+# print(summary(fit_1, fit.measures = TRUE, standardized = TRUE))
+# head(lavaan::modindices(fit_1, sort.=TRUE, minimum.value=10), 15)
 
 ```
 
@@ -740,8 +774,8 @@ model_g <- '
 
 fit_g <- cfa(model_g, data = vars_core_std,
              estimator = "MLR", std.lv = TRUE, missing = "fiml")
-print(summary(fit_g, fit.measures = TRUE, standardized = TRUE))
-head(lavaan::modindices(fit_g, sort.=TRUE, minimum.value=10), 15)
+# print(summary(fit_g, fit.measures = TRUE, standardized = TRUE))
+# head(lavaan::modindices(fit_g, sort.=TRUE, minimum.value=10), 15)
 ```
 
 ```{r fig-semplot-g, echo=FALSE, message=FALSE, warning=FALSE, fig.width=6, fig.height=6, dpi=300, fig.align='center'}
@@ -814,7 +848,7 @@ z <- function(x) (x - mean(x, na.rm = TRUE)) / sd(x, na.rm = TRUE)
 ef_wide_std <- ef_wide_scores %>%
   mutate(across(all_of(vars_ef), ~ z(as.numeric(.x))))
 
-str(ef_wide_std[vars_ef])
+# str(ef_wide_std[vars_ef])
 ```
 
 ```{r sem fit, echo = FALSE, cache = TRUE}
@@ -825,8 +859,8 @@ executive_function ~ age
 
 fit_ef <- cfa(cfa_ef, data = ef_wide_std,
               estimator = "MLR", std.lv = TRUE, missing = "fiml")
-summary(fit_ef, fit.measures = TRUE, standardized = TRUE)
-print(fitMeasures(fit_ef, c("cfi","tli","rmsea","srmr")))
+# summary(fit_ef, fit.measures = TRUE, standardized = TRUE)
+# print(fitMeasures(fit_ef, c("cfi","tli","rmsea","srmr")))
 
 # plot
 layout_ef <- matrix(
@@ -903,7 +937,7 @@ Language ~ age
 
 fit_lang <- cfa(cfa_lang, data = lang_wide_std,
                 estimator = "MLR", std.lv = TRUE, missing = "fiml")
-print(fitMeasures(fit_lang, c("cfi","tli","rmsea","srmr")))
+# print(fitMeasures(fit_lang, c("cfi","tli","rmsea","srmr")))
 
 layout_lang <- matrix(
   byrow = TRUE, nrow = 3,
@@ -937,30 +971,6 @@ Many of the LEVANTE tasks have been adapted and piloted as CATs (Computerized Ad
 
 The LEVANTE CATs are configurable with respect to the initial value of theta and the conditions for ending the task. The starting theta is set at 0 for all CAT tasks currently in use, but can be lowered or raised according to the researcher’s prior expectation of participant ability, for example according to age. Current CAT implementations use stopping rules based on either time or number of items. TROG, Shape Rotation, and Vocabulary each have time limits currently set to 4 minutes, with Matrix Reasoning set to 6 minutes to allow for the increased time typically required to complete items in this task. Items in these tasks are presented together in a single block. Same Difference Selection and Math are each divided into three blocks presented sequentially, with per-block stopping based on number of items. These CATs select from the list of items specific to their current block and proceed to the next block once the target number of items is reached, maintaining one overarching ability estimate for the entire task. Same Difference Selection and Math have time limits of 6 minutes and 8 minutes, respectively. 
 
-
-```{r}
-task_time_summary <- read_csv(here("03_summaries/tables/task_time_summary.csv"))
-
-task_time_table <- task_time_summary |>
-  filter(!is.na(is_cat)) |>
-  filter(item_task %in% core_tasks) |>
-  mutate(site_label = site |> fct_recode(!!!site_labels),
-         adaptive = if_else(is_cat, "Adaptive", "Non-adaptive")) |>
-  left_join(task_map) |>
-  select(task, site_label, adaptive, median_diff) |>
-  pivot_wider(names_from = c(adaptive, site_label), values_from = median_diff) |>
-  select(task, starts_with("Non"), , starts_with("Adaptive")) |>
-  arrange(task)
-
-options(papaja.na_string = "–")
-task_time_table |>
-  papaja::apa_table(
-    col.names = c("Task", rep(c("Germany", "Colombia", "Canada"), 2)),
-    col_spanners = list("Non-adaptive" = c(2, 4), "Adaptive" = c(5, 7)),
-    align = c("l", rep("r", 6)),
-    caption = "Median task durations (minutes).")
-options(papaja.na_string = "NA")
-```
 
 
 # Discussion
