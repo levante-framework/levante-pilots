@@ -694,8 +694,9 @@ str(vars_core_std[vars_core])
 
 
 ```{r semplot, fig.width = 6, fig.height = 6}
-
 library(lavaan)
+library(semPlot)
+
 cfa_1 <- '
   reasoning =~ matrix + mrot
   ef        =~ hf + mg + sds + math
