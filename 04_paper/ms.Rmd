@@ -45,7 +45,7 @@ author:
     affiliation   : "5"  
   - name          : "Nilam Ram"
     affiliation   : "1"
-  - name          : "Benjamin Domingue"
+  - name          : "Benjamin W. Domingue"
     affiliation   : "1"    
   - name          : "Michael C. Frank"
     affiliation   : "1"
@@ -162,11 +162,11 @@ A final set of challenges has to do with accessibility. Many gold-standard measu
 
 In the context of these challenges, we describe the Learning Variability Network Exchange (LEVANTE) [@frank2025]. LEVANTE provides a technical framework for data collection: researchers can use the LEVANTE dashboard to assign both surveys and tasks to children, caregivers, and teachers. Data collected via the dashboard are harmonized and validated and become accessible through a data repository, first to the researchers who collect them and eventually -- through regular releases -- to the broader research community. Through a partnership with the Jacobs Foundation, sites around the world are funded to collect longitudinal data from children using the LEVANTE framework. The eventual goal of LEVANTE is to create a large dataset documenting children's learning and development across contexts. 
 
-The current manuscript introduces the LEVANTE core tasks, the behavioral measures for children developed for LEVANTE. In our initial development of the framework, we cast a broad net for important constructs in child development with well-accepted measures that had been used internationally. This process is described in @frank2025. The broad constructs that we selected were executive function, language, mathematics, reasoning, and social cognition, with these being instantiated through a number of well-accepted tasks. 
+The current manuscript introduces the LEVANTE core tasks, a suite of behavioral measures for children developed for LEVANTE. In our initial development of the framework, we cast a broad net for important constructs in child development with well-accepted measures that had been used internationally. This process is described in @frank2025. The broad constructs that we selected were executive function, language, mathematics, reasoning, and social cognition, with these being instantiated through a number of well-accepted tasks. 
 
-To create our core tasks, we selected pre-existing measures from the literature that tapped each of these constructs, when possible prioritizing measures with strong psychometric properties, previous use across a broad range of cultures, applicability across a broad range of ages, and lack of commercial or licensing constraints. This process yielded a series of measures, which we implemented in an open source web platform. Table \@ref(tab:tasks) shows these tasks, organized by construct. 
+To create our core tasks, we selected pre-existing measures from the literature that tapped each of these constructs. When possible we prioritied measures with strong psychometric properties, previous use across a broad range of cultures, applicability across a broad range of ages, and lack of commercial or licensing constraints. This process yielded a series of measures, which we implemented in an open source web platform. Table \@ref(tab:tasks) shows these tasks, organized by construct. 
 
-In addition to the constructs described above, we were also interested in the assessment of literacy. The LEVANTE core tasks battery makes use of a number of previously-validated literacy tasks from the Rapid Online Assessment of Reading [@yeatman2021] , including single word reading, sentence reading efficiency, and phonological awareness. We do not report on these tasks here, though we make use of them for validation of language measures. Similarly, we included a commercially-available broad measure of executive function, the Minnesota Executive Function Scale (MEFS) [@mefs] for validation purposes. 
+In addition to the constructs described above, we were also interested in the assessment of literacy. The LEVANTE core tasks battery makes use of a number of previously-validated literacy tasks from the Rapid Online Assessment of Reading [@yeatman2021] , including single word reading, sentence reading efficiency, and phonological awareness. We do not report on these tasks here, though we make use of them for validation of language measures. Similarly, we included a commercially-available broad measure of executive function, the Minnesota Executive Function Scale (MEFS) [@mefs], for validation purposes. 
  
 
 ```{r tasks, output="asis"}
@@ -220,6 +220,7 @@ The Vocabulary task was developed as a non-commercial, open alternative to tasks
 
 ### Shape Rotation
 
+  <!-- > [bd: note that we describe this as 'mental rotation' below] -->
 
 ## Executive Function
 
@@ -229,7 +230,7 @@ The Same Different Selection task (Obradovi\'c \& Sulik, year?) is designed to a
 
 ### Hearts and Flowers
 
-The Hearts and Flowers task (Davidson et al., 2006) assesses inhibitory control and cognitive flexibility in individuals aged 3.5 years to adulthood. Participants respond according to stimulus type: pressing a key on the same side as a heart (congruent rule), and on the opposite side for a flower (incongruent rule). The task includes three blocks - congruent (hearts only), incongruent (flowers only), and mixed (hearts and flowers). The congruent block serves as a baseline with minimal executive demands. Inhibitory control is typically measured via performance on the incongruent block, which requires overriding a spatially dominant response, while cognitive flexibility is assessed using the mixed block, which demands switching between rules based on the stimulus (Wright \& Diamond, 2014).
+The Hearts and Flowers task (Davidson et al., 2006) assesses inhibitory control and cognitive flexibility. Participants respond according to stimulus type: pressing a key on the same side as a heart (congruent rule), and on the opposite side for a flower (incongruent rule). The task includes three blocks - congruent (hearts only), incongruent (flowers only), and mixed (hearts and flowers). The congruent block serves as a baseline with minimal executive demands. Inhibitory control is typically measured via performance on the incongruent block, which requires overriding a spatially dominant response, while cognitive flexibility is assessed using the mixed block, which demands switching between rules based on the stimulus (Wright \& Diamond, 2014).which demands switching between rules based on the stimulus (Wright \& Diamond, 2014).
 
 ### Memory Game
 
@@ -243,7 +244,7 @@ The Corsi Block task is a widely used measure of visuospatial short-term memory 
 
 # Translation and Adaptation
 
-Initially designed in English, core tasks were subsequently adapted for Spanish and German following a set of internationalization procedures in collaboration with the sites collecting pilot data in Colombia and Germany. Files were first seeded with AI generated translations of task instructions, items, and other key terminology such as encouragement phrases that appear throughout the core tasks. A professional translator then reviewed and edited the AI translations prior to a pilot site representative confirming context and appropriateness to the task. Back translation using AI technology facilitated evaluation of meaning and context with discussion of items or wording as needed to ensure both cultural relevance and task integrity. For tasks evaluating language skills (e.g. Vocabulary; Sentence Understanding), an additional step was employed. Linguists with expertise in language acquisition reviewed items and made recommendations about relevant changes or additions specific to the Spanish and German languages.
+Initially designed in English, core tasks were subsequently adapted for Spanish and German following a set of internationalization procedures in collaboration with the sites collecting pilot data in Colombia and Germany. We began with AI-generated translations of task instructions, items, and other key terminology such as encouragement phrases that appear throughout the core tasks. A professional translator then reviewed and edited the AI translations prior to a pilot site representative confirming context and appropriateness to the task. Back translation using AI technology facilitated evaluation of meaning and context with discussion of items or wording as needed to ensure both cultural relevance and task integrity. For tasks evaluating language skills (e.g. Vocabulary; Sentence Understanding), an additional step was employed. Linguists with expertise in language acquisition reviewed items and made recommendations about relevant changes or additions specific to the Spanish and German languages.
 
 # Pilot Data Collection
 
@@ -276,9 +277,6 @@ coretask_scores <- included_scores |>
 
 coretask_firstrun_scores <- coretask_scores |>
   filter(run_number == 1)
-
-
-
 ```
 
 
@@ -349,7 +347,6 @@ papaja::apa_table(
 ```
 
 ## IRT Calibration and Model Selection
-
 
 ```{r model-selection-table, echo=FALSE, results='asis', message=FALSE, warning=FALSE}
 
@@ -459,15 +456,15 @@ if (knitr::is_latex_output()) {
   )
 }
 ```
-Across the set of LEVANTE core tasks, model calibration indicated that the Rasch model generally provided an adequate description of item responses. For the majority of tasks, item discriminations did not vary substantially, and the more parsimonious one-parameter specification was sufficient. In contrast, the Mental Rotation and Same–Different Selection tasks were better fit by the two-parameter logistic model, reflecting heterogeneity in how strongly items differentiated between children with higher and lower ability.
+Across the set of LEVANTE core tasks, model calibration indicated that the Rasch model generally provided an adequate description of item responses. For the majority of tasks, item discriminations did not vary substantially, and the more parsimonious one-parameter specification was sufficient. In contrast, the Shape Rotation and Same–Different Selection tasks were better fit by the two-parameter logistic model, reflecting heterogeneity in how strongly items differentiated between children with higher and lower ability.
 
-Estimates of marginal reliability further highlighted differences across tasks. Math, Matrix Reasoning, the Multigroup composite, Mental Rotation, and Same–Different Selection all achieved high reliability (rxx values above .80), suggesting that these measures provide stable and precise estimates of ability even in the pilot data. Vocabulary and Sentence Understanding (TROG) showed moderate reliability, consistent with tasks that are informative but may benefit from additional refinement. Two tasks—Hearts and Flowers and Theory of Mind—showed low reliability, indicating that the current implementations are limited in the amount of psychometric information they provide.
+Estimates of marginal reliability further highlighted differences across tasks. Math, Matrix Reasoning, the Multigroup composite, Shape Rotation, and Same–Different Selection all achieved high reliability (rxx values above .80), suggesting that these measures provide stable and precise estimates of ability even in the pilot data. Vocabulary and Sentence Understanding (TROG) showed moderate reliability, consistent with tasks that are informative but may benefit from additional refinement. Two tasks—Hearts and Flowers and Theory of Mind—showed low reliability, indicating that the current implementations are limited in the amount of psychometric information they provide.
 
 Taken together, these findings suggest that Rasch calibration is sufficient for most tasks, while allowing variable discriminations improves model fit for more heterogeneous tasks. The relatively high reliability of several tasks indicates their readiness for use in adaptive testing, whereas tasks with lower reliability will require further development and item revision before they can support valid cross-site comparisons.
 
 ## Multigroup Calibration and Measurement Invariance 
 
-To evaluate the comparability of task scores across sites, we estimated a sequence of multigroup IRT models in which increasingly restrictive constraints were applied to item parameters. At the configural level, the same factor structure was specified in each group, but parameters were freely estimated. This model served as a baseline for subsequent comparisons. Moving to the metric level, item discriminations were constrained to equality across groups, while difficulties remained free. At the scalar level, both discriminations and difficulties were constrained to equality, imposing the strongest form of invariance.
+To evaluate the comparability of task scores across sites, we estimated a sequence of multigroup IRT models in which increasingly restrictive constraints were applied to item parameters. At the configural level, the same factor structure was specified in each group, but parameters were freely estimated [bd edit: i'm finding myself a little confused here. to the extent that we are running UD models, what would this mean?]. This model served as a baseline for subsequent comparisons. Moving to the metric level, item discriminations were constrained to equality across groups, while difficulties remained free. At the scalar level, both discriminations and difficulties were constrained to equality, imposing the strongest form of invariance.
 
 Model comparisons were conducted using differences in the Bayesian Information Criterion ($\Delta$BIC), supplemented by likelihood ratio tests where applicable. Scalar invariance was retained when $\Delta$BIC values indicated no meaningful loss of fit relative to less constrained models. In such cases, items functioned equivalently across sites, supporting the use of a single scoring scale. When only metric invariance was supported, items showed comparable slopes across groups but differed in their difficulty estimates, suggesting that cross-site comparisons are possible but may require adjustment for baseline differences. In cases where only configural invariance held, tasks exhibited group-specific patterns of item functioning, highlighting the need for further adaptation and validation before pooled analyses can be conducted.
 
@@ -600,6 +597,8 @@ options(papaja.na_string = "NA")
 ```
 
 ### Test-retest
+<!-- > ### Test-retest [bd edit: can we put correlations in each panel?  ] -->
+
 
 ```{r, output="asis"}
 de_retest_scores <- coretask_scores |> 
@@ -655,7 +654,7 @@ ggplot(retest_wide, aes(x = run_1, y = run_2, color = age)) +
 
 SEMs within each construct for language, number, EF?
 
-```{r prep for sem, include = FALSE}
+```{r prep-sem, include=FALSE, cache=TRUE}
 
 # one row per user (metadata + task scores from first run)
 meta <- coretask_firstrun_scores %>%
@@ -693,9 +692,10 @@ str(vars_core_std[vars_core])
 ```
 
 
-```{r semplot, fig.width = 6, fig.height = 6}
-
+```{r semplot, echo = FALSE, cache = TRUE, fig.width = 6, fig.height = 6}
 library(lavaan)
+library(semPlot)
+
 cfa_1 <- '
   reasoning =~ matrix + mrot
   ef        =~ hf + mg + sds + math
@@ -709,14 +709,29 @@ fit_1 <- cfa(cfa_1, data = vars_core_std,
 print(summary(fit_1, fit.measures = TRUE, standardized = TRUE))
 head(lavaan::modindices(fit_1, sort.=TRUE, minimum.value=10), 15)
 
-semPlot::semPaths(fit_1, whatLabels="std",
-                  residuals=FALSE, intercepts=FALSE,
-                  layout="tree")
+```
+
+```{r fig-semplot-main, echo=FALSE, message=FALSE, warning=FALSE, fig.width=6, fig.height=6, dpi=300, fig.align='center'}
+
+semPlot::semPaths(
+  fit_1,
+  whatLabels = "std",
+  residuals  = FALSE,
+  intercepts = FALSE,
+  layout     = "tree",
+  # text sizes
+  label.cex       = 1.2,   
+  edge.label.cex  = 1,   
+  sizeMan = 7,
+  sizeLat = 7,
+  nCharNodes = 0,          
+  mar = c(6,6,6,6)       
+)
 ```
 
 factors are very highly correlated - try with g factor
 
-```{r}
+```{r second fit, echo = FALSE, cache = TRUE}
 model_g <- '
   reasoning =~ matrix + mrot
   ef        =~ hf + mg + sds + math
@@ -727,80 +742,24 @@ fit_g <- cfa(model_g, data = vars_core_std,
              estimator = "MLR", std.lv = TRUE, missing = "fiml")
 print(summary(fit_g, fit.measures = TRUE, standardized = TRUE))
 head(lavaan::modindices(fit_g, sort.=TRUE, minimum.value=10), 15)
-
-semPlot::semPaths(fit_g, whatLabels="std",
-                  residuals=FALSE, intercepts=FALSE,
-                  layout="tree")
 ```
 
-Checking Indices and loadings across both fit_1 and g
+```{r fig-semplot-g, echo=FALSE, message=FALSE, warning=FALSE, fig.width=6, fig.height=6, dpi=300, fig.align='center'}
 
-```{r}
-# compare
-fitMeasures(fit_1, c("cfi","tli","rmsea","srmr","chisq","df"))
-fitMeasures(fit_g, c("cfi","tli","rmsea","srmr","chisq","df"))
-
-# loadings, fit_1
-pe <- parameterEstimates(fit_1, standardized = TRUE)
-pe_g <- parameterEstimates(fit_g, standardized = TRUE)
-
-loadings_fit_1 <- pe %>%
-  filter(op == "=~") %>%
-  transmute(factor = lhs, item = rhs,
-            lambda = std.all, p = pvalue)
-print(loadings_fit_1)
-
-# loadings, fit_g
-loadings_fit_g <- pe_g %>%
-  filter(op == "=~") %>%
-  transmute(factor = lhs, item = rhs,
-            lambda = std.all, p = pvalue)
-print(loadings_fit_g)
-
-# Convergent validity (AVE) and Internal consistency (CR) - fit_1
-theta_tbl_fit_1 <- pe %>%
-  filter(op == "~~", lhs == rhs, rhs %in% vars_core) %>%
-  transmute(item = rhs, theta = std.all)
-
-ave_cr_fit_1 <- loadings_fit_1 %>%
-  left_join(theta_tbl_fit_1, by = "item") %>%
-  group_by(factor) %>%
-  summarise(
-    n   = n(),
-    AVE = mean(lambda^2, na.rm = TRUE),
-    CR  = (sum(lambda, na.rm = TRUE)^2) /
-          ((sum(lambda, na.rm = TRUE)^2) + sum(theta, na.rm = TRUE)),
-    .groups = "drop"
-  ) %>%
-  mutate(across(c(AVE, CR), ~ round(., 3)))
-
-print(ave_cr_fit_1)     # Rule: AVE ≥ .50, CR ≥ .70 # sds causing ef factor to be lower on both AVE and CR.
-
-# Convergent validity (AVE) and Internal consistency (CR) - fit_g
-theta_tbl_g <- pe_g %>%
-  filter(op == "~~", lhs == rhs, rhs %in% vars_core) %>%
-  transmute(item = rhs, theta = std.all)
-
-ave_cr_g <- loadings_fit_g %>%
-  left_join(theta_tbl_g, by = "item") %>%
-  group_by(factor) %>%
-  summarise(
-    n   = n(),
-    AVE = mean(lambda^2, na.rm = TRUE),
-    CR  = (sum(lambda, na.rm = TRUE)^2) /
-          ((sum(lambda, na.rm = TRUE)^2) + sum(theta, na.rm = TRUE)),
-    .groups = "drop"
-  ) %>%
-  mutate(across(c(AVE, CR), ~ round(., 3)))
-
-print(ave_cr_g) 
-
-```
-
-Invariance testing?
-
-```{r}
-
+semPlot::semPaths(
+  fit_g,
+  whatLabels = "std",
+  residuals  = FALSE,
+  intercepts = FALSE,
+  layout     = "tree",
+  # text sizes
+  label.cex       = 1.2,   
+  edge.label.cex  = .8,   
+  sizeMan = 7,
+  sizeLat = 7,
+  nCharNodes = 0,          
+  mar = c(6,6,6,6)       
+)
 ```
 
 ### External validity
@@ -811,7 +770,7 @@ MEFS and ROAR
 
 Executive Function
 
-```{r fig.width = 6, fig.height = 4}
+```{r prep for sem - ef, echo = FALSE, cache = TRUE}
 
 ef_tasks <- c("hf","mg","sds","mefs")
 
@@ -856,7 +815,9 @@ ef_wide_std <- ef_wide_scores %>%
   mutate(across(all_of(vars_ef), ~ z(as.numeric(.x))))
 
 str(ef_wide_std[vars_ef])
+```
 
+```{r sem fit, echo = FALSE, cache = TRUE}
 cfa_ef <-  '
 executive_function =~ hf + mg + sds + mefs
 executive_function ~ age
@@ -864,11 +825,8 @@ executive_function ~ age
 
 fit_ef <- cfa(cfa_ef, data = ef_wide_std,
               estimator = "MLR", std.lv = TRUE, missing = "fiml")
-
 summary(fit_ef, fit.measures = TRUE, standardized = TRUE)
-
 print(fitMeasures(fit_ef, c("cfi","tli","rmsea","srmr")))
-
 
 # plot
 layout_ef <- matrix(
@@ -879,20 +837,22 @@ layout_ef <- matrix(
      NA,  NA, "executive_function", NA, NA, NA
   )
 )
+```
 
-p_ef <- tidySEM::graph_sem(
+```{r fig-semplot-ef, echo=FALSE, message=FALSE, warning=FALSE, fig.width=6, fig.height=6, dpi=300, fig.align='center'}
+
+tidySEM::graph_sem(
   model = fit_ef,
   layout = layout_ef,
   text_size = 3,
   edge_label = "std"
 )
-p_ef
-
 ```
 
 Language
 
-```{r fig.width = 6, fig.height = 4}
+```{r prep for sem, echo = FALSE, cache = TRUE}
+
 lang_vars <- c("swr","sre","pa","vocab","trog")
 
 # first run per user–task
@@ -932,7 +892,9 @@ lang_wide_scores <- lang_wide_scores %>%
 z <- function(x) (x - mean(x, na.rm = TRUE)) / sd(x, na.rm = TRUE)
 lang_wide_std <- lang_wide_scores %>%
   mutate(across(all_of(intersect(lang_vars, names(.))), ~ z(as.numeric(.x))))
+```
 
+```{r sem fit - lang, echo = FALSE, cache = TRUE}
 # model
 cfa_lang <-  '
 Language =~ swr + sre + pa + trog + vocab
@@ -951,29 +913,29 @@ layout_lang <- matrix(
     NA,   "Language", NA,  NA,    NA, NA,  NA
   )
 )
+```
 
-p_lang <- tidySEM::graph_sem(
+```{r fig-semplot-lang, echo=FALSE, message=FALSE, warning=FALSE, fig.width=6, fig.height=6, dpi=300, fig.align='center'}
+
+tidySEM::graph_sem(
   model      = fit_lang,
   layout     = layout_lang,
   text_size  = 3,
   edge_label = "std",                 
   show       = c("paths","loadings","residuals")
 )
-p_lang
+
 ```
-
-
-
-
-
 
 # Adaptive task construction
 
-Many of the LEVANTE tasks have been adapted and piloted as CATs (Computerized Adaptive Tests). To date, these include the Test For Reception of Grammar (TROG), Vocabulary, Mental Rotation, Matrix Reasoning, Same Difference Selection, and Math. These tasks maintain an ability score, theta, as an estimate of the participant’s skill level that is updated at the end of each trial. They then present participants with the item best suited to their estimated ability, which both improves test-taker experience and yields more information on participant skill per item, allowing for a shorter task with fewer items. 
+<!-- [bd edit: are we planning to actually specify the models we're using somewhere? would clarify meaning here (and be generally helpful)] -->
+Many of the LEVANTE tasks have been adapted and piloted as CATs (Computerized Adaptive Tests). To date, these include the Test For Reception of Grammar (TROG), Vocabulary, Shape Rotation, Matrix Reasoning, Same Difference Selection, and Math. These tasks maintain an ability score, theta, as an estimate of the participant’s skill level that is updated at the end of each trial. They then present participants with the item best suited to their estimated ability, which both improves test-taker experience and yields more information on participant skill per item, allowing for a shorter task with fewer items. 
 
-The CAT tasks use an adaptive algorithm made available by the jsCat JavaScript library [@ma2025], which offers an implementation of an Item Response Theory (IRT) model including up to 4 parameters: discrimination, a value representing the item’s informativeness in distinguishing high and low ability test-takers, guessing, the probability of selecting the correct response at random, upper asymptote, the maximum likelihood of a correct answer, and difficulty. The present LEVANTE CAT implementation varies difficulty and guessing for each item while holding both discrimination and upper asymptote constant at 1. Items are selected based on Maximum Fisher Information, and theta is updated according to a maximum likelihood estimator, with limits of -6 and 6. 
+<!-- [bd edit: i'd cut this bit about the 4 params esp given that we haven't really talked much about item params above in the general case] -->
+ The CAT tasks use an adaptive algorithm made available by the jsCat JavaScript library [@ma2025], which offers an implementation of an Item Response Theory (IRT) model including up to 4 parameters: discrimination, a value representing the item’s informativeness in distinguishing high and low ability test-takers, guessing, the probability of selecting the correct response at random, upper asymptote, the maximum likelihood of a correct answer, and difficulty. The present LEVANTE CAT implementation varies difficulty and guessing for each item while holding both discrimination and upper asymptote constant at 1. Items are selected based on Maximum Fisher Information, and theta is updated according to a maximum likelihood estimator, with limits of -6 and 6. 
 
-The LEVANTE CATs are configurable with respect to the initial value of theta and the conditions for ending the task. The starting theta is set at 0 for all CAT tasks currently in use, but can be lowered or raised according to the researcher’s prior expectation of participant ability, for example according to age. Current CAT implementations use stopping rules based on either time or number of items. TROG, Mental Rotation, and Vocabulary each have time limits currently set to 4 minutes, with Matrix Reasoning set to 6 minutes to allow for the increased time typically required to complete items in this task. Items in these tasks are presented together in a single block. Same Difference Selection and Math are each divided into three blocks presented sequentially, with per-block stopping based on number of items. These CATs select from the list of items specific to their current block and proceed to the next block once the target number of items is reached, maintaining one overarching ability estimate for the entire task. Same Difference Selection and Math have time limits of 6 minutes and 8 minutes, respectively. 
+The LEVANTE CATs are configurable with respect to the initial value of theta and the conditions for ending the task. The starting theta is set at 0 for all CAT tasks currently in use, but can be lowered or raised according to the researcher’s prior expectation of participant ability, for example according to age. Current CAT implementations use stopping rules based on either time or number of items. TROG, Shape Rotation, and Vocabulary each have time limits currently set to 4 minutes, with Matrix Reasoning set to 6 minutes to allow for the increased time typically required to complete items in this task. Items in these tasks are presented together in a single block. Same Difference Selection and Math are each divided into three blocks presented sequentially, with per-block stopping based on number of items. These CATs select from the list of items specific to their current block and proceed to the next block once the target number of items is reached, maintaining one overarching ability estimate for the entire task. Same Difference Selection and Math have time limits of 6 minutes and 8 minutes, respectively. 
 
 
 ```{r}
