@@ -4,28 +4,28 @@
 # to the LAST row of the item bank rather than the actual item that was presented 
 # to the child. to fix this, we use these responses to look up the actual answer and rwo. 
 
-library(redivis)
-
-recode_de_v19 <- function(df) {
-  
-  user <- redivis$user("levante")
-  dataset <- user$dataset("pilot_leuphana_de_main:6c0n:v7_2")
-  runs_table <- dataset$table("runs:daw2")
-  trials_table <- dataset$table("trials:chpv")
-  
-  # Load original redivis tables as tidyverse tibble
-  raw_runs <- runs_table$to_tibble()
-
-  affected_runs <- raw_runs |> 
-    filter(task_version == "1.0.0-beta.19", 
-           task_id %in% c("matrix-reasoning",
-                          "mental-rotation",
-                          "theory-of-mind"))
-  
-  # remove trials from these runs
-  removed <- filter(df, !(trial_id %in% affected_trials$trial_id))
-  
-  return(removed)
+# library(redivis)
+# 
+# recode_de_v19 <- function(df) {
+#   
+#   user <- redivis$user("levante")
+#   dataset <- user$dataset("pilot_leuphana_de_main:6c0n:v7_2")
+#   runs_table <- dataset$table("runs:daw2")
+#   trials_table <- dataset$table("trials:chpv")
+#   
+#   # Load original redivis tables as tidyverse tibble
+#   raw_runs <- runs_table$to_tibble()
+# 
+#   affected_runs <- raw_runs |> 
+#     filter(task_version == "1.0.0-beta.19", 
+#            task_id %in% c("matrix-reasoning",
+#                           "mental-rotation",
+#                           "theory-of-mind"))
+#   
+#   # remove trials from these runs
+#   removed <- filter(df, !(trial_id %in% affected_trials$trial_id))
+#   
+#   return(removed)
   
   # 
   # 
@@ -89,7 +89,7 @@ recode_de_v19 <- function(df) {
   #          true_correct = true_response == true_answer)
   #   
     
-}
+# }
 
 
 # special for SDS, code too fast/slow RTs as incorrect

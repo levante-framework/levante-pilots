@@ -19,18 +19,21 @@ trial_data_coded <- trial_data |>
   mutate(original_correct = correct, .after = correct) |>
   recode_hf() |>
   recode_sds() |>
-  recode_de_v19() |>
+  # recode_de_v19() |>
   recode_slider(threshold = slider_threshold) |>
   mutate(chance = if_else(item_group == "slider", 1 / slider_threshold / 100, chance),
          chance = chance |> replace_na(0))
 ```
 
 ```{r}
-# filter to runs completed and no straightlining (except for us_pilot)
 runs_filtered <- run_data |>
   mutate(validation_msg_run = validation_msg_run |> replace_na(""),
          straightlining = str_detect(validation_msg_run, "straightlining")) |>
+  # filter to runs completed and no straightlining (except for us_pilot)
   filter(site == "us_pilot" | (completed & !straightlining)) |>
+  # filter out task version with known bug
+  filter(!(task_version == "1.0.0-beta.19" &
+             task_id %in% c("matrix-reasoning", "mental-rotation", "theory-of-mind"))) |>
   # take each user's first run of each task in each administration
   group_by(user_id, task_id, variant_id, administration_id) |>
   arrange(time_started) |>
@@ -41,7 +44,7 @@ write_rds(runs_filtered, here("01_fetched_data/runs_filtered.rds"),
 
 # filter trials to above runs, filter out too slow/fast RTs
 trial_data_filtered <- trial_data_coded |>
-  inner_join(runs_filtered |> select(run_id, language)) |>
+  inner_join(runs_filtered |> select(run_id, task_version, language)) |>
   mutate(validation_msg_trial = validation_msg_trial |> replace_na(""),
          slow_rt = rt_numeric > 30000,
          fast_rt = str_detect(validation_msg_trial, "fast")) |>
