@@ -686,6 +686,11 @@ ggplot(retest_wide, aes(x = run_1, y = run_2, color = age)) +
 ## Validity 
 ### Construct validity
 
+<<<<<<< HEAD
+=======
+Text to be added.
+
+>>>>>>> a987bf9 (updates to validity section)
 ```{r prep-sem, include=FALSE, cache=TRUE}
 
 # one row per user (metadata + task scores from first run)
@@ -723,6 +728,7 @@ str(vars_core_std[vars_core])
 
 ```
 
+<<<<<<< HEAD
 ```{r cfa, main model, include=FALSE, cache=TRUE}
 cfa_1 <- '
   reasoning =~ matrix + mrot
@@ -752,11 +758,57 @@ semPlot::semPaths(
   label.cex=1.2, edge.label.cex=1, edge.label.bg=TRUE,
   nDigits=1, nCharNodes=0,
   mar=c(6,6,6,6)
+=======
+```{r fit for sem, include = FALSE, cache = TRUE}
+
+library(lavaan)
+model_1 <- '
+  # measurement
+  reasoning =~ matrix + mrot
+  ef        =~ hf + mg + sds
+  language  =~ trog + vocab
+
+  # age effects
+  reasoning ~ age
+  ef        ~ age
+  language  ~ age
+  math      ~ age
+  tom       ~ age
+'
+fit_1 <- sem(model_1, data = vars_core_std,
+           estimator = "MLR", missing = "fiml", std.lv = TRUE)
+print(summary(fit_1, fit.measures = TRUE, standardized = TRUE))
+head(lavaan::modindices(fit_1, sort.=TRUE, minimum.value=10), 15)
+
+```
+
+```{r fig-semplot-main,fig.width=15, fig.height=12}
+semPlot::semPaths(
+  fit_1,
+  what="mod", 
+  whatLabels="std",
+  style="ram", 
+  layout="tree2", 
+  rotation=3,
+  intercepts=FALSE, 
+  residuals=FALSE, 
+  thresholds=FALSE,
+  exoCov = FALSE,          
+  curvePivot = FALSE,      
+  # sizes
+  sizeMan=8, sizeLat=12, sizeInt=8,
+  sizeMan2=6, sizeLat2=6, sizeInt2=1,
+  # labels
+  label.cex=1, edge.label.cex=1, edge.label.bg=TRUE, nDigits=1,
+  nCharNodes = 0,          # don’t truncate node labels 
+  mar=c(4,4,4,4)
+>>>>>>> a987bf9 (updates to validity section)
 )
 ```
 
-factors are very highly correlated - try with g factor
+factors are very highly correlated - try with g factor (with age)
 
+<<<<<<< HEAD
 ```{r second fit, echo = FALSE, cache = TRUE}
 model_g_no_age <- "
   # first order factors
@@ -774,9 +826,31 @@ model_g_no_age <- "
 fit_g <- cfa(model_g_no_age, data = vars_core_std,
              estimator = "MLR", std.lv = TRUE, missing = "fiml")
 print(summary(fit_g, fit.measures = TRUE, standardized = TRUE))
+=======
+```{r second fit, include=FALSE, cache=TRUE}
+
+model_g_no_age <- "
+  # first-order factors
+  reasoning =~ matrix + mrot
+  ef =~ hf + mg + sds
+  language =~ trog + vocab
+
+  # second-order g
+  g =~ reasoning + ef + language
+
+  # observed outcomes linked to g
+  math ~ g
+  tom  ~ g"
+
+fit_g <- sem(model_g_no_age, data = vars_core_std,
+             estimator = "MLR", missing = "fiml", std.lv = TRUE)
+print(summary(fit_g, fit.measures = TRUE, standardized = TRUE, rsquare = TRUE))
+>>>>>>> a987bf9 (updates to validity section)
 head(lavaan::modindices(fit_g, sort.=TRUE, minimum.value=10), 15)
+
 ```
 
+<<<<<<< HEAD
 ```{r add age, echo = FALSE, cache = TRUE}
 model_g_age <- paste0(model_g_no_age, "\n g ~ age")
 
@@ -790,12 +864,23 @@ head(lavaan::modindices(fit_g_age, sort.=TRUE, minimum.value=10), 15)
 ```
 
 ```{r fig-semplot-g}
+=======
+```{r add age to sem, include=FALSE, cache=TRUE}
+model_g_age <- paste0(model_g_no_age, "\n g ~ age")
+fit_g_age <- sem(model_g_age, data = vars_core_std,
+                 estimator = "MLR", missing = "fiml", std.lv = TRUE)
+print(summary(fit_g_age, fit.measures = TRUE, standardized = TRUE, rsquare = TRUE))
+head(lavaan::modindices(fit_g_age, sort.=TRUE, minimum.value=10), 15)
+```
+>>>>>>> a987bf9 (updates to validity section)
 
+```{r fig-semplot-g}
 semPlot::semPaths(
   fit_g_age,
   whatLabels = "std",
   residuals  = FALSE,
   intercepts = FALSE,
+<<<<<<< HEAD
   layout     = "tree2",
   # text sizes
   label.cex       = 1.2,   
@@ -804,6 +889,16 @@ semPlot::semPaths(
   sizeLat = 9,
   nCharNodes = 0,
   nDigits=2,
+=======
+  thresholds = FALSE,
+  layout     = "tree2",
+  # text sizes
+  label.cex       = 1.2,   
+  edge.label.cex  = 1,   
+  sizeMan =6,
+  sizeLat = 10,
+  nCharNodes = 0,          
+>>>>>>> a987bf9 (updates to validity section)
   mar = c(6,6,6,6)       
 )
 ```
@@ -812,7 +907,7 @@ semPlot::semPaths(
 
 Executive Function
 
-```{r prep for sem - ef, echo = FALSE, cache = TRUE}
+```{r prep for sem - ef, include = FALSE, cache = TRUE}
 
 ef_tasks <- c("hf","mg","sds","mefs")
 
@@ -859,7 +954,7 @@ ef_wide_std <- ef_wide_scores %>%
 # str(ef_wide_std[vars_ef])
 ```
 
-```{r sem fit, echo = FALSE, cache = TRUE}
+```{r sem fit, include = FALSE, cache = TRUE}
 cfa_ef <-  '
 executive_function =~ hf + mg + sds + mefs
 executive_function ~ age
@@ -893,7 +988,7 @@ tidySEM::graph_sem(
 
 Language
 
-```{r prep for sem, echo = FALSE, cache = TRUE}
+```{r prep for sem, include = FALSE, cache = TRUE}
 
 lang_vars <- c("swr","sre","pa","vocab","trog")
 
@@ -936,7 +1031,7 @@ lang_wide_std <- lang_wide_scores %>%
   mutate(across(all_of(intersect(lang_vars, names(.))), ~ z(as.numeric(.x))))
 ```
 
-```{r sem fit - lang, echo = FALSE, cache = TRUE}
+```{r sem fit - lang, include = FALSE, cache = TRUE}
 # model
 cfa_lang <-  '
 Language =~ swr + sre + pa + trog + vocab
