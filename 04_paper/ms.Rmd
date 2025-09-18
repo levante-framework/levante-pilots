@@ -205,6 +205,21 @@ We end by discussing future plans for further internationalization and downward 
 
 ```{r}
 task_time_summary <- read_csv(here("03_summaries/tables/task_time_summary.csv"))
+site_labels <- c("Canada" = "pilot_western_ca",
+                 "Colombia" = "pilot_uniandes_co",
+                 "Germany" = "pilot_leuphana_de")
+all_scores <- readRDS(here("02_scoring_outputs","scores","scores_combined.rds")) |>
+  # bind_rows(mefs) |>
+  group_by(user_id, item_task) |>
+  arrange(time_started) |>
+  mutate(run_number = 1:n(),
+         age_gap = age - age[1]) |>
+  ungroup() |>
+  mutate(site_label = site |> fct_recode(!!!site_labels)) |>
+  mutate(task = task |> str_to_title() |> fct_inorder(),
+         task_category = task_category |> str_to_title() |> fct_inorder())
+
+task_map <- all_scores |> distinct(item_task, task)
 
 task_time_table <- task_time_summary |>
   filter(!is.na(is_cat)) |>
@@ -289,20 +304,7 @@ One key feature of the LEVANTE framework is that all data are completely de-iden
 ```{r data}
 # mefs <- read_rds(here("02_scoring_outputs", "scores", "scores_mefs.rds"))
 
-site_labels <- c("Canada" = "pilot_western_ca",
-                 "Colombia" = "pilot_uniandes_co",
-                 "Germany" = "pilot_leuphana_de")
 
-all_scores <- readRDS(here("02_scoring_outputs","scores","scores_combined.rds")) |>
-  # bind_rows(mefs) |>
-  group_by(user_id, item_task) |>
-  arrange(time_started) |>
-  mutate(run_number = 1:n(),
-         age_gap = age - age[1]) |>
-  ungroup() |>
-  mutate(site_label = site |> fct_recode(!!!site_labels)) |>
-  mutate(task = task |> str_to_title() |> fct_inorder(),
-         task_category = task_category |> str_to_title() |> fct_inorder())
 
 included_scores <- all_scores |>
   filter(!is.na(age), age >= 5, age <= 12) |>
@@ -606,7 +608,6 @@ ggplot(coretask_scores, aes(x = age, y = metric_value)) +
 ```{r}
 task_rxx <- read_rds(here("02_scoring_outputs", "task_rxx.rds"))
 
-task_map <- all_scores |> distinct(item_task, task)
 
 task_rxx_table <- task_rxx |>
   rename(item_task = task) |>
