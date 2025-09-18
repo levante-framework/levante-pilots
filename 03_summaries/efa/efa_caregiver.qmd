@@ -435,3 +435,96 @@ caregiver_tidy <- efa_plot_fscore$data
 combined_plot <- efa_plot_fscore$plot
 #ggsave(here::here(paste0("03_summaries/efa/fig/", gsub("[/\"']", "_", formi), ".png")), width = 8, height = 8, dpi = 300)
 ```
+
+
+# EFA for 60 items on child health / emotion
+
+```{r}
+
+items60 <- c(
+  "ChildSDQ2", "ChildSDQ3", "ChildSDQ6", "ChildSDQ8", "ChildSDQ10", "ChildSDQ11",
+  "ChildSDQ13", "ChildSDQ14", "ChildSDQ15", "ChildSDQ16", "ChildSDQ17", "ChildSDQ18",
+  "ChildSDQ22", "ChildSDQ23", "ChildSDQ24",
+  "ChildSCS1", "ChildSCS2", "ChildSCS3", "ChildSCS4", "ChildSCS5", "ChildSCS6",
+  "ChildSCS7", "ChildSCS8", "ChildSCS9", "ChildSCS10", "ChildSCS11", "ChildSCS12",
+  "ChildCBQ1", "ChildCBQ2", "ChildCBQ3", "ChildCBQ4", "ChildCBQ5", "ChildCBQ6",
+  "ChildCBQ7", "ChildCBQ9", "ChildCBQ10", "ChildCBQ11",
+  "ChildJukes1", "ChildJukes2", "ChildJukes3", "ChildJukes4", "ChildJukes5",
+  "ChildJukes6", "ChildJukes7", "ChildJukes8", "ChildJukes9", "ChildJukes10",
+  "ChildJukes11", "ChildJukes12", "ChildJukes13", "ChildJukes14", "ChildJukes15",
+  "ChildJukes16", "ChildJukes17", "ChildJukes18", "ChildJukes19", "ChildJukes20",
+  "ChildFriends", "ChildBullied", "ChildBullyOthers"
+)
+
+
+# Remove prolific site
+caregiver_data_noprolific <- caregiver_data %>%
+  filter(site != "prolific")
+
+# Keep only the 60 selected items
+caregiver_items60 <- caregiver_data_noprolific %>%
+  filter(variable %in% items60)  %>%
+  select(site, user_id, child_id, variable, value) %>%
+  group_by(site, user_id, child_id) %>%
+  filter(n() == 1 | !duplicated(variable)) %>%  # remove duplicate responses
+  ungroup() %>%
+  pivot_wider(
+    names_from = variable,
+    values_from = value
+  )
+
+# Scale the 60-item wide data (excluding IDs)
+caregiver_items60_scaled <-  caregiver_items60 %>%
+  select(-site, -user_id, -child_id) %>%
+  scale(center = TRUE, scale = TRUE) %>%
+  as.data.frame()
+
+formi <- "AllSites_60items"
+
+# Use the scaled wide-format data directly
+subconstruct <- caregiver_items60_scaled
+
+# Parallel analysis
+fa.parallel(subconstruct, fa = "both", n.iter = 100, plot = FALSE)
+
+# Scree plot
+scree(subconstruct, factors = TRUE, pc = FALSE,
+      main = paste0("All sites: ", formi))
+
+# Choose number of factors - change point at 5
+nfactors <- 5  
+
+# Run EFA
+EFAresult <- factanal(~ ., data = caregiver_items60_scaled,
+                      factors = nfactors,
+                      scores = "regression",
+                      rotation = "promax",
+                      na.action = na.exclude)
+
+# Prepare loadings
+loadings_df <- loadmax(EFAresult$loadings, caregiver_items60_scaled)
+
+# Plot max loading per item
+p <- plot_load(loadings_df, formi) +
+  theme(legend.position = "right")
+print(p)
+
+
+```
+
+
+```{r}
+# Compute correlation matrix
+cor_mat <- cor(caregiver_items60_scaled, use = "pairwise.complete.obs")
+
+# Plot with corrplot
+corrplot(cor_mat, method = "color",
+         type = "full",       # full matrix (not upper/lower triangle only)
+         order = "hclust",    # cluster similar items
+         tl.cex = 0.6,        # text size for item labels
+         tl.col = "black",    # label color
+         col =  colorRampPalette(c(pal$blue, "white", pal$red))(200),
+         mar = c(0,0,1,0),
+         title = "Correlation Matrix of 60 Items (All Sites)")
+
+```
