@@ -750,7 +750,7 @@ semPlot::semPaths(
   sizeMan2=5, sizeLat2=5, sizeInt2=4,
   # bigger text
   label.cex=1.2, edge.label.cex=1, edge.label.bg=TRUE,
-  nDigits=2, nCharNodes=0,
+  nDigits=1, nCharNodes=0,
   mar=c(6,6,6,6)
 )
 ```
@@ -758,7 +758,7 @@ semPlot::semPaths(
 factors are very highly correlated - try with g factor
 
 ```{r second fit, echo = FALSE, cache = TRUE}
-model_g_no_age <- '
+model_g_no_age <- "
   # first order factors
   reasoning =~ matrix + mrot
   ef        =~ hf + mg + sds + math
@@ -769,7 +769,7 @@ model_g_no_age <- '
 
   # observed outcomes
   math ~ g
-  tom ~ g'
+  tom ~ g"
 
 fit_g <- cfa(model_g_no_age, data = vars_core_std,
              estimator = "MLR", std.lv = TRUE, missing = "fiml")
@@ -792,7 +792,7 @@ head(lavaan::modindices(fit_g_age, sort.=TRUE, minimum.value=10), 15)
 ```{r fig-semplot-g}
 
 semPlot::semPaths(
-  fit_g,
+  fit_g_age,
   whatLabels = "std",
   residuals  = FALSE,
   intercepts = FALSE,
@@ -802,7 +802,8 @@ semPlot::semPaths(
   edge.label.cex  = .8,   
   sizeMan = 7,
   sizeLat = 9,
-  nCharNodes = 0,          
+  nCharNodes = 0,
+  nDigits=2,
   mar = c(6,6,6,6)       
 )
 ```
