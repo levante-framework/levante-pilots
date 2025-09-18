@@ -136,6 +136,7 @@ library(papaja)
 library(tidyverse)
 library(glue)
 library(viridis)
+library(lavaan)
 source(here("03_summaries","plotting_helper.R"))
 source(here("plot_settings.R"))
 source(here("03_summaries","scores_helper.R"))
@@ -334,6 +335,10 @@ ggplot(ages, aes(x = age, fill = site)) +
   labs(x = "Age (years)", y = "Number of children")
 ```
 
+```{r}
+source("compute_counts.R")
+```
+
 <!-- For each site, exclusions (raw numbers + percent of site total): -->
 <!-- - runs excluded due to: -->
 <!--   - missing metadata -->
@@ -343,7 +348,6 @@ ggplot(ages, aes(x = age, fill = site)) +
 <!--   - kids excluded due to  -->
 <!--     - missing metadata -->
 <!--     - age out of range -->
-
 
 <!-- Example: Germany recorded a total of X runs, of which N (X%) were excluded due to reason. -->
 
@@ -355,6 +359,10 @@ ggplot(ages, aes(x = age, fill = site)) +
 
 <!-- After exclusion, we ended up with XYZ kids in the site (% of total kids with any runs at all before exclusions). These kids had a total of XYZ tasks (average XYZ, range).  -->
 <!-- (note Germany needs retest description too) -->
+
+Across all tasks, the sites collected a total of `r sum(site_totals)` runs (`r get_count_row(1)`) from `r sum(user_totals$n_users)` unique children (`r user_totals |> deframe() |> collapse_value_list()`), of which some were excluded for being incomplete, invalid, or duplicate (`r get_count_row(2)`), for missing item metadata (`r get_count_row(3)`), for missing age (`r get_count_row(4)`), or for age being out of range or having too short of a retest gap (`r get_count_row(5)`), resulting in a total of `r sum(user_score_counts$n_runs)` scored runs (`r user_score_counts |> select(site, n_runs) |> deframe() |> collapse_value_list()`) from `r sum(user_score_counts$n_users)` unique children (`r user_score_counts |> select(site, n_users) |> deframe() |> collapse_value_list()`).
+
+Within the included runs, there were a total of `r total_trial_counts$n_trials` trials (`r site_trial_counts |> select(site, n_trials) |> deframe() |> collapse_value_list()`), of which `r total_trial_counts$excluded` were excluded (`r site_trial_counts |> select(site, excluded) |> deframe() |> collapse_value_list()`) due to too fast or too slow reaction times. For reasons of space we do not disaggregate these exclusions by task, but note that the task with the highest exclusion rate was Pattern Matching (`r percentify(max(task_trial_counts$pct_excluded))` trials excluded), while all the other tasks ranged between `r percentify(min(task_trial_counts$pct_excluded))` and `r percentify(sort(task_trial_counts$pct_excluded, decreasing = TRUE)[2])` trials excluded.
 
 
 ## Colombia

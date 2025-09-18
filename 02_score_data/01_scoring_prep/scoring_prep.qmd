@@ -42,9 +42,14 @@ runs_filtered <- run_data |>
 write_rds(runs_filtered, here("01_fetched_data/runs_filtered.rds"),
           compress = "gz")
 
-# filter trials to above runs, filter out too slow/fast RTs
-trial_data_filtered <- trial_data_coded |>
-  inner_join(runs_filtered |> select(run_id, task_version, language)) |>
+# subset trials to above runs
+trial_data_subset <- trial_data_coded |>
+  inner_join(runs_filtered |> select(run_id, task_version, language))
+write_rds(trial_data_subset, here("01_fetched_data/trial_data_subset.rds"),
+          compress = "gz")
+
+# filter out too slow/fast RTs
+trial_data_filtered <- trial_data_subset |>
   mutate(validation_msg_trial = validation_msg_trial |> replace_na(""),
          slow_rt = rt_numeric > 30000,
          fast_rt = str_detect(validation_msg_trial, "fast")) |>
