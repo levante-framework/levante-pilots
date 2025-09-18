@@ -686,8 +686,6 @@ ggplot(retest_wide, aes(x = run_1, y = run_2, color = age)) +
 ## Validity 
 ### Construct validity
 
-SEMs within each construct for language, number, EF?
-
 ```{r prep-sem, include=FALSE, cache=TRUE}
 
 # one row per user (metadata + task scores from first run)
@@ -725,82 +723,91 @@ str(vars_core_std[vars_core])
 
 ```
 
-
-```{r semplot, echo = FALSE, cache = TRUE, fig.width = 6, fig.height = 6}
-library(lavaan)
-library(semPlot)
-
+```{r cfa, main model, include=FALSE, cache=TRUE}
 cfa_1 <- '
   reasoning =~ matrix + mrot
-  ef        =~ hf + mg + sds + math
+  ef        =~ hf + mg + sds
   language  =~ trog + vocab
-  social    =~ 1*tom
-  tom ~~ (1 - 0.75)*tom   #(residual variance = 0.25)
-'
+
+  reasoning ~ age
+  ef        ~ age
+  language  ~ age
+  math      ~ age
+  tom       ~ age'
 
 fit_1 <- cfa(cfa_1, data = vars_core_std,
              estimator = "MLR", std.lv = TRUE, missing = "fiml")
-# print(summary(fit_1, fit.measures = TRUE, standardized = TRUE))
-# head(lavaan::modindices(fit_1, sort.=TRUE, minimum.value=10), 15)
 
 ```
 
-```{r fig-semplot-main, echo=FALSE, message=FALSE, warning=FALSE, fig.width=6, fig.height=6, dpi=300, fig.align='center'}
+```{r fig-semplot-main}
 
 semPlot::semPaths(
-  fit_1,
-  whatLabels = "std",
-  residuals  = FALSE,
-  intercepts = FALSE,
-  layout     = "tree",
-  # text sizes
-  label.cex       = 1.2,   
-  edge.label.cex  = 1,   
-  sizeMan = 7,
-  sizeLat = 7,
-  nCharNodes = 0,          
-  mar = c(6,6,6,6)       
+  fit_1, what="mod", whatLabels="std", style="lisrel", layout="tree2",
+  rotation=3, intercepts=FALSE, residuals=FALSE, thresholds=FALSE,
+  # bigger nodes
+  sizeMan=6, sizeLat=6, sizeInt=5,
+  sizeMan2=5, sizeLat2=5, sizeInt2=4,
+  # bigger text
+  label.cex=1.2, edge.label.cex=1, edge.label.bg=TRUE,
+  nDigits=2, nCharNodes=0,
+  mar=c(6,6,6,6)
 )
 ```
 
 factors are very highly correlated - try with g factor
 
 ```{r second fit, echo = FALSE, cache = TRUE}
-model_g <- '
+model_g_no_age <- '
+  # first order factors
   reasoning =~ matrix + mrot
   ef        =~ hf + mg + sds + math
   language  =~ trog + vocab
-  g =~ reasoning + ef + language'
+  
+  # second order g
+  g =~ reasoning + ef + language
 
-fit_g <- cfa(model_g, data = vars_core_std,
+  # observed outcomes
+  math ~ g
+  tom ~ g'
+
+fit_g <- cfa(model_g_no_age, data = vars_core_std,
              estimator = "MLR", std.lv = TRUE, missing = "fiml")
-# print(summary(fit_g, fit.measures = TRUE, standardized = TRUE))
-# head(lavaan::modindices(fit_g, sort.=TRUE, minimum.value=10), 15)
+print(summary(fit_g, fit.measures = TRUE, standardized = TRUE))
+head(lavaan::modindices(fit_g, sort.=TRUE, minimum.value=10), 15)
 ```
 
-```{r fig-semplot-g, echo=FALSE, message=FALSE, warning=FALSE, fig.width=6, fig.height=6, dpi=300, fig.align='center'}
+```{r add age, echo = FALSE, cache = TRUE}
+model_g_age <- paste0(model_g_no_age, "\n g ~ age")
+
+fit_g_age <- sem(model_g_age, data = vars_core_std,
+             estimator = "MLR", std.lv = TRUE, missing = "fiml")
+
+print(summary(fit_g_age, fit.measures = TRUE, standardized = TRUE))
+head(lavaan::modindices(fit_g_age, sort.=TRUE, minimum.value=10), 15)
+
+
+```
+
+```{r fig-semplot-g}
 
 semPlot::semPaths(
   fit_g,
   whatLabels = "std",
   residuals  = FALSE,
   intercepts = FALSE,
-  layout     = "tree",
+  layout     = "tree2",
   # text sizes
   label.cex       = 1.2,   
   edge.label.cex  = .8,   
   sizeMan = 7,
-  sizeLat = 7,
+  sizeLat = 9,
   nCharNodes = 0,          
   mar = c(6,6,6,6)       
 )
 ```
 
 ### External validity
-
-We next assessed external validity by examining correlations with other measures. In particular, we used ...
-
-MEFS and ROAR
 
 Executive Function
 
@@ -873,7 +880,7 @@ layout_ef <- matrix(
 )
 ```
 
-```{r fig-semplot-ef, echo=FALSE, message=FALSE, warning=FALSE, fig.width=6, fig.height=6, dpi=300, fig.align='center'}
+```{r fig-semplot-ef}
 
 tidySEM::graph_sem(
   model = fit_ef,
@@ -949,7 +956,7 @@ layout_lang <- matrix(
 )
 ```
 
-```{r fig-semplot-lang, echo=FALSE, message=FALSE, warning=FALSE, fig.width=6, fig.height=6, dpi=300, fig.align='center'}
+```{r fig-semplot-lang}
 
 tidySEM::graph_sem(
   model      = fit_lang,
