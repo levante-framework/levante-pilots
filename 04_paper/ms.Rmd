@@ -23,6 +23,8 @@ author:
     affiliation   : "1"
   - name          : "Anya Wanjing Ma"
     affiliation   : "1"
+  - name          : "Bria Long"
+    affiliation   : "2"
   - name          : "Tonya Murray"
     affiliation   : "1"
   - name          : "Jason Yeatman"
@@ -32,17 +34,17 @@ author:
   - name          : "Jelena Obradović"
     affiliation   : "1"
   - name          : "Nichola Jenkins"
-    affiliation   : "2"
+    affiliation   : "3"
   - name          : "Daniel Ansari"
-    affiliation   : "2"
+    affiliation   : "3"
   - name          : "Maria Camilla Perfetti"
-    affiliation   : "3"
+    affiliation   : "4"
   - name          : "Julian Mariño"
-    affiliation   : "3"
+    affiliation   : "4"
   - name          : "Luise Hornoff"
-    affiliation   : "4"  
-  - name          : "Manuel Bohn"
     affiliation   : "5"  
+  - name          : "Manuel Bohn"
+    affiliation   : "6"  
   - name          : "Nilam Ram"
     affiliation   : "1"
   - name          : "Benjamin W. Domingue"
@@ -59,12 +61,14 @@ affiliation:
   - id            : "1"
     institution   : "Stanford University"
   - id            : "2"
-    institution   : "Western University"
+    institution   : "University of California, San Diego"
   - id            : "3"
-    institution   : "Universidad de los Andes"
+    institution   : "Western University"
   - id            : "4"
-    institution   : "Max Planck Institute for Evolutionary Anthropology"
+    institution   : "Universidad de los Andes"
   - id            : "5"
+    institution   : "Max Planck Institute for Evolutionary Anthropology"
+  - id            : "6"
     institution   : "Leuphana University"
 
 authornote: |
@@ -201,30 +205,6 @@ We end by discussing future plans for further internationalization and downward 
 # The LEVANTE core tasks
 
 
-```{r}
-task_time_summary <- read_csv(here("03_summaries/tables/task_time_summary.csv"))
-
-task_time_table <- task_time_summary |>
-  filter(!is.na(is_cat)) |>
-  filter(item_task %in% core_tasks) |>
-  mutate(site_label = site |> fct_recode(!!!site_labels),
-         adaptive = if_else(is_cat, "Adaptive", "Non-adaptive")) |>
-  left_join(task_map) |>
-  select(task, site_label, adaptive, median_diff) |>
-  pivot_wider(names_from = c(adaptive, site_label), values_from = median_diff) |>
-  select(task, starts_with("Non"), , starts_with("Adaptive")) |>
-  arrange(task)
-
-options(papaja.na_string = "–")
-task_time_table |>
-  papaja::apa_table(
-    col.names = c("Task", rep(c("Germany", "Colombia", "Canada"), 2)),
-    col_spanners = list("Non-adaptive" = c(2, 4), "Adaptive" = c(5, 7)),
-    align = c("l", rep("r", 6)),
-    caption = "Median task durations (minutes).")
-options(papaja.na_string = "NA")
-```
-
 
 The LEVANTE core tasks are implemented using jsPsych [@deleeuw] and can be presented in a web browser on a tablet or laptop, with responses possible using a touchscreen, keyboard, or mouse. Because of this variability in format of administration, they focus on response correctness not reaction time and so they are mostly untimed. The tasks are designed for simplicity and clarity so as to be accessible to children across a wide age range, and so with only modest exceptions, nearly all are in the format of a multi-alternative forced choice with a maximum of four choices. This uniformity of format means that in most cases instructions can be short and easy to understand, minimizing delays when the tasks are given in sequence as a battery. Figure \@ref{fig:tasks} shows screenshots from a number of tasks. In the remainder of this section, we briefly present each of the LEVANTE core tasks.
 
@@ -240,17 +220,23 @@ The Test for Reception of Grammar (TROG) [@bishop1982] is a multiple-choice meas
 
 ### Vocabulary
 
-The Vocabulary task was developed as a non-commercial, open alternative to tasks such as the Peabody Picture Vocabulary [@peabody] and the NIH Toolbox Picture Vocabulary Task [@nihtoolbox]; see @long_ma_tan_silverman_frank_yeatman_2025 for more details. In this task, children are presented with a word and four pictures. Children must select the correct picture over the distractor picture. Targets and distractors were selected from the THINGS dataset [@hebart2019things], specifically from the permissively-licensed subset of the data. Each image had a semantically close and semantically far distractor as well as an unrelated distractor image (e.g., target word "acorn" with close distractor being a coconut, and the far and unrelated distractors being keys and laundry). The task included 170 total items. 
+The Vocabulary task was developed as a non-commercial, open alternative to tasks such as the Peabody Picture Vocabulary [@Peabody] and the NIH Toolbox Picture Vocabulary Task [@nihtoolbox]; see @long_ma_tan_silverman_frank_yeatman_2025 for more details. In this task, children are presented with a word and four pictures. Children must select the correct picture over the distractor picture. A first set of targets and distractors were sourced from the THINGS+ dataset [@hebart2019things, @stoinski2024thingsplus], specifically from the permissively-licensed subset of the data; in this item subset (108 items) each image had a semantically close and semantically far distractor as well as an unrelated distractor image (e.g., target word “acorn” with close distractor being a “coconut”, and the far and unrelated distractors being “keys” and “laundry”).  Additional difficult items were included beyond those analyzed in @long_ma_tan_silverman_frank_yeatman_2025. These more difficult items we sourced from translated items from an open-sourced Dutch receptive vocabulary assessment tool, the DAIVT [@bousard2021dutch]; we also manually constructed several of our own items to reach a total of 170.
 
 ## Math
 
-We developed the Math task based on the EGMA (Early Grade Mathematics Assessment) [@egma]. This short, paper-and-pencil assessment is widely administered in international contexts for children ages 5--8 and includes number identification, number comparison, missing number, addition, and subtraction sub-tests. In our adaptation, we increased the breadth of the initial item bank, added multiplication, division, and fractions items to extend the age range up. We also added number line identification problems in which children had to place a marker on a number line across a range of different scales (including simpler 0--10 trials and more challenging larger scales as well as a fraction scale). Number line problems of this type have been suggested to be strongly related to math ability [@siegler other refs]. The primary version of this task included 275 items (though no child saw all of these) and the secondary version for retest purposes included an additional 237. 
+We developed the Math task based on the EGMA (Early Grade Mathematics Assessment) [@egma]. This short, paper-and-pencil assessment is widely administered in international contexts for children ages 5--8 and includes number identification, number comparison, missing number, addition, and subtraction sub-tests. In our adaptation, we increased the breadth of the initial item bank, added multiplication, division, and fractions items to extend the age range up. We also added number line identification problems in which children had to place a marker on a number line across a range of different scales (including simpler 0--10 trials and more challenging larger scales as well as a fraction scale). Number line problems of this type have been suggested to be strongly related to math ability [@siegler other refs]. The primary version of this task included 275 items (though no child saw all of these) and the secondary item bank (for retest purposes) included an additional 237. 
 
 ## Reasoning
 
 ### Matrix Reasoning
 
+We created a matrix reasoning task following the popular Raven’s Progressive Matrices (RPM). RPM is a relatively simple, relatively language-independent pattern recognition task appropriate for children and adults, and it has relatively good test-retest reliability in low- and middle-income contexts (i.e., Kuwait; Abdel-Khalek, 2005), as well as substantial evidence of external validity with other measures of school achievement (Downey et al., 2014; Green et al., 2017; Pind et al., 2003). We used an open-source matrix reasoning item bank Mars-IB
+
+
+
 ### Shape Rotation
+
+The shape rotation task was 
 
   <!-- > [bd: note that we describe this as 'mental rotation' below] -->
 
@@ -1065,6 +1051,31 @@ tidySEM::graph_sem(
 ```
 
 # Adaptive task construction
+
+```{r}
+task_time_summary <- read_csv(here("03_summaries/tables/task_time_summary.csv"))
+
+task_time_table <- task_time_summary |>
+  filter(!is.na(is_cat)) |>
+  filter(item_task %in% core_tasks) |>
+  mutate(site_label = site |> fct_recode(!!!site_labels),
+         adaptive = if_else(is_cat, "Adaptive", "Non-adaptive")) |>
+  left_join(task_map) |>
+  select(task, site_label, adaptive, median_diff) |>
+  pivot_wider(names_from = c(adaptive, site_label), values_from = median_diff) |>
+  select(task, starts_with("Non"), , starts_with("Adaptive")) |>
+  arrange(task)
+
+options(papaja.na_string = "–")
+task_time_table |>
+  papaja::apa_table(
+    col.names = c("Task", rep(c("Germany", "Colombia", "Canada"), 2)),
+    col_spanners = list("Non-adaptive" = c(2, 4), "Adaptive" = c(5, 7)),
+    align = c("l", rep("r", 6)),
+    caption = "Median task durations (minutes).")
+options(papaja.na_string = "NA")
+```
+
 
 <!-- [bd edit: are we planning to actually specify the models we're using somewhere? would clarify meaning here (and be generally helpful)] -->
 Many of the LEVANTE tasks have been adapted and piloted as CATs (Computerized Adaptive Tests). To date, these include the Test For Reception of Grammar (TROG), Vocabulary, Shape Rotation, Matrix Reasoning, Same Difference Selection, and Math. These tasks maintain an ability score, theta, as an estimate of the participant’s skill level that is updated at the end of each trial. They then present participants with the item best suited to their estimated ability, which both improves test-taker experience and yields more information on participant skill per item, allowing for a shorter task with fewer items. 
