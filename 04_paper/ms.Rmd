@@ -137,6 +137,7 @@ library(tidyverse)
 library(glue)
 library(viridis)
 library(lavaan)
+library(dplyr); library(tidyr); library(readr)
 source(here("03_summaries","plotting_helper.R"))
 source(here("plot_settings.R"))
 source(here("03_summaries","scores_helper.R"))
@@ -570,7 +571,141 @@ Table \@ref(tab:invariance-mapping) aligns the factor-analytic and IRT definitio
 
 
 ## Item-Level Diagnostics
+```{r item-classical-detail, echo=FALSE, message=FALSE, warning=FALSE, results='asis'}
 
+# 1) load trial data
+trial_path <- here("01_fetched_data", "trial_data.rds")
+trial_data <- readRDS(trial_path)
+
+# 2) keep only valid trials, 0/1 correctness, dedupe last attempt per (user, task, item)
+resp_df <- trial_data %>%
+  filter(valid_trial) %>%                               # logical, not string
+  transmute(
+    user_id  = as.character(user_id),
+    task     = tolower(item_task),
+    item_id  = as.character(item_uid),
+    response = as.integer(correct),                     # logical -> 0/1
+    ts       = timestamp
+  ) %>%
+  filter(!is.na(user_id), !is.na(task), !is.na(item_id), response %in% c(0L,1L)) %>%
+  arrange(user_id, task, item_id, ts) %>%
+  group_by(user_id, task, item_id) %>%
+  slice_tail(n = 1) %>%                                 # keep most recent attempt
+  ungroup() %>%
+  select(-ts)
+
+# 3) classical stats helper (proportion correct + point-biserial vs. rest)
+classical_stats <- function(df_person_item, min_n_item = 30) {
+  totals <- df_person_item %>%
+    group_by(user_id) %>%
+    summarise(total = sum(response, na.rm = TRUE),
+              k     = sum(!is.na(response)), .groups = "drop")
+
+  df_person_item %>%
+    left_join(totals, by = "user_id") %>%
+    mutate(rest = total - response, ok = k >= 2) %>%
+    group_by(item_id) %>%
+    group_modify(~{
+      x_all <- .x
+      x_ok  <- .x %>% filter(ok, !is.na(response), !is.na(rest))
+      tibble(
+        n           = sum(!is.na(x_all$response)),
+        p_classical = mean(x_all$response, na.rm = TRUE),
+        pbis        = if (nrow(x_ok) < 5 || sd(x_ok$rest) == 0 || sd(x_ok$response) == 0)
+                        NA_real_ else suppressWarnings(cor(x_ok$response, x_ok$rest))
+      )
+    }) %>%
+    ungroup() %>%
+    mutate(
+      flag_min_n     = n < min_n_item,
+      flag_p_extreme = (!flag_min_n) & (p_classical < .20 | p_classical > .90),
+      flag_pbis_low  = (!flag_min_n) & !is.na(pbis) & (pbis < .20),
+      flag_any       = flag_pbis_low | flag_p_extreme   # you may drop p_extreme here if desired
+    )
+}
+
+# 4) compute per-item and per-task diagnostics
+diag_items <- resp_df %>%
+  group_by(task) %>%
+  group_modify(~ classical_stats(select(.x, user_id, item_id, response))) %>%
+  ungroup() %>%
+  arrange(task, item_id)
+
+diag_summary <- diag_items %>%
+  summarise(
+    n_items     = dplyr::n_distinct(item_id),
+    n_flag_minN = sum(flag_min_n,     na.rm = TRUE),
+    n_flag_p    = sum(flag_p_extreme, na.rm = TRUE),
+    n_flag_pbis = sum(flag_pbis_low,  na.rm = TRUE),
+    n_any_flag  = sum(flag_any,       na.rm = TRUE),
+    .by = task
+  ) %>%
+  mutate(
+    prop_flag_p    = n_flag_p    / n_items,
+    prop_flag_pbis = n_flag_pbis / n_items,
+    prop_any_flag  = n_any_flag  / n_items
+  ) %>%
+  arrange(task)
+
+# 5) detailed item table for internal use
+diag_items_detailed <- diag_items %>%
+  transmute(
+    Task  = task,
+    Item  = item_id,
+    N     = n,
+    p     = round(p_classical, 3),
+    pbis  = ifelse(is.na(pbis), NA, round(pbis, 3)),
+    flag_p     = !is.na(p)    & (p < .20 | p > .90),     
+    flag_pbis  = !is.na(pbis) & (pbis < .20)
+  ) %>%
+  arrange(Task, Item)
+
+# Save for QA (RDS + CSV)
+saveRDS(diag_items_detailed, here::here("04_paper","display","diag_items_detailed.rds"))
+readr::write_csv(diag_items_detailed, here::here("04_paper","display","diag_items_detailed.csv"))
+
+```
+
+
+```{r item-summary-table, echo=FALSE, message=FALSE, warning=FALSE, results='asis'}
+
+diag_summary_out <- diag_summary %>%
+  transmute(
+    Task       = task,
+    `# Items`  = n_items,
+    `Extreme p`    = sprintf("%d (%.0f%%)", n_flag_p,    100 * n_flag_p    / n_items),
+    `Low pbis`     = sprintf("%d (%.0f%%)", n_flag_pbis, 100 * n_flag_pbis / n_items),
+    `Any flag`     = sprintf("%d (%.0f%%)", n_any_flag,  100 * n_any_flag  / n_items)
+  )
+
+# Add a proper Total row (direct sums + weighted %)
+totals <- diag_summary %>%
+  summarise(
+    Task        = "Total",
+    `# Items`   = sum(n_items, na.rm = TRUE),
+    n_flag_p    = sum(n_flag_p,    na.rm = TRUE),
+    n_flag_pbis = sum(n_flag_pbis, na.rm = TRUE),
+    n_any_flag  = sum(n_any_flag,  na.rm = TRUE)
+  )
+
+totals_fmt <- totals %>%
+  mutate(
+    `Extreme p` = sprintf("%d (%.0f%%)", n_flag_p,    100 * n_flag_p    / `# Items`),
+    `Low pbis`  = sprintf("%d (%.0f%%)", n_flag_pbis, 100 * n_flag_pbis / `# Items`),
+    `Any flag`  = sprintf("%d (%.0f%%)", n_any_flag,  100 * n_any_flag  / `# Items`)
+  ) %>%
+  select(Task, `# Items`, `Extreme p`, `Low pbis`, `Any flag`)
+
+diag_summary_out <- bind_rows(diag_summary_out, totals_fmt)
+
+apa_table(
+  diag_summary_out,
+  align   = c("l","c","c","c","c"),
+  escape  = TRUE,
+  caption = "Item-level diagnostics by task. Extreme p: items with very low/high proportion correct (< .20 or > .90). Low pbis: items with point–biserial correlations < .20. Values are n (percentage of items in task).",
+  label   = "item-diagnostics-summary"
+)
+```
 In addition to overall model calibration, we examined item-level performance to identify potential weaknesses in the pilot instruments. Classical item statistics included the proportion correct and point-biserial item–total correlations. Items with very low or very high proportions correct (below .20 or above .90) were flagged as potentially uninformative, and items with point-biserial correlations below .20 were flagged as weakly discriminating. Complementary IRT-based diagnostics included inspection of item infit and outfit statistics, although these results are not displayed here. Together, these indices provide a first pass at identifying problematic items that may warrant revision, removal, or further testing in subsequent piloting rounds.
 
 .... DORIA stopped here ....
