@@ -21,7 +21,7 @@ author:
     affiliation   : "1"
   - name          : "Rebecca Zhu"
     affiliation   : "1"
-  - name          : "Anya Wanjing Ma"
+  - name          : "Wanjing Anya Ma"
     affiliation   : "1"
   - name          : "Bria Long"
     affiliation   : "2"
@@ -198,19 +198,23 @@ Because our data come from three sites, each with their own translations and ada
 
 <!-- https://www.tandfonline.com/doi/10.1080/00273171.2024.2396148 -->
 
-In what follows, we begin by describing the nine LEVANTE core tasks, organized by construct. We then discuss the process of translation and adaptation that produced the Spanish and German versions of these tasks from the original English source. We then discuss our pilot data collection efforts in Colombia, Germany, and Canada. We present our IRT-based scoring techniques and the results of multi-group comparison. Using scores from these analyses, we then present preliminary evidence on the reliability and validity of the tasks, recognizing that in many cases these tasks are still under construct and we anticipate increases in reliability as we iteratively improve items. 
+In what follows, we begin by describing the nine LEVANTE core tasks, organized by construct. We then discuss the process of translation and adaptation that produced the Spanish and German versions of these tasks from the original English source. We then discuss our pilot data collection efforts in Colombia, Germany, and Canada. We present our IRT-based scoring techniques and the results of multi-group comparison, in some cases after selectively removing items that show poor performance. Using scores from these analyses, we then present evidence on the reliability and validity of the tasks, recognizing that in many cases these tasks are still under construction and we anticipate increases in reliability as we iteratively improve items. 
 
 We end by discussing future plans for further internationalization and downward extension of the tasks. Critically, LEVANTE embraces open science values, aiming to create measures and data that are permissively licensed and reusable and extensible by the international research community. These values address our final challenge posed above: the aim of LEVANTE is to minimize barriers to reuse, accelerating progress towards a global science of learning and development. 
 
 # The LEVANTE core tasks
 
-
+## General Task Properties
 
 The LEVANTE core tasks are implemented using jsPsych [@deleeuw] and can be presented in a web browser on a tablet or laptop, with responses possible using a touchscreen, keyboard, or mouse. Because of this variability in format of administration, they focus on response correctness not reaction time and so they are mostly untimed. The tasks are designed for simplicity and clarity so as to be accessible to children across a wide age range, and so with only modest exceptions, nearly all are in the format of a multi-alternative forced choice with a maximum of four choices. This uniformity of format means that in most cases instructions can be short and easy to understand, minimizing delays when the tasks are given in sequence as a battery. Figure \@ref{fig:tasks} shows screenshots from a number of tasks. In the remainder of this section, we briefly present each of the LEVANTE core tasks.
 
 General task lengths are described below and average task durations are given in Table \@ref(tab:durations). Because of our interest in testing children across a wide range of ages, we intentionally included trials that we anticipated would be both very easy and very hard for children. Overall we worried that this strategy would lead to frustration for children, however, so during pilot testing, we experimented with a number of different stopping rules. In early iterations of pilot testing in Bogota, Colombia, we ended tasks after three incorrect trials; we later modified this rule to end tasks after six incorrect trials. 
 
 All tasks are available for demonstration purposes at [http://researcher.levante-network.org](). Source code for the tasks is available at [https://github.com/levante-framework/core-tasks](). Task code and assets are licensed CC-BY-NC 4.0 for non-commercial reuse (including educational use by not-for-profit and governmental entities) with appropriate attribution. Please see repository license for more details.
+
+Practice trials
+Replay option for audio
+
 
 ## Language 
 
@@ -985,6 +989,8 @@ The LEVANTE CATs are configurable with respect to the initial value of theta and
 
 
 # Discussion
+
+
 
 * Plans for internationalization
 * Plans for downward extension
