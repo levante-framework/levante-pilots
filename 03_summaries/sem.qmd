@@ -32,9 +32,15 @@ table(task_scores$item_task)
 
 # age
 summary(task_scores$age)
-view(task_scores$age)
-unique(task_scores$age)
-
+core_tasks   <- c("matrix","mrot","math","hf","mg","sds","trog","vocab","tom")
+ages_per_user <- all_scores %>%
+  group_by(user_id) %>%
+  summarise(
+    n_ages = n_distinct(age, na.rm = TRUE),
+    ages   = paste(sort(unique(na.omit(age))), collapse = ", "),
+    .groups = "drop"
+)
+ages_per_user
 ```
 
 correlation matrix
@@ -51,6 +57,7 @@ per_task_first <- task_scores %>%
   slice(1) %>%
   ungroup()
 
+per_task_first
 # wide format
 wide_scores <- per_task_first %>%
   select(user_id, item_task, metric_value) %>%
@@ -157,7 +164,7 @@ layout_age <- matrix(
 
 graph_sem(model = fit_age, text_size = 3, layout = t(layout_age)) + 
   theme(panel.background = element_rect(fill = "white"))
-ggsave(here("03_summaries/plots/sem_age.png"), width = 14, height = 10)
+ggsave(here("03_summaries/plots/sem_age_all_tasks.png"), width = 14, height = 10)
 ```
 
 check Canada - too few data points for CFA; need to drop MEFS
@@ -185,10 +192,10 @@ cfa - core tasks only with age, 09.10
 ```{r}
 library(lavaan)
 
-vars_ind <- c("matrix","mrot","hf","mg","sds","trog","vocab","math","tom")
-wide_std <- wide_scores
-wide_std[vars_ind] <- lapply(wide_std[vars_ind], function(x) as.numeric(scale(x)))
-wide_std$site <- factor(wide_std$site)
+vars_core <- c("matrix","mrot","hf","mg","sds","trog","vocab","math","tom")
+vars_core_std <- wide_scores %>%
+  mutate(across(all_of(vars_core), ~ as.vector(scale(.x))))
+str(vars_core_std[vars_core])
 
 cfa_model_age_2 <- '
   reasoning =~ matrix + mrot + math
@@ -201,15 +208,54 @@ cfa_model_age_2 <- '
   language  ~ age
   social ~ age'
 
-fit_cfg <- sem(cfa_model_age_2, data = wide_std,
-               group = "site", std.lv = TRUE, missing = "fiml")
+fit_cfg <- sem(cfa_model_age_2, data = vars_core_std,
+               std.lv = TRUE, missing = "fiml")
 
 print(fitMeasures(fit_cfg, c("cfi","tli","rmsea","srmr")))
 print(summary(fit_cfg, fit.measures = TRUE, standardized = TRUE))
 
 ```
 
-plot, 09.10
+plot for all three sites together
+
+```{r}
+layout_age2 <- matrix(
+  byrow = TRUE, nrow = 3,
+  data = c(
+    "matrix","mrot","math","hf","mg","sds","trog","vocab","tom","age",
+    NA,       NA,    NA,   NA,  NA,  NA,   NA,    NA,     NA,  NA,
+    "reasoning", NA,  NA, "ef", NA,  NA, "language", NA, "social", NA
+  )
+)
+
+p <- graph_sem(
+  fit_cfg,
+  layout = t(layout_age2),
+  prune = 0,           # never drop edges for non-sig
+  pars = c("loadings", "regressions"),
+  cov = FALSE,         # omit dashed factor covariances to unclutter
+  digits = 2
+)
+p
+ggsave(here("03_summaries/plots/sem_age_core_tasks.png"), width = 14, height = 10)
+
+
+# check why age - ef is missing
+parameterEstimates(fit_cfg, standardized = TRUE) |>
+  dplyr::filter(lhs == "ef", op == "~", rhs == "age")
+
+
+# alternative plot
+library(semPlot)
+p_alt <- semPaths(fit_cfg, whatLabels = "std", layout = "tree",
+         residuals = FALSE, intercepts = FALSE, edge.label.cex = .9)
+
+
+
+
+```
+
+plot by site, 09.10
 
 ```{r}
 
