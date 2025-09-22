@@ -152,6 +152,8 @@ site_pal <- solarized_pal()(length(sites)) |> rlang::set_names(sites)
 set.seed(42)
 knitr::opts_chunk$set(cache.extra = knitr::rand_seed)
 knitr::opts_chunk$set(echo=FALSE, message=FALSE, warning=FALSE, cache=FALSE)
+knitr::opts_chunk$set(error = TRUE)
+
 ```
 
 # Introduction
@@ -878,54 +880,63 @@ cfa_1 <- "
 
 fit_1 <- cfa(cfa_1, data = vars_core_std,
              estimator = "MLR", std.lv = TRUE, missing = "fiml")
+summary(fit_1, fit.measures = TRUE, standardized = TRUE)
 
 ```
 
 ```{r fig-semplot-main}
 
 semPlot::semPaths(
-  fit_1, what="mod", whatLabels="std", style="lisrel", layout="tree2",
-  rotation=3, intercepts=FALSE, residuals=FALSE, thresholds=FALSE,
-  # bigger nodes
-  sizeMan=6, sizeLat=6, sizeInt=5,
-  sizeMan2=5, sizeLat2=5, sizeInt2=4,
+  fit_1, 
+  what="mod", 
+  whatLabels="std", 
+  style="lisrel", 
+  layout="tree2",
+  rotation=3, 
+  intercepts=FALSE, 
+  residuals=FALSE, 
+  thresholds=FALSE,
+  # size
+  sizeMan=6, sizeLat=10, sizeInt=6,
+  sizeMan2=6, sizeLat2=6, sizeInt2=6,
   # bigger text
-  label.cex=1.2, edge.label.cex=1, edge.label.bg=TRUE,
+  label.cex=1.4, edge.label.cex=1, edge.label.bg=TRUE,
   nDigits=1, nCharNodes=0,
-  mar=c(6,6,6,6)
+  mar=c(4,4,4,4)
 )
 ```
 
 factors are very highly correlated - try with g factor
 
-```{r second fit, echo = FALSE, cache = TRUE}
+```{r second fit, include = FALSE, cache = TRUE}
 model_g_no_age <- "
-  # first order factors
+  # first-order factors
   reasoning =~ matrix + mrot
-  ef        =~ hf + mg + sds + math
+  ef        =~ hf + mg + sds        
   language  =~ trog + vocab
-  
-  # second order g
+
+  # second-order g
   g =~ reasoning + ef + language
 
-  # observed outcomes
+  # observed outcomes of g
   math ~ g
-  tom ~ g"
+  tom  ~ g
+"
 
-fit_g <- cfa(model_g_no_age, data = vars_core_std,
+fit_g <- sem(model_g_no_age, data = vars_core_std,
              estimator = "MLR", std.lv = TRUE, missing = "fiml")
-print(summary(fit_g, fit.measures = TRUE, standardized = TRUE))
+
+summary(fit_g, fit.measures = TRUE, standardized = TRUE)
 head(lavaan::modindices(fit_g, sort.=TRUE, minimum.value=10), 15)
 ```
 
-```{r add age, echo = FALSE, cache = TRUE}
+```{r add age, include = FALSE, cache = TRUE}
+# add age
 model_g_age <- paste0(model_g_no_age, "\n g ~ age")
 fit_g_age <- sem(model_g_age, data = vars_core_std,
-             estimator = "MLR", std.lv = TRUE, missing = "fiml")
-
-print(summary(fit_g_age, fit.measures = TRUE, standardized = TRUE))
+                 estimator = "MLR", std.lv = TRUE, missing = "fiml")
+summary(fit_g_age, fit.measures = TRUE, standardized = TRUE)
 head(lavaan::modindices(fit_g_age, sort.=TRUE, minimum.value=10), 15)
-
 ```
 
 ```{r fig-semplot-g}
@@ -1098,7 +1109,6 @@ layout_lang <- matrix(
 ```
 
 ```{r fig-semplot-lang}
-
 tidySEM::graph_sem(
   model      = fit_lang,
   layout     = layout_lang,
