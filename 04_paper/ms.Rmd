@@ -828,7 +828,9 @@ ggplot(retest_wide, aes(x = run_1, y = run_2, color = age)) +
 
 ## Validity 
 ### Construct validity
+We assessed construct validity using confirmatory factor analysis (CFA) specified a priori, based on our theory of which indicators load on each construct. The measurement model specified three latent factors–Reasoning (matrix reasoning, mental rotation), Executive Function (EF; hearts and flowers, memory game, same-different-selection), and Language (grammar, vocab)– and treated math and Social Cognition (Theory of Mind; ToM) as observed outcomes. Math and ToM were modeled as observed outcomes rather than latent factors because each construct contained a single task. Forming a latent factor with one indicator would require strong, unverifiable assumptions about reliability/error variances and can be weakly identified. Treating them as endogenous observed variables keeps the model parsimonious and transparent while allowing them to be predicted by the latent domains and age. We included age to account for developmental change. 
 
+We estimated two models. Model 1 included three latent factors and paths from age to the three factors as well as to math and ToM. Fit was mixed–CFI = .923, TLI = .850, RMSEA = .084 (90% CI .073–.095), SRMR = .059. However, factor correlations (residual, controlling for age) were high: Reasoning–EF .882, Reasoning–Language .747, and EF–Language .921. This suggests a general ability component could underpin these three latent factors. Controlling for age, maths and ToM showed a small positive residual association (r = .15), suggesting minor overlap not captured by age alone.
 ```{r prep-sem, include=FALSE, cache=TRUE}
 
 # one row per user (metadata + task scores from first run)
@@ -905,9 +907,11 @@ semPlot::semPaths(
   mar=c(4,4,4,4)
 )
 ```
+Given the strong inter-factor correlations, we specified a second model with a hierarchical structure: three first-order factors (Reasoning, EF, Language) loading on a second-order general factor (g). Math and ToM were again treated as observed endogenous outcomes regressed on g. We included a single developmental path for age → g Conventional fit indices was similar to Model 1 (CFI = .902, TLI = .857, RMSEA = .081, 90% CI .072–.091; SRMR = .064). 
 
-factors are very highly correlated - try with g factor
+Indicator loadings on their first-order factors were moderate–strong (e.g., matrix reasoning = .79; grammar = .78; vocab = .76), and g strongly underpinned the domains (Reasoning = .91; EF = .99; Language = .89; all standardised). Age positively predicted g (β = .69; R²(g) ≈ .48). In turn, g strongly predicted math (β = .87; R² ≈ .76) and moderately predicted ToM (β = .58; R² ≈ .33), yielding sizeable indirect effects of age via g (age → g → Maths ≈ .60; age → g → ToM ≈ .40). After accounting for g, we found a negative residual math–ToM association (r ≈ −.35), indicating that the small positive overlap in Model 1 largely reflected unmodelled general ability.
 
+Overall, factor loadings supported the intended three-factor structure (convergent validity), and age related to each domain as expected. The high inter-factor correlations and strong second-order loadings indicate that much of the variance is shared across domains, consistent with a broad general ability underpinning performance on the nine core tasks.
 ```{r second fit, include = FALSE, cache = TRUE}
 model_g_no_age <- "
   # first-order factors
