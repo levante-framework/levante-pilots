@@ -349,7 +349,7 @@ Partners at Western University, led by Daniel Ansari, recruited participants fro
 
 ## IRT Calibration and Model Selection
 
-Across tasks, model selection based on BIC favored Rasch specifications for the majority of domains, with 2PL models selected for Same & Different and Shape Rotation (Table \@ref(tab:model-calibration)). This pattern indicates that a unidimensional Rasch model adequately captured response patterns for most tasks, whereas tasks that involve more complex perceptual or reasoning processes benefitted from the additional flexibility of the 2PL parameterization, where item discriminations are freely estimated. The consistency of model choice across sites (reflected by n_sites) provides evidence that these solutions are robust rather than site-specific idiosyncrasies.
+Model calibration proceeded in two steps. First, within each site and task, alternative unidimensional IRT models were estimated (Rasch vs. 2PL), and the best-fitting specification was identified by the Bayesian Information Criterion (BIC). Task-level model choice was then defined by the specification most consistently favored across sites. As shown in Table \@ref(tab:model-calibration), Rasch models provided the best fit for the majority of tasks, with 2PL models selected only for Same & Different and Shape Rotation. This pattern suggests that a simple Rasch specification adequately captured response variation for most domains, whereas tasks involving more complex perceptual or reasoning processes benefitted from the additional flexibility of the 2PL parameterization. The consistency of model preference across sites further indicates that these solutions are robust rather than site-specific idiosyncrasies.
 
 ```{r model-calibration, echo=FALSE, results='asis', message=FALSE, warning=FALSE}
 
@@ -410,14 +410,19 @@ papaja::apa_table(
 )
 
 ```
+## Multigroup Calibration and Measurement Invariance
 
+In the second step, we evaluated cross-site comparability using multigroup IRT models. Models were estimated on the set of overlapping items common to all sites, under a sequence of increasingly restrictive invariance constraints. These were defined following the conventional factor-analytic hierarchy but translated into IRT terms:
 
-## Multigroup Calibration and Measurement Invariance 
+-   Configural invariance: common factor structure, item parameters free across sites.
+-   Metric invariance: item discriminations constrained equal across sites.
+-   Scalar invariance: item discriminations and intercepts constrained equal (and guessing parameters, where applicable).
 
-To evaluate cross-site comparability, we estimated multigroup IRT models under a sequence of increasingly restrictive invariance constraints. Invariance levels were defined following the conventional factor-analytic hierarchy but translated into IRT terms. Configural invariance corresponds to holding the same factor structure across groups while freely estimating item parameters. Metric invariance in IRT terms constrains item discrimination parameters across groups, while scalar invariance additionally constrains item intercepts (and guessing parameters where applicable). Scalar invariance therefore supports direct cross-site comparability of latent ability estimates, whereas metric and configural levels reflect progressively weaker comparability.
+Scalar invariance therefore provides the strongest basis for direct cross-site score comparability, while metric and configural levels reflect progressively weaker comparability.
 
-Results (Table \@ref(tab:model-invariance)) indicated that scalar invariance was tenable for the majority of tasks, suggesting that both item difficulties and slopes were comparable across sites. Two tasks achieved only partial fit at the metric level, implying that item discriminations were stable but intercepts varied across groups. Three tasks (Hearts & Flowers, Theory of Mind, Vocabulary) supported only configural invariance, indicating that while the dimensional structure was consistent, differences in item parameters limited strict cross-site score comparability.
+Results (Table \@ref(tab:model-invariance)) indicated that scalar invariance was tenable for the majority of tasks, suggesting that both item difficulties and slopes generalized across sites. Two tasks supported only metric invariance, implying that discriminations were stable but intercepts varied. Three tasks—Hearts & Flowers, Theory of Mind, and Vocabulary—retained only configural invariance, meaning that while the latent structure was consistent, parameter differences across sites limited strict comparability of scores.
 
+In practice, when a task supported scalar or metric invariance, the corresponding multigroup model was extended to the full item pool and used to generate scores on a common cross-site scale. When only configural invariance was supported, we reverted to site-specific calibrations (the by-language models) for scoring, thereby ensuring valid within-site ability estimates while acknowledging limited comparability across sites.
 
 ```{r model-invariance, echo=FALSE, message=FALSE, warning=FALSE, results='asis'}
 
