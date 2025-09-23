@@ -185,8 +185,11 @@ We end by discussing future plans for further internationalization and downward 
 
 # The LEVANTE core tasks
 
+<<<<<<< HEAD
 ## General Task Properties
 
+=======
+>>>>>>> bfcebce (updates to dev change section)
 ```{r}
 task_time_summary <- read_csv(here("03_summaries/tables/task_time_summary.csv"))
 site_labels <- c("Canada" = "pilot_western_ca",
@@ -276,8 +279,11 @@ The Corsi Block task is a widely-used measure of visuospatial short-term and wor
 
 ### Stories task
 
+<<<<<<< HEAD
 Assessing social cognition across a wide range of ages is a challenge, and relatively few instruments show good reliability and validity across not just early childhood but older children as well [cf. @heise2025]. For this purpose, we adapted and re-illustrated a storybook task developed by @sotomayor-enriquez2024 in which children hear stories with multiple social reasoning questions embedded, including questions about true and false beliefs, deception, and moral reasoning. Using the published data from this task, we selected a set of items that showed good psychometric properties and that we believed would be most likely to be valid cross-culturally and then supplemented these with additional trials tapping emotional reasoning. The result was a set of six stories, each with approximately five forced-choice social reasoning questions embedded within it. We then developed two sets of alternative re-test stories, in each case using the same structure as an existing story but substituting new details and characters. 
 
+=======
+>>>>>>> bfcebce (updates to dev change section)
 # Translation and Adaptation
 
 Initially designed in English, core tasks were subsequently adapted for Spanish and German following a set of internationalization procedures in collaboration with researchers at the sites collecting pilot data in Colombia and Germany. We began with AI-generated translations of all verbal materials, including task instructions, items, and other key terminology such as encouragement phrases that appear throughout the core tasks. A professional translator then reviewed and edited the AI translations for general grammatical correctness and appropriateness. Materials were next reviewed by a researcher who was a native speaker of the relevant language and dialect, confirming that the materials were clear and appropriate for the specific task. We then performed back translation using AI translation tools to evaluate which items needed further discussion to ensure cultural relevance and task integrity. For tasks evaluating language skills (Vocabulary and Sentence Understanding), we additionally recruited PhD-level linguists with expertise in language acquisition for both Spanish and German to review items and make recommendations about relevant changes or additions to the item set for that language.
@@ -301,7 +307,6 @@ coretask_scores <- included_scores |>
 coretask_firstrun_scores <- coretask_scores |>
   filter(run_number == 1)
 ```
-
 
 ```{r}
 ages <- coretask_scores |>
@@ -327,7 +332,6 @@ Across all tasks, the sites collected a total of `r sum(site_totals)` runs (inst
 
 Within the included runs, there were a total of `r total_trial_counts$n_trials` trials (`r site_trial_counts |> select(site, n_trials) |> deframe() |> collapse_value_list()`), of which `r total_trial_counts$excluded` were excluded (`r site_trial_counts |> select(site, excluded) |> deframe() |> collapse_value_list()`) due to too fast or too slow reaction times. For reasons of space we do not disaggregate these exclusions by task, but note that the task with the highest exclusion rate was Pattern Matching (`r percentify(max(task_trial_counts$pct_excluded))` trials excluded), while all the other tasks ranged between `r percentify(min(task_trial_counts$pct_excluded))` and `r percentify(sort(task_trial_counts$pct_excluded, decreasing = TRUE)[2])` trials excluded.
 
-
 ## Colombia
 
 The Universidad de Los Andes conducted school-based data collection across four schools in Bogotá and three schools in the rural areas of Caquetá and Boyacá, Colombia. By partnering with schools, the research team oversaw task data collection with children using a group testing format on tablets provided by the team. Children were tested in groups, with larger groups for older children and The Colombia site collected data from `r user_totals$n_users[user_totals$site == "Colombia"]` children ages 5-12 years.
@@ -339,7 +343,6 @@ The Max Planck Institute for Evolutionary Anthropology collected data using fami
 ## Canada
 
 Partners at Western University, led by Daniel Ansari, recruited participants from the local community and tested children individually in a clinic setting. The Canadian site collected data from `r user_totals$n_users[user_totals$site == "Canada"]` children, ages 5-12 years. 
-
 
 # Scoring
 
@@ -397,7 +400,6 @@ papaja::apa_table(
   caption =
     "When a formal model-selection export was not available, the model with highest average rxx served as a descriptive proxy."
 )
-
 ```
 
 We calibrated each LEVANTE task using Rasch and 2PL models and selected the more constrained model unless fit indices provided strong evidence in favor of the 2PL ($\Delta$BIC $\leq$ −10). Across most tasks, the Rasch specification was adequate, indicating that item discriminations did not vary substantially. Two tasks -- Mental Rotation (rxx = .93) and Same–Different Selection (rxx = .96) -- were better described by the 2PL model, reflecting heterogeneity in how strongly items discriminated among children.
@@ -475,8 +477,11 @@ papaja::apa_table(
 
 We next examined whether the LEVANTE tasks functioned similarly across Colombia, Germany, and Canada using multigroup IRT models. Starting with a configural model (all parameters free), we sequentially imposed equality constraints on discriminations (metric) and then on both discriminations and difficulties (scalar). Table \@ref(tab:invariance-mapping) aligns the factor-analytic and IRT definitions of configural, metric, and scalar invariance, clarifying what kinds of cross-site comparisons each level supports. Because residual variances are not separately estimated in binary IRT, strict invariance was not tested. Model selection relied on $\Delta$BIC, retaining the most constrained model that did not show meaningful loss of fit ($\Delta$BIC $\leq$ +10).
 
+<<<<<<< HEAD
 Table \@ref(tab:invariance-summary) summarizes outcomes. Math and Matrix Reasoning supported scalar invariance, indicating no evidence of DIF and suggesting that scores can be compared directly across sites, at least in these pilot samples. Vocabulary supported metric invariance: items discriminated similarly across sites but varied in difficulty, so associations are interpretable but mean-level comparisons require caution. Hearts and Flowers and Theory of Mind showed only configural invariance, implying site-specific item functioning and the need for further revision. For the remaining tasks (e.g., TROG, Memory Game), invariance could not be established given current sample sizes. Taken together, these findings suggest that some tasks are already suitable for international comparability, while others require additional development and piloting.
 
+=======
+>>>>>>> bfcebce (updates to dev change section)
 ## Item-Level Diagnostics
 
 ```{r, message=FALSE, warning=FALSE, include=FALSE, results='asis'}
@@ -559,6 +564,7 @@ get_model_fit <- function(mod){
   )
 }
 
+<<<<<<< HEAD
 # ---------- main per-row summarizer ----------
 summarize_item_fit_with_meta <- function(task, model_set, subset, mod_rec, nfact, itemtype, invariance, mod){
   dat <- mod@Data$data
@@ -571,6 +577,17 @@ summarize_item_fit_with_meta <- function(task, model_set, subset, mod_rec, nfact
     item           = names(p_correct),
     p_correct      = unname(p_correct),
     point_biserial = unname(pbis)
+=======
+```{r item-summary-table, echo=FALSE, message=FALSE, warning=FALSE, results='asis'}
+
+diag_summary_out <- diag_summary %>%
+  transmute(
+    Task       = task,
+    `# Items`  = n_items,
+    `Extreme p`    = sprintf("%d (%.0f%%)", n_flag_p,    100 * n_flag_p    / n_items),
+    `Low pbis`     = sprintf("%d (%.0f%%)", n_flag_pbis, 100 * n_flag_pbis / n_items),
+    `Any flag`     = sprintf("%d (%.0f%%)", n_any_flag,  100 * n_any_flag  / n_items)
+>>>>>>> bfcebce (updates to dev change section)
   )
 
   # IRT
@@ -686,8 +703,63 @@ ggplot(coretask_scores, aes(x = age, y = metric_value)) +
     theme(legend.position = "bottom")
 ```
 
-## Reliability 
+```{r}
+# random slopes model
+library(lme4)
+colnames(coretask_scores)
 
+coretask_scores <- coretask_scores %>%
+  mutate(age_c = age - mean(age, na.rm = TRUE))
+
+# drop the correlation between intercept & slope 
+fit <- lmer(metric_value ~ age_c + (age_c || site),
+             data = coretask_scores,
+             control = lmerControl(optimizer = "bobyqa", optCtrl = list(maxfun = 2e5)))
+fit
+```
+
+```{r}
+
+# mean age to un-center for plotting
+age_mean <- mean(coretask_scores$age, na.rm = TRUE)
+
+# prediction grid across observed range
+age_seq  <- seq(min(coretask_scores$age_c, na.rm = TRUE),
+                max(coretask_scores$age_c, na.rm = TRUE),
+                length.out = 200)
+
+newdata  <- expand.grid(
+  age_c = age_seq,
+  site  = levels(factor(coretask_scores$site))
+) %>%
+  mutate(age = age_c + age_mean)
+
+# site-specific (includes random effects)
+newdata$y_hat_site <- predict(fit, newdata = newdata, re.form = NULL)
+
+# population-average (fixed effects only)
+newdata$y_hat_fixed <- predict(fit, newdata = newdata, re.form = NA)
+
+# plot
+ggplot() +
+  geom_point(data = coretask_scores,
+             aes(x = age, y = metric_value, colour = site),
+             alpha = 0.12, size = 1, show.legend = FALSE) +
+  geom_line(data = newdata,
+            aes(x = age, y = y_hat_site, colour = site),
+            linewidth = 1.1) +
+  # overall fixed-effects line (dashed, black)
+  geom_line(data = newdata |> distinct(age, y_hat_fixed),
+            aes(x = age, y = y_hat_fixed),
+            linewidth = 1.2, linetype = 2, colour = "black") +
+  labs(x = "Age (years)",
+       y = "Ability (IRT score)",
+       colour = "Site",
+       title  = "Random-intercept & slope by site: fitted developmental trends") +
+  theme_minimal(base_size = 12) +
+  theme(legend.position = "bottom")
+```
+## Reliability 
 ### Marginal reliability estimates
 
 ```{r}
@@ -715,7 +787,6 @@ options(papaja.na_string = "NA")
 
 ### Test-retest
 <!-- > ### Test-retest [bd edit: can we put correlations in each panel?  ] -->
-
 
 ```{r, output="asis"}
 de_retest_scores <- coretask_scores |> 
@@ -826,7 +897,7 @@ summary(fit_1, fit.measures = TRUE, standardized = TRUE)
 
 ```
 
-```{r fig-semplot-main}
+```{r fig-semplot-main, fig.width=8}
 
 semPlot::semPaths(
   fit_1, 
@@ -837,14 +908,18 @@ semPlot::semPaths(
   rotation=3, 
   intercepts=FALSE, 
   residuals=FALSE, 
-  thresholds=FALSE,
+  thresholds=TRUE,
+  intStyle = "multi",
+  curvePivot = TRUE, curve = 1,
   # size
   sizeMan=6, sizeLat=10, sizeInt=6,
   sizeMan2=6, sizeLat2=6, sizeInt2=6,
+  esize=2, asize=1,
   # bigger text
-  label.cex=1.4, edge.label.cex=1, edge.label.bg=TRUE,
-  nDigits=1, nCharNodes=0,
-  mar=c(4,4,4,4)
+  label.cex=1.2, edge.label.cex=1.1, edge.label.bg=TRUE,
+  label.prop=.7, label.curv=0.1,
+  nDigits=1, nCharNodes=8,
+  mar=c(6,6,6,6)
 )
 ```
 Given the strong inter-factor correlations, we specified a second model with a hierarchical structure: three first-order factors (Reasoning, EF, Language) loading on a second-order general factor (g). Math and ToM were again treated as observed endogenous outcomes regressed on g. We included a single developmental path for age → g Conventional fit indices was similar to Model 1 (CFI = .902, TLI = .857, RMSEA = .081, SRMR = .064). 
@@ -904,9 +979,7 @@ semPlot::semPaths(
 ```
 
 ### External validity
-
-Executive Function
-
+To assess external validity, we fitted a single-factor EF model with hearts and flowers (hf), memory game (mg), same-different-selection (sds), and the external measure, the Minneosta Executive Function Scale (MEFS) as indicators. We modelled age as a predictor of the latent EF factor. Fit was generally good (CFI = .971, TLI = .943, SRMR = .034; RMSEA = .071, 90% CI .040–.106). Standardised loadings were moderate to strong (hf = .63, mg = .63, sds = .50, MEFS = .67), indicating that MEFS aligns closely with the latent EF construct. Age strongly predicted EF (β = .79; R² ≈ .62), consistent with expected developmental gains.
 ```{r prep for sem - ef, include = FALSE, cache = TRUE}
 
 ef_tasks <- c("hf","mg","sds","mefs")
@@ -985,9 +1058,7 @@ semPlot::semPaths(
   mar = c(6,6,6,6)       
 )
 ```
-
-Language
-
+We ran a similar model to determine the external validity of the language and literacy measures (grammar and vocab) against ROAR tasks including measures of Phonological Awareness (pa), Single Word Reading (swr) and Sentence Reading Efficiency (sre). We fitted a single latent Language factor with ROAR tasks plus grammar (trog) and vocabulary as indicators, and modelled age as a predictor of the latent factor. Fit was borderline acceptable: CFI = .937, TLI = .895, RMSEA = .070, 90% CI .052–.089; SRMR = .070. Standardised loadings were: swr = .743, sre = .557, pa = .685, trog = .655, vocab = .814–all significant, indicating that the ROAR tasks align with grammar and vocabulary on a common language/literacy factor, with vocabulary the strongest indicator. Age positively predicted the latent factor (β = .66; R² ≈ .44), consistent with expected developmental gains.
 ```{r prep for sem, include = FALSE, cache = TRUE}
 
 lang_vars <- c("swr","sre","pa","vocab","trog")
