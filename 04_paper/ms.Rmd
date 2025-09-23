@@ -25,6 +25,8 @@ author:
     affiliation   : "1"
   - name          : "Tonya Murray"
     affiliation   : "1"
+  - name          : "Bria Long"
+    affiliation   : "2"
   - name          : "Jason Yeatman"
     affiliation   : "1"
   - name          : "Michael Sulik"
@@ -32,17 +34,17 @@ author:
   - name          : "Jelena Obradović"
     affiliation   : "1"
   - name          : "Nichola Jenkins"
-    affiliation   : "2"
+    affiliation   : "3"
   - name          : "Daniel Ansari"
-    affiliation   : "2"
+    affiliation   : "3"
   - name          : "Maria Camilla Perfetti"
-    affiliation   : "3"
+    affiliation   : "4"
   - name          : "Julian Mariño"
-    affiliation   : "3"
+    affiliation   : "4"
   - name          : "Luise Hornoff"
-    affiliation   : "4"  
-  - name          : "Manuel Bohn"
     affiliation   : "5"  
+  - name          : "Manuel Bohn"
+    affiliation   : "6"  
   - name          : "Nilam Ram"
     affiliation   : "1"
   - name          : "Benjamin W. Domingue"
@@ -59,12 +61,14 @@ affiliation:
   - id            : "1"
     institution   : "Stanford University"
   - id            : "2"
-    institution   : "Western University"
+    institution   : "University of California, San Diego"
   - id            : "3"
-    institution   : "Universidad de los Andes"
+    institution   : "Western University"
   - id            : "4"
-    institution   : "Max Planck Institute for Evolutionary Anthropology"
+    institution   : "Universidad de los Andes"
   - id            : "5"
+    institution   : "Max Planck Institute for Evolutionary Anthropology"
+  - id            : "6"
     institution   : "Leuphana University"
 
 authornote: |
@@ -73,7 +77,7 @@ authornote: |
   Enter author note here.
 
 abstract: | 
-  We present the Learning Variability Network Exchange (LEVANTE) core tasks, a set of nine short and engaging computer adaptive tasks designed to assess learning and development in children ages 5--12 years across a wide range of languages and cultures. Using a simple and uniform multi-alternative forced choice format, these tasks measure constructs including math, execxutive function, reasoning, and social cognition and can be administered on a tablet or computer both in person or remotely. We describe the design and selection of these instruments, and then report on their reliability and validity in a pilot sample of XYZ children recruited in Colombia, Germany, and Canada. Tasks are scored using item response theory models. These models can be used to create computer adaptive versions of the tasks, allowing the entire battery to be given in under an hour. We discuss the use and extension of these tasks in the service of creating an open dataset to describe variability in children's development and learning across contexts. 
+  We present the Learning Variability Network Exchange (LEVANTE) core tasks, a set of nine short and engaging computer adaptive tasks designed to assess learning and development in children ages 5--12 years across a wide range of languages and cultures. Using a simple and uniform multi-alternative forced choice format, these tasks measure constructs including math, execxutive function, reasoning, and social cognition and can be administered on a tablet or computer both in person or remotely. We describe the design and selection of these tasks, and then report on their reliability and validity in a sample of XYZ children recruited in Colombia, Germany, and Canada. Tasks are scored using multi-group item response theory models, allowing testing for measurement invariance. The parameters of these models can then be used to create computer adaptive versions of the tasks, allowing the entire battery to be given in around an hour. We discuss the use,  ongoing refinement, and extension of these tasks in the service of creating an open dataset to describe variability in children's development and learning across contexts.
 
 
 keywords: "cognitive development"
@@ -100,36 +104,6 @@ output:
 ---
 
 
-```{r, include = FALSE}
-# authors
-# Kachergis*, O’Reilly* 
-# 
-# Major contributors:
-# Mika
-# Doria
-# Mike
-# Nilàm
-# 
-# Other authors:
-# Rebecca 
-# Kat
-# Amy
-# Zach
-# Lijin
-# Ben
-# 
-# Pilot data contributors
-# DE: Luise & Manuel
-# CO: Camila & Julian
-# CA: Nichola & Daniel 
-# 
-# Task contributors
-# Jason, Tonya (TROG), Anya (VV) 
-# Michael Sulik, Jelena Obradovic (EF)
-
-```
-
-
 ```{r setup, include = FALSE}
 library(here)
 library(papaja)
@@ -151,7 +125,7 @@ site_pal <- solarized_pal()(length(sites)) |> rlang::set_names(sites)
 # Seed for random number generation
 set.seed(42)
 knitr::opts_chunk$set(cache.extra = knitr::rand_seed)
-knitr::opts_chunk$set(echo=FALSE, message=FALSE, warning=FALSE, cache=FALSE)
+knitr::opts_chunk$set(echo=FALSE, message=FALSE, warning=FALSE, cache=TRUE)
 knitr::opts_chunk$set(error = TRUE)
 
 ```
@@ -1055,7 +1029,7 @@ Language
 
 ```{r prep for sem, include = FALSE, cache = TRUE}
 
-lang_vars <- c(›"swr","sre","pa","vocab","trog")
+lang_vars <- c("swr","sre","pa","vocab","trog")
 
 # first run per user–task
 lang_firstrun_scores <- included_scores %>%
@@ -1105,8 +1079,8 @@ Language ~ age
 
 fit_lang <- cfa(cfa_lang, data = lang_wide_std,
                 estimator = "MLR", std.lv = TRUE, missing = "fiml")
-summary(fit_lang, fit.measures = TRUE, standardized = TRUE)
-print(fitMeasures(fit_lang, c("cfi","tli","rmsea","srmr", "aic", "bic")))
+# summary(fit_lang, fit.measures = TRUE, standardized = TRUE)
+# print(fitMeasures(fit_lang, c("cfi","tli","rmsea","srmr", "aic", "bic")))
 ```
 
 ```{r fig-semplot-lang}
