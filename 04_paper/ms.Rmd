@@ -907,7 +907,7 @@ semPlot::semPaths(
   mar=c(4,4,4,4)
 )
 ```
-Given the strong inter-factor correlations, we specified a second model with a hierarchical structure: three first-order factors (Reasoning, EF, Language) loading on a second-order general factor (g). Math and ToM were again treated as observed endogenous outcomes regressed on g. We included a single developmental path for age → g Conventional fit indices was similar to Model 1 (CFI = .902, TLI = .857, RMSEA = .081, 90% CI .072–.091; SRMR = .064). 
+Given the strong inter-factor correlations, we specified a second model with a hierarchical structure: three first-order factors (Reasoning, EF, Language) loading on a second-order general factor (g). Math and ToM were again treated as observed endogenous outcomes regressed on g. We included a single developmental path for age → g Conventional fit indices was similar to Model 1 (CFI = .902, TLI = .857, RMSEA = .081, SRMR = .064). 
 
 Indicator loadings on their first-order factors were moderate–strong (e.g., matrix reasoning = .79; grammar = .78; vocab = .76), and g strongly underpinned the domains (Reasoning = .91; EF = .99; Language = .89; all standardized). Age positively predicted g (β = .69; R²(g) ≈ .48). In turn, g strongly predicted math (β = .87; R² ≈ .76) and moderately predicted ToM (β = .58; R² ≈ .33), yielding sizeable indirect effects of age via g (age → g → Maths ≈ .60; age → g → ToM ≈ .40). After accounting for g, we found a negative residual math–ToM association (r ≈ −.35), indicating that the small positive overlap in Model 1 largely reflected unmodeled general ability.
 
@@ -967,7 +967,7 @@ semPlot::semPaths(
 
 Executive Function
 
-```{r prep for sem - ef, echo = FALSE, cache = TRUE}
+```{r prep for sem - ef, include = FALSE, cache = TRUE}
 
 ef_tasks <- c("hf","mg","sds","mefs")
 
@@ -1014,7 +1014,7 @@ ef_wide_std <- ef_wide_scores %>%
 # str(ef_wide_std[vars_ef])
 ```
 
-```{r sem fit, echo = FALSE, cache = TRUE}
+```{r sem fit, include = FALSE, cache = TRUE}
 cfa_ef <-  '
 EF =~ hf + mg + sds + mefs
 EF ~ age
@@ -1024,8 +1024,6 @@ fit_ef <- cfa(cfa_ef, data = ef_wide_std,
               estimator = "MLR", std.lv = TRUE, missing = "fiml")
 summary(fit_ef, fit.measures = TRUE, standardized = TRUE)
 print(fitMeasures(fit_ef, c("cfi","tli","rmsea","srmr", "aic", "bic")))
-
-
 ```
 
 ```{r fig-semplot-ef}
@@ -1050,9 +1048,9 @@ semPlot::semPaths(
 
 Language
 
-```{r prep for sem, echo = FALSE, cache = TRUE}
+```{r prep for sem, include = FALSE, cache = TRUE}
 
-lang_vars <- c("swr","sre","pa","vocab","trog")
+lang_vars <- c(›"swr","sre","pa","vocab","trog")
 
 # first run per user–task
 lang_firstrun_scores <- included_scores %>%
@@ -1093,7 +1091,7 @@ lang_wide_std <- lang_wide_scores %>%
   mutate(across(all_of(intersect(lang_vars, names(.))), ~ z(as.numeric(.x))))
 ```
 
-```{r sem fit - lang, echo = FALSE, cache = TRUE}
+```{r sem fit - lang, include = FALSE, cache = TRUE}
 # model
 cfa_lang <-  '
 Language =~ swr + sre + pa + trog + vocab
@@ -1104,8 +1102,6 @@ fit_lang <- cfa(cfa_lang, data = lang_wide_std,
                 estimator = "MLR", std.lv = TRUE, missing = "fiml")
 summary(fit_lang, fit.measures = TRUE, standardized = TRUE)
 print(fitMeasures(fit_lang, c("cfi","tli","rmsea","srmr", "aic", "bic")))
-
-
 ```
 
 ```{r fig-semplot-lang}
