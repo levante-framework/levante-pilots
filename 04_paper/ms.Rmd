@@ -394,13 +394,7 @@ per_task_model <- model_sel |>
 # -- Render APA-style table --
 papaja::apa_table(
   display_tbl, label = "model-selection",
-  caption = if (has_sel)
-    "Selected calibration model per task with mean marginal reliability across sites (from model_selection.csv)."
-  else
-    "Inferred calibration model per task (highest average reliability across sites) with mean marginal reliability.",
-  note = if (has_sel)
-    "Model selection followed a BIC rule: 2PL preferred when ΔBIC ≤ −10; otherwise Rasch selected for parsimony."
-  else
+  caption =
     "When a formal model-selection export was not available, the model with highest average rxx served as a descriptive proxy."
 )
 
