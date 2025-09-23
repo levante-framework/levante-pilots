@@ -347,33 +347,12 @@ Partners at Western University, led by Daniel Ansari, recruited participants fro
 ```{r model-selection, echo=FALSE, results='asis', message=FALSE, warning=FALSE}
 
 # -- Ensure scores are available  --
-if (!exists("all_scores")) {
-  sco_path <- here::here("02_scoring_outputs","scores","scores_combined.rds")
-  if (file.exists(sco_path)) {
-    all_scores <- readRDS(sco_path)
-  } else {
-    stop("Missing scores file: ", sco_path,
-         "\nRun `git lfs pull` in the repo and/or knit the full Rmd so earlier chunks create `all_scores`.")
-  }
-}
+sco_path <- here::here("02_scoring_outputs","scores","scores_combined.rds")
+all_scores <- readRDS(sco_path)
+
 # -- Load marginal reliability summary if present (used as fallback for selection) --
 task_rxx_path <- here::here("02_scoring_outputs","task_rxx.rds")
-if (file.exists(task_rxx_path)) {
-  task_rxx <- tryCatch(
-    readRDS(task_rxx_path),
-    error = function(e) {
-      if (requireNamespace("readr", quietly = TRUE)) {
-        readr::read_rds(task_rxx_path)
-      } else stop("Could not read task_rxx.rds; install.packages('readr') or ensure it's a valid RDS.")
-    }
-  )
-} else {
-  task_rxx <- tibble(task = character(),
-                     site = character(),
-                     itemtype = character(),   # expected values: "rasch" or "2pl"
-                     invariance = character(), # e.g., "scalar", "metric"
-                     rxx = numeric())
-}
+task_rxx <-readRDS(task_rxx_path)
 # -- Site labels should be defined earlier; if not, define a minimal default --
 if (!exists("site_labels")) {
   site_labels <- c("pilot_western_ca" = "Canada",
@@ -382,15 +361,6 @@ if (!exists("site_labels")) {
 }
 # -- Prefer explicit model selection export when available; otherwise infer from reliability --
 sel_path <- here::here("04_paper","display","model_selection.csv")
-has_sel  <- file.exists(sel_path)
-has_rxx  <- nrow(task_rxx) > 0
-if (has_sel) {
-  # Expect columns: task, site, selected_model (e.g., "Rasch" or "2PL"), optionally BIC, delta_bic
-  model_sel <- read_csv(sel_path, show_col_types = FALSE) |>
-    mutate(site_label = recode(site, !!!site_labels),
-           Model = selected_model)
-} else if (has_rxx) {
-  # Use the model with highest average reliability per task/site as a descriptive proxy
   model_sel <- task_rxx |>
     mutate(site_label = recode(site, !!!site_labels),
            Model = case_match(itemtype,
@@ -400,18 +370,15 @@ if (has_sel) {
     group_by(task, site_label) |>
     slice_max(order_by = rxx, n = 1, with_ties = FALSE) |>
     ungroup()
-} else {
-  stop("Neither `04_paper/display/model_selection.csv` nor `02_scoring_outputs/task_rxx.rds` is available.\n",
-       "Export a model selection summary or generate the reliability file and re-knit.")
-}
+
 # -- Collapse to one model per task (most common across sites) --
 per_task_model <- model_sel |>
-  count(task, Model, name = "n_sites") |>
+  count(task, Model,invariance, name = "n_sites") |>
   group_by(task) |>
   slice_max(order_by = n_sites, n = 1, with_ties = FALSE) |>
   ungroup()
 # -- Attach mean rxx, if available, for context --
-if (has_rxx) {
+
   rxx_table <- task_rxx |>
     mutate(site_label = recode(site, !!!site_labels),
            Model = case_match(itemtype, "rasch" ~ "Rasch", "2pl" ~ "2PL", .default = toupper(itemtype))) |>
@@ -422,11 +389,7 @@ if (has_rxx) {
   display_tbl <- per_task_model |>
     left_join(rxx_table, by = c("task","Model")) |>
     arrange(task)
-} else {
-  display_tbl <- per_task_model |>
-    mutate(`Mean reliability (rxx)` = NA_real_) |>
-    arrange(task)
-}
+
 # -- Render APA-style table --
 papaja::apa_table(
   display_tbl, label = "model-selection",
@@ -521,158 +484,197 @@ Table \@ref(tab:invariance-summary) summarizes outcomes. Math and Matrix Reasoni
 
 ## Item-Level Diagnostics
 
-```{r item-classical-detail, echo=FALSE, message=FALSE, warning=FALSE, results='asis'}
+```{r, message=FALSE, warning=FALSE, include=FALSE, results='asis'}
 
-# 1) load trial data
-trial_path <- here("01_fetched_data", "trial_data.rds")
-trial_data <- readRDS(trial_path)
+regdir <- here::here("02_score_data/02_fit_irt/model_registry")
+# Load helpers
+source(here::here("02_score_data/02_fit_irt/irt_modular.R"), chdir = TRUE)
+source(here::here("02_score_data/02_fit_irt/registry_helper.R"), chdir = TRUE)
+# Sanity check: does the registry have files?
+list.files(regdir, recursive = TRUE)
+# read in all models in registry
+mods <- list_models() |> load_models()
+# extract model specifications from model records
+mods_coded <- mods |>
+  mutate(nfact = map_int(mod_rec, \(mr) mr@nfact),
+         itemtype = map_chr(mod_rec, \(mr) mr@itemtype),
+         invariance_terms = map(mod_rec, \(mr) mr@invariance),
+         invariance = map_chr(invariance_terms, translate_invariance)) |>
+  select(-filename, -path, -invariance_terms) |>
+  mutate(mod = map(mod_rec, model_from_record))
+  # 3) Extract, unnest to columns, and clean NaN -> NA
+mods_fit <- mods_coded %>%
+  mutate(fit = map(mod, safe_get_fit)) %>%
+  unnest(fit) %>%
+  mutate(across(where(is.numeric), ~ ifelse(is.nan(.x), NA_real_, .x)))
 
-# 2) keep only valid trials, 0/1 correctness, dedupe last attempt per (user, task, item)
-resp_df <- trial_data %>%
-  filter(valid_trial) %>%                               # logical, not string
-  transmute(
-    user_id  = as.character(user_id),
-    task     = tolower(item_task),
-    item_id  = as.character(item_uid),
-    response = as.integer(correct),                     # logical -> 0/1
-    ts       = timestamp
-  ) %>%
-  filter(!is.na(user_id), !is.na(task), !is.na(item_id), response %in% c(0L,1L)) %>%
-  arrange(user_id, task, item_id, ts) %>%
-  group_by(user_id, task, item_id) %>%
-  slice_tail(n = 1) %>%                                 # keep most recent attempt
-  ungroup() %>%
-  select(-ts)
+```  
 
-# 3) classical stats helper (proportion correct + point-biserial vs. rest)
-classical_stats <- function(df_person_item, min_n_item = 30) {
-  totals <- df_person_item %>%
-    group_by(user_id) %>%
-    summarise(total = sum(response, na.rm = TRUE),
-              k     = sum(!is.na(response)), .groups = "drop")
+```{r include=FALSE}
 
-  df_person_item %>%
-    left_join(totals, by = "user_id") %>%
-    mutate(rest = total - response, ok = k >= 2) %>%
-    group_by(item_id) %>%
-    group_modify(~{
-      x_all <- .x
-      x_ok  <- .x %>% filter(ok, !is.na(response), !is.na(rest))
-      tibble(
-        n           = sum(!is.na(x_all$response)),
-        p_classical = mean(x_all$response, na.rm = TRUE),
-        pbis        = if (nrow(x_ok) < 5 || sd(x_ok$rest) == 0 || sd(x_ok$response) == 0)
-                        NA_real_ else suppressWarnings(cor(x_ok$response, x_ok$rest))
-      )
-    }) %>%
-    ungroup() %>%
-    mutate(
-      flag_min_n     = n < min_n_item,
-      flag_p_extreme = (!flag_min_n) & (p_classical < .20 | p_classical > .90),
-      flag_pbis_low  = (!flag_min_n) & !is.na(pbis) & (pbis < .20),
-      flag_any       = flag_pbis_low | flag_p_extreme   # you may drop p_extreme here if desired
-    )
+# ---------- helpers ----------
+pbis_corrected <- function(mat){
+  pbs <- numeric(ncol(mat))
+  for(j in seq_len(ncol(mat))){
+    xj   <- mat[, j]
+    totj <- rowSums(mat[, -j, drop = FALSE], na.rm = TRUE)
+    pbs[j] <- suppressWarnings(cor(xj, totj, use = "pairwise.complete.obs"))
+  }
+  setNames(pbs, colnames(mat))
 }
 
-# 4) compute per-item and per-task diagnostics
-diag_items <- resp_df %>%
-  group_by(task) %>%
-  group_modify(~ classical_stats(select(.x, user_id, item_id, response))) %>%
-  ungroup() %>%
-  arrange(task, item_id)
+normalize_fit <- function(x){
+  if (is.null(x)) return(tibble())
+  df <- tryCatch(as.data.frame(x), error = function(e) NULL)
+  if (is.null(df)) return(tibble())
+  if (!"item" %in% names(df)) {
+    rn <- rownames(df)
+    df$item <- if (!is.null(rn)) rn else paste0("item_", seq_len(nrow(df)))
+    rownames(df) <- NULL
+  }
+  as_tibble(df)
+}
 
-diag_summary <- diag_items %>%
-  summarise(
-    n_items     = dplyr::n_distinct(item_id),
-    n_flag_minN = sum(flag_min_n,     na.rm = TRUE),
-    n_flag_p    = sum(flag_p_extreme, na.rm = TRUE),
-    n_flag_pbis = sum(flag_pbis_low,  na.rm = TRUE),
-    n_any_flag  = sum(flag_any,       na.rm = TRUE),
-    .by = task
-  ) %>%
-  mutate(
-    prop_flag_p    = n_flag_p    / n_items,
-    prop_flag_pbis = n_flag_pbis / n_items,
-    prop_any_flag  = n_any_flag  / n_items
-  ) %>%
-  arrange(task)
+get_infit <- function(mod){
+  out <- tryCatch(mirt::itemfit(mod, na.rm = TRUE, fit_stats = "infit"), error = function(e) NULL)
+  out <- normalize_fit(out)
+  if (!nrow(out)) out <- tibble(item = character())
+  if (!"infit"   %in% names(out)) out$infit    <- NA_real_
+  if (!"z.infit" %in% names(out)) out$`z.infit` <- NA_real_
+  out %>% select(item, infit, `z.infit`)
+}
 
-# 5) detailed item table for internal use
-diag_items_detailed <- diag_items %>%
-  transmute(
-    Task  = task,
-    Item  = item_id,
-    N     = n,
-    p     = round(p_classical, 3),
-    pbis  = ifelse(is.na(pbis), NA, round(pbis, 3)),
-    flag_p     = !is.na(p)    & (p < .20 | p > .90),     
-    flag_pbis  = !is.na(pbis) & (pbis < .20)
-  ) %>%
-  arrange(Task, Item)
+get_sx2 <- function(mod){
+  out <- tryCatch(mirt::itemfit(mod, na.rm = TRUE), error = function(e) NULL)
+  out <- normalize_fit(out)
+  if (!nrow(out)) out <- tibble(item = character())
+  for (nm in c("S_X2","df.S_X2","RMSEA.S_X2","p.S_X2")) {
+    if (!nm %in% names(out)) out[[nm]] <- NA_real_
+  }
+  out %>% select(item, S_X2, df.S_X2, RMSEA.S_X2, p.S_X2)
+}
 
-# Save for QA (RDS + CSV)
-saveRDS(diag_items_detailed, here::here("04_paper","display","diag_items_detailed.rds"))
-readr::write_csv(diag_items_detailed, here::here("04_paper","display","diag_items_detailed.csv"))
+get_n_eff <- function(dat) sum(stats::complete.cases(dat))
 
-```
+# Model-level fit pulled from mirt object
+get_model_fit <- function(mod){
+  tibble(
+    AIC    = tryCatch(mirt::extract.mirt(mod, "AIC"),    error = \(e) NA_real_),
+    BIC    = tryCatch(mirt::extract.mirt(mod, "BIC"),    error = \(e) NA_real_),
+    SABIC  = tryCatch(mirt::extract.mirt(mod, "SABIC"),  error = \(e) NA_real_),
+    logLik = tryCatch(as.numeric(mirt::extract.mirt(mod, "logLik")),
+                      error = \(e) NA_real_),
+    npar   = tryCatch(as.numeric(mirt::extract.mirt(mod, "npar")),
+                      error = \(e) NA_real_)
+  )
+}
 
+# ---------- main per-row summarizer ----------
+summarize_item_fit_with_meta <- function(task, model_set, subset, mod_rec, nfact, itemtype, invariance, mod){
+  dat <- mod@Data$data
 
-```{r item-summary-table, echo=FALSE, message=FALSE, warning=FALSE, results='asis'}
-
-diag_summary_out <- diag_summary %>%
-  transmute(
-    Task       = task,
-    `# Items`  = n_items,
-    `Extreme p`    = sprintf("%d (%.0f%%)", n_flag_p,    100 * n_flag_p    / n_items),
-    `Low pbis`     = sprintf("%d (%.0f%%)", n_flag_pbis, 100 * n_flag_pbis / n_items),
-    `Any flag`     = sprintf("%d (%.0f%%)", n_any_flag,  100 * n_any_flag  / n_items)
+  # classical
+  p_correct <- colMeans(dat, na.rm = TRUE)
+  pbis      <- tryCatch(pbis_corrected(dat),
+                        error = function(e) rep(NA_real_, ncol(dat)) |> setNames(colnames(dat)))
+  classical <- tibble(
+    item           = names(p_correct),
+    p_correct      = unname(p_correct),
+    point_biserial = unname(pbis)
   )
 
-# Add a proper Total row (direct sums + weighted %)
-totals <- diag_summary %>%
-  summarise(
-    Task        = "Total",
-    `# Items`   = sum(n_items, na.rm = TRUE),
-    n_flag_p    = sum(n_flag_p,    na.rm = TRUE),
-    n_flag_pbis = sum(n_flag_pbis, na.rm = TRUE),
-    n_any_flag  = sum(n_any_flag,  na.rm = TRUE)
-  )
+  # IRT
+  infit_tbl <- get_infit(mod)
+  sx2_tbl   <- get_sx2(mod)
 
-totals_fmt <- totals %>%
-  mutate(
-    `Extreme p` = sprintf("%d (%.0f%%)", n_flag_p,    100 * n_flag_p    / `# Items`),
-    `Low pbis`  = sprintf("%d (%.0f%%)", n_flag_pbis, 100 * n_flag_pbis / `# Items`),
-    `Any flag`  = sprintf("%d (%.0f%%)", n_any_flag,  100 * n_any_flag  / `# Items`)
-  ) %>%
-  select(Task, `# Items`, `Extreme p`, `Low pbis`, `Any flag`)
+  # align to classical item set (prevents join errors)
+  infit_tbl <- right_join(infit_tbl, classical %>% select(item), by = "item")
+  sx2_tbl   <- right_join(sx2_tbl,   classical %>% select(item), by = "item")
 
-diag_summary_out <- bind_rows(diag_summary_out, totals_fmt)
+  n_eff_task   <- get_n_eff(dat)
+  n_items_task <- ncol(dat)
 
-apa_table(
-  diag_summary_out,
-  align   = c("l","c","c","c","c"),
-  escape  = TRUE,
-  caption = "Item-level diagnostics by task. Extreme p: items with very low/high proportion correct (< .20 or > .90). Low pbis: items with point–biserial correlations < .20. Values are n (percentage of items in task).",
-  label   = "item-diagnostics-summary"
+  model_fit <- get_model_fit(mod)
+
+  # merge & append metadata + model-level fit
+  classical %>%
+    left_join(infit_tbl, by = "item") %>%
+    left_join(sx2_tbl,   by = "item") %>%
+    mutate(
+      task        = task,
+      model_set   = model_set,
+      subset      = subset,
+      nfact       = nfact,
+      itemtype    = itemtype,
+      invariance  = invariance,
+      n_eff_task  = n_eff_task,
+      n_items     = n_items_task,
+      AIC         = model_fit$AIC,
+      BIC         = model_fit$BIC,
+      SABIC       = model_fit$SABIC,
+      logLik      = model_fit$logLik,
+      npar        = model_fit$npar
+    ) %>%
+    relocate(task, model_set, subset, itemtype, invariance, nfact,
+             n_eff_task, n_items, item)
+}
+
+# ---------- run across ALL rows of mods_coded ----------
+# Expect mods_coded to have columns: task, model_set, subset, mod_rec, nfact, itemtype, invariance, mod
+all_stats <- purrr::pmap_dfr(
+  mods_coded,
+  summarize_item_fit_with_meta
 )
+
+# ---------- flags ----------
+all_stats <- all_stats %>%
+  mutate(
+    flag_p      = p_correct < .20 | p_correct > .90,
+    flag_pb     = point_biserial < .20,
+    flag_infit  = ifelse(is.finite(infit), infit < .80 | infit > 1.20, NA),
+    flag_zinfit = ifelse(is.finite(`z.infit`), abs(`z.infit`) > 2, NA),
+    flag_SX2_01  = ifelse(!is.na(p.S_X2), p.S_X2 < .01,  NA),
+    flag_SX2_001 = ifelse(!is.na(p.S_X2), p.S_X2 < .001, NA)
+  )
+
+# ---------- rollups (by task + subset + model spec) ----------
+task_summary <- all_stats %>%
+  group_by(task, model_set, subset, itemtype, invariance, nfact) %>%
+  summarise(
+    n_eff_task      = first(n_eff_task),
+    n_items         = first(n_items),
+    AIC             = first(AIC),
+    BIC             = first(BIC),
+    SABIC           = first(SABIC),
+    logLik          = first(logLik),
+    npar            = first(npar),
+    mean_p          = mean(p_correct, na.rm = TRUE),
+    median_p        = median(p_correct, na.rm = TRUE),
+    mean_pbis       = mean(point_biserial, na.rm = TRUE),
+    n_flag_p        = sum(flag_p, na.rm = TRUE),
+    n_flag_pb       = sum(flag_pb, na.rm = TRUE),
+    n_flag_infit    = sum(flag_infit, na.rm = TRUE),
+    n_flag_zinfit   = sum(flag_zinfit, na.rm = TRUE),
+    n_flag_SX2_p01  = sum(flag_SX2_01, na.rm = TRUE),
+    n_flag_SX2_p001 = sum(flag_SX2_001, na.rm = TRUE),
+    .groups = "drop"
+  ) %>%
+  arrange(task, model_set, subset, itemtype, invariance)
+
+# ---------- save (RDS + CSV) ----------
+# Make sure the folder exists
+dir.create(here("04_paper","display"), recursive = TRUE, showWarnings = FALSE)
+
+# Detailed item-level
+saveRDS(all_stats,     here("04_paper","display","diag_items_allstats.rds"))
+write_csv(all_stats,   here("04_paper","display","diag_items_allstats.csv"))
+
+# Summary level
+saveRDS(task_summary,  here("04_paper","display","diag_items_summary.rds"))
+write_csv(task_summary,here("04_paper","display","diag_items_summary.csv"))
+
 ```
-In addition to overall model calibration, we examined item-level performance to identify potential weaknesses in the pilot instruments. Classical item statistics included the proportion correct and point-biserial item–total correlations. Items with very low or very high proportions correct (below .20 or above .90) were flagged as potentially uninformative, and items with point-biserial correlations below .20 were flagged as weakly discriminating. Complementary IRT-based diagnostics included inspection of item infit and outfit statistics, although these results are not displayed here. Together, these indices provide a first pass at identifying problematic items that may warrant revision, removal, or further testing in subsequent piloting rounds.
 
-.... DORIA stopped here ....
-
-Classical indices included proportion correct (flagged if <0.20 or >0.90) and point-biserial correlations (flagged if <0.20). 
-IRT-based fit statistics included infit and outfit mean squares.
-DIF
-Removal and Revision of Problematic Items
-Ability Estimation
-CAT-Specific Scoring
-
-Multigroup models and invariance
-Model selection approach
-1PL/2PL and different degrees of invariance
-Item-level diagnostics
-Removal of outlier items
-Tests for item-level DIF in cases where we use multigroup scoring
 
 # Psychometric properties of tasks
 
