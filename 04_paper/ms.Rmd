@@ -503,11 +503,6 @@ mods_coded <- mods |>
          invariance = map_chr(invariance_terms, translate_invariance)) |>
   select(-filename, -path, -invariance_terms) |>
   mutate(mod = map(mod_rec, model_from_record))
-  # 3) Extract, unnest to columns, and clean NaN -> NA
-mods_fit <- mods_coded %>%
-  mutate(fit = map(mod, safe_get_fit)) %>%
-  unnest(fit) %>%
-  mutate(across(where(is.numeric), ~ ifelse(is.nan(.x), NA_real_, .x)))
 
 ```  
 
