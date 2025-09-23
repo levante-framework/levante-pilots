@@ -344,28 +344,29 @@ The Max Planck Institute for Evolutionary Anthropology collected data using fami
 
 Partners at Western University, led by Daniel Ansari, recruited participants from the local community and tested children individually in a clinic setting. The Canadian site collected data from `r user_totals$n_users[user_totals$site == "Canada"]` children, ages 5-12 years. 
 
+
 # Scoring
 
 ## IRT Calibration and Model Selection
 
-```{r model-selection, echo=FALSE, results='asis', message=FALSE, warning=FALSE}
+Across tasks, model selection based on BIC favored Rasch specifications for the majority of domains, with 2PL models selected for Same & Different and Shape Rotation (Table \@ref(tab:model-calibration)). This pattern indicates that a unidimensional Rasch model adequately captured response patterns for most tasks, whereas tasks that involve more complex perceptual or reasoning processes benefitted from the additional flexibility of the 2PL parameterization, where item discriminations are freely estimated. The consistency of model choice across sites (reflected by n_sites) provides evidence that these solutions are robust rather than site-specific idiosyncrasies.
 
-# -- Ensure scores are available  --
-sco_path <- here::here("02_scoring_outputs","scores","scores_combined.rds")
-all_scores <- readRDS(sco_path)
+```{r model-calibration, echo=FALSE, results='asis', message=FALSE, warning=FALSE}
 
-# -- Load marginal reliability summary if present (used as fallback for selection) --
+
+# Load reliability summary
 task_rxx_path <- here::here("02_scoring_outputs","task_rxx.rds")
-task_rxx <-readRDS(task_rxx_path)
-# -- Site labels should be defined earlier; if not, define a minimal default --
+task_rxx <- readRDS(task_rxx_path)
+
+# Site labels
 if (!exists("site_labels")) {
-  site_labels <- c("pilot_western_ca" = "Canada",
-                   "pilot_uniandes_co" = "Colombia",
-                   "pilot_leuphana_de" = "Germany")
+    site_labels <- c("pilot_western_ca" = "Canada",
+                     "pilot_uniandes_co" = "Colombia",
+                     "pilot_leuphana_de" = "Germany")
 }
-# -- Prefer explicit model selection export when available; otherwise infer from reliability --
-sel_path <- here::here("04_paper","display","model_selection.csv")
-  model_sel <- task_rxx |>
+
+# Model selection by site
+model_sel <- task_rxx |>
     mutate(site_label = recode(site, !!!site_labels),
            Model = case_match(itemtype,
                               "rasch" ~ "Rasch",
@@ -375,113 +376,65 @@ sel_path <- here::here("04_paper","display","model_selection.csv")
     slice_max(order_by = rxx, n = 1, with_ties = FALSE) |>
     ungroup()
 
-# -- Collapse to one model per task (most common across sites) --
+# Collapse to one model per task
 per_task_model <- model_sel |>
-  count(task, Model,invariance, name = "n_sites") |>
-  group_by(task) |>
-  slice_max(order_by = n_sites, n = 1, with_ties = FALSE) |>
-  ungroup()
-# -- Attach mean rxx, if available, for context --
+    count(task, Model, invariance, name = "n_sites") |>
+    group_by(task) |>
+    slice_max(order_by = n_sites, n = 1, with_ties = FALSE) |>
+    ungroup()
 
-  rxx_table <- task_rxx |>
-    mutate(site_label = recode(site, !!!site_labels),
-           Model = case_match(itemtype, "rasch" ~ "Rasch", "2pl" ~ "2PL", .default = toupper(itemtype))) |>
-    select(task, Model, site_label, rxx) |>
-    group_by(task, Model) |>
-    summarize(`Mean reliability (rxx)` = mean(rxx, na.rm = TRUE), .groups = "drop")
-
-  display_tbl <- per_task_model |>
-    left_join(rxx_table, by = c("task","Model")) |>
-    arrange(task)
-
-# -- Render APA-style table --
-papaja::apa_table(
-  display_tbl, label = "model-selection",
-  caption =
-    "When a formal model-selection export was not available, the model with highest average rxx served as a descriptive proxy."
+# Task labels
+task_labels <- c(
+    ha     = "Social Attribution",
+    hf     = "Hearts & Flowers",
+    math   = "Math",
+    matrix = "Pattern Matching",
+    mg  = "Memory",
+    mrot   = "Shape Rotation",
+    sds    = "Same & Different",
+    tom    = "Theory Of Mind",
+    trog     = "Sentence Understanding",
+    vocab  = "Vocabulary"
 )
+
+# Calibration table (drop invariance)
+calibration_tbl <- per_task_model |>
+    mutate(Task = recode(task, !!!task_labels)) |>
+    select(Task, Model, n_sites) |>
+    arrange(Task)
+
+papaja::apa_table(
+    calibration_tbl,
+    label = "model-calibration",
+    caption = "Per-task IRT model selection (Rasch vs. 2PL) based on the lowest Bayesian Information Criterion (BIC) across sites."
+)
+
 ```
 
-We calibrated each LEVANTE task using Rasch and 2PL models and selected the more constrained model unless fit indices provided strong evidence in favor of the 2PL ($\Delta$BIC $\leq$ −10). Across most tasks, the Rasch specification was adequate, indicating that item discriminations did not vary substantially. Two tasks -- Mental Rotation (rxx = .93) and Same–Different Selection (rxx = .96) -- were better described by the 2PL model, reflecting heterogeneity in how strongly items discriminated among children.
-
-Estimates of marginal reliability highlighted meaningful differences across tasks (Table \@ref(tab:model-selection)). Math (.90), Matrix Reasoning (.82), and Memory Game (.93) all demonstrated high reliability, suggesting precise measurement even in the pilot samples. Vocabulary (.83) and Sentence Understanding/TROG (.73) achieved moderate reliability, consistent with tasks that are informative but may benefit from additional refinement. By contrast, Hearts and Flowers (.45) and Theory of Mind (.41) showed low reliability, underscoring that these implementations currently provide limited psychometric information and require further development before supporting valid cross-site comparisons.
-
-In summary, Rasch calibration suffices for most tasks, while allowing variable discriminations improves model fit for more heterogeneous domains. Several tasks already demonstrate reliability suitable for adaptive testing, whereas those with lower reliabilities should undergo item revision and expansion in subsequent piloting rounds.
 
 ## Multigroup Calibration and Measurement Invariance 
 
-```{r invariance-summary, echo=FALSE, message=FALSE, warning=FALSE, results='asis'}
+To evaluate cross-site comparability, we estimated multigroup IRT models under a sequence of increasingly restrictive invariance constraints. Invariance levels were defined following the conventional factor-analytic hierarchy but translated into IRT terms. Configural invariance corresponds to holding the same factor structure across groups while freely estimating item parameters. Metric invariance in IRT terms constrains item discrimination parameters across groups, while scalar invariance additionally constrains item intercepts (and guessing parameters where applicable). Scalar invariance therefore supports direct cross-site comparability of latent ability estimates, whereas metric and configural levels reflect progressively weaker comparability.
 
-inv_path <- here::here("04_paper","display","invariance.csv")
-stopifnot(file.exists(inv_path))
+Results (Table \@ref(tab:model-invariance)) indicated that scalar invariance was tenable for the majority of tasks, suggesting that both item difficulties and slopes were comparable across sites. Two tasks achieved only partial fit at the metric level, implying that item discriminations were stable but intercepts varied across groups. Three tasks (Hearts & Flowers, Theory of Mind, Vocabulary) supported only configural invariance, indicating that while the dimensional structure was consistent, differences in item parameters limited strict cross-site score comparability.
 
-inv <- read_csv(inv_path, show_col_types = FALSE) |>
-  mutate(across(everything(), ~ tidyr::replace_na(.x, "")))
 
-# Pick a column to read the invariance level from, if available
-lvl_candidates <- intersect(c("Level", "Invariance"), names(inv))
+```{r model-invariance, echo=FALSE, message=FALSE, warning=FALSE, results='asis'}
 
-if (length(lvl_candidates) > 0) {
-  # Use the first matching column for level extraction
-  lvl_col <- lvl_candidates[1]
-  inv_levels <- inv |>
-    mutate(Level_norm_raw = tolower(.data[[lvl_col]]))
-} else if ("Interpretation" %in% names(inv)) {
-  # Fall back to Interpretation text
-  inv_levels <- inv |>
-    mutate(Level_norm_raw = tolower(.data[["Interpretation"]]))
-} else {
-  # If neither exists, mark as unspecified
-  inv_levels <- inv |>
-    mutate(Level_norm_raw = "unspecified")
-}
-
-inv_levels <- inv_levels |>
-  mutate(Level_norm = case_when(
-    str_detect(Level_norm_raw, "scalar")    ~ "Scalar",
-    str_detect(Level_norm_raw, "metric")    ~ "Metric",
-    str_detect(Level_norm_raw, "configur")  ~ "Configural",
-    TRUE                                    ~ "Unspecified"
-  ))
-
-# Summary counts by invariance level
-sum_counts <- inv_levels |>
-  count(Level_norm, name = "Number of tasks") |>
-  mutate(Level_norm = factor(Level_norm, levels = c("Scalar","Metric","Configural","Unspecified"))) |>
-  arrange(Level_norm)
+# Invariance table (keep invariance column)
+invariance_tbl <- per_task_model |>
+  mutate(Task = recode(task, !!!task_labels)) |>
+  select(Task, Model, invariance, n_sites) |>
+  arrange(Task)
 
 papaja::apa_table(
-  sum_counts |>
-    rename(`Invariance level` = Level_norm),
-  caption = "Summary of multigroup invariance outcomes across LEVANTE tasks.",
-  label = "invariance-summary"
+  invariance_tbl,
+  label = "model-invariance",
+  caption = "Measurement invariance results by task based on multigroup calibration and BIC comparisons."
 )
-
 
 ```
 
-```{r invariance-mapping, echo=FALSE, message=FALSE, warning=FALSE, results='asis'}
-# Detailed mapping table 
-papaja::apa_table(
-  inv |>
-    select(any_of(c("Goal", "LEVANTE name", "Factor analysis name",
-                    "IRT explanation", "Interpretation"))),
-  # align   = c("m{2.5cm}", "m{3cm}", "m{5cm}", "m{5cm}", "m{5cm}"),
-  align = c("m{2cm}", "m{3cm}", "m{5cm}", "m{5cm}", "m{5cm}"),
-
-  caption = "Measurement invariance mapping across factor analysis and IRT. Scalar invariance supports direct cross-site score comparability; metric and configural indicate progressively weaker comparability.",
-  label = "invariance-mapping",
-  landscape = TRUE
-)
-```
-
-We next examined whether the LEVANTE tasks functioned similarly across Colombia, Germany, and Canada using multigroup IRT models. Starting with a configural model (all parameters free), we sequentially imposed equality constraints on discriminations (metric) and then on both discriminations and difficulties (scalar). Table \@ref(tab:invariance-mapping) aligns the factor-analytic and IRT definitions of configural, metric, and scalar invariance, clarifying what kinds of cross-site comparisons each level supports. Because residual variances are not separately estimated in binary IRT, strict invariance was not tested. Model selection relied on $\Delta$BIC, retaining the most constrained model that did not show meaningful loss of fit ($\Delta$BIC $\leq$ +10).
-
-<<<<<<< HEAD
-Table \@ref(tab:invariance-summary) summarizes outcomes. Math and Matrix Reasoning supported scalar invariance, indicating no evidence of DIF and suggesting that scores can be compared directly across sites, at least in these pilot samples. Vocabulary supported metric invariance: items discriminated similarly across sites but varied in difficulty, so associations are interpretable but mean-level comparisons require caution. Hearts and Flowers and Theory of Mind showed only configural invariance, implying site-specific item functioning and the need for further revision. For the remaining tasks (e.g., TROG, Memory Game), invariance could not be established given current sample sizes. Taken together, these findings suggest that some tasks are already suitable for international comparability, while others require additional development and piloting.
-
-=======
->>>>>>> bfcebce (updates to dev change section)
 ## Item-Level Diagnostics
 
 ```{r, message=FALSE, warning=FALSE, include=FALSE, results='asis'}
@@ -762,27 +715,46 @@ ggplot() +
 ## Reliability 
 ### Marginal reliability estimates
 
+
 ```{r}
-task_rxx <- read_rds(here("02_scoring_outputs", "task_rxx.rds"))
 
+task_rxx <- readr::read_rds(here::here("02_scoring_outputs", "task_rxx.rds"))
 
-task_rxx_table <- task_rxx |>
-  rename(item_task = task) |>
-  left_join(task_map) |>
-  mutate(site_label = site |> fct_recode(!!!site_labels),
-         itemtype = itemtype |> fct_recode("Rasch" = "rasch", "2PL" = "2pl"),
-         invariance = invariance |> str_to_title()) |>
-         # model_label = paste(itemtype, invariance) |> str_trim()) |>
-  select(task, itemtype, invariance, site_label, rxx) |>
-  pivot_wider(names_from = site_label, values_from = rxx) |>
-  # mutate(across(everything(), \(v) v |> replace_na("–"))) |>
-  arrange(task)
+rxx_norm <- task_rxx %>%
+    mutate(
+        invariance = tolower(invariance),
+        site_label = recode(site, !!!site_labels)
+    )
+
+    rxx_chosen <- rxx_norm %>%
+        group_by(task, site_label) %>%
+        summarise(rxx = max(rxx, na.rm = TRUE), .groups = "drop")
+task_rxx_table <- rxx_chosen %>%
+  transmute(Task = recode(task, !!!task_labels),
+            site_label, rxx) %>%
+  distinct() %>%
+  pivot_wider(names_from = site_label, values_from = rxx) %>%
+  # Rename site columns
+  rename(
+    Germany  = pilot_leuphana_de,
+    Colombia = pilot_uniandes_co,
+    Canada   = pilot_western_ca
+  ) %>%
+  # Round to two decimals
+  mutate(across(c(Germany, Colombia, Canada), ~round(.x, 2))) %>%
+  select(Task, Germany, Colombia, Canada) %>%
+  arrange(Task)
 
 options(papaja.na_string = "–")
-task_rxx_table |>
-  rename(Task = task, Parameters = itemtype, Invariance = invariance) |>
-  papaja::apa_table(col_spanners = list("Marginal reliability" = c(4, 6)))
+papaja::apa_table(
+  task_rxx_table,
+  col_spanners = list("Marginal reliability" = 2:4),
+  caption = "Marginal reliability (rxx) by site for the selected scoring model per task (site-level winners).",
+  label   = "marginal-reliability"
+)
 options(papaja.na_string = "NA")
+
+
 ```
 
 ### Test-retest
