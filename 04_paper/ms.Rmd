@@ -539,30 +539,60 @@ papaja::apa_table(
 )
 
 ```
-## Multigroup Calibration and Measurement Invariance
 
-<<<<<<< HEAD
-In the second step, we evaluated cross-site comparability using multigroup IRT models. Models were estimated on the set of overlapping items common to all sites, under a sequence of increasingly restrictive invariance constraints. These were defined following the conventional factor-analytic hierarchy but translated into IRT terms:
-=======
-We calibrated each LEVANTE task using Rasch and 2PL models and selected the more constrained model unless fit indices provided strong evidence in favor of the 2PL ($\Delta$BIC $\leq$ −10). Across most tasks, the Rasch specification was adequate, indicating that item discriminations did not vary substantially. Two tasks—Mental Rotation (rxx = .93) and Same–Different Selection (rxx = .96)—were better described by the 2PL model, reflecting heterogeneity in how strongly items discriminated among children.
->>>>>>> c5a41eb (updates to dev trends section)
 
--   Configural invariance: common factor structure, item parameters free across sites.
--   Metric invariance: item discriminations constrained equal across sites.
--   Scalar invariance: item discriminations and intercepts constrained equal (and guessing parameters, where applicable).
 
-Scalar invariance therefore provides the strongest basis for direct cross-site score comparability, while metric and configural levels reflect progressively weaker comparability.
+# Scoring
 
-<<<<<<< HEAD
-Results (Table \@ref(tab:model-invariance)) indicated that scalar invariance was tenable for the majority of tasks, suggesting that both item difficulties and slopes generalized across sites. Two tasks supported only metric invariance, implying that discriminations were stable but intercepts varied. Three tasks—Hearts & Flowers, Theory of Mind, and Vocabulary—retained only configural invariance, meaning that while the latent structure was consistent, parameter differences across sites limited strict comparability of scores.
+## IRT Calibration and Model Selection
 
-In practice, when a task supported scalar or metric invariance, the corresponding multigroup model was extended to the full item pool and used to generate scores on a common cross-site scale. When only configural invariance was supported, we reverted to site-specific calibrations (the by-language models) for scoring, thereby ensuring valid within-site ability estimates while acknowledging limited comparability across sites.
-=======
-## Multigroup Calibration and Measurement Invariance 
-```{r invariance-summary, echo=FALSE, message=FALSE, warning=FALSE, results='asis'}
->>>>>>> c5a41eb (updates to dev trends section)
+Model calibration proceeded in two steps. First, within each site and task, alternative unidimensional IRT specifications (Rasch vs. 2PL) were estimated, and the best-fitting model was identified using the Bayesian Information Criterion (BIC). Task-level model choice was then defined by the specification most consistently favored across sites. As summarized in Table \@ref(tab:model-invariance), Rasch models provided the best fit for the majority of tasks, whereas 2PL models were favored for Same & Different and Shape Rotation. This pattern suggests that a simple Rasch parameterization was sufficient to capture item response variation for most domains, while tasks involving more complex perceptual or reasoning demands benefitted from the additional flexibility of the 2PL specification. The consistency of model preference across sites supports the robustness of these results rather than site-specific idiosyncrasies.
+```{r model-invariance, echo=FALSE, results='asis', message=FALSE, warning=FALSE}
 
-```{r model-invariance, echo=FALSE, message=FALSE, warning=FALSE, results='asis'}
+
+# Load reliability summary
+task_rxx_path <- here::here("02_scoring_outputs","task_rxx.rds")
+task_rxx <- readRDS(task_rxx_path)
+
+# Site labels
+if (!exists("site_labels")) {
+    site_labels <- c("pilot_western_ca" = "Canada",
+                     "pilot_uniandes_co" = "Colombia",
+                     "pilot_leuphana_de" = "Germany")
+}
+
+# Model selection by site
+model_sel <- task_rxx |>
+    mutate(site_label = recode(site, !!!site_labels),
+           Model = case_match(itemtype,
+                              "rasch" ~ "Rasch",
+                              "2pl"   ~ "2PL",
+                              .default = toupper(itemtype))) |>
+    group_by(task, site_label) |>
+    slice_max(order_by = rxx, n = 1, with_ties = FALSE) |>
+    ungroup()
+
+# Collapse to one model per task
+per_task_model <- model_sel |>
+    count(task, Model, invariance, name = "n_sites") |>
+    group_by(task) |>
+    slice_max(order_by = n_sites, n = 1, with_ties = FALSE) |>
+    ungroup()
+
+# Task labels
+task_labels <- c(
+    ha     = "Social Attribution",
+    hf     = "Hearts & Flowers",
+    math   = "Math",
+    matrix = "Pattern Matching",
+    mg  = "Memory",
+    mrot   = "Shape Rotation",
+    sds    = "Same & Different",
+    tom    = "Theory Of Mind",
+    trog     = "Sentence Understanding",
+    vocab  = "Vocabulary"
+)
+
 
 # Invariance table (keep invariance column)
 invariance_tbl <- per_task_model |>
@@ -576,30 +606,23 @@ papaja::apa_table(
   caption = "Measurement invariance results by task based on multigroup calibration and BIC comparisons."
 )
 
-```
-
-<<<<<<< HEAD
-=======
-```{r invariance-mapping, echo=FALSE, message=FALSE, warning=FALSE, results='asis'}
-# Detailed mapping table 
-papaja::apa_table(
-  inv |>
-    select(any_of(c("Goal", "LEVANTE name", "Factor analysis name",
-                    "IRT explanation", "Interpretation"))),
-  align   = c("m{2.5cm}", "m{3cm}", "m{5cm}", "m{5cm}", "m{5cm}"),
-  caption = "Measurement invariance mapping across factor analysis and IRT. Scalar invariance supports direct cross-site score comparability; metric and configural indicate progressively weaker comparability.",
-  label = "invariance-mapping"
-)
 
 ```
 
-We next examined whether the LEVANTE tasks functioned similarly across Colombia, Germany, and Canada using multigroup IRT models. Starting with a configural model (all parameters free), we sequentially imposed equality constraints on discriminations (metric) and then on both discriminations and difficulties (scalar). Because residual variances are not separately estimated in binary IRT, strict invariance was not tested. Model selection relied on $\Delta$BIC, retaining the most constrained model that did not show meaningful loss of fit ($\Delta$BIC $\leq$ +10).
+## Multigroup Calibration and Measurement Invariance
 
-Table \@ref(tab:invariance-summary) summarizes outcomes. Math and Matrix Reasoning supported scalar invariance, indicating no evidence of DIF and suggesting that scores can be compared directly across sites, at least in these pilot samples. Vocabulary supported metric invariance: items discriminated similarly across sites but varied in difficulty, so associations are interpretable but mean-level comparisons require caution. Hearts and Flowers and Theory of Mind showed only configural invariance, implying site-specific item functioning and the need for further revision. For the remaining tasks (e.g., TROG, Memory Game), invariance could not be established given current sample sizes.
+In the second step, we evaluated cross-site comparability using multigroup IRT models. These were estimated on the overlapping items common to all sites, under a sequence of increasingly restrictive invariance constraints. Following the conventional factor-analytic hierarchy, translated into IRT terms, we tested:
 
-Table \@ref(tab:invariance-mapping) aligns the factor-analytic and IRT definitions of configural, metric, and scalar invariance, clarifying what kinds of cross-site comparisons each level supports. Taken together, these findings suggest that some tasks are already suitable for international comparability, while others require additional development and piloting.
+-   Configural invariance: common factor structure, item parameters free across sites.
+-   Metric invariance: item discriminations constrained equal across sites.
+-   Scalar invariance: item discriminations and intercepts constrained equal (and guessing parameters, where applicable).
 
->>>>>>> c5a41eb (updates to dev trends section)
+Scalar invariance therefore provides the strongest basis for direct cross-site comparability of latent ability estimates, whereas metric and configural levels reflect progressively weaker comparability.
+
+Results (Table \@ref(tab:model-invariance)) indicated that scalar invariance held for most tasks, suggesting that both item difficulties and slopes generalized across sites. Two tasks supported only metric invariance, implying that discriminations were stable but intercepts varied across groups. Three tasks (Hearts & Flowers, Theory of Mind, Vocabulary) achieved only configural invariance, indicating consistent dimensional structure but insufficient parameter equivalence for strict comparability.
+
+For scoring, we used multigroup models estimated on the full item pool. These models inherited the parameter constraints established in the overlap‐items stage, such that overlapping items retained their fitted parameters while non-overlapping items were freely estimated. This ensured that all scores were placed on a common cross-site scale whenever metric or scalar invariance held. When only configural invariance was supported, we reverted to site-specific (by-language) calibrations of the winning model family, thereby preserving within-site validity while acknowledging weaker cross-site comparability.
+
 ## Item-Level Diagnostics
 ```{r item-classical-detail, echo=FALSE, message=FALSE, warning=FALSE, results='asis'}
 
