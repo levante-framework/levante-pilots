@@ -21,12 +21,10 @@ author:
     affiliation   : "1"
   - name          : "Rebecca Zhu"
     affiliation   : "1"
-  - name          : "Wanjing Anya Ma"
+  - name          : "Anya Wanjing Ma"
     affiliation   : "1"
   - name          : "Tonya Murray"
     affiliation   : "1"
-  - name          : "Bria Long"
-    affiliation   : "2"
   - name          : "Jason Yeatman"
     affiliation   : "1"
   - name          : "Michael Sulik"
@@ -34,17 +32,17 @@ author:
   - name          : "Jelena Obradović"
     affiliation   : "1"
   - name          : "Nichola Jenkins"
-    affiliation   : "3"
+    affiliation   : "2"
   - name          : "Daniel Ansari"
-    affiliation   : "3"
+    affiliation   : "2"
   - name          : "Maria Camilla Perfetti"
-    affiliation   : "4"
+    affiliation   : "3"
   - name          : "Julian Mariño"
-    affiliation   : "4"
+    affiliation   : "3"
   - name          : "Luise Hornoff"
-    affiliation   : "5"  
+    affiliation   : "4"  
   - name          : "Manuel Bohn"
-    affiliation   : "6"  
+    affiliation   : "5"  
   - name          : "Nilam Ram"
     affiliation   : "1"
   - name          : "Benjamin W. Domingue"
@@ -61,14 +59,12 @@ affiliation:
   - id            : "1"
     institution   : "Stanford University"
   - id            : "2"
-    institution   : "University of California, San Diego"
-  - id            : "3"
     institution   : "Western University"
-  - id            : "4"
+  - id            : "3"
     institution   : "Universidad de los Andes"
-  - id            : "5"
+  - id            : "4"
     institution   : "Max Planck Institute for Evolutionary Anthropology"
-  - id            : "6"
+  - id            : "5"
     institution   : "Leuphana University"
 
 authornote: |
@@ -77,7 +73,7 @@ authornote: |
   Enter author note here.
 
 abstract: | 
-  We present the Learning Variability Network Exchange (LEVANTE) core tasks, a set of nine short and engaging computer adaptive tasks designed to assess learning and development in children ages 5--12 years across a wide range of languages and cultures. Using a simple and uniform multi-alternative forced choice format, these tasks measure constructs including math, execxutive function, reasoning, and social cognition and can be administered on a tablet or computer both in person or remotely. We describe the design and selection of these tasks, and then report on their reliability and validity in a sample of XYZ children recruited in Colombia, Germany, and Canada. Tasks are scored using multi-group item response theory models, allowing testing for measurement invariance. The parameters of these models can then be used to create computer adaptive versions of the tasks, allowing the entire battery to be given in around an hour. We discuss the use,  ongoing refinement, and extension of these tasks in the service of creating an open dataset to describe variability in children's development and learning across contexts.
+  We present the Learning Variability Network Exchange (LEVANTE) core tasks, a set of nine short and engaging computer adaptive tasks designed to assess learning and development in children ages 5--12 years across a wide range of languages and cultures. Using a simple and uniform multi-alternative forced choice format, these tasks measure constructs including math, execxutive function, reasoning, and social cognition and can be administered on a tablet or computer both in person or remotely. We describe the design and selection of these instruments, and then report on their reliability and validity in a pilot sample of XYZ children recruited in Colombia, Germany, and Canada. Tasks are scored using item response theory models. These models can be used to create computer adaptive versions of the tasks, allowing the entire battery to be given in under an hour. We discuss the use and extension of these tasks in the service of creating an open dataset to describe variability in children's development and learning across contexts. 
 
 
 keywords: "cognitive development"
@@ -104,6 +100,36 @@ output:
 ---
 
 
+```{r, include = FALSE}
+# authors
+# Kachergis*, O’Reilly* 
+# 
+# Major contributors:
+# Mika
+# Doria
+# Mike
+# Nilàm
+# 
+# Other authors:
+# Rebecca 
+# Kat
+# Amy
+# Zach
+# Lijin
+# Ben
+# 
+# Pilot data contributors
+# DE: Luise & Manuel
+# CO: Camila & Julian
+# CA: Nichola & Daniel 
+# 
+# Task contributors
+# Jason, Tonya (TROG), Anya (VV) 
+# Michael Sulik, Jelena Obradovic (EF)
+
+```
+
+
 ```{r setup, include = FALSE}
 library(here)
 library(papaja)
@@ -111,7 +137,6 @@ library(tidyverse)
 library(glue)
 library(viridis)
 library(lavaan)
-library(mirt)
 library(dplyr); library(tidyr); library(readr)
 source(here("03_summaries","plotting_helper.R"))
 source(here("plot_settings.R"))
@@ -126,30 +151,28 @@ site_pal <- solarized_pal()(length(sites)) |> rlang::set_names(sites)
 # Seed for random number generation
 set.seed(42)
 knitr::opts_chunk$set(cache.extra = knitr::rand_seed)
-knitr::opts_chunk$set(echo=FALSE, message=FALSE, warning=FALSE, cache=TRUE)
+knitr::opts_chunk$set(echo=FALSE, message=FALSE, warning=FALSE, cache=FALSE)
 knitr::opts_chunk$set(error = TRUE)
 
 ```
 
 # Introduction
 
-Developmental variability and change during childhood is a focus of intense theoretical and practical interest. From tracking children's growth over time to evaluating intervention outcomes and exploring environmental and contextual moderators, a wide range of scientific goals require accurate assessments. Ideal psychological measures provide efficient, reliable, and valid measures of particular constructs that can be applied across a range of ages, situations, and contexts. Yet, in most cases, a large gap separates the situation of a researcher searching for measures from this ideal. 
+Developmental variability and change during childhood is a focus of intense theoretical and practical interest. From tracking children's growth over time to evaluating intervention outcomes or exploring environmental and contextual moderators, a wide range of scientific goals require accurate assessments. Ideal psychological measures provide efficient, reliable, and valid measures of particular constructs that can be applied across a range of ages, situations, and contexts. Yet, in most cases, a large gap separates the situation of a researcher searching for measures from this ideal. 
 
 Because children's overall capacities are so dependent on their age, it can be very challenging to use the same measure across children of different ages. Young children require simple tasks that are not verbally demanding, while older children can answer more complicated questions. In addition, younger children typically require shorter tasks, often reducing measurement reliability. Yet giving different tasks to different ages can mean that scores are not comparable to one another, making tracking developmental growth challenging in many domains.  
 
-A second set of challenges concern cross-context comparisons.  Ideal developmental measures should be validated in a global context and applicable to children across many cultures and languages. Child development is an issue of global importance [@grantham2007developmental;@masten2014global;@aboud2015global], yet the vast majority of developmental measures are developed in very specific (often English-speaking) contexts [@kidd2022diverse;@singh2023diversity;@richter2019early]. Providing cross-culturally validated measures allows for the collection of comparable data across contexts, opening up opportunities for theoretical synthesis.
+A second set of challenges concern cross-context comparisons.  Ideal developmental measures should be validated in a global context and applicable to children across many cultures and languages. Child development is an issue of global importance [LANCET CITES], yet the vast majority of measures are developed in very specific (often English-speaking) contexts. Providing cross-culturally validated measures allows for the collection of comparable data across contexts, opening up opportunities for theoretical synthesis.
 
 A final set of challenges has to do with accessibility. Many gold-standard measures are commercially distributed. They are costly for researchers to use, and in addition, publishers may place barriers on new translation and adaptation. Publishers also typically hold both item information and normative data closely, blocking many types of secondary investigation. 
 
-## LEVANTE
+In the context of these challenges, we describe the Learning Variability Network Exchange (LEVANTE) [@frank2025]. LEVANTE provides a technical framework for data collection: researchers can use the LEVANTE dashboard to assign both surveys and tasks to children, caregivers, and teachers. Data collected via the dashboard are harmonized and validated and become accessible through a data repository, first to the researchers who collect them and eventually -- through regular releases -- to the broader research community. Through a partnership with the Jacobs Foundation, sites around the world are funded to collect longitudinal data from children using the LEVANTE framework. The eventual goal of LEVANTE is to create a large dataset documenting children's learning and development across contexts. 
 
-The Learning Variability Network Exchange (LEVANTE) was designed to address these challenges [@frank2025]. LEVANTE provides a software framework for data collection: researchers can use the LEVANTE dashboard to assign both surveys and tasks to children, caregivers, and teachers. Data collected via the LEVANTE dashboard are harmonized and validated and become accessible through a data repository, first to the researchers who collect them and then, through regular data releases, to the broader research community. Through a partnership with the Jacobs Foundation, sites around the world are funded to collect longitudinal data from children using the LEVANTE framework. The eventual goal of LEVANTE is to create a rich dataset documenting children's learning and development across contexts. 
+The current manuscript introduces the LEVANTE core tasks, a suite of behavioral measures for children developed for LEVANTE. In our initial development of the framework, we cast a broad net for important constructs in child development with well-accepted measures that had been used internationally. This process is described in @frank2025. The broad constructs that we selected were executive function, language, mathematics, reasoning, and social cognition, with these being instantiated through a number of well-accepted tasks. 
 
-The current manuscript introduces the LEVANTE core tasks, a suite of behavioral measures for children. In our initial development of the task battery, we cast a broad net for important constructs in child development with well-accepted measures that had been used internationally. This process is described in @frank2025. The broad constructs that we selected were executive function, language, mathematics, reasoning, and social cognition, with these being instantiated through a number of well-accepted tasks. 
+To create our core tasks, we selected pre-existing measures from the literature that tapped each of these constructs. When possible we prioritied measures with strong psychometric properties, previous use across a broad range of cultures, applicability across a broad range of ages, and lack of commercial or licensing constraints. This process yielded a series of measures, which we implemented in an open source web platform. Table \@ref(tab:tasks) shows these tasks, organized by construct. 
 
-To create our core tasks, we selected pre-existing measures from the literature that tapped each of these constructs. When possible, we prioritized measures with strong psychometric properties, previous use across a broad range of cultures, applicability across a broad range of ages, and lack of commercial or licensing constraints. This process yielded a series of candidate tasks, which we adapted and re-implemented in an open source web platform. Table \@ref(tab:tasks) shows these tasks, organized by construct. Some of these implementations remained quite close to prior versions, while others by necessity required the creation of additional test items or changes to specifics of their procedure. 
-
-In addition to the constructs described above, we were also interested in the assessment of literacy. The LEVANTE core tasks battery makes use of a number of previously-validated literacy tasks from the Rapid Online Assessment of Reading [@yeatman2021] , including single word reading, sentence reading efficiency, and phonological awareness. We do not report on these tasks extensively here, though we make use of literacy data for validation of language measures. Similarly, we included a commercially-available broad measure of executive function, the Minnesota Executive Function Scale (MEFS) [@mefs], for validation purposes. 
+In addition to the constructs described above, we were also interested in the assessment of literacy. The LEVANTE core tasks battery makes use of a number of previously-validated literacy tasks from the Rapid Online Assessment of Reading [@yeatman2021] , including single word reading, sentence reading efficiency, and phonological awareness. We do not report on these tasks here, though we make use of them for validation of language measures. Similarly, we included a commercially-available broad measure of executive function, the Minnesota Executive Function Scale (MEFS) [@mefs], for validation purposes. 
  
 
 ```{r tasks, output="asis"}
@@ -169,9 +192,7 @@ papaja::apa_table(
   caption = "The LEVANTE core tasks, presented with their internal label as well as prior labels used in the literature.")
 ```
 
-## The current study
-
-Here we report on the development and validation of the LEVANTE core tasks. This is an iterative process in which data from 5--12 year old children has been collected across three sites: Bogota, Colombia; Leipzig, Germany; and Ottawa, Canada. In some cases that we note below, we used these data during the data collection process to make minor changes to the tasks. We use data from these three pilot sites both to provide initial evidence on the reliability and validity of the measures and to develop efficient, computer adaptive (CAT) versions of nearly all of the tasks. 
+Here we report on the development and validation of these tasks. This is an iterative process in which data from 5--12 year old children has been collected across three sites: Bogota, Colombia; Leipzig, Germany; and Ottawa, Canada. In some cases that we note below, we used these data during the data collection process to make minor changes to the tasks. We use data from these three pilot sites both to provide initial evidence on the reliability and validity of the measures and to develop efficient, computer adaptive (CAT) versions of nearly all of the tasks. 
 
 A key component of this process is the use of psychometric models based on item-response theory (IRT) [@embretson2001]. IRT models provide a family of models that allow the joint estimation of the difficulty of individual task items (e.g., math questions) and the ability of individual children. A fitted IRT model provides task parameters that can be used to estimate the ability of a new test taker given their responses on some or all of the same items. In addition, IRT parameters are used in the construction of CATs, which choose the most relevant items to give to estimate the ability of a particular individual. Critically for our purposes, the use of IRT models means that we can provide comparable scores on the same scale to a younger child who saw mostly easier task items and an older child who saw harder items; these models thus allow us to address our first key challenge posed above.  
 
@@ -179,17 +200,12 @@ Because our data come from three sites, each with their own translations and ada
 
 <!-- https://www.tandfonline.com/doi/10.1080/00273171.2024.2396148 -->
 
-In what follows, we begin by describing the nine LEVANTE core tasks, organized by construct. We then discuss the process of translation and adaptation that produced the Spanish and German versions of these tasks from the original English source. We then discuss our pilot data collection efforts in Colombia, Germany, and Canada. We present our IRT-based scoring techniques and the results of multi-group comparison, in some cases after selectively removing items that show poor performance. Using scores from these analyses, we then present evidence on the reliability and validity of the tasks, recognizing that in many cases these tasks are still under construction and we anticipate increases in reliability as we iteratively improve items. 
+In what follows, we begin by describing the nine LEVANTE core tasks, organized by construct. We then discuss the process of translation and adaptation that produced the Spanish and German versions of these tasks from the original English source. We then discuss our pilot data collection efforts in Colombia, Germany, and Canada. We present our IRT-based scoring techniques and the results of multi-group comparison. Using scores from these analyses, we then present preliminary evidence on the reliability and validity of the tasks, recognizing that in many cases these tasks are still under construct and we anticipate increases in reliability as we iteratively improve items. 
 
-We end by discussing future plans for further internationalization and downward extension of the tasks. Critically, LEVANTE embraces open science values, aiming to create measures and data that are permissively licensed and reusable and extensible by the international research community. These values address our final challenge posed above: The aim of LEVANTE is to minimize barriers to reuse, accelerating progress towards a global science of learning and development. 
+We end by discussing future plans for further internationalization and downward extension of the tasks. Critically, LEVANTE embraces open science values, aiming to create measures and data that are permissively licensed and reusable and extensible by the international research community. These values address our final challenge posed above: the aim of LEVANTE is to minimize barriers to reuse, accelerating progress towards a global science of learning and development. 
 
 # The LEVANTE core tasks
 
-<<<<<<< HEAD
-## General Task Properties
-
-=======
->>>>>>> bfcebce (updates to dev change section)
 ```{r}
 task_time_summary <- read_csv(here("03_summaries/tables/task_time_summary.csv"))
 site_labels <- c("Canada" = "pilot_western_ca",
@@ -230,11 +246,11 @@ options(papaja.na_string = "NA")
 ```
 
 
-The LEVANTE core tasks are short behavioral tasks that can be presented in a web browser on a tablet or laptop, with responses possible using a touchscreen, keyboard, or mouse. Because of this variability in format of administration, they focus on response correctness not reaction time and so they are mostly untimed. The tasks are designed for simplicity and clarity so as to be accessible to children across a wide age range, and so with only modest exceptions, nearly all are in the format of a multi-alternative forced choice with a maximum of four choices. This uniformity of format means that in most cases instructions can be short and easy to understand, minimizing delays when the tasks are given in sequence as a battery. Figure \@ref{fig:tasks} shows screenshots from a number of tasks. Below we briefly present each task.
+The LEVANTE core tasks are implemented using jsPsych [@deleeuw] and can be presented in a web browser on a tablet or laptop, with responses possible using a touchscreen, keyboard, or mouse. Because of this variability in format of administration, they focus on response correctness not reaction time and so they are mostly untimed. The tasks are designed for simplicity and clarity so as to be accessible to children across a wide age range, and so with only modest exceptions, nearly all are in the format of a multi-alternative forced choice with a maximum of four choices. This uniformity of format means that in most cases instructions can be short and easy to understand, minimizing delays when the tasks are given in sequence as a battery. Figure \@ref{fig:tasks} shows screenshots from a number of tasks. In the remainder of this section, we briefly present each of the LEVANTE core tasks.
 
-Tasks were implemented using jsPsych [@de-leeuw2015] in a common framework. Illustrations were produced by hand while auditory stimuli were generated using AI voice synthesis tools (currently, [elevenlabs.io]()). The tasks generally share a set of usability features including simple instructions, a small number of practice trials, and buttons to replay audio. All tasks are available for demonstration purposes at [http://researcher.levante-network.org](). Source code for the tasks is available at [https://github.com/levante-framework/core-tasks](). Task code and assets are licensed CC-BY-NC 4.0 for non-commercial reuse (including educational use by not-for-profit and governmental entities) with appropriate attribution. Please see repository license for more details.
+General task lengths are described below and average task durations are given in Table \@ref(tab:durations). Because of our interest in testing children across a wide range of ages, we intentionally included trials that we anticipated would be both very easy and very hard for children. Overall we worried that this strategy would lead to frustration for children, however, so during pilot testing, we experimented with a number of different stopping rules. In early iterations of pilot testing in Bogota, Colombia, we ended tasks after three incorrect trials; we later modified this rule to end tasks after six incorrect trials. 
 
-General task lengths are described below and average task durations are given in Table \@ref(tab:durations). Because of our interest in testing children across a wide range of ages, we intentionally included trials that we anticipated would be both very easy and very hard for children with the aim of deploying these adaptively after we had gathered sufficient data. We wanted to avoid  frustration for children, however, so during pilot testing, we experimented with a number of different stopping rules. In early iterations of pilot testing in Bogota, Colombia, we ended tasks after three incorrect trials; we later modified this rule to end tasks after six incorrect trials. 
+All tasks are available for demonstration purposes at [http://researcher.levante-network.org](). Source code for the tasks is available at [https://github.com/levante-framework/core-tasks](). Task code and assets are licensed CC-BY-NC 4.0 for non-commercial reuse (including educational use by not-for-profit and governmental entities) with appropriate attribution. Please see repository license for more details.
 
 ## Language 
 
@@ -244,55 +260,47 @@ The Test for Reception of Grammar (TROG) [@bishop1982] is a multiple-choice meas
 
 ### Vocabulary
 
-The Vocabulary task was developed as a non-commercial, open alternative to tasks such as the Peabody Picture Vocabulary [@peabody] and the NIH Toolbox Picture Vocabulary Task [@nihtoolbox]; see @long_ma_tan_silverman_frank_yeatman_2025 for more details. In this task, the child is presented with a word and four pictures. They must select the correct picture over the distractor picture. Targets and distractors were selected from the THINGS dataset [@hebart2019things], specifically from the permissively-licensed subset of the data. Each image had a semantically close and semantically far distractor as well as an unrelated distractor image (e.g., target word "acorn" with close distractor being a coconut, and the far and unrelated distractors being keys and laundry). The task included 170 total items. 
+The Vocabulary task was developed as a non-commercial, open alternative to tasks such as the Peabody Picture Vocabulary [@peabody] and the NIH Toolbox Picture Vocabulary Task [@nihtoolbox]; see @long_ma_tan_silverman_frank_yeatman_2025 for more details. In this task, children are presented with a word and four pictures. Children must select the correct picture over the distractor picture. Targets and distractors were selected from the THINGS dataset [@hebart2019things], specifically from the permissively-licensed subset of the data. Each image had a semantically close and semantically far distractor as well as an unrelated distractor image (e.g., target word "acorn" with close distractor being a coconut, and the far and unrelated distractors being keys and laundry). The task included 170 total items. 
 
 ## Math
 
-We developed the Math task based on the EGMA (Early Grade Mathematics Assessment) [@platas2014]. This short, paper-and-pencil assessment is widely administered in international contexts for children ages 5--8 and includes number identification, number comparison, missing number, addition, and subtraction sub-tests. In our adaptation, we increased the breadth of the initial item bank, added multiplication, division, and fractions items to extend the age range up. We also added number line identification problems in which children had to place a marker on a number line across a range of different scales (including simpler 0--10 trials and more challenging larger scales as well as a fraction scale). Number line problems of this are strongly related to math ability [@schneider2018]. The primary version of this task included 275 items (though no child saw all of these) and the secondary version for retest purposes included an additional 237. 
+We developed the Math task based on the EGMA (Early Grade Mathematics Assessment) [@egma]. This short, paper-and-pencil assessment is widely administered in international contexts for children ages 5--8 and includes number identification, number comparison, missing number, addition, and subtraction sub-tests. In our adaptation, we increased the breadth of the initial item bank, added multiplication, division, and fractions items to extend the age range up. We also added number line identification problems in which children had to place a marker on a number line across a range of different scales (including simpler 0--10 trials and more challenging larger scales as well as a fraction scale). Number line problems of this type have been suggested to be strongly related to math ability [@siegler other refs]. The primary version of this task included 275 items (though no child saw all of these) and the secondary version for retest purposes included an additional 237. 
 
 ## Reasoning
 
-### Pattern Matching
-
-In classic matrix reasoning tasks, participants see a set of abstract figures in a grid format with a missing cell and must choose the most appropriate figure to complete the grid. Matrix reasoning scores are highly correlated with general cognitive ability and educational attainment [e.g., @roth2015]. Here we make use of the Mars-IB matrix reasoning stimuli, an open-source, permissively-licensed set of 80 matrix reasoning problems with retest variants that have been normed with a large sample of adolescents and adults [@chierchia2019].
+### Matrix Reasoning
 
 ### Shape Rotation
 
-Mental rotation refers to the ability to imagine the rotation of objects in space, which is strongly related to mathematics and reasoning abilities [@xie2020]. In our version of the mental rotation task [based on @frick2013], children are presented with a target item (e.g., a picture of a rabbit). Then, they are presented with two choice items (e.g., two silhouettes of rabbits). One of the choice items will match the target item when rotated; the other choice item will not match the target item when rotated. The child must select the choice item that matches the target item. Typically, both accuracy and reaction time are measured. Across trials, the degree of rotation varies (e.g., 45, 90, 180 degrees), affecting children’s accuracy and reaction time. We included both two-dimensional duck and rabbit stimuli as well as harder three-dimensional geometric figures from the original stimulus set developed by @shepard1971.
-
+  <!-- > [bd: note that we describe this as 'mental rotation' below] -->
 
 ## Executive Function
 
-### Same and Different Selection
+### Same Difference Selection
 
-The Same and Different Selection task is designed to assess cognitive flexibility in children. It draws upon elements from the "Something's the Same" task [@willoughby2011] and the "Flexible Item Selection Task" [@jacques2001]. In this task, children are presented with sets of items that vary along multiple dimensions, such as shape, color, size, and number. They are required to identify similarities and differences between items based on these dimensions, engaging their ability to shift attention and adapt to changing rules or criteria. The version of the task we developed included successively more difficult blocks of trials in which children were asked to identify two, three, or four pairs of items that were the same in different ways (e.g., matching on different figures). 
+The Same Different Selection task (Obradovi\'c \& Sulik, year?) is designed to assess cognitive flexibility in children. It draws upon elements from the ‘Something's the Same’ task (Willoughby et al., 2012) and the ‘Flexible Item Selection Task’ (Jacques \& Zelazo, 2001). In this task, children are presented with sets of items that vary along multiple dimensions, such as shape, color, size, and number. They are required to identify similarities and differences between items based on these dimensions, thereby engaging their ability to shift attention and adapt to changing rules or criteria.
 
 ### Hearts and Flowers
 
-The Hearts and Flowers task assesses inhibitory control and cognitive flexibility [@davidson2006]. Participants respond according to stimulus type: pressing a key on the same side as a heart (congruent rule), and on the opposite side for a flower (incongruent rule). The task includes three blocks: congruent (hearts only), incongruent (flowers only), and mixed (hearts and flowers). The congruent block serves as a baseline with minimal executive demands. 
+The Hearts and Flowers task (Davidson et al., 2006) assesses inhibitory control and cognitive flexibility. Participants respond according to stimulus type: pressing a key on the same side as a heart (congruent rule), and on the opposite side for a flower (incongruent rule). The task includes three blocks - congruent (hearts only), incongruent (flowers only), and mixed (hearts and flowers). The congruent block serves as a baseline with minimal executive demands. Inhibitory control is typically measured via performance on the incongruent block, which requires overriding a spatially dominant response, while cognitive flexibility is assessed using the mixed block, which demands switching between rules based on the stimulus (Wright \& Diamond, 2014).which demands switching between rules based on the stimulus (Wright \& Diamond, 2014).
 
 ### Memory Game
 
-The Corsi Block task is a widely-used measure of visuospatial short-term and working memory [@corsi1972]. In our version of the task, the child sees a grid of squares; during each trial, a subset of squares lights up one at a time in a specific sequence. The child is required to reproduce the sequence by touching the squares: in the first block, the sequence is reproduced in the same order and in the second block, it is reproduced backwards. The task begins with short sequences (e.g., two items) and gradually increases in difficulty (up to seven items) until the child fails two sequences of the same length. We used both 2x2 or 3x3 grids in our pilot testing, with relatively similar results.
+The Corsi Block task is a widely used measure of visuospatial short-term memory [@corsi1972]. In the standard version, a set of four blocks is arranged in a fixed spatial configuration. During each trial, a subset of blocks lights up one at a time in a specific sequence. The child is required to reproduce the sequence by clicking the blocks in the same order. The task begins with short sequences (e.g., two items) and gradually increases in difficulty (up to five or more) until the child fails two sequences of the same length. The longest correctly reproduced sequence reflects their visuospatial span. When adapted for younger children or digital administration, the number of visible blocks may be reduced (e.g., four blocks), and span lengths are typically capped at five to reduce task complexity.
 
 ## Social Cognition
 
 ### Stories task
 
-<<<<<<< HEAD
-Assessing social cognition across a wide range of ages is a challenge, and relatively few instruments show good reliability and validity across not just early childhood but older children as well [cf. @heise2025]. For this purpose, we adapted and re-illustrated a storybook task developed by @sotomayor-enriquez2024 in which children hear stories with multiple social reasoning questions embedded, including questions about true and false beliefs, deception, and moral reasoning. Using the published data from this task, we selected a set of items that showed good psychometric properties and that we believed would be most likely to be valid cross-culturally and then supplemented these with additional trials tapping emotional reasoning. The result was a set of six stories, each with approximately five forced-choice social reasoning questions embedded within it. We then developed two sets of alternative re-test stories, in each case using the same structure as an existing story but substituting new details and characters. 
-
-=======
->>>>>>> bfcebce (updates to dev change section)
 # Translation and Adaptation
 
-Initially designed in English, core tasks were subsequently adapted for Spanish and German following a set of internationalization procedures in collaboration with researchers at the sites collecting pilot data in Colombia and Germany. We began with AI-generated translations of all verbal materials, including task instructions, items, and other key terminology such as encouragement phrases that appear throughout the core tasks. A professional translator then reviewed and edited the AI translations for general grammatical correctness and appropriateness. Materials were next reviewed by a researcher who was a native speaker of the relevant language and dialect, confirming that the materials were clear and appropriate for the specific task. We then performed back translation using AI translation tools to evaluate which items needed further discussion to ensure cultural relevance and task integrity. For tasks evaluating language skills (Vocabulary and Sentence Understanding), we additionally recruited PhD-level linguists with expertise in language acquisition for both Spanish and German to review items and make recommendations about relevant changes or additions to the item set for that language.
+Initially designed in English, core tasks were subsequently adapted for Spanish and German following a set of internationalization procedures in collaboration with the sites collecting pilot data in Colombia and Germany. We began with AI-generated translations of task instructions, items, and other key terminology such as encouragement phrases that appear throughout the core tasks. A professional translator then reviewed and edited the AI translations prior to a pilot site representative confirming context and appropriateness to the task. Back translation using AI technology facilitated evaluation of meaning and context with discussion of items or wording as needed to ensure both cultural relevance and task integrity. For tasks evaluating language skills (e.g. Vocabulary; Sentence Understanding), an additional step was employed. Linguists with expertise in language acquisition reviewed items and made recommendations about relevant changes or additions specific to the Spanish and German languages.
 
 # Pilot Data Collection
 
-The pilot site partnership was an integral component of the core task development. Across three countries and languages, pilot sites provided collaboration on task adaptation and functionality, iterative task testing, and diverse settings for infrastructure deployment. Data collected from pilot sites allowed analyses of construct validity, measurement invariance, test-retest reliability, parameters for computer adaptive testing, and a demonstration of developmental growth measured by the tasks across constructs. Because we continued developing tasks continuously during the ~18 month pilot process, we anticipate that our reported reliability and validity estimates are likely an underestimate of the current task performance. Our analyses average over early versions of the tasks that in some cases had instructions or items that were later revised for clarity. 
+The pilot site partnership represents an integral component of the core task development. Across three countries and three languages, pilot sites provided collaboration on task adaptation and functionality, iterative task testing, and diverse settings for infrastructure deployment. Data collected from pilot sites allowed analyses of construct validity, measurement invariance, test-retest reliability, parameters for computer adaptive testing, and a demonstration of developmental growth measured by the tasks across constructs.  
 
-One key feature of the LEVANTE framework is that all data are completely de-identified, reducing legal and ethical obstacles to data sharing. No demographic information or other identifiers are entered into the LEVANTE dashboard by the sites, and ages are only given to a one month precision [@frank2025]. We anticipate that sites will add sociodemographic information into the dataset at a later time via an app that is currently under development that ensures that there is no statistical reidentification risk for  individuals (e.g., due to rare combinations of traits in a community). For this reason, here we provide only minimal demographic characterization and analysis of the children from our pilot sites.  
+One key feature of the LEVANTE framework is that all data are completely de-identified, reducing legal and ethical obstacles to data sharing. No demographic information or other identifiers are ever entered into the LEVANTE dashboard by the sites, and ages are only given to a one month precision [@frank2025]. We anticipate that sites will add sociodemographic information into the dataset at a later time via an app that is currently under development that ensures that there is no statistical reidentification risk for  individuals (e.g., due to rare combinations of traits in a community). For this reason, here we provide only minimal demographic characterization and analysis of the children from our pilot sites.  
 
 ```{r data}
 # mefs <- read_rds(here("02_scoring_outputs", "scores", "scores_mefs.rds"))
@@ -328,29 +336,63 @@ ggplot(ages, aes(x = age, fill = site)) +
 source("compute_counts.R")
 ```
 
-Across all tasks, the sites collected a total of `r sum(site_totals)` runs (instances of a child performing a task; `r get_count_row(1)`) from `r sum(user_totals$n_users)` unique children (`r user_totals |> deframe() |> collapse_value_list()`), of which some were excluded for being incomplete, invalid, or duplicate (`r get_count_row(2)`), for missing item metadata (`r get_count_row(3)`), for missing age (`r get_count_row(4)`), or for age being out of range or having too short of a retest gap (`r get_count_row(5)`), resulting in a total of `r sum(user_score_counts$n_runs)` scored runs (`r user_score_counts |> select(site, n_runs) |> deframe() |> collapse_value_list()`) from `r sum(user_score_counts$n_users)` unique children (`r user_score_counts |> select(site, n_users) |> deframe() |> collapse_value_list()`).
+<!-- For each site, exclusions (raw numbers + percent of site total): -->
+<!-- - runs excluded due to: -->
+<!--   - missing metadata -->
+<!--   - duplicate run -->
+<!--   - too short / incomplete -->
+<!--   - validation failures (keymashing) -->
+<!--   - kids excluded due to  -->
+<!--     - missing metadata -->
+<!--     - age out of range -->
+
+<!-- Example: Germany recorded a total of X runs, of which N (X%) were excluded due to reason. -->
+
+<!-- Of the included runs, there were a total of NNN trials, of which XYZ were excluded. For reasons of space we do not disaggregate these exclusions by task, but (descriptive text, like most of them were excluded from these two tasks).  -->
+
+<!-- Trial exclusions -->
+<!-- - due to RT issues -->
+
+
+<!-- After exclusion, we ended up with XYZ kids in the site (% of total kids with any runs at all before exclusions). These kids had a total of XYZ tasks (average XYZ, range).  -->
+<!-- (note Germany needs retest description too) -->
+
+Across all tasks, the sites collected a total of `r sum(site_totals)` runs (`r get_count_row(1)`) from `r sum(user_totals$n_users)` unique children (`r user_totals |> deframe() |> collapse_value_list()`), of which some were excluded for being incomplete, invalid, or duplicate (`r get_count_row(2)`), for missing item metadata (`r get_count_row(3)`), for missing age (`r get_count_row(4)`), or for age being out of range or having too short of a retest gap (`r get_count_row(5)`), resulting in a total of `r sum(user_score_counts$n_runs)` scored runs (`r user_score_counts |> select(site, n_runs) |> deframe() |> collapse_value_list()`) from `r sum(user_score_counts$n_users)` unique children (`r user_score_counts |> select(site, n_users) |> deframe() |> collapse_value_list()`).
 
 Within the included runs, there were a total of `r total_trial_counts$n_trials` trials (`r site_trial_counts |> select(site, n_trials) |> deframe() |> collapse_value_list()`), of which `r total_trial_counts$excluded` were excluded (`r site_trial_counts |> select(site, excluded) |> deframe() |> collapse_value_list()`) due to too fast or too slow reaction times. For reasons of space we do not disaggregate these exclusions by task, but note that the task with the highest exclusion rate was Pattern Matching (`r percentify(max(task_trial_counts$pct_excluded))` trials excluded), while all the other tasks ranged between `r percentify(min(task_trial_counts$pct_excluded))` and `r percentify(sort(task_trial_counts$pct_excluded, decreasing = TRUE)[2])` trials excluded.
 
 ## Colombia
 
-The Universidad de Los Andes conducted school-based data collection across four schools in Bogotá and three schools in the rural areas of Caquetá and Boyacá, Colombia. By partnering with schools, the research team oversaw task data collection with children using a group testing format on tablets provided by the team. Children were tested in groups, with larger groups for older children and The Colombia site collected data from `r user_totals$n_users[user_totals$site == "Colombia"]` children ages 5-12 years.
+Partners at the Universidad de Los Andes, led by Julián Mariño, utilized school-based data collection across four schools in Bogotá and three schools in the rural areas of Caquetá and Boyacá, Colombia. By partnering with schools, the research team oversaw task data collection with children using a group testing format on tablets provided by the team. The Colombia site collected data from XX children (XX female; XX male), ages 5-12 years. 
 
 ## Germany
 
-The Max Planck Institute for Evolutionary Anthropology collected data using family-based remote data collection. Participants were recruited via an existing database by first contacting families via telephone with an invitation to participate in the study. Upon agreement, families received an email with information to log into the LEVANTE system and complete the tasks assigned to them at home using their own computer or tablet. Germany provided retest data with follow-up assignments sent to families 3-6 months after initial completion of the tasks. The Germany site collected data from `r user_totals$n_users[user_totals$site == "Germany"]` children, ages 5-12 years, with XX children completing the retest assignments. 
+Partners at Max Planck Institute for Evolutionary Anthropology, led by Manuel Bohn, collected data using family-based remote data collection. Participants were recruited via an existing database by first contacting families via telephone with an invitation to participate in the study. Upon agreement, families received an email with information to log into the LEVANTE system and complete the tasks assigned to them at home using their own computer or tablet. Germany provided retest data with follow-up assignments sent to families 3-6 months after initial completion of the tasks. The Germany site collected data from XX children (XX female; XX male), ages 5-12 years with XX children completing the retest assignments.
 
 ## Canada
 
-Partners at Western University, led by Daniel Ansari, recruited participants from the local community and tested children individually in a clinic setting. The Canadian site collected data from `r user_totals$n_users[user_totals$site == "Canada"]` children, ages 5-12 years. 
+Partners at Western University, led by Daniel Ansari, recruited participants from the local community and tested children individually in a clinic setting. The Canadian site collected data from XX children (XX female; XX male), ages 5-12 years. 
 
 
 # Scoring
+
+```{r invariance, output="asis"}
+invariances <- read_csv(here("04_paper","display","invariance.csv")) |>
+  mutate(across(everything(), \(v) replace_na(v, "")))
+
+papaja::apa_table(
+  invariances |> select(`Invariance`, `Model`, `Factor analysis name`,
+                        `IRT explanation`, `Interpretation`),
+  align = c("m{2cm}", "m{3cm}", "m{5cm}", "m{5cm}", "m{5cm}"),
+  caption = "Measurement invariance across factor analysis and item response theory.",
+  landscape = TRUE)
+```
 
 ## IRT Calibration and Model Selection
 
 Model calibration proceeded in two steps. First, within each site and task, alternative unidimensional IRT models were estimated (Rasch vs. 2PL), and the best-fitting specification was identified by the Bayesian Information Criterion (BIC). Task-level model choice was then defined by the specification most consistently favored across sites. As shown in Table \@ref(tab:model-calibration), Rasch models provided the best fit for the majority of tasks, with 2PL models selected only for Same & Different and Shape Rotation. This pattern suggests that a simple Rasch specification adequately captured response variation for most domains, whereas tasks involving more complex perceptual or reasoning processes benefitted from the additional flexibility of the 2PL parameterization. The consistency of model preference across sites further indicates that these solutions are robust rather than site-specific idiosyncrasies.
 
+<<<<<<< HEAD
 ```{r model-calibration, echo=FALSE, results='asis', message=FALSE, warning=FALSE}
 
 
@@ -359,14 +401,60 @@ task_rxx_path <- here::here("02_scoring_outputs","task_rxx.rds")
 task_rxx <- readRDS(task_rxx_path)
 
 # Site labels
+=======
+# -- Ensure scores are available  --
+if (!exists("all_scores")) {
+  sco_path <- here::here("02_scoring_outputs","scores","scores_combined.rds")
+  if (file.exists(sco_path)) {
+    all_scores <- readRDS(sco_path)
+  } else {
+    stop("Missing scores file: ", sco_path,
+         "\nRun `git lfs pull` in the repo and/or knit the full Rmd so earlier chunks create `all_scores`.")
+  }
+}
+# -- Load marginal reliability summary if present (used as fallback for selection) --
+task_rxx_path <- here::here("02_scoring_outputs","task_rxx.rds")
+if (file.exists(task_rxx_path)) {
+  task_rxx <- tryCatch(
+    readRDS(task_rxx_path),
+    error = function(e) {
+      if (requireNamespace("readr", quietly = TRUE)) {
+        readr::read_rds(task_rxx_path)
+      } else stop("Could not read task_rxx.rds; install.packages('readr') or ensure it's a valid RDS.")
+    }
+  )
+} else {
+  task_rxx <- tibble(task = character(),
+                     site = character(),
+                     itemtype = character(),   # expected values: "rasch" or "2pl"
+                     invariance = character(), # e.g., "scalar", "metric"
+                     rxx = numeric())
+}
+# -- Site labels should be defined earlier; if not, define a minimal default --
+>>>>>>> c5a41eb (updates to dev trends section)
 if (!exists("site_labels")) {
     site_labels <- c("pilot_western_ca" = "Canada",
                      "pilot_uniandes_co" = "Colombia",
                      "pilot_leuphana_de" = "Germany")
 }
+<<<<<<< HEAD
 
 # Model selection by site
 model_sel <- task_rxx |>
+=======
+# -- Prefer explicit model selection export when available; otherwise infer from reliability --
+sel_path <- here::here("04_paper","display","model_selection.csv")
+has_sel  <- file.exists(sel_path)
+has_rxx  <- nrow(task_rxx) > 0
+if (has_sel) {
+  # Expect columns: task, site, selected_model (e.g., "Rasch" or "2PL"), optionally BIC, delta_bic
+  model_sel <- read_csv(sel_path, show_col_types = FALSE) |>
+    mutate(site_label = recode(site, !!!site_labels),
+           Model = selected_model)
+} else if (has_rxx) {
+  # Use the model with highest average reliability per task/site as a descriptive proxy
+  model_sel <- task_rxx |>
+>>>>>>> c5a41eb (updates to dev trends section)
     mutate(site_label = recode(site, !!!site_labels),
            Model = case_match(itemtype,
                               "rasch" ~ "Rasch",
@@ -375,6 +463,7 @@ model_sel <- task_rxx |>
     group_by(task, site_label) |>
     slice_max(order_by = rxx, n = 1, with_ties = FALSE) |>
     ungroup()
+<<<<<<< HEAD
 
 # Collapse to one model per task
 per_task_model <- model_sel |>
@@ -395,6 +484,46 @@ task_labels <- c(
     tom    = "Theory Of Mind",
     trog     = "Sentence Understanding",
     vocab  = "Vocabulary"
+=======
+} else {
+  stop("Neither `04_paper/display/model_selection.csv` nor `02_scoring_outputs/task_rxx.rds` is available.\n",
+       "Export a model selection summary or generate the reliability file and re-knit.")
+}
+# -- Collapse to one model per task (most common across sites) --
+per_task_model <- model_sel |>
+  count(task, Model, name = "n_sites") |>
+  group_by(task) |>
+  slice_max(order_by = n_sites, n = 1, with_ties = FALSE) |>
+  ungroup()
+# -- Attach mean rxx, if available, for context --
+if (has_rxx) {
+  rxx_table <- task_rxx |>
+    mutate(site_label = recode(site, !!!site_labels),
+           Model = case_match(itemtype, "rasch" ~ "Rasch", "2pl" ~ "2PL", .default = toupper(itemtype))) |>
+    select(task, Model, site_label, rxx) |>
+    group_by(task, Model) |>
+    summarize(`Mean reliability (rxx)` = mean(rxx, na.rm = TRUE), .groups = "drop")
+
+  display_tbl <- per_task_model |>
+    left_join(rxx_table, by = c("task","Model")) |>
+    arrange(task)
+} else {
+  display_tbl <- per_task_model |>
+    mutate(`Mean reliability (rxx)` = NA_real_) |>
+    arrange(task)
+}
+# -- Render APA-style table --
+papaja::apa_table(
+  display_tbl, label = "model-selection",
+  caption = if (has_sel)
+    "Selected calibration model per task with mean marginal reliability across sites (from model_selection.csv)."
+  else
+    "Inferred calibration model per task (highest average reliability across sites) with mean marginal reliability.",
+  note = if (has_sel)
+    "Model selection followed a BIC rule: 2PL preferred when ΔBIC ≤ −10; otherwise Rasch selected for parsimony."
+  else
+    "When a formal model-selection export was not available, the model with highest average rxx served as a descriptive proxy."
+>>>>>>> c5a41eb (updates to dev trends section)
 )
 
 # Calibration table (drop invariance)
@@ -412,7 +541,11 @@ papaja::apa_table(
 ```
 ## Multigroup Calibration and Measurement Invariance
 
+<<<<<<< HEAD
 In the second step, we evaluated cross-site comparability using multigroup IRT models. Models were estimated on the set of overlapping items common to all sites, under a sequence of increasingly restrictive invariance constraints. These were defined following the conventional factor-analytic hierarchy but translated into IRT terms:
+=======
+We calibrated each LEVANTE task using Rasch and 2PL models and selected the more constrained model unless fit indices provided strong evidence in favor of the 2PL ($\Delta$BIC $\leq$ −10). Across most tasks, the Rasch specification was adequate, indicating that item discriminations did not vary substantially. Two tasks—Mental Rotation (rxx = .93) and Same–Different Selection (rxx = .96)—were better described by the 2PL model, reflecting heterogeneity in how strongly items discriminated among children.
+>>>>>>> c5a41eb (updates to dev trends section)
 
 -   Configural invariance: common factor structure, item parameters free across sites.
 -   Metric invariance: item discriminations constrained equal across sites.
@@ -420,9 +553,14 @@ In the second step, we evaluated cross-site comparability using multigroup IRT m
 
 Scalar invariance therefore provides the strongest basis for direct cross-site score comparability, while metric and configural levels reflect progressively weaker comparability.
 
+<<<<<<< HEAD
 Results (Table \@ref(tab:model-invariance)) indicated that scalar invariance was tenable for the majority of tasks, suggesting that both item difficulties and slopes generalized across sites. Two tasks supported only metric invariance, implying that discriminations were stable but intercepts varied. Three tasks—Hearts & Flowers, Theory of Mind, and Vocabulary—retained only configural invariance, meaning that while the latent structure was consistent, parameter differences across sites limited strict comparability of scores.
 
 In practice, when a task supported scalar or metric invariance, the corresponding multigroup model was extended to the full item pool and used to generate scores on a common cross-site scale. When only configural invariance was supported, we reverted to site-specific calibrations (the by-language models) for scoring, thereby ensuring valid within-site ability estimates while acknowledging limited comparability across sites.
+=======
+## Multigroup Calibration and Measurement Invariance 
+```{r invariance-summary, echo=FALSE, message=FALSE, warning=FALSE, results='asis'}
+>>>>>>> c5a41eb (updates to dev trends section)
 
 ```{r model-invariance, echo=FALSE, message=FALSE, warning=FALSE, results='asis'}
 
@@ -440,102 +578,124 @@ papaja::apa_table(
 
 ```
 
-## Item-Level Diagnostics
-
-```{r, message=FALSE, warning=FALSE, include=FALSE, results='asis'}
-
-regdir <- here::here("02_score_data/02_fit_irt/model_registry")
-# Load helpers
-source(here::here("02_score_data/02_fit_irt/irt_modular.R"), chdir = TRUE)
-source(here::here("02_score_data/02_fit_irt/registry_helper.R"), chdir = TRUE)
-# Sanity check: does the registry have files?
-list.files(regdir, recursive = TRUE)
-# read in all models in registry
-mods <- list_models() |> load_models()
-# extract model specifications from model records
-mods_coded <- mods |>
-  mutate(nfact = map_int(mod_rec, \(mr) mr@nfact),
-         itemtype = map_chr(mod_rec, \(mr) mr@itemtype),
-         invariance_terms = map(mod_rec, \(mr) mr@invariance),
-         invariance = map_chr(invariance_terms, translate_invariance)) |>
-  select(-filename, -path, -invariance_terms) |>
-  mutate(mod = map(mod_rec, model_from_record))
-
-```  
-
-```{r include=FALSE}
-
-# ---------- helpers ----------
-pbis_corrected <- function(mat){
-  pbs <- numeric(ncol(mat))
-  for(j in seq_len(ncol(mat))){
-    xj   <- mat[, j]
-    totj <- rowSums(mat[, -j, drop = FALSE], na.rm = TRUE)
-    pbs[j] <- suppressWarnings(cor(xj, totj, use = "pairwise.complete.obs"))
-  }
-  setNames(pbs, colnames(mat))
-}
-
-normalize_fit <- function(x){
-  if (is.null(x)) return(tibble())
-  df <- tryCatch(as.data.frame(x), error = function(e) NULL)
-  if (is.null(df)) return(tibble())
-  if (!"item" %in% names(df)) {
-    rn <- rownames(df)
-    df$item <- if (!is.null(rn)) rn else paste0("item_", seq_len(nrow(df)))
-    rownames(df) <- NULL
-  }
-  as_tibble(df)
-}
-
-get_infit <- function(mod){
-  out <- tryCatch(mirt::itemfit(mod, na.rm = TRUE, fit_stats = "infit"), error = function(e) NULL)
-  out <- normalize_fit(out)
-  if (!nrow(out)) out <- tibble(item = character())
-  if (!"infit"   %in% names(out)) out$infit    <- NA_real_
-  if (!"z.infit" %in% names(out)) out$`z.infit` <- NA_real_
-  out %>% select(item, infit, `z.infit`)
-}
-
-get_sx2 <- function(mod){
-  out <- tryCatch(mirt::itemfit(mod, na.rm = TRUE), error = function(e) NULL)
-  out <- normalize_fit(out)
-  if (!nrow(out)) out <- tibble(item = character())
-  for (nm in c("S_X2","df.S_X2","RMSEA.S_X2","p.S_X2")) {
-    if (!nm %in% names(out)) out[[nm]] <- NA_real_
-  }
-  out %>% select(item, S_X2, df.S_X2, RMSEA.S_X2, p.S_X2)
-}
-
-get_n_eff <- function(dat) sum(stats::complete.cases(dat))
-
-# Model-level fit pulled from mirt object
-get_model_fit <- function(mod){
-  tibble(
-    AIC    = tryCatch(mirt::extract.mirt(mod, "AIC"),    error = \(e) NA_real_),
-    BIC    = tryCatch(mirt::extract.mirt(mod, "BIC"),    error = \(e) NA_real_),
-    SABIC  = tryCatch(mirt::extract.mirt(mod, "SABIC"),  error = \(e) NA_real_),
-    logLik = tryCatch(as.numeric(mirt::extract.mirt(mod, "logLik")),
-                      error = \(e) NA_real_),
-    npar   = tryCatch(as.numeric(mirt::extract.mirt(mod, "npar")),
-                      error = \(e) NA_real_)
-  )
-}
-
 <<<<<<< HEAD
-# ---------- main per-row summarizer ----------
-summarize_item_fit_with_meta <- function(task, model_set, subset, mod_rec, nfact, itemtype, invariance, mod){
-  dat <- mod@Data$data
-
-  # classical
-  p_correct <- colMeans(dat, na.rm = TRUE)
-  pbis      <- tryCatch(pbis_corrected(dat),
-                        error = function(e) rep(NA_real_, ncol(dat)) |> setNames(colnames(dat)))
-  classical <- tibble(
-    item           = names(p_correct),
-    p_correct      = unname(p_correct),
-    point_biserial = unname(pbis)
 =======
+```{r invariance-mapping, echo=FALSE, message=FALSE, warning=FALSE, results='asis'}
+# Detailed mapping table 
+papaja::apa_table(
+  inv |>
+    select(any_of(c("Goal", "LEVANTE name", "Factor analysis name",
+                    "IRT explanation", "Interpretation"))),
+  align   = c("m{2.5cm}", "m{3cm}", "m{5cm}", "m{5cm}", "m{5cm}"),
+  caption = "Measurement invariance mapping across factor analysis and IRT. Scalar invariance supports direct cross-site score comparability; metric and configural indicate progressively weaker comparability.",
+  label = "invariance-mapping"
+)
+
+```
+
+We next examined whether the LEVANTE tasks functioned similarly across Colombia, Germany, and Canada using multigroup IRT models. Starting with a configural model (all parameters free), we sequentially imposed equality constraints on discriminations (metric) and then on both discriminations and difficulties (scalar). Because residual variances are not separately estimated in binary IRT, strict invariance was not tested. Model selection relied on $\Delta$BIC, retaining the most constrained model that did not show meaningful loss of fit ($\Delta$BIC $\leq$ +10).
+
+Table \@ref(tab:invariance-summary) summarizes outcomes. Math and Matrix Reasoning supported scalar invariance, indicating no evidence of DIF and suggesting that scores can be compared directly across sites, at least in these pilot samples. Vocabulary supported metric invariance: items discriminated similarly across sites but varied in difficulty, so associations are interpretable but mean-level comparisons require caution. Hearts and Flowers and Theory of Mind showed only configural invariance, implying site-specific item functioning and the need for further revision. For the remaining tasks (e.g., TROG, Memory Game), invariance could not be established given current sample sizes.
+
+Table \@ref(tab:invariance-mapping) aligns the factor-analytic and IRT definitions of configural, metric, and scalar invariance, clarifying what kinds of cross-site comparisons each level supports. Taken together, these findings suggest that some tasks are already suitable for international comparability, while others require additional development and piloting.
+
+>>>>>>> c5a41eb (updates to dev trends section)
+## Item-Level Diagnostics
+```{r item-classical-detail, echo=FALSE, message=FALSE, warning=FALSE, results='asis'}
+
+# 1) load trial data
+trial_path <- here("01_fetched_data", "trial_data.rds")
+trial_data <- readRDS(trial_path)
+
+# 2) keep only valid trials, 0/1 correctness, dedupe last attempt per (user, task, item)
+resp_df <- trial_data %>%
+  filter(valid_trial) %>%                               # logical, not string
+  transmute(
+    user_id  = as.character(user_id),
+    task     = tolower(item_task),
+    item_id  = as.character(item_uid),
+    response = as.integer(correct),                     # logical -> 0/1
+    ts       = timestamp
+  ) %>%
+  filter(!is.na(user_id), !is.na(task), !is.na(item_id), response %in% c(0L,1L)) %>%
+  arrange(user_id, task, item_id, ts) %>%
+  group_by(user_id, task, item_id) %>%
+  slice_tail(n = 1) %>%                                 # keep most recent attempt
+  ungroup() %>%
+  select(-ts)
+
+# 3) classical stats helper (proportion correct + point-biserial vs. rest)
+classical_stats <- function(df_person_item, min_n_item = 30) {
+  totals <- df_person_item %>%
+    group_by(user_id) %>%
+    summarise(total = sum(response, na.rm = TRUE),
+              k     = sum(!is.na(response)), .groups = "drop")
+
+  df_person_item %>%
+    left_join(totals, by = "user_id") %>%
+    mutate(rest = total - response, ok = k >= 2) %>%
+    group_by(item_id) %>%
+    group_modify(~{
+      x_all <- .x
+      x_ok  <- .x %>% filter(ok, !is.na(response), !is.na(rest))
+      tibble(
+        n           = sum(!is.na(x_all$response)),
+        p_classical = mean(x_all$response, na.rm = TRUE),
+        pbis        = if (nrow(x_ok) < 5 || sd(x_ok$rest) == 0 || sd(x_ok$response) == 0)
+                        NA_real_ else suppressWarnings(cor(x_ok$response, x_ok$rest))
+      )
+    }) %>%
+    ungroup() %>%
+    mutate(
+      flag_min_n     = n < min_n_item,
+      flag_p_extreme = (!flag_min_n) & (p_classical < .20 | p_classical > .90),
+      flag_pbis_low  = (!flag_min_n) & !is.na(pbis) & (pbis < .20),
+      flag_any       = flag_pbis_low | flag_p_extreme   # you may drop p_extreme here if desired
+    )
+}
+
+# 4) compute per-item and per-task diagnostics
+diag_items <- resp_df %>%
+  group_by(task) %>%
+  group_modify(~ classical_stats(select(.x, user_id, item_id, response))) %>%
+  ungroup() %>%
+  arrange(task, item_id)
+
+diag_summary <- diag_items %>%
+  summarise(
+    n_items     = dplyr::n_distinct(item_id),
+    n_flag_minN = sum(flag_min_n,     na.rm = TRUE),
+    n_flag_p    = sum(flag_p_extreme, na.rm = TRUE),
+    n_flag_pbis = sum(flag_pbis_low,  na.rm = TRUE),
+    n_any_flag  = sum(flag_any,       na.rm = TRUE),
+    .by = task
+  ) %>%
+  mutate(
+    prop_flag_p    = n_flag_p    / n_items,
+    prop_flag_pbis = n_flag_pbis / n_items,
+    prop_any_flag  = n_any_flag  / n_items
+  ) %>%
+  arrange(task)
+
+# 5) detailed item table for internal use
+diag_items_detailed <- diag_items %>%
+  transmute(
+    Task  = task,
+    Item  = item_id,
+    N     = n,
+    p     = round(p_classical, 3),
+    pbis  = ifelse(is.na(pbis), NA, round(pbis, 3)),
+    flag_p     = !is.na(p)    & (p < .20 | p > .90),     
+    flag_pbis  = !is.na(pbis) & (pbis < .20)
+  ) %>%
+  arrange(Task, Item)
+
+# Save for QA (RDS + CSV)
+saveRDS(diag_items_detailed, here::here("04_paper","display","diag_items_detailed.rds"))
+readr::write_csv(diag_items_detailed, here::here("04_paper","display","diag_items_detailed.csv"))
+
+```
+
 ```{r item-summary-table, echo=FALSE, message=FALSE, warning=FALSE, results='asis'}
 
 diag_summary_out <- diag_summary %>%
@@ -545,123 +705,121 @@ diag_summary_out <- diag_summary %>%
     `Extreme p`    = sprintf("%d (%.0f%%)", n_flag_p,    100 * n_flag_p    / n_items),
     `Low pbis`     = sprintf("%d (%.0f%%)", n_flag_pbis, 100 * n_flag_pbis / n_items),
     `Any flag`     = sprintf("%d (%.0f%%)", n_any_flag,  100 * n_any_flag  / n_items)
->>>>>>> bfcebce (updates to dev change section)
   )
 
-  # IRT
-  infit_tbl <- get_infit(mod)
-  sx2_tbl   <- get_sx2(mod)
-
-  # align to classical item set (prevents join errors)
-  infit_tbl <- right_join(infit_tbl, classical %>% select(item), by = "item")
-  sx2_tbl   <- right_join(sx2_tbl,   classical %>% select(item), by = "item")
-
-  n_eff_task   <- get_n_eff(dat)
-  n_items_task <- ncol(dat)
-
-  model_fit <- get_model_fit(mod)
-
-  # merge & append metadata + model-level fit
-  classical %>%
-    left_join(infit_tbl, by = "item") %>%
-    left_join(sx2_tbl,   by = "item") %>%
-    mutate(
-      task        = task,
-      model_set   = model_set,
-      subset      = subset,
-      nfact       = nfact,
-      itemtype    = itemtype,
-      invariance  = invariance,
-      n_eff_task  = n_eff_task,
-      n_items     = n_items_task,
-      AIC         = model_fit$AIC,
-      BIC         = model_fit$BIC,
-      SABIC       = model_fit$SABIC,
-      logLik      = model_fit$logLik,
-      npar        = model_fit$npar
-    ) %>%
-    relocate(task, model_set, subset, itemtype, invariance, nfact,
-             n_eff_task, n_items, item)
-}
-
-# ---------- run across ALL rows of mods_coded ----------
-# Expect mods_coded to have columns: task, model_set, subset, mod_rec, nfact, itemtype, invariance, mod
-all_stats <- purrr::pmap_dfr(
-  mods_coded,
-  summarize_item_fit_with_meta
-)
-
-# ---------- flags ----------
-all_stats <- all_stats %>%
-  mutate(
-    flag_p      = p_correct < .20 | p_correct > .90,
-    flag_pb     = point_biserial < .20,
-    flag_infit  = ifelse(is.finite(infit), infit < .80 | infit > 1.20, NA),
-    flag_zinfit = ifelse(is.finite(`z.infit`), abs(`z.infit`) > 2, NA),
-    flag_SX2_01  = ifelse(!is.na(p.S_X2), p.S_X2 < .01,  NA),
-    flag_SX2_001 = ifelse(!is.na(p.S_X2), p.S_X2 < .001, NA)
-  )
-
-# ---------- rollups (by task + subset + model spec) ----------
-task_summary <- all_stats %>%
-  group_by(task, model_set, subset, itemtype, invariance, nfact) %>%
+# Add a proper Total row (direct sums + weighted %)
+totals <- diag_summary %>%
   summarise(
-    n_eff_task      = first(n_eff_task),
-    n_items         = first(n_items),
-    AIC             = first(AIC),
-    BIC             = first(BIC),
-    SABIC           = first(SABIC),
-    logLik          = first(logLik),
-    npar            = first(npar),
-    mean_p          = mean(p_correct, na.rm = TRUE),
-    median_p        = median(p_correct, na.rm = TRUE),
-    mean_pbis       = mean(point_biserial, na.rm = TRUE),
-    n_flag_p        = sum(flag_p, na.rm = TRUE),
-    n_flag_pb       = sum(flag_pb, na.rm = TRUE),
-    n_flag_infit    = sum(flag_infit, na.rm = TRUE),
-    n_flag_zinfit   = sum(flag_zinfit, na.rm = TRUE),
-    n_flag_SX2_p01  = sum(flag_SX2_01, na.rm = TRUE),
-    n_flag_SX2_p001 = sum(flag_SX2_001, na.rm = TRUE),
-    .groups = "drop"
+    Task        = "Total",
+    `# Items`   = sum(n_items, na.rm = TRUE),
+    n_flag_p    = sum(n_flag_p,    na.rm = TRUE),
+    n_flag_pbis = sum(n_flag_pbis, na.rm = TRUE),
+    n_any_flag  = sum(n_any_flag,  na.rm = TRUE)
+  )
+
+totals_fmt <- totals %>%
+  mutate(
+    `Extreme p` = sprintf("%d (%.0f%%)", n_flag_p,    100 * n_flag_p    / `# Items`),
+    `Low pbis`  = sprintf("%d (%.0f%%)", n_flag_pbis, 100 * n_flag_pbis / `# Items`),
+    `Any flag`  = sprintf("%d (%.0f%%)", n_any_flag,  100 * n_any_flag  / `# Items`)
   ) %>%
-  arrange(task, model_set, subset, itemtype, invariance)
+  select(Task, `# Items`, `Extreme p`, `Low pbis`, `Any flag`)
 
-# ---------- save (RDS + CSV) ----------
-# Make sure the folder exists
-dir.create(here("04_paper","display"), recursive = TRUE, showWarnings = FALSE)
+diag_summary_out <- bind_rows(diag_summary_out, totals_fmt)
 
-# Detailed item-level
-saveRDS(all_stats,     here("04_paper","display","diag_items_allstats.rds"))
-write_csv(all_stats,   here("04_paper","display","diag_items_allstats.csv"))
-
-# Summary level
-saveRDS(task_summary,  here("04_paper","display","diag_items_summary.rds"))
-write_csv(task_summary,here("04_paper","display","diag_items_summary.csv"))
-
+apa_table(
+  diag_summary_out,
+  align   = c("l","c","c","c","c"),
+  escape  = TRUE,
+  caption = "Item-level diagnostics by task. Extreme p: items with very low/high proportion correct (< .20 or > .90). Low pbis: items with point–biserial correlations < .20. Values are n (percentage of items in task).",
+  label   = "item-diagnostics-summary"
+)
 ```
+In addition to overall model calibration, we examined item-level performance to identify potential weaknesses in the pilot instruments. Classical item statistics included the proportion correct and point-biserial item–total correlations. Items with very low or very high proportions correct (below .20 or above .90) were flagged as potentially uninformative, and items with point-biserial correlations below .20 were flagged as weakly discriminating. Complementary IRT-based diagnostics included inspection of item infit and outfit statistics, although these results are not displayed here. Together, these indices provide a first pass at identifying problematic items that may warrant revision, removal, or further testing in subsequent piloting rounds.
 
+.... DORIA stopped here ....
+
+Classical indices included proportion correct (flagged if <0.20 or >0.90) and point-biserial correlations (flagged if <0.20). 
+IRT-based fit statistics included infit and outfit mean squares.
+DIF
+Removal and Revision of Problematic Items
+Ability Estimation
+CAT-Specific Scoring
+
+Multigroup models and invariance
+Model selection approach
+1PL/2PL and different degrees of invariance
+Item-level diagnostics
+Removal of outlier items
+Tests for item-level DIF in cases where we use multigroup scoring
 
 # Psychometric properties of tasks
 
 ## Developmental change
+Across all nine tasks we observe positive age–ability trends. The smoothed lines are roughly parallel within each panel, indicating that sites differ mostly in level with only modest differences in slope (see Figure \@ref(fig:age trends). Growth appears steepest for Math and Hearts & Flowers, moderate for Vocabulary, Memory, and Theory of Mind, and shallower for Shape Rotation; Sentence Understanding shows a positive but weaker trend.
+```{r age trends, fig.cap="Age related trends by task", fig.width = 8, fig.height = 8, echo=FALSE, message=FALSE, warning=FALSE}
 
-```{r, fig.width = 8, fig.height = 8}
-ggplot(coretask_scores, aes(x = age, y = metric_value)) +
-    ggh4x::facet_nested_wrap(vars(task_category, task),
-                             nest_line = element_line(), solo_line = TRUE,
-                             axes = "x",
-                             scales = "free_y") +
-    geom_smooth(aes(group = site_label, color = site_label),
-                method = "gam", formula = y ~ s(x, bs = "re")) +
-    geom_point(aes(colour = site_label), alpha = 0.3) +
-    scale_x_continuous(breaks = seq(6, 14, 2)) +
-    .scale_colour_site() +
-    guides(color = guide_legend(override.aes = list(fill = "white"))) +
-    labs(x = "Age (years)", y = "Ability (IRT score)", colour = "Site") +
-    theme(legend.position = "bottom")
+ggplot(coretask_scores, aes(age, metric_value)) +
+  ggh4x::facet_nested_wrap(vars(task_category, task),
+                           nest_line = element_line(), solo_line = TRUE,
+                           axes = "x", scales = "free_y") +
+  geom_smooth(aes(colour = site_label, group = site_label),
+              method = "gam", formula = y ~ s(x, bs = "re"), se = FALSE) +
+  geom_point(aes(colour = site_label), alpha = 0.5, show.legend = FALSE) +  # hide points from legend
+  scale_x_continuous(breaks = seq(6, 14, 2)) +
+  .scale_colour_site() +
+  guides(colour = guide_legend(override.aes = list(shape = NA, linetype = 1, linewidth = 2))) +
+  labs(x = "Age (years)", y = "Ability (IRT score)", colour = "Site") +
+  theme(legend.position = "bottom")
+```
+To formally quantify developmental change while treating sites as a random sample from a broader population, we fit linear mixed-effects models with site-specific random intercepts and slopes, which estimate within-site age slopes (IRT units per year) with partial pooling across sites (Figure \@ref(fig:random-slopes-graph)). Consistent with the descriptive smooths, the largest gains were in Math (B=0.61, 95% CI [0.40, 0.82], p=.01) and Hearts & Flowers (B=0.50, [0.09, 0.91], p=.03). Vocabulary (B=0.37, [0.22, 0.52], p=.01), Memory (B=0.36, [0.13, 0.59], p=.02), and Theory of Mind (B=0.33, [0.04, 0.62], p=.04) also showed clear positive change. Sentence Understanding (B≈0.30) and Shape Rotation (B≈0.15) provided weaker evidence (95% CIs include 0). Pattern Matching had a positive point estimate but a wide CI, indicating limited information or instability for that task. See Table \@ref(tab:age-slopes) for per-task estimates.
+
+```{r age slopes, echo=FALSE, message=FALSE, warning=FALSE, results='asis'}
+coretask_scores <- coretask_scores %>%
+  mutate(
+    age_c = age - mean(age, na.rm = TRUE),
+    site  = factor(site)
+  )
+
+slopes_by_task <- coretask_scores %>%
+  tidyr::nest(data = -task) %>%                               
+  mutate(
+    fit   = purrr::map(data, ~ lmer(metric_value ~ age_c + (age_c || site), data = .x)),
+    fixed = purrr::map(fit,  ~ broom.mixed::tidy(.x, effects = "fixed", conf.int = TRUE))
+  ) %>%
+  tidyr::unnest(fixed) %>%
+  dplyr::filter(term == "age_c") %>%
+  dplyr::select(
+    task,
+    slope_per_year = estimate,
+    ci_low  = conf.low,
+    ci_high = conf.high,
+    p       = p.value
+  ) %>%
+  dplyr::arrange(desc(slope_per_year))
+
+slopes_print <- slopes_by_task %>%
+  mutate(
+    sig = case_when(
+      p < .001 ~ "***",
+      p < .01  ~ "**",
+      p < .05  ~ "*",
+      TRUE     ~ ""
+    )
+  ) %>%
+  dplyr::select(task,
+         slope_per_year,
+         ci_low, ci_high,
+         p, sig)
+
+knitr::kable(
+  slopes_print, digits = 2,
+  caption = "Per-task age slopes (IRT units/year) with 95% CIs; site as random intercept and slope. *p* values from lmerTest. Sig: *p*<.05(*), <.01(**), <.001(***)."
+)
+
 ```
 
-```{r}
+```{r random slopes, include=FALSE}
 # random slopes model
 library(lme4)
 colnames(coretask_scores)
@@ -676,53 +834,52 @@ fit <- lmer(metric_value ~ age_c + (age_c || site),
 fit
 ```
 
-```{r}
+```{r random slopes graph, fig.cap="Random Effects model - Developmental trends", fig.width = 8, fig.height = 8, echo=FALSE, message=FALSE, warning=FALSE}
+site_key <- coretask_scores %>% distinct(site, site_label)
 
-# mean age to un-center for plotting
 age_mean <- mean(coretask_scores$age, na.rm = TRUE)
-
-# prediction grid across observed range
 age_seq  <- seq(min(coretask_scores$age_c, na.rm = TRUE),
-                max(coretask_scores$age_c, na.rm = TRUE),
-                length.out = 200)
+                max(coretask_scores$age_c, na.rm = TRUE), length.out = 200)
 
-newdata  <- expand.grid(
+newdata <- expand.grid(
   age_c = age_seq,
   site  = levels(factor(coretask_scores$site))
 ) %>%
+  left_join(site_key, by = "site") %>%
   mutate(age = age_c + age_mean)
 
-# site-specific (includes random effects)
+# site-specific predictions
 newdata$y_hat_site <- predict(fit, newdata = newdata, re.form = NULL)
 
-# population-average (fixed effects only)
-newdata$y_hat_fixed <- predict(fit, newdata = newdata, re.form = NA)
-
-# plot
 ggplot() +
   geom_point(data = coretask_scores,
-             aes(x = age, y = metric_value, colour = site),
-             alpha = 0.12, size = 1, show.legend = FALSE) +
+             aes(x = age, y = metric_value, colour = site_label),
+             alpha = 0.3, size = 1) +
   geom_line(data = newdata,
-            aes(x = age, y = y_hat_site, colour = site),
+            aes(x = age, y = y_hat_site, colour = site_label),
             linewidth = 1.1) +
-  # overall fixed-effects line (dashed, black)
-  geom_line(data = newdata |> distinct(age, y_hat_fixed),
-            aes(x = age, y = y_hat_fixed),
-            linewidth = 1.2, linetype = 2, colour = "black") +
-  labs(x = "Age (years)",
-       y = "Ability (IRT score)",
-       colour = "Site",
-       title  = "Random-intercept & slope by site: fitted developmental trends") +
-  theme_minimal(base_size = 12) +
+  scale_x_continuous(breaks = seq(6, 14, 2)) +
+  .scale_colour_site() +
+  guides(color = guide_legend(override.aes = list(fill = "white"))) +
+  labs(
+    x = "Age (years)",
+    y = "Ability (IRT score)",
+    colour = "Site",
+    title = "Random-intercept & slope by site: fitted developmental trends"
+  ) +
   theme(legend.position = "bottom")
+
 ```
 ## Reliability 
 ### Marginal reliability estimates
+<<<<<<< HEAD
 
 
+=======
+>>>>>>> c5a41eb (updates to dev trends section)
 ```{r}
 
+<<<<<<< HEAD
 task_rxx <- readr::read_rds(here::here("02_scoring_outputs", "task_rxx.rds"))
 
 rxx_norm <- task_rxx %>%
@@ -749,6 +906,19 @@ task_rxx_table <- rxx_chosen %>%
   mutate(across(c(Germany, Colombia, Canada), ~round(.x, 2))) %>%
   select(Task, Germany, Colombia, Canada) %>%
   arrange(Task)
+=======
+task_rxx_table <- task_rxx |>
+  rename(item_task = task) |>
+  left_join(task_map) |>
+  mutate(site_label = site |> fct_recode(!!!site_labels),
+         itemtype = itemtype |> fct_recode("Rasch" = "rasch", "2PL" = "2pl"),
+         invariance = invariance |> str_to_title()) |>
+         # model_label = paste(itemtype, invariance) |> str_trim()) |>
+  select(task, itemtype, invariance, site_label, rxx) |>
+  pivot_wider(names_from = site_label, values_from = rxx) |>
+  # mutate(across(everything(), \(v) v |> replace_na("–"))) |>
+  arrange(task)
+>>>>>>> c5a41eb (updates to dev trends section)
 
 options(papaja.na_string = "–")
 papaja::apa_table(
@@ -765,7 +935,7 @@ options(papaja.na_string = "NA")
 ### Test-retest
 <!-- > ### Test-retest [bd edit: can we put correlations in each panel?  ] -->
 
-```{r, output="asis"}
+```{r, output='asis'}
 de_retest_scores <- coretask_scores |> 
   filter(site == "pilot_leuphana_de") |>
   group_by(user_id, task) |>
@@ -800,7 +970,7 @@ trt <- retest_wide |>
 papaja::apa_table(trt, digits = 2, caption = "Task-wise test-retest correlations computed for Germany data.")
 ```
 
-```{r, fig.width = 8, fig.height = 8}
+```{r, fig.width = 8, fig.height = 8, results='asis'}
 ggplot(retest_wide, aes(x = run_1, y = run_2, color = age)) +
   ggh4x::facet_nested_wrap(vars(task_category, task),
                          nest_line = element_line(), solo_line = TRUE,
@@ -817,9 +987,8 @@ ggplot(retest_wide, aes(x = run_1, y = run_2, color = age)) +
 ## Validity 
 ### Construct validity
 We assessed construct validity using confirmatory factor analysis (CFA) specified a priori, based on our theory of which indicators load on each construct. The measurement model specified three latent factors–Reasoning (matrix reasoning, mental rotation), Executive Function (EF; hearts and flowers, memory game, same-different-selection), and Language (grammar, vocab)– and treated math and Social Cognition (Theory of Mind; ToM) as observed outcomes. Math and ToM were modeled as observed outcomes rather than latent factors because each construct contained a single task. Forming a latent factor with one indicator would require strong, unverifiable assumptions about reliability/error variances and can be weakly identified. Treating them as endogenous observed variables keeps the model parsimonious and transparent while allowing them to be predicted by the latent domains and age. We included age to account for developmental change. 
-
-We estimated two models. Model 1 included three latent factors and paths from age to the three factors as well as to math and ToM. Fit was mixed–CFI = .923, TLI = .850, RMSEA = .084 (90% CI .073–.095), SRMR = .059. However, factor correlations (residual, controlling for age) were high: Reasoning–EF .882, Reasoning–Language .747, and EF–Language .921. This suggests a general ability component could underpin these three latent factors. Controlling for age, maths and ToM showed a small positive residual association (r = .15), suggesting minor overlap not captured by age alone.
-```{r prep-sem, include=FALSE, cache=TRUE}
+We estimated two models. Model 1 included three latent factors and paths from age to the three factors as well as to math and ToM \@ref(fig:semplot-main). Fit was mixed–CFI = .923, TLI = .850, RMSEA = .084 (90% CI .073–.095), SRMR = .059. However, factor correlations (residual, controlling for age) were high: Reasoning–EF .882, Reasoning–Language .747, and EF–Language .921. This suggests a general ability component could underpin these three latent factors. Controlling for age, maths and ToM showed a small positive residual association (r = .15), suggesting minor overlap not captured by age alone.
+```{r prep-sem, include=FALSE}
 
 # one row per user (metadata + task scores from first run)
 meta <- coretask_firstrun_scores %>%
@@ -856,7 +1025,7 @@ str(vars_core_std[vars_core])
 
 ```
 
-```{r cfa, main model, include=FALSE, cache=TRUE}
+```{r cfa, main model, include=FALSE}
 cfa_1 <- "
   reasoning =~ matrix + mrot
   ef        =~ hf + mg + sds
@@ -874,8 +1043,7 @@ summary(fit_1, fit.measures = TRUE, standardized = TRUE)
 
 ```
 
-```{r fig-semplot-main, fig.width=8}
-
+```{r semplot-main, fig.cap="SEM for core tasks", echo=FALSE, message=FALSE, warning=FALSE}
 semPlot::semPaths(
   fit_1, 
   what="mod", 
@@ -899,12 +1067,12 @@ semPlot::semPaths(
   mar=c(6,6,6,6)
 )
 ```
-Given the strong inter-factor correlations, we specified a second model with a hierarchical structure: three first-order factors (Reasoning, EF, Language) loading on a second-order general factor (g). Math and ToM were again treated as observed endogenous outcomes regressed on g. We included a single developmental path for age → g Conventional fit indices was similar to Model 1 (CFI = .902, TLI = .857, RMSEA = .081, SRMR = .064). 
+Given the strong inter-factor correlations, we specified a second model with a hierarchical structure: three first-order factors (Reasoning, EF, Language) loading on a second-order general factor (g) \@ref(fig:fig-semplot-g). Math and ToM were again treated as observed endogenous outcomes regressed on g. We included a single developmental path for age → g Conventional fit indices was similar to Model 1 (CFI = .902, TLI = .857, RMSEA = .081, SRMR = .064). 
 
 Indicator loadings on their first-order factors were moderate–strong (e.g., matrix reasoning = .79; grammar = .78; vocab = .76), and g strongly underpinned the domains (Reasoning = .91; EF = .99; Language = .89; all standardized). Age positively predicted g (β = .69; R²(g) ≈ .48). In turn, g strongly predicted math (β = .87; R² ≈ .76) and moderately predicted ToM (β = .58; R² ≈ .33), yielding sizeable indirect effects of age via g (age → g → Maths ≈ .60; age → g → ToM ≈ .40). After accounting for g, we found a negative residual math–ToM association (r ≈ −.35), indicating that the small positive overlap in Model 1 largely reflected unmodeled general ability.
 
 Overall, factor loadings supported the intended three-factor structure (convergent validity), and age related to each domain as expected. The high inter-factor correlations and strong second-order loadings indicate that much of the variance is shared across domains, consistent with a broad general ability underpinning performance on the nine core tasks.
-```{r second fit, include = FALSE, cache = TRUE}
+```{r second fit, include=FALSE}
 model_g_no_age <- "
   # first-order factors
   reasoning =~ matrix + mrot
@@ -926,16 +1094,15 @@ summary(fit_g, fit.measures = TRUE, standardized = TRUE)
 head(lavaan::modindices(fit_g, sort.=TRUE, minimum.value=10), 15)
 ```
 
-```{r add age, include = FALSE, cache = TRUE}
-# add age
+```{r add age, include=FALSE}
 model_g_age <- paste0(model_g_no_age, "\n g ~ age")
 fit_g_age <- sem(model_g_age, data = vars_core_std,
                  estimator = "MLR", std.lv = TRUE, missing = "fiml")
 summary(fit_g_age, fit.measures = TRUE, standardized = TRUE)
-head(lavaan::modindices(fit_g_age, sort.=TRUE, minimum.value=10), 15)
+#head(lavaan::modindices(fit_g_age, sort.=TRUE, minimum.value=10), 15)
 ```
 
-```{r fig-semplot-g}
+```{r fig-semplot-g, fig.cap="SEM for core tasks with general factor", echo=FALSE, message=FALSE, warning=FALSE}
 
 semPlot::semPaths(
   fit_g_age,
@@ -956,8 +1123,8 @@ semPlot::semPaths(
 ```
 
 ### External validity
-To assess external validity, we fitted a single-factor EF model with hearts and flowers (hf), memory game (mg), same-different-selection (sds), and the external measure, the Minneosta Executive Function Scale (MEFS) as indicators. We modelled age as a predictor of the latent EF factor. Fit was generally good (CFI = .971, TLI = .943, SRMR = .034; RMSEA = .071, 90% CI .040–.106). Standardised loadings were moderate to strong (hf = .63, mg = .63, sds = .50, MEFS = .67), indicating that MEFS aligns closely with the latent EF construct. Age strongly predicted EF (β = .79; R² ≈ .62), consistent with expected developmental gains.
-```{r prep for sem - ef, include = FALSE, cache = TRUE}
+To assess external validity, we fitted a single-factor EF model with hearts and flowers (hf), memory game (mg), same-different-selection (sds), and the external measure, the Minnesota Executive Function Scale (MEFS) as indicators \@ref(fig:semplot-ef). We modeled age as a predictor of the latent EF factor. Fit was generally good (CFI = .971, TLI = .943, SRMR = .034; RMSEA = .071, 90% CI .040–.106). Standardized loadings were moderate to strong (hf = .63, mg = .63, sds = .50, MEFS = .67), indicating that MEFS aligns closely with the latent EF construct. Age strongly predicted EF (β = .79; R² ≈ .62), consistent with expected developmental gains.
+```{r prep for sem - ef, include=FALSE}
 
 ef_tasks <- c("hf","mg","sds","mefs")
 
@@ -1004,7 +1171,7 @@ ef_wide_std <- ef_wide_scores %>%
 # str(ef_wide_std[vars_ef])
 ```
 
-```{r sem fit, include = FALSE, cache = TRUE}
+```{r sem fit, include=FALSE}
 cfa_ef <-  '
 EF =~ hf + mg + sds + mefs
 EF ~ age
@@ -1016,7 +1183,7 @@ summary(fit_ef, fit.measures = TRUE, standardized = TRUE)
 print(fitMeasures(fit_ef, c("cfi","tli","rmsea","srmr", "aic", "bic")))
 ```
 
-```{r fig-semplot-ef}
+```{r semplot-ef, fig.cap="SEM for Executive Function model", echo=FALSE, message=FALSE, warning=FALSE}
 
 semPlot::semPaths(
   fit_ef,
@@ -1035,8 +1202,8 @@ semPlot::semPaths(
   mar = c(6,6,6,6)       
 )
 ```
-We ran a similar model to determine the external validity of the language and literacy measures (grammar and vocab) against ROAR tasks including measures of Phonological Awareness (pa), Single Word Reading (swr) and Sentence Reading Efficiency (sre). We fitted a single latent Language factor with ROAR tasks plus grammar (trog) and vocabulary as indicators, and modelled age as a predictor of the latent factor. Fit was borderline acceptable: CFI = .937, TLI = .895, RMSEA = .070, 90% CI .052–.089; SRMR = .070. Standardised loadings were: swr = .743, sre = .557, pa = .685, trog = .655, vocab = .814–all significant, indicating that the ROAR tasks align with grammar and vocabulary on a common language/literacy factor, with vocabulary the strongest indicator. Age positively predicted the latent factor (β = .66; R² ≈ .44), consistent with expected developmental gains.
-```{r prep for sem, include = FALSE, cache = TRUE}
+We ran a similar model to determine the external validity of the language and literacy measures (grammar and vocab) against ROAR tasks including measures of Phonological Awareness (pa), Single Word Reading (swr) and Sentence Reading Efficiency (sre). We fitted a single latent Language factor with ROAR tasks plus grammar (trog) and vocabulary as indicators, and modeled age as a predictor of the latent factor  \@ref(fig:fig-semplot-lang). Fit was borderline acceptable: CFI = .937, TLI = .895, RMSEA = .070, 90% CI .052–.089; SRMR = .070. Standardized loadings were: swr = .743, sre = .557, pa = .685, trog = .655, vocab = .814–all significant, indicating that the ROAR tasks align with grammar and vocabulary on a common language/literacy factor, with vocabulary the strongest indicator. Age positively predicted the latent factor (β = .66; R² ≈ .44), consistent with expected developmental gains.
+```{r prep for sem, include=FALSE}
 
 lang_vars <- c("swr","sre","pa","vocab","trog")
 
@@ -1079,7 +1246,7 @@ lang_wide_std <- lang_wide_scores %>%
   mutate(across(all_of(intersect(lang_vars, names(.))), ~ z(as.numeric(.x))))
 ```
 
-```{r sem fit - lang, include = FALSE, cache = TRUE}
+```{r sem fit - lang, include=FALSE}
 # model
 cfa_lang <-  '
 Language =~ swr + sre + pa + trog + vocab
@@ -1088,11 +1255,11 @@ Language ~ age
 
 fit_lang <- cfa(cfa_lang, data = lang_wide_std,
                 estimator = "MLR", std.lv = TRUE, missing = "fiml")
-# summary(fit_lang, fit.measures = TRUE, standardized = TRUE)
-# print(fitMeasures(fit_lang, c("cfi","tli","rmsea","srmr", "aic", "bic")))
+summary(fit_lang, fit.measures = TRUE, standardized = TRUE)
+print(fitMeasures(fit_lang, c("cfi","tli","rmsea","srmr", "aic", "bic")))
 ```
 
-```{r fig-semplot-lang}
+```{r fig-semplot-lang, fig.cap="SEM for language model", echo=FALSE, message=FALSE, warning=FALSE}
 semPlot::semPaths(
   fit_lang,
   whatLabels = "std",
@@ -1124,8 +1291,6 @@ The LEVANTE CATs are configurable with respect to the initial value of theta and
 
 
 # Discussion
-
-
 
 * Plans for internationalization
 * Plans for downward extension
