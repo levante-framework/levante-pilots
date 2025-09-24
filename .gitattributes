@@ -3,3 +3,4 @@
 02_scoring_outputs/irt_data/independent_task_data_args.rds filter=lfs diff=lfs merge=lfs -text
 02_scoring_outputs/irt_data/independent_task_data_prepped.rds filter=lfs diff=lfs merge=lfs -text
 02_scoring_outputs/scores/independent_scores.rds filter=lfs diff=lfs merge=lfs -text
+04_paper/display/*.csv linguist-generated=true
