@@ -156,18 +156,21 @@ scores_labeled <- scores_best |>
 write_rds(scores_labeled, here("02_scoring_outputs/scores/registry_scores.rds"),
           compress = "gz")
 
-# mod_coefs <- \(mod_rec) {
-#   model_vals(mod_rec) |>
-#     as_tibble() |>
-#     filter(group != "GROUP", item != "GROUP") |>
-#     select(group, item, name, value) |>
-#     pivot_wider(names_from = name, values_from = value) |>
-#     mutate(item = str_remove(item, glue("{item_sep}[0-9]+$"))) |>
-#     distinct()
-# }
-# 
-# all_coefs <- mods |>
-#   mutate(coefs = map(mod_rec, mod_coefs)) |>
-#   select(-mod_rec) |>
-#   unnest(coefs)
+mod_coefs <- \(mod_rec) {
+  model_vals(mod_rec) |>
+    as_tibble() |>
+    filter(group != "GROUP", item != "GROUP") |>
+    select(group, item, name, value) |>
+    pivot_wider(names_from = name, values_from = value) |>
+    mutate(item = str_remove(item, glue("{item_sep}[0-9]+$"))) |>
+    distinct()
+}
+
+best_coefs <- mods_best |>
+  mutate(coefs = map(mod_rec, mod_coefs)) |>
+  select(-mod_rec, -filename, -path) |>
+  unnest(coefs)
+
+write_rds(best_coefs, here("02_scoring_outputs/best_coefs.rds"),
+          compress = "gz")
 ```
