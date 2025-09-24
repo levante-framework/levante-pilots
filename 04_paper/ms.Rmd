@@ -727,17 +727,12 @@ ggplot() +
 
 ```
 ## Reliability 
+
 ### Marginal reliability estimates
-<<<<<<< HEAD
 
-
-=======
->>>>>>> c5a41eb (updates to dev trends section)
 ```{r}
 
-<<<<<<< HEAD
 task_rxx <- readr::read_rds(here::here("02_scoring_outputs", "task_rxx.rds"))
-
 rxx_norm <- task_rxx %>%
     mutate(
         invariance = tolower(invariance),
@@ -762,19 +757,6 @@ task_rxx_table <- rxx_chosen %>%
   mutate(across(c(Germany, Colombia, Canada), ~round(.x, 2))) %>%
   select(Task, Germany, Colombia, Canada) %>%
   arrange(Task)
-=======
-task_rxx_table <- task_rxx |>
-  rename(item_task = task) |>
-  left_join(task_map) |>
-  mutate(site_label = site |> fct_recode(!!!site_labels),
-         itemtype = itemtype |> fct_recode("Rasch" = "rasch", "2PL" = "2pl"),
-         invariance = invariance |> str_to_title()) |>
-         # model_label = paste(itemtype, invariance) |> str_trim()) |>
-  select(task, itemtype, invariance, site_label, rxx) |>
-  pivot_wider(names_from = site_label, values_from = rxx) |>
-  # mutate(across(everything(), \(v) v |> replace_na("–"))) |>
-  arrange(task)
->>>>>>> c5a41eb (updates to dev trends section)
 
 options(papaja.na_string = "–")
 papaja::apa_table(
@@ -787,6 +769,7 @@ options(papaja.na_string = "NA")
 
 
 ```
+
 
 ### Test-retest
 <!-- > ### Test-retest [bd edit: can we put correlations in each panel?  ] -->
