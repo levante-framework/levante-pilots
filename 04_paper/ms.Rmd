@@ -374,69 +374,14 @@ Partners at Western University, led by Daniel Ansari, recruited participants fro
 
 # Scoring
 
-```{r invariance, output="asis"}
-invariances <- read_csv(here("04_paper","display","invariance.csv")) |>
-  mutate(across(everything(), \(v) replace_na(v, "")))
-
-papaja::apa_table(
-  invariances |> select(`Invariance`, `Model`, `Factor analysis name`,
-                        `IRT explanation`, `Interpretation`),
-  align = c("m{2cm}", "m{3cm}", "m{5cm}", "m{5cm}", "m{5cm}"),
-  caption = "Measurement invariance across factor analysis and item response theory.",
-  landscape = TRUE)
-```
-
 ## IRT Calibration and Model Selection
-
-```{r model-selection, echo=FALSE, results='asis', message=FALSE, warning=FALSE}
-
-# -- Ensure scores are available  --
-if (!exists("all_scores")) {
-  sco_path <- here::here("02_scoring_outputs","scores","scores_combined.rds")
-  if (file.exists(sco_path)) {
-    all_scores <- readRDS(sco_path)
-  } else {
-    stop("Missing scores file: ", sco_path,
-         "\nRun `git lfs pull` in the repo and/or knit the full Rmd so earlier chunks create `all_scores`.")
-  }
-}
-# -- Load marginal reliability summary if present (used as fallback for selection) --
-task_rxx_path <- here::here("02_scoring_outputs","task_rxx.rds")
-if (file.exists(task_rxx_path)) {
-  task_rxx <- tryCatch(
-    readRDS(task_rxx_path),
-    error = function(e) {
-      if (requireNamespace("readr", quietly = TRUE)) {
-        readr::read_rds(task_rxx_path)
-      } else stop("Could not read task_rxx.rds; install.packages('readr') or ensure it's a valid RDS.")
-    }
-  )
-} else {
-  task_rxx <- tibble(task = character(),
-                     site = character(),
-                     itemtype = character(),   # expected values: "rasch" or "2pl"
-                     invariance = character(), # e.g., "scalar", "metric"
-                     rxx = numeric())
-}
-# -- Site labels should be defined earlier; if not, define a minimal default --
 if (!exists("site_labels")) {
   site_labels <- c("pilot_western_ca" = "Canada",
                    "pilot_uniandes_co" = "Colombia",
                    "pilot_leuphana_de" = "Germany")
 }
-# -- Prefer explicit model selection export when available; otherwise infer from reliability --
-sel_path <- here::here("04_paper","display","model_selection.csv")
-has_sel  <- file.exists(sel_path)
-has_rxx  <- nrow(task_rxx) > 0
-if (has_sel) {
-  # Expect columns: task, site, selected_model (e.g., "Rasch" or "2PL"), optionally BIC, delta_bic
-  model_sel <- read_csv(sel_path, show_col_types = FALSE) |>
-    mutate(site_label = recode(site, !!!site_labels),
-           Model = selected_model)
-} else if (has_rxx) {
-  # Use the model with highest average reliability per task/site as a descriptive proxy
-  model_sel <- task_rxx |>
-    mutate(site_label = recode(site, !!!site_labels),
+
+mutate(site_label = recode(site, !!!site_labels),
            Model = case_match(itemtype,
                               "rasch" ~ "Rasch",
                               "2pl"   ~ "2PL",
@@ -444,61 +389,6 @@ if (has_sel) {
     group_by(task, site_label) |>
     slice_max(order_by = rxx, n = 1, with_ties = FALSE) |>
     ungroup()
-} else {
-  stop("Neither `04_paper/display/model_selection.csv` nor `02_scoring_outputs/task_rxx.rds` is available.\n",
-       "Export a model selection summary or generate the reliability file and re-knit.")
-}
-# -- Collapse to one model per task (most common across sites) --
-per_task_model <- model_sel |>
-  count(task, Model, name = "n_sites") |>
-  group_by(task) |>
-  slice_max(order_by = n_sites, n = 1, with_ties = FALSE) |>
-  ungroup()
-# -- Attach mean rxx, if available, for context --
-if (has_rxx) {
-  rxx_table <- task_rxx |>
-    mutate(site_label = recode(site, !!!site_labels),
-           Model = case_match(itemtype, "rasch" ~ "Rasch", "2pl" ~ "2PL", .default = toupper(itemtype))) |>
-    select(task, Model, site_label, rxx) |>
-    group_by(task, Model) |>
-    summarize(`Mean reliability (rxx)` = mean(rxx, na.rm = TRUE), .groups = "drop")
-
-  display_tbl <- per_task_model |>
-    left_join(rxx_table, by = c("task","Model")) |>
-    arrange(task)
-} else {
-  display_tbl <- per_task_model |>
-    mutate(`Mean reliability (rxx)` = NA_real_) |>
-    arrange(task)
-}
-# -- Render APA-style table --
-papaja::apa_table(
-  display_tbl, label = "model-selection",
-  caption = if (has_sel)
-    "Selected calibration model per task with mean marginal reliability across sites (from model_selection.csv)."
-  else
-    "Inferred calibration model per task (highest average reliability across sites) with mean marginal reliability.",
-  note = if (has_sel)
-    "Model selection followed a BIC rule: 2PL preferred when ΔBIC ≤ −10; otherwise Rasch selected for parsimony."
-  else
-    "When a formal model-selection export was not available, the model with highest average rxx served as a descriptive proxy."
-)
-```
-
-We calibrated each LEVANTE task using Rasch and 2PL models and selected the more constrained model unless fit indices provided strong evidence in favor of the 2PL ($\Delta$BIC $\leq$ −10). Across most tasks, the Rasch specification was adequate, indicating that item discriminations did not vary substantially. Two tasks—Mental Rotation (rxx = .93) and Same–Different Selection (rxx = .96)—were better described by the 2PL model, reflecting heterogeneity in how strongly items discriminated among children.
-
-Estimates of marginal reliability highlighted meaningful differences across tasks (Table \@ref(tab:model-selection)). Math (.90), Matrix Reasoning (.82), and Memory Game (.93) all demonstrated high reliability, suggesting precise measurement even in the pilot samples. Vocabulary (.83) and Sentence Understanding/TROG (.73) achieved moderate reliability, consistent with tasks that are informative but may benefit from additional refinement. By contrast, Hearts and Flowers (.45) and Theory of Mind (.41) showed low reliability, underscoring that these implementations currently provide limited psychometric information and require further development before supporting valid cross-site comparisons.
-
-In summary, Rasch calibration suffices for most tasks, while allowing variable discriminations improves model fit for more heterogeneous domains. Several tasks already demonstrate reliability suitable for adaptive testing, whereas those with lower reliabilities should undergo item revision and expansion in subsequent piloting rounds.
-
-## Multigroup Calibration and Measurement Invariance 
-```{r invariance-summary, echo=FALSE, message=FALSE, warning=FALSE, results='asis'}
-
-inv_path <- here::here("04_paper","display","invariance.csv")
-stopifnot(file.exists(inv_path))
-
-inv <- read_csv(inv_path, show_col_types = FALSE) |>
-  mutate(across(everything(), ~ tidyr::replace_na(.x, "")))
 
 # Pick a column to read the invariance level from, if available
 lvl_candidates <- intersect(c("Level", "Invariance"), names(inv))
@@ -541,25 +431,17 @@ papaja::apa_table(
 
 
 ```
+In the second step, we evaluated cross-site comparability using multigroup IRT models. These were estimated on the overlapping items common to all sites, under a sequence of increasingly restrictive invariance constraints. Following the conventional factor-analytic hierarchy, translated into IRT terms, we tested:
 
-```{r invariance-mapping, echo=FALSE, message=FALSE, warning=FALSE, results='asis'}
-# Detailed mapping table 
-papaja::apa_table(
-  inv |>
-    select(any_of(c("Goal", "LEVANTE name", "Factor analysis name",
-                    "IRT explanation", "Interpretation"))),
-  align   = c("m{2.5cm}", "m{3cm}", "m{5cm}", "m{5cm}", "m{5cm}"),
-  caption = "Measurement invariance mapping across factor analysis and IRT. Scalar invariance supports direct cross-site score comparability; metric and configural indicate progressively weaker comparability.",
-  label = "invariance-mapping"
-)
+-   Configural invariance: common factor structure, item parameters free across sites.
+-   Metric invariance: item discriminations constrained equal across sites.
+-   Scalar invariance: item discriminations and intercepts constrained equal (and guessing parameters, where applicable).
 
-```
+Scalar invariance therefore provides the strongest basis for direct cross-site comparability of latent ability estimates, whereas metric and configural levels reflect progressively weaker comparability.
 
-We next examined whether the LEVANTE tasks functioned similarly across Colombia, Germany, and Canada using multigroup IRT models. Starting with a configural model (all parameters free), we sequentially imposed equality constraints on discriminations (metric) and then on both discriminations and difficulties (scalar). Because residual variances are not separately estimated in binary IRT, strict invariance was not tested. Model selection relied on $\Delta$BIC, retaining the most constrained model that did not show meaningful loss of fit ($\Delta$BIC $\leq$ +10).
+Results (Table \@ref(tab:model-invariance)) indicated that scalar invariance held for most tasks, suggesting that both item difficulties and slopes generalized across sites. Two tasks supported only metric invariance, implying that discriminations were stable but intercepts varied across groups. Three tasks (Hearts & Flowers, Theory of Mind, Vocabulary) achieved only configural invariance, indicating consistent dimensional structure but insufficient parameter equivalence for strict comparability.
 
-Table \@ref(tab:invariance-summary) summarizes outcomes. Math and Matrix Reasoning supported scalar invariance, indicating no evidence of DIF and suggesting that scores can be compared directly across sites, at least in these pilot samples. Vocabulary supported metric invariance: items discriminated similarly across sites but varied in difficulty, so associations are interpretable but mean-level comparisons require caution. Hearts and Flowers and Theory of Mind showed only configural invariance, implying site-specific item functioning and the need for further revision. For the remaining tasks (e.g., TROG, Memory Game), invariance could not be established given current sample sizes.
-
-Table \@ref(tab:invariance-mapping) aligns the factor-analytic and IRT definitions of configural, metric, and scalar invariance, clarifying what kinds of cross-site comparisons each level supports. Taken together, these findings suggest that some tasks are already suitable for international comparability, while others require additional development and piloting.
+For scoring, we used multigroup models estimated on the full item pool. These models inherited the parameter constraints established in the overlap‐items stage, such that overlapping items retained their fitted parameters while non-overlapping items were freely estimated. This ensured that all scores were placed on a common cross-site scale whenever metric or scalar invariance held. When only configural invariance was supported, we reverted to site-specific (by-language) calibrations of the winning model family, thereby preserving within-site validity while acknowledging weaker cross-site comparability.
 
 ## Item-Level Diagnostics
 ```{r item-classical-detail, echo=FALSE, message=FALSE, warning=FALSE, results='asis'}
@@ -832,21 +714,8 @@ ggplot() +
 
 ```
 ## Reliability 
-### Marginal reliability estimates
 ```{r}
 task_rxx <- read_rds(here("02_scoring_outputs", "task_rxx.rds"))
-
-task_rxx_table <- task_rxx |>
-  rename(item_task = task) |>
-  left_join(task_map) |>
-  mutate(site_label = site |> fct_recode(!!!site_labels),
-         itemtype = itemtype |> fct_recode("Rasch" = "rasch", "2PL" = "2pl"),
-         invariance = invariance |> str_to_title()) |>
-         # model_label = paste(itemtype, invariance) |> str_trim()) |>
-  select(task, itemtype, invariance, site_label, rxx) |>
-  pivot_wider(names_from = site_label, values_from = rxx) |>
-  # mutate(across(everything(), \(v) v |> replace_na("–"))) |>
-  arrange(task)
 
 options(papaja.na_string = "–")
 task_rxx_table |>
@@ -854,7 +723,6 @@ task_rxx_table |>
   papaja::apa_table(col_spanners = list("Marginal reliability" = c(4, 6)))
 options(papaja.na_string = "NA")
 ```
-
 ### Test-retest
 <!-- > ### Test-retest [bd edit: can we put correlations in each panel?  ] -->
 
