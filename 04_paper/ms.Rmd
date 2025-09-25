@@ -912,7 +912,6 @@ semPlot::semPaths(
   mar = c(6,6,6,6)       
 )
 ```
-
 ### External validity
 To assess external validity, we fitted a single-factor EF model with hearts and flowers (hf), memory game (mg), same-different-selection (sds), and the external measure, the Minnesota Executive Function Scale (MEFS) as indicators \@ref(fig:semplot-ef). We modeled age as a predictor of the latent EF factor. Fit was generally good (CFI = .971, TLI = .943, SRMR = .034; RMSEA = .071, 90% CI .040–.106). Standardized loadings were moderate to strong (hf = .63, mg = .63, sds = .50, MEFS = .67), indicating that MEFS aligns closely with the latent EF construct. Age strongly predicted EF (β = .79; R² ≈ .62), consistent with expected developmental gains.
 ```{r prep for sem - ef, include=FALSE}
