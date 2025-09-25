@@ -401,12 +401,16 @@ papaja::apa_table(
   label = "invariance-summary"
 )
 
+<<<<<<< HEAD
 
 ```
 
 ## Multigroup Calibration and Measurement Invariance
 
 In the second step, we evaluated cross-site comparability by testing measurement invariance in the overlap-based multigroup models. These models were estimated under a sequence of increasingly restrictive constraints, following the conventional factor-analytic hierarchy translated into IRT terms:
+=======
+In the second step, we evaluated cross-site comparability using multigroup IRT models. These were estimated on the overlapping items common to all sites, under a sequence of increasingly restrictive invariance constraints. Following the conventional factor-analytic hierarchy, translated into IRT terms, we tested:
+>>>>>>> 3b053e5 (text changes)
 
 -   Configural invariance: common factor structure, item parameters free across sites.
 -   Metric invariance: item discriminations constrained equal across sites.
@@ -507,7 +511,7 @@ ggplot(coretask_scores, aes(age, metric_value)) +
   labs(x = "Age (years)", y = "Ability (IRT score)", colour = "Site") +
   theme(legend.position = "bottom")
 ```
-To formally quantify developmental change while treating sites as a random sample from a broader population, we fit linear mixed-effects models with site-specific random intercepts and slopes, which estimate within-site age slopes (IRT units per year) with partial pooling across sites (Figure \@ref(fig:random-slopes-graph)). Consistent with the descriptive smooths, the largest gains were in Math (B=0.61, 95% CI [0.40, 0.82], p=.01) and Hearts & Flowers (B=0.50, [0.09, 0.91], p=.03). Vocabulary (B=0.37, [0.22, 0.52], p=.01), Memory (B=0.36, [0.13, 0.59], p=.02), and Theory of Mind (B=0.33, [0.04, 0.62], p=.04) also showed clear positive change. Sentence Understanding (B=0.30) and Shape Rotation (B=0.15) provided weaker evidence (95% CIs include 0). Pattern Matching had a positive point estimate but a wide CI, indicating limited information or instability for that task. See Table \@ref(tab:age-slopes) for per-task estimates.
+To formally quantify developmental change while treating sites as a random sample from a broader population, we fit linear mixed-effects models with site-specific random intercepts and slopes, which estimate within-site age slopes (IRT units per year) with partial pooling across sites (Figure \@ref(fig:random-slopes-graph)). Consistent with the descriptive smooths, the largest gains were in Math (\(\beta = 0.61\), 95% CI [0.40, 0.82], p=.01) and Hearts & Flowers (\(\beta = 0.50\), [0.09, 0.91], p=.03). Vocabulary (\(\beta = 0.37\), [0.22, 0.52], p=.01), Memory (\(\beta = 0.36\), [0.13, 0.59], p=.02), and Theory of Mind (\(\beta = 0.33\), [0.04, 0.62], p=.04) also showed clear positive change. Sentence Understanding (\(\beta = 0.30\) and Shape Rotation (\(\beta = 0.15\) provided weaker evidence (95% CIs include 0). Pattern Matching had a positive point estimate but a wide CI, indicating limited information or instability for that task. See Table \@ref(tab:age-slopes) for per-task estimates.
 
 ```{r age slopes, echo=FALSE, message=FALSE, warning=FALSE, results='asis'}
 coretask_scores <- coretask_scores %>%
@@ -672,9 +676,13 @@ ggplot(retest_wide, aes(x = run_1, y = run_2, color = age)) +
 ### Construct validity
 
 We assessed construct validity using confirmatory factor analysis (CFA) specified a priori, based on our theory of which indicators load on each construct. The measurement model specified three latent factors–Reasoning (matrix reasoning, mental rotation), Executive Function (EF; hearts and flowers, memory game, same-different-selection), and Language (grammar, vocab)– and treated math and Social Cognition (Theory of Mind; ToM) as observed outcomes. Math and ToM were modeled as observed outcomes rather than latent factors because each construct contained a single task. Forming a latent factor with one indicator would require strong, unverifiable assumptions about reliability/error variances and can be weakly identified. Treating them as endogenous observed variables keeps the model parsimonious and transparent while allowing them to be predicted by the latent domains and age. We included age to account for developmental change. 
+<<<<<<< HEAD
 
 We estimated two models. Model 1 included three latent factors and paths from age to the three factors as well as to math and ToM \@ref(fig:semplot-main). Fit was mixed–CFI = .923, TLI = .850, RMSEA = .084 (90% CI .073–.095), SRMR = .059. However, factor correlations (residual, controlling for age) were high: Reasoning–EF .882, Reasoning–Language .747, and EF–Language .921. This suggests a general ability component could underpin these three latent factors. Controlling for age, maths and ToM showed a small positive residual association (r = .15), suggesting minor overlap not captured by age alone.
 
+=======
+We estimated two models. Model 1 included three latent factors and paths from age to the three factors as well as to math and ToM \@ref(Dfig:semplot-main). Fit was mixed–CFI = .923, TLI = .850, RMSEA = .084 (90% CI .073–.095), SRMR = .059. However, factor correlations (residual, controlling for age) were high: Reasoning–EF .882, Reasoning–Language .747, and EF–Language .921. This suggests a general ability component could underpin these three latent factors. Controlling for age, maths and ToM showed a small positive residual association (r = .15), suggesting minor overlap not captured by age alone.
+>>>>>>> 3b053e5 (text changes)
 ```{r prep-sem, include=FALSE}
 
 # one row per user (metadata + task scores from first run)
@@ -757,7 +765,7 @@ semPlot::semPaths(
 
 Given the strong inter-factor correlations, we specified a second model with a hierarchical structure: three first-order factors (Reasoning, EF, Language) loading on a second-order general factor (g) \@ref(fig:fig-semplot-g). Math and ToM were again treated as observed endogenous outcomes regressed on g. We included a single developmental path for age → g Conventional fit indices was similar to Model 1 (CFI = .902, TLI = .857, RMSEA = .081, SRMR = .064). 
 
-Indicator loadings on their first-order factors were moderate–strong (e.g., matrix reasoning = .79; grammar = .78; vocab = .76), and g strongly underpinned the domains (Reasoning = .91; EF = .99; Language = .89; all standardized). Age positively predicted g (β = .69; R²(g) ≈ .48). In turn, g strongly predicted math (β = .87; R² ≈ .76) and moderately predicted ToM (β = .58; R² ≈ .33), yielding sizeable indirect effects of age via g (age → g → Maths ≈ .60; age → g → ToM ≈ .40). After accounting for g, we found a negative residual math–ToM association (r ≈ −.35), indicating that the small positive overlap in Model 1 largely reflected unmodeled general ability.
+Indicator loadings on their first-order factors were moderate–strong (e.g., matrix reasoning = .79; grammar = .78; vocab = .76), and g strongly underpinned the domains (Reasoning = .91; EF = .99; Language = .89; all standardized). Age positively predicted g (\(\beta = 0.69\); R²(g) = .48). In turn, g strongly predicted math (\(\beta = 0.87\); R² = .76) and moderately predicted ToM (\(\beta = 0.58\); R² = .33), yielding sizable indirect effects of age via g (age → g → Maths = .60; age → g → ToM = .40). After accounting for g, we found a negative residual math–ToM association (r = −.35), indicating that the small positive overlap in Model 1 largely reflected unmodeled general ability.
 
 Overall, factor loadings supported the intended three-factor structure (convergent validity), and age related to each domain as expected. The high inter-factor correlations and strong second-order loadings indicate that much of the variance is shared across domains, consistent with a broad general ability underpinning performance on the nine core tasks.
 
@@ -811,9 +819,13 @@ semPlot::semPaths(
 )
 ```
 ### External validity
+<<<<<<< HEAD
 
 To assess external validity, we fitted a single-factor EF model with hearts and flowers (hf), memory game (mg), same-different-selection (sds), and the external measure, the Minnesota Executive Function Scale (MEFS) as indicators \@ref(fig:semplot-ef). We modeled age as a predictor of the latent EF factor. Fit was generally good (CFI = .971, TLI = .943, SRMR = .034; RMSEA = .071, 90% CI .040–.106). Standardized loadings were moderate to strong (hf = .63, mg = .63, sds = .50, MEFS = .67), indicating that MEFS aligns closely with the latent EF construct. Age strongly predicted EF (β = .79; R² ≈ .62), consistent with expected developmental gains.
 
+=======
+To assess external validity, we fitted a single-factor EF model with hearts and flowers (hf), memory game (mg), same-different-selection (sds), and the external measure, the Minnesota Executive Function Scale (MEFS) as indicators \@ref(fig:semplot-ef). We modeled age as a predictor of the latent EF factor. Fit was generally good (CFI = .971, TLI = .943, SRMR = .034; RMSEA = .071, 90% CI .040–.106). Standardized loadings were moderate to strong (hf = .63, mg = .63, sds = .50, MEFS = .67), indicating that MEFS aligns closely with the latent EF construct. Age strongly predicted EF (\(\beta = 0.79\); R² = .62), consistent with expected developmental gains.
+>>>>>>> 3b053e5 (text changes)
 ```{r prep for sem - ef, include=FALSE}
 
 ef_tasks <- c("hf","mg","sds","mefs")
@@ -892,9 +904,13 @@ semPlot::semPaths(
   mar = c(6,6,6,6)       
 )
 ```
+<<<<<<< HEAD
 
 We ran a similar model to determine the external validity of the language and literacy measures (grammar and vocab) against ROAR tasks including measures of Phonological Awareness (pa), Single Word Reading (swr) and Sentence Reading Efficiency (sre). We fitted a single latent Language factor with ROAR tasks plus grammar (trog) and vocabulary as indicators, and modeled age as a predictor of the latent factor  \@ref(fig:fig-semplot-lang). Fit was borderline acceptable: CFI = .937, TLI = .895, RMSEA = .070, 90% CI .052–.089; SRMR = .070. Standardized loadings were: swr = .743, sre = .557, pa = .685, trog = .655, vocab = .814–all significant, indicating that the ROAR tasks align with grammar and vocabulary on a common language/literacy factor, with vocabulary the strongest indicator. Age positively predicted the latent factor (β = .66; R² ≈ .44), consistent with expected developmental gains.
 
+=======
+We ran a similar model to determine the external validity of the language and literacy measures (grammar and vocab) against ROAR tasks including measures of Phonological Awareness (pa), Single Word Reading (swr) and Sentence Reading Efficiency (sre). We fitted a single latent Language factor with ROAR tasks plus grammar (trog) and vocabulary as indicators, and modeled age as a predictor of the latent factor \@ref(fig:fig-semplot-lang). Fit was borderline acceptable: CFI = .937, TLI = .895, RMSEA = .070, 90% CI .052–.089; SRMR = .070. Standardized loadings were: swr = .743, sre = .557, pa = .685, trog = .655, vocab = .814–all significant, indicating that the ROAR tasks align with grammar and vocabulary on a common language/literacy factor, with vocabulary the strongest indicator. Age positively predicted the latent factor (\(\beta = 0.66\); R² = .44), consistent with expected developmental gains.
+>>>>>>> 3b053e5 (text changes)
 ```{r prep for sem, include=FALSE}
 
 lang_vars <- c("swr","sre","pa","vocab","trog")
