@@ -186,7 +186,6 @@ tasks <- tribble(~`Construct`, ~`LEVANTE name`, ~`Prior names / Source task name
                  "Reasoning", "Pattern Matching", "Matrix Reasoning", "X", "",
                  "", "Shape Rotation", "Mental Rotation", "X", "",
                  "Social Cognition", "Stories", "Theory of Mind", "X", "")
-
 papaja::apa_table(
   tasks, landscape = TRUE,
   caption = "The LEVANTE core tasks, presented with their internal label as well as prior labels used in the literature.")
@@ -373,30 +372,16 @@ Partners at Max Planck Institute for Evolutionary Anthropology, led by Manuel Bo
 
 Partners at Western University, led by Daniel Ansari, recruited participants from the local community and tested children individually in a clinic setting. The Canadian site collected data from XX children (XX female; XX male), ages 5-12 years. 
 
-
-
 # Scoring
 
 ## IRT Calibration and Model Selection
-
-Model calibration proceeded in two steps. First, within each site and task, alternative unidimensional IRT specifications (Rasch vs. 2PL) were estimated, and the best-fitting model was identified using the Bayesian Information Criterion (BIC). Task-level model choice was then defined by the specification most consistently favored across sites. As summarized in Table \@ref(tab:model-invariance), Rasch models provided the best fit for the majority of tasks, whereas 2PL models were favored for Same & Different and Shape Rotation. This pattern suggests that a simple Rasch parameterization was sufficient to capture item response variation for most domains, while tasks involving more complex perceptual or reasoning demands benefitted from the additional flexibility of the 2PL specification. The consistency of model preference across sites supports the robustness of these results rather than site-specific idiosyncrasies.
-```{r model-invariance, echo=FALSE, results='asis', message=FALSE, warning=FALSE}
-
-
-# Load reliability summary
-task_rxx_path <- here::here("02_scoring_outputs","task_rxx.rds")
-task_rxx <- readRDS(task_rxx_path)
-
-# Site labels
 if (!exists("site_labels")) {
-    site_labels <- c("pilot_western_ca" = "Canada",
-                     "pilot_uniandes_co" = "Colombia",
-                     "pilot_leuphana_de" = "Germany")
+  site_labels <- c("pilot_western_ca" = "Canada",
+                   "pilot_uniandes_co" = "Colombia",
+                   "pilot_leuphana_de" = "Germany")
 }
 
-# Model selection by site
-model_sel <- task_rxx |>
-    mutate(site_label = recode(site, !!!site_labels),
+mutate(site_label = recode(site, !!!site_labels),
            Model = case_match(itemtype,
                               "rasch" ~ "Rasch",
                               "2pl"   ~ "2PL",
@@ -405,45 +390,47 @@ model_sel <- task_rxx |>
     slice_max(order_by = rxx, n = 1, with_ties = FALSE) |>
     ungroup()
 
-# Collapse to one model per task
-per_task_model <- model_sel |>
-    count(task, Model, invariance, name = "n_sites") |>
-    group_by(task) |>
-    slice_max(order_by = n_sites, n = 1, with_ties = FALSE) |>
-    ungroup()
+# Pick a column to read the invariance level from, if available
+lvl_candidates <- intersect(c("Level", "Invariance"), names(inv))
 
-# Task labels
-task_labels <- c(
-    ha     = "Social Attribution",
-    hf     = "Hearts & Flowers",
-    math   = "Math",
-    matrix = "Pattern Matching",
-    mg  = "Memory",
-    mrot   = "Shape Rotation",
-    sds    = "Same & Different",
-    tom    = "Theory Of Mind",
-    trog     = "Sentence Understanding",
-    vocab  = "Vocabulary"
-)
+if (length(lvl_candidates) > 0) {
+  # Use the first matching column for level extraction
+  lvl_col <- lvl_candidates[1]
+  inv_levels <- inv |>
+    mutate(Level_norm_raw = tolower(.data[[lvl_col]]))
+} else if ("Interpretation" %in% names(inv)) {
+  # Fall back to Interpretation text
+  inv_levels <- inv |>
+    mutate(Level_norm_raw = tolower(.data[["Interpretation"]]))
+} else {
+  # If neither exists, mark as unspecified
+  inv_levels <- inv |>
+    mutate(Level_norm_raw = "unspecified")
+}
 
+inv_levels <- inv_levels |>
+  mutate(Level_norm = case_when(
+    str_detect(Level_norm_raw, "scalar")    ~ "Scalar",
+    str_detect(Level_norm_raw, "metric")    ~ "Metric",
+    str_detect(Level_norm_raw, "configur")  ~ "Configural",
+    TRUE                                    ~ "Unspecified"
+  ))
 
-# Invariance table (keep invariance column)
-invariance_tbl <- per_task_model |>
-  mutate(Task = recode(task, !!!task_labels)) |>
-  select(Task, Model, invariance, n_sites) |>
-  arrange(Task)
+# Summary counts by invariance level
+sum_counts <- inv_levels |>
+  count(Level_norm, name = "Number of tasks") |>
+  mutate(Level_norm = factor(Level_norm, levels = c("Scalar","Metric","Configural","Unspecified"))) |>
+  arrange(Level_norm)
 
 papaja::apa_table(
-  invariance_tbl,
-  label = "model-invariance",
-  caption = "Measurement invariance results by task based on multigroup calibration and BIC comparisons."
+  sum_counts |>
+    rename(`Invariance level` = Level_norm),
+  caption = "Summary of multigroup invariance outcomes across LEVANTE tasks.",
+  label = "invariance-summary"
 )
 
 
 ```
-
-## Multigroup Calibration and Measurement Invariance
-
 In the second step, we evaluated cross-site comparability using multigroup IRT models. These were estimated on the overlapping items common to all sites, under a sequence of increasingly restrictive invariance constraints. Following the conventional factor-analytic hierarchy, translated into IRT terms, we tested:
 
 -   Configural invariance: common factor structure, item parameters free across sites.
@@ -628,7 +615,7 @@ ggplot(coretask_scores, aes(age, metric_value)) +
   labs(x = "Age (years)", y = "Ability (IRT score)", colour = "Site") +
   theme(legend.position = "bottom")
 ```
-To formally quantify developmental change while treating sites as a random sample from a broader population, we fit linear mixed-effects models with site-specific random intercepts and slopes, which estimate within-site age slopes (IRT units per year) with partial pooling across sites (Figure \@ref(fig:random-slopes-graph)). Consistent with the descriptive smooths, the largest gains were in Math (B=0.61, 95% CI [0.40, 0.82], p=.01) and Hearts & Flowers (B=0.50, [0.09, 0.91], p=.03). Vocabulary (B=0.37, [0.22, 0.52], p=.01), Memory (B=0.36, [0.13, 0.59], p=.02), and Theory of Mind (B=0.33, [0.04, 0.62], p=.04) also showed clear positive change. Sentence Understanding (B≈0.30) and Shape Rotation (B≈0.15) provided weaker evidence (95% CIs include 0). Pattern Matching had a positive point estimate but a wide CI, indicating limited information or instability for that task. See Table \@ref(tab:age-slopes) for per-task estimates.
+To formally quantify developmental change while treating sites as a random sample from a broader population, we fit linear mixed-effects models with site-specific random intercepts and slopes, which estimate within-site age slopes (IRT units per year) with partial pooling across sites (Figure \@ref(fig:random-slopes-graph)). Consistent with the descriptive smooths, the largest gains were in Math (B=0.61, 95% CI [0.40, 0.82], p=.01) and Hearts & Flowers (B=0.50, [0.09, 0.91], p=.03). Vocabulary (B=0.37, [0.22, 0.52], p=.01), Memory (B=0.36, [0.13, 0.59], p=.02), and Theory of Mind (B=0.33, [0.04, 0.62], p=.04) also showed clear positive change. Sentence Understanding (B=0.30) and Shape Rotation (B=0.15) provided weaker evidence (95% CIs include 0). Pattern Matching had a positive point estimate but a wide CI, indicating limited information or instability for that task. See Table \@ref(tab:age-slopes) for per-task estimates.
 
 ```{r age slopes, echo=FALSE, message=FALSE, warning=FALSE, results='asis'}
 coretask_scores <- coretask_scores %>%
@@ -727,50 +714,15 @@ ggplot() +
 
 ```
 ## Reliability 
-
-### Marginal reliability estimates
-
 ```{r}
-
-task_rxx <- readr::read_rds(here::here("02_scoring_outputs", "task_rxx.rds"))
-rxx_norm <- task_rxx %>%
-    mutate(
-        invariance = tolower(invariance),
-        site_label = recode(site, !!!site_labels)
-    )
-
-    rxx_chosen <- rxx_norm %>%
-        group_by(task, site_label) %>%
-        summarise(rxx = max(rxx, na.rm = TRUE), .groups = "drop")
-task_rxx_table <- rxx_chosen %>%
-  transmute(Task = recode(task, !!!task_labels),
-            site_label, rxx) %>%
-  distinct() %>%
-  pivot_wider(names_from = site_label, values_from = rxx) %>%
-  # Rename site columns
-  rename(
-    Germany  = pilot_leuphana_de,
-    Colombia = pilot_uniandes_co,
-    Canada   = pilot_western_ca
-  ) %>%
-  # Round to two decimals
-  mutate(across(c(Germany, Colombia, Canada), ~round(.x, 2))) %>%
-  select(Task, Germany, Colombia, Canada) %>%
-  arrange(Task)
+task_rxx <- read_rds(here("02_scoring_outputs", "task_rxx.rds"))
 
 options(papaja.na_string = "–")
-papaja::apa_table(
-  task_rxx_table,
-  col_spanners = list("Marginal reliability" = 2:4),
-  caption = "Marginal reliability (rxx) by site for the selected scoring model per task (site-level winners).",
-  label   = "marginal-reliability"
-)
+task_rxx_table |>
+  rename(Task = task, Parameters = itemtype, Invariance = invariance) |>
+  papaja::apa_table(col_spanners = list("Marginal reliability" = c(4, 6)))
 options(papaja.na_string = "NA")
-
-
 ```
-
-
 ### Test-retest
 <!-- > ### Test-retest [bd edit: can we put correlations in each panel?  ] -->
 
@@ -960,7 +912,6 @@ semPlot::semPaths(
   mar = c(6,6,6,6)       
 )
 ```
-
 ### External validity
 To assess external validity, we fitted a single-factor EF model with hearts and flowers (hf), memory game (mg), same-different-selection (sds), and the external measure, the Minnesota Executive Function Scale (MEFS) as indicators \@ref(fig:semplot-ef). We modeled age as a predictor of the latent EF factor. Fit was generally good (CFI = .971, TLI = .943, SRMR = .034; RMSEA = .071, 90% CI .040–.106). Standardized loadings were moderate to strong (hf = .63, mg = .63, sds = .50, MEFS = .67), indicating that MEFS aligns closely with the latent EF construct. Age strongly predicted EF (β = .79; R² ≈ .62), consistent with expected developmental gains.
 ```{r prep for sem - ef, include=FALSE}
