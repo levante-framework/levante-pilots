@@ -38,21 +38,19 @@ Helper functions
 #| echo: false
 
 getwd()
-
-source(here("02_score_data","irt_helpers.R"))
-source(here("03_summaries", "plotting_helper.R"))
-source(here("03_explore_tasks/explore_helper.R"))
-
-
-
+source(here("03_summaries","plotting_helper.R"))
+source(here("plot_settings.R"))
+source(here("03_summaries","scores_helper.R"))
 ```
 
 Get vocab data
 
 ```{r}
-vocab <- load_task_data("vocab")
-vocab
+all_scores <- readRDS(here("02_scoring_outputs","scores","scores_combined.rds"))
+colnames(all_scores)
 
+vocab <- all_scores %>% 
+  filter(item_task == "vocab")
 ```
 
 Checking n's
@@ -338,105 +336,129 @@ Load IRT results
 
 ```{r}
 
-# Load multigroup IRT model outputs
-best_multigroup <- readRDS(here("02_scoring_outputs", "irt_outputs", "multigroup_best_models.rds"))
-multigroup_scores <- readRDS(here("02_scoring_outputs", "scores", "multigroup_scores.rds"))
 
-list.files(here::here("02_scoring_outputs", "scores"))
+coefs <- readRDS(here::here("02_scoring_outputs", "best_coefs.rds"))
+colnames(coefs)
+table(coefs$task)
+table(coefs$group)
+table(coefs$g)
+table(coefs$u)
+table(coefs$d)
+                 
+
+```
+
+Plot item difficulties
+```{r diff plot, fig.width=30, fig.height=30}
+
+library(dplyr)
+library(ggplot2)
+library(forcats)
+
+vocab_only <- coefs %>%
+  filter(task == "vocab") %>%                
+  mutate(item = fct_reorder(item, -d, .fun = mean, .na_rm = TRUE))
+
+ggplot(vocab_only, aes(x = item, y = d)) +
+  geom_hline(yintercept = 0, linetype = 2, linewidth = 0.2) +
+  geom_point() +
+  coord_flip() +
+  labs(x = "Vocab item", y = "Difficulty (d, logit)", title = "Vocabulary difficulties") +
+  theme_minimal(base_size = 12)
 
 
 ```
 
-Multigroup models
+Hardest and easiest
 
-```{r}
+```{r hardest-easiest}
 
-run_ages <- vocab |>
-  select(site, run_id, user_id, age) |>
-  distinct()
+vocab_avg <- coefs %>%
+  filter(task == "vocab") %>%
+  group_by(item) %>%
+  summarise(d_mean = mean(-d, na.rm = TRUE), n_rows = dplyr::n(), .groups = "drop") %>%
+  arrange(d_mean)
 
-multigroup_scores_vocab <- multigroup_scores |>
-  filter(item_task == "vocab", site != "us_pilot") |>
-  select(site, item_task, user_id, run_id, metric_type, metric_value ) |>
-  left_join(run_ages)
+easiest_15 <- slice_head(vocab_avg, n = 15)   
+hardest_15 <- slice_tail(vocab_avg, n = 15)   
 
-vocab_multigroup_irt <- ggplot(multigroup_scores_vocab, aes(x = age, y = metric_value, col = site)) + 
-  geom_point() + 
-  theme_minimal(base_family = "sans") +
-  geom_smooth(method = "gam") +
-  labs(
-    title = "Vocab: Developmental trends in Theory of Mind ability by site",
-    subtitle = "IRT-based theta estimates smoothed with GAM",
-    x = "Age (years)",
-    y = "Ability (IRT Theta Score)",
-    colour = "Site"
-  )
+easiest_15
+hardest_15
 
-print(vocab_multigroup_irt)
-
-ggsave(
-  filename = here::here("03_explore_tasks", "Graphs", "vocab_multigroup_irt.png"),
-  plot = vocab_multigroup_irt,
-  width = 6,
-  height = 4,
-  dpi = 300
-)
-
-```
-
-Extract the coefficients
-
-```{r}
-
-names(best_multigroup)
-
-coefs_vocab_list <- best_multigroup |>
-  filter(item_task == "vocab") |>
-  pull(coefs)
-
-coefs_vocab <- coefs_vocab_list[[1]]  # create tibble
-
-# For vocabulary items only
-vocab_difficulty_by_site <- coefs_vocab |>
-  select(site, item, d) |>
-  mutate(d_flipped = -d)
-
-glimpse(coefs_vocab)
 
 ```
 
 Difficulty across site
 
-```{r fig.height =18, fig.width = 10}
+```{r fig.height =10, fig.width = 10}
+library(dplyr)
+library(forcats)
+library(ggplot2)
+library(stringr)
 
-# Difficulty across country
-ggplot(vocab_difficulty_by_site, aes(x = -d, y = reorder(item, d), fill = site)) +
-  geom_col(position = "dodge") +
-  facet_wrap(~ site, scales = "free_y") +
-  labs(
-    title = "IRT-Derived Difficulty of Vocabulary Items by Country",
-    x = "Item Difficulty (d)",
-    y = "Vocabulary Item"
-  ) +
-  theme_minimal(base_size = 10)
+# coefficients table
+vocab <- coefs %>%
+  filter(task %in% c("vocab","Vocabulary"),
+         model_set == "by_language",
+         group == "all",
+         subset %in% c("de","en","es"))
+
+# top/bottom N items for a given subset
+pick_items <- function(df, subset_code, n = 20, hardest = TRUE) {
+  df %>%
+    filter(subset == subset_code) %>%
+    group_by(item) %>%
+    summarise(d = mean(d, na.rm = TRUE), .groups = "drop") %>%
+    { if (hardest) slice_max(., d, n = n) else slice_min(., d, n = n) } %>%
+    mutate(item = fct_reorder(item, d))
+}
+
+# Plot function
+plot_items <- function(df_items, title) {
+  ggplot(df_items, aes(item, -d)) +
+    geom_hline(yintercept = 0, linetype = 2, linewidth = 0.05) +
+    geom_point() +
+    coord_flip() +
+    labs(x = "Vocabulary item", y = "Difficulty (d, logit)", title = title) +
+    theme_minimal(base_size = 12)
+}
+
+# plot Columbia only
+co_hard20 <- pick_items(vocab, "es", n = 20, hardest = TRUE)  
+p_co_hard <- plot_items(co_hard20, "Top 20 hardest vocabulary items — Colombia")
+p_co_hard
+
+
+
 ```
 
-20 vocabulary items with the greatest variability in difficulty across sites (not discrimination), based on IRT-derived difficulty estimates
+20 most difficult vocab items - Columbia only.
 
 ```{r}
 
-# Note: This figure shows the 20 vocabulary items with the largest apparent variation in difficulty across sites, based on IRT-derived item parameters. However, because the multigroup model used here constrains item parameters to be equal across groups, these differences should be interpreted with caution — they reflect structural model outputs rather than true cross-site differences.
+library(dplyr)
+library(ggplot2)
+library(forcats)
 
-# Compute the range of difficulty for each item
-top_diff_items <- coefs_vocab %>%
+# collapse to one difficulty per item (mean across any repeats)
+co_coefs_item <- co_coefs %>%
   group_by(item) %>%
-  summarise(diff_range = max(d) - min(d), .groups = "drop") %>%
-  arrange(desc(diff_range)) %>%
-  slice_head(n = 20)
+  summarise(d = mean(d, na.rm = TRUE), .groups = "drop")
 
-# Coefficients for these items
-coefs_top_items <- coefs_vocab %>%
-  filter(item %in% top_diff_items$item)
+# take the 20 hardest (largest d)
+hard20 <- co_coefs_item %>%
+  slice_max(d, n = 20) %>%
+  mutate(item = fct_reorder(item, d))
+
+# plot
+ggplot(hard20, aes(item, -d)) +
+  geom_hline(yintercept = 0, linetype = 2, linewidth = 0.2) +
+  geom_point() +
+  coord_flip() +
+  labs(x = "Vocabulary item", y = "Difficulty (d, logit)",
+       title = "Top 20 hardest vocabulary items — Colombia") +
+  theme_minimal(base_size = 12)
+
 
 ```
 
