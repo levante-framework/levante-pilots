@@ -147,7 +147,7 @@ The current manuscript introduces the LEVANTE core tasks, a suite of behavioral 
 
 To create our core tasks, we selected pre-existing measures from the literature that tapped each of these constructs. When possible, we prioritized measures with strong psychometric properties, previous use across a broad range of cultures, applicability across a broad range of ages, and lack of commercial or licensing constraints. This process yielded a series of candidate tasks, which we adapted and re-implemented in an open source web platform. Table \@ref(tab:tasks) shows these tasks, organized by construct. Some of these implementations remained quite close to prior versions, while others by necessity required the creation of additional test items or changes to specifics of their procedure. 
 
-In addition to the constructs described above, we were also interested in the assessment of literacy. The LEVANTE core tasks battery makes use of a number of previously-validated literacy tasks from the Rapid Online Assessment of Reading [@yeatman2021] , including single word reading, sentence reading efficiency, and phonological awareness. We do not report on these tasks extensively here, though we make use of literacy data for validation of language measures. Similarly, we included a commercially-available broad measure of executive function, the Minnesota Executive Function Scale (MEFS) [@mefs], for validation purposes. 
+In addition to the constructs described above, we were also interested in the assessment of literacy. The LEVANTE core tasks battery makes use of a number of previously-validated literacy tasks from the Rapid Online Assessment of Reading [@yeatman2021] , including single word reading, sentence reading efficiency, and phonological awareness. We do not report on these tasks extensively here, though we make use of literacy data for validation of language measures. Similarly, we included a commercially-available broad measure of executive function, the Minnesota Executive Function Scale (MEFS) [@carlson2021], for validation purposes. 
  
 
 ```{r tasks, output="asis"}
@@ -170,9 +170,9 @@ papaja::apa_table(
 
 Here we report on the development and validation of the LEVANTE core tasks. This is an iterative process in which data from 5--12 year old children has been collected across three sites: Bogota, Colombia; Leipzig, Germany; and Ottawa, Canada. In some cases that we note below, we used these data during the data collection process to make minor changes to the tasks. We use data from these three pilot sites both to provide initial evidence on the reliability and validity of the measures and to develop efficient, computer adaptive (CAT) versions of nearly all of the tasks. 
 
-A key component of this process is the use of psychometric models based on item-response theory (IRT) [@embretson2001]. IRT models provide a family of models that allow the joint estimation of the difficulty of individual task items (e.g., math questions) and the ability of individual children. A fitted IRT model provides task parameters that can be used to estimate the ability of a new test taker given their responses on some or all of the same items. In addition, IRT parameters are used in the construction of CATs, which choose the most relevant items to give to estimate the ability of a particular individual. Critically for our purposes, the use of IRT models means that we can provide comparable scores on the same scale to a younger child who saw mostly easier task items and an older child who saw harder items; these models thus allow us to address our first key challenge posed above.  
+A key component of this process is the use of psychometric models based on item-response theory (IRT) [@embretson2013]. IRT models provide a family of models that allow the joint estimation of the difficulty of individual task items (e.g., math questions) and the ability of individual children. A fitted IRT model provides task parameters that can be used to estimate the ability of a new test taker given their responses on some or all of the same items. In addition, IRT parameters are used in the construction of CATs, which choose the most relevant items to give to estimate the ability of a particular individual. Critically for our purposes, the use of IRT models means that we can provide comparable scores on the same scale to a younger child who saw mostly easier task items and an older child who saw harder items; these models thus allow us to address our first key challenge posed above.  
 
-Because our data come from three sites, each with their own translations and adaptations of the specific tasks, we can also use multi-group IRT models to explore the question of invariance: whether measures function similarly across different groups [@bornstein2016]. While measurement invariance is more commonly discussed in the factor analytic literature, it is also applicable to IRT (where it is sometimes analyzed at the level of individual test items as "differential item function" across groups) [@thissen2024]. Here we use multigroup model comparisons (described below) to investigate whether our tasks measure similarly structured constructs across groups. In particular, where possible, we aim for *scalar invariance*, in which individuals from different groups still show the same relative ordering of difficulty across items (e.g., they still find fractions items harder than division items in a math test). In some cases, we may fall back to *metric invariance*, in which items show different difficulties across groups, or *configural invariance*, in which items show different degrees of ability discrimination as well (e.g., if some problem types are unfamiliar to children in one group and so do not discriminate between high and low ability children). These models allow us to begin to address the second challenge posed above.
+Because our data come from three sites, each with their own translations and adaptations of the specific tasks, we can also use multi-group IRT models to explore the question of invariance: whether measures function similarly across different groups [@putnick2016]. While measurement invariance is more commonly discussed in the factor analytic literature, it is also applicable to IRT (where it is sometimes analyzed at the level of individual test items as "differential item function" across groups) [@thissen2025]. Here we use multigroup model comparisons (described below) to investigate whether our tasks measure similarly structured constructs across groups. In particular, where possible, we aim for *scalar invariance*, in which individuals from different groups still show the same relative ordering of difficulty across items (e.g., they still find fractions items harder than division items in a math test). In some cases, we may fall back to *metric invariance*, in which items show different difficulties across groups, or *configural invariance*, in which items show different degrees of ability discrimination as well (e.g., if some problem types are unfamiliar to children in one group and so do not discriminate between high and low ability children). These models allow us to begin to address the second challenge posed above.
 
 <!-- https://www.tandfonline.com/doi/10.1080/00273171.2024.2396148 -->
 
@@ -239,7 +239,7 @@ The Test for Reception of Grammar (TROG) [@bishop1982] is a multiple-choice meas
 
 ### Vocabulary
 
-The Vocabulary task was developed as a non-commercial, open alternative to tasks such as the Peabody Picture Vocabulary [@peabody] and the NIH Toolbox Picture Vocabulary Task [@nihtoolbox]; see @long_ma_tan_silverman_frank_yeatman_2025 for more details. In this task, the child is presented with a word and four pictures. They must select the correct picture over the distractor picture. Targets and distractors were selected from the THINGS dataset [@hebart2019things], specifically from the permissively-licensed subset of the data. Each image had a semantically close and semantically far distractor as well as an unrelated distractor image (e.g., target word "acorn" with close distractor being a coconut, and the far and unrelated distractors being keys and laundry). The task included 170 total items.
+The Vocabulary task was developed as a non-commercial, open alternative to tasks such as the Peabody Picture Vocabulary [@dunn1965] and the NIH Toolbox Picture Vocabulary Task [@gershon2013]; see @long_ma_tan_silverman_frank_yeatman_2025 for more details. In this task, the child is presented with a word and four pictures. They must select the correct picture over the distractor picture. Targets and distractors were selected from the THINGS dataset [@hebart2019things], specifically from the permissively-licensed subset of the data. Each image had a semantically close and semantically far distractor as well as an unrelated distractor image (e.g., target word "acorn" with close distractor being a coconut, and the far and unrelated distractors being keys and laundry). The task included 170 total items.
 
 ## Math
 
@@ -259,11 +259,11 @@ Mental rotation refers to the ability to imagine the rotation of objects in spac
 
 ### Same and Different Selection
 
-The Same and Different Selection task is designed to assess cognitive flexibility in children. It draws upon elements from the "Something's the Same" task [@willoughby2011] and the "Flexible Item Selection Task" [@jacques2001]. In this task, children are presented with sets of items that vary along multiple dimensions, such as shape, color, size, and number. They are required to identify similarities and differences between items based on these dimensions, engaging their ability to shift attention and adapt to changing rules or criteria. The version of the task we developed included successively more difficult blocks of trials in which children were asked to identify two, three, or four pairs of items that were the same in different ways (e.g., matching on different figures).
+The Same and Different Selection task is designed to assess cognitive flexibility in children. It draws upon elements from the "Something's the Same" task [@willoughby2011] but is closest to the "Flexible Item Selection Task" [@jacques2001]. In this task, children are presented with sets of items that vary along multiple dimensions, such as shape, color, size, and number. They are required to identify similarities and differences between items based on these dimensions, engaging their ability to shift attention and adapt to changing rules or criteria. The version of the task we developed included successively more difficult blocks of trials in which children were asked to identify two, three, or four pairs of items that were the same in different ways (e.g., matching on different figures).
 
 ### Hearts and Flowers
 
-TThe Hearts and Flowers task assesses inhibitory control and cognitive flexibility [@davidson2006]. Participants respond according to stimulus type: pressing a key on the same side as a heart (congruent rule), and on the opposite side for a flower (incongruent rule). The task includes three blocks: congruent (hearts only), incongruent (flowers only), and mixed (hearts and flowers). The congruent block serves as a baseline with minimal executive demands.
+The Hearts and Flowers task assesses inhibitory control and cognitive flexibility [@davidson2006]. Participants respond according to stimulus type: pressing a key on the same side as a heart (congruent rule), and on the opposite side for a flower (incongruent rule). The task includes three blocks: congruent (hearts only), incongruent (flowers only), and mixed (hearts and flowers). The congruent block serves as a baseline with minimal executive demands. Participants in our version of the task are encouraged to respond as quickly as possible but -- due to variation in administration platform and in contrast to some versions of the task -- we did not provide a hard time limit on each trial, though we scored responses slower than 3000 ms as incorrect. 
 
 ### Memory Game
 
@@ -401,7 +401,7 @@ papaja::apa_table(
   sum_counts |>
     rename(`Invariance level` = Level_norm),
   caption = "Summary of multigroup invariance outcomes across LEVANTE tasks.",
-  label = "invariance-summary"
+  label = "model-invariance"
 )
 
 
@@ -424,7 +424,7 @@ For scoring, all multigroup models were extended to the full item pool. Overlapp
 
 ## Item-Level Diagnostics
 
-```{r message=FALSE, warning=FALSE, include=FALSE, results='asis'}
+```{r message=FALSE, warning=FALSE, include=FALSE, eval=FALSE, results='asis'}
 
 regdir <- here::here("02_score_data/02_fit_irt/model_registry")
 # Load helpers
@@ -608,7 +608,13 @@ ggplot() +
   theme(legend.position = "bottom")
 
 ```
+
 ## Reliability 
+
+### Marginal reliability
+
+We extracted marginal 
+
 ```{r}
 task_rxx <- read_rds(here("02_scoring_outputs", "task_rxx.rds"))
 
@@ -618,7 +624,8 @@ task_rxx_table |>
   papaja::apa_table(col_spanners = list("Marginal reliability" = c(4, 6)))
 options(papaja.na_string = "NA")
 ```
-### Test-retest
+
+### Test-retest reliability
 <!-- > ### Test-retest [bd edit: can we put correlations in each panel?  ] -->
 
 ```{r, output='asis'}
@@ -657,6 +664,10 @@ papaja::apa_table(trt, digits = 2, caption = "Task-wise test-retest correlations
 ```
 
 ```{r, fig.width = 8, fig.height = 8, results='asis'}
+
+# trt_for_plot <- trt |>
+#   rename(task = Task)
+  
 ggplot(retest_wide, aes(x = run_1, y = run_2, color = age)) +
   ggh4x::facet_nested_wrap(vars(task_category, task),
                          nest_line = element_line(), solo_line = TRUE,
@@ -664,8 +675,8 @@ ggplot(retest_wide, aes(x = run_1, y = run_2, color = age)) +
                          scales = "free_y") +
     # facet_wrap(vars(task)) +
   geom_point() +
-  geom_text(data = trt, aes(label = r), group = 1, color = "black",  
-            x = -4.5, y = 2.5) +
+  # geom_text(data = rename(trt, task = Task), aes(label = r), group = 1, color = "black",  
+  #           x = -4.5, y = 2.5) +
   geom_smooth(aes(group = 1), color = "darkgrey", method = "lm") +
   scale_color_viridis(limits = c(5, 12)) +
   labs(x = "Score 1", y = "Score 2", color = "Age (years)") +
