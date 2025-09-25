@@ -334,9 +334,10 @@ Partners at Western University, led by Daniel Ansari, recruited participants fro
 
 # Scoring
 
+
 ## IRT Calibration and Model Selection
 
-Model calibration proceeded in two steps. First, within each site and task, alternative unidimensional IRT specifications (Rasch vs. 2PL) were estimated, and the best-fitting model was identified using the Bayesian Information Criterion (BIC). Task-level model choice was then defined by the specification most consistently favored across sites. As summarized in Table \@ref(tab:model-invariance), Rasch models provided the best fit for the majority of tasks, whereas 2PL models were favored for Same & Different and Shape Rotation. This pattern suggests that a simple Rasch parameterization was sufficient to capture item response variation for most domains, while tasks involving more complex perceptual or reasoning demands benefitted from the additional flexibility of the 2PL specification. The consistency of model preference across sites supports the robustness of these results rather than site-specific idiosyncrasies.
+Model calibration proceeded in two steps. First, for each task, alternative unidimensional IRT specifications (Rasch vs. 2PL) were fit within a multigroup framework using the set of items overlapping across sites. The best-fitting model was selected by the Bayesian Information Criterion (BIC), considering both model family (Rasch vs. 2PL) and invariance level (configural, metric, scalar). As summarized in Table \@ref(tab:model-invariance), Rasch models provided the best fit for the majority of tasks, whereas 2PL models were favored for Same & Different and Shape Rotation. This pattern suggests that a simple Rasch parameterization was sufficient to capture response variation in most domains, whereas tasks involving more complex perceptual or reasoning demands benefitted from the additional flexibility of the 2PL specification. The use of a single overlap-based winner per task ensured that selection was driven by fit to the cross-site data rather than majority preference within individual sites.
 
 ```{r model-invariance, echo=FALSE, results='asis', message=FALSE, warning=FALSE}
 
@@ -402,7 +403,10 @@ papaja::apa_table(
 
 
 ```
-In the second step, we evaluated cross-site comparability using multigroup IRT models. These were estimated on the overlapping items common to all sites, under a sequence of increasingly restrictive invariance constraints. Following the conventional factor-analytic hierarchy, translated into IRT terms, we tested:
+
+## Multigroup Calibration and Measurement Invariance
+
+In the second step, we evaluated cross-site comparability by testing measurement invariance in the overlap-based multigroup models. These models were estimated under a sequence of increasingly restrictive constraints, following the conventional factor-analytic hierarchy translated into IRT terms:
 
 -   Configural invariance: common factor structure, item parameters free across sites.
 -   Metric invariance: item discriminations constrained equal across sites.
@@ -412,160 +416,77 @@ Scalar invariance therefore provides the strongest basis for direct cross-site c
 
 Results (Table \@ref(tab:model-invariance)) indicated that scalar invariance held for most tasks, suggesting that both item difficulties and slopes generalized across sites. Two tasks supported only metric invariance, implying that discriminations were stable but intercepts varied across groups. Three tasks (Hearts & Flowers, Theory of Mind, Vocabulary) achieved only configural invariance, indicating consistent dimensional structure but insufficient parameter equivalence for strict comparability.
 
-For scoring, we used multigroup models estimated on the full item pool. These models inherited the parameter constraints established in the overlap‐items stage, such that overlapping items retained their fitted parameters while non-overlapping items were freely estimated. This ensured that all scores were placed on a common cross-site scale whenever metric or scalar invariance held. When only configural invariance was supported, we reverted to site-specific (by-language) calibrations of the winning model family, thereby preserving within-site validity while acknowledging weaker cross-site comparability.
+For scoring, all multigroup models were extended to the full item pool. Overlapping items retained their parameter values from the overlap stage, while non-overlapping items were freely estimated. This ensured that scores were placed on a common cross-site scale for all tasks. The level of invariance (scalar, metric, configural) documents the strength of comparability, but scoring itself was always based on multigroup calibrations rather than site-level majority voting.
+
 
 ## Item-Level Diagnostics
-```{r item-classical-detail, echo=FALSE, message=FALSE, warning=FALSE, results='asis'}
 
-# 1) load trial data
-trial_path <- here("01_fetched_data", "trial_data.rds")
-trial_data <- readRDS(trial_path)
+```{r message=FALSE, warning=FALSE, include=FALSE, results='asis'}
 
-# 2) keep only valid trials, 0/1 correctness, dedupe last attempt per (user, task, item)
-resp_df <- trial_data %>%
-  filter(valid_trial) %>%                               # logical, not string
-  transmute(
-    user_id  = as.character(user_id),
-    task     = tolower(item_task),
-    item_id  = as.character(item_uid),
-    response = as.integer(correct),                     # logical -> 0/1
-    ts       = timestamp
-  ) %>%
-  filter(!is.na(user_id), !is.na(task), !is.na(item_id), response %in% c(0L,1L)) %>%
-  arrange(user_id, task, item_id, ts) %>%
-  group_by(user_id, task, item_id) %>%
-  slice_tail(n = 1) %>%                                 # keep most recent attempt
-  ungroup() %>%
-  select(-ts)
-
-# 3) classical stats helper (proportion correct + point-biserial vs. rest)
-classical_stats <- function(df_person_item, min_n_item = 30) {
-  totals <- df_person_item %>%
-    group_by(user_id) %>%
-    summarise(total = sum(response, na.rm = TRUE),
-              k     = sum(!is.na(response)), .groups = "drop")
-
-  df_person_item %>%
-    left_join(totals, by = "user_id") %>%
-    mutate(rest = total - response, ok = k >= 2) %>%
-    group_by(item_id) %>%
-    group_modify(~{
-      x_all <- .x
-      x_ok  <- .x %>% filter(ok, !is.na(response), !is.na(rest))
-      tibble(
-        n           = sum(!is.na(x_all$response)),
-        p_classical = mean(x_all$response, na.rm = TRUE),
-        pbis        = if (nrow(x_ok) < 5 || sd(x_ok$rest) == 0 || sd(x_ok$response) == 0)
-                        NA_real_ else suppressWarnings(cor(x_ok$response, x_ok$rest))
-      )
-    }) %>%
-    ungroup() %>%
-    mutate(
-      flag_min_n     = n < min_n_item,
-      flag_p_extreme = (!flag_min_n) & (p_classical < .20 | p_classical > .90),
-      flag_pbis_low  = (!flag_min_n) & !is.na(pbis) & (pbis < .20),
-      flag_any       = flag_pbis_low | flag_p_extreme   # you may drop p_extreme here if desired
-    )
-}
-
-# 4) compute per-item and per-task diagnostics
-diag_items <- resp_df %>%
-  group_by(task) %>%
-  group_modify(~ classical_stats(select(.x, user_id, item_id, response))) %>%
-  ungroup() %>%
-  arrange(task, item_id)
-
-diag_summary <- diag_items %>%
-  summarise(
-    n_items     = dplyr::n_distinct(item_id),
-    n_flag_minN = sum(flag_min_n,     na.rm = TRUE),
-    n_flag_p    = sum(flag_p_extreme, na.rm = TRUE),
-    n_flag_pbis = sum(flag_pbis_low,  na.rm = TRUE),
-    n_any_flag  = sum(flag_any,       na.rm = TRUE),
-    .by = task
-  ) %>%
-  mutate(
-    prop_flag_p    = n_flag_p    / n_items,
-    prop_flag_pbis = n_flag_pbis / n_items,
-    prop_any_flag  = n_any_flag  / n_items
-  ) %>%
-  arrange(task)
-
-# 5) detailed item table for internal use
-diag_items_detailed <- diag_items %>%
-  transmute(
-    Task  = task,
-    Item  = item_id,
-    N     = n,
-    p     = round(p_classical, 3),
-    pbis  = ifelse(is.na(pbis), NA, round(pbis, 3)),
-    flag_p     = !is.na(p)    & (p < .20 | p > .90),     
-    flag_pbis  = !is.na(pbis) & (pbis < .20)
-  ) %>%
-  arrange(Task, Item)
-
-# Save for QA (RDS + CSV)
-saveRDS(diag_items_detailed, here::here("04_paper","display","diag_items_detailed.rds"))
-readr::write_csv(diag_items_detailed, here::here("04_paper","display","diag_items_detailed.csv"))
+regdir <- here::here("02_score_data/02_fit_irt/model_registry")
+# Load helpers
+source(here::here("02_score_data/02_fit_irt/irt_modular.R"), chdir = TRUE)
+source(here::here("02_score_data/02_fit_irt/registry_helper.R"), chdir = TRUE)
+source(here::here("04_paper/item-diagnostic_helper.R"), chdir = TRUE)
+# Sanity check: does the registry have files?
+list.files(regdir, recursive = TRUE)
+# read in all models in registry
+mods <- list_models() |> load_models()
+# extract model specifications from model records
+mods_coded <- mods |>
+  mutate(nfact = map_int(mod_rec, \(mr) mr@nfact),
+         itemtype = map_chr(mod_rec, \(mr) mr@itemtype),
+         invariance_terms = map(mod_rec, \(mr) mr@invariance),
+         invariance = map_chr(invariance_terms, translate_invariance)) |>
+  select(-filename, -path, -invariance_terms) |>
+  mutate(mod = map(mod_rec, model_from_record))
 
 ```
 
-```{r item-summary-table, echo=FALSE, message=FALSE, warning=FALSE, results='asis'}
-
-diag_summary_out <- diag_summary %>%
-  transmute(
-    Task       = task,
-    `# Items`  = n_items,
-    `Extreme p`    = sprintf("%d (%.0f%%)", n_flag_p,    100 * n_flag_p    / n_items),
-    `Low pbis`     = sprintf("%d (%.0f%%)", n_flag_pbis, 100 * n_flag_pbis / n_items),
-    `Any flag`     = sprintf("%d (%.0f%%)", n_any_flag,  100 * n_any_flag  / n_items)
-  )
-
-# Add a proper Total row (direct sums + weighted %)
-totals <- diag_summary %>%
-  summarise(
-    Task        = "Total",
-    `# Items`   = sum(n_items, na.rm = TRUE),
-    n_flag_p    = sum(n_flag_p,    na.rm = TRUE),
-    n_flag_pbis = sum(n_flag_pbis, na.rm = TRUE),
-    n_any_flag  = sum(n_any_flag,  na.rm = TRUE)
-  )
-
-totals_fmt <- totals %>%
+```{r item-diagnostics, echo=FALSE, results='asis', message=FALSE, warning=FALSE}
+# --- Proportion-only summary table ---
+task_summary_selected_report <- task_summary_selected %>%
   mutate(
-    `Extreme p` = sprintf("%d (%.0f%%)", n_flag_p,    100 * n_flag_p    / `# Items`),
-    `Low pbis`  = sprintf("%d (%.0f%%)", n_flag_pbis, 100 * n_flag_pbis / `# Items`),
-    `Any flag`  = sprintf("%d (%.0f%%)", n_any_flag,  100 * n_any_flag  / `# Items`)
+    # proportions
+    prop_flag_p        = n_flag_p       / n_items,
+    prop_flag_pb       = n_flag_pb      / n_items,
+    prop_flag_infit    = n_flag_infit   / n_items,
+    prop_flag_zinfit   = n_flag_zinfit  / n_items,
+    prop_flag_SX2_01   = n_flag_SX2_p01 / n_items,
+    prop_flag_SX2_001  = n_flag_SX2_p001/ n_items,
+    prop_flag_RMSEA    = n_flag_RMSEA_SX2_poor / n_items,
+    # label cleanup
+    Task       = if (exists("task_labels")) recode(task, !!!task_labels) else task,
+    Model      = dplyr::recode(itemtype, "rasch" = "Rasch", "2pl" = "2PL", .default = toupper(itemtype)),
+    Invariance = stringr::str_to_title(invariance),
+    Subset     = dplyr::recode(subset, "all_items" = "All items", "overlap_items" = "Overlap items", .default = subset)
   ) %>%
-  select(Task, `# Items`, `Extreme p`, `Low pbis`, `Any flag`)
+  select(
+    Task, Subset, Items = n_items,
+    `Prop flag p`          = prop_flag_p,
+    `Prop flag pb`         = prop_flag_pb,
+    `Prop flag infit`      = prop_flag_infit,
+    `Prop flag z.infit`    = prop_flag_zinfit,
+    #`Prop flag S–X² p<.01` = prop_flag_SX2_01,
+    `Prop flag S–X² p<.001`= prop_flag_SX2_001,
+    `Prop poor RMSEA(S–X²)`= prop_flag_RMSEA
+  ) %>%
+  # APA-style rounding
+  mutate(across(where(is.numeric), ~ round(.x, 2)))
 
-diag_summary_out <- bind_rows(diag_summary_out, totals_fmt)
-
-apa_table(
-  diag_summary_out,
-  align   = c("l","c","c","c","c"),
-  escape  = TRUE,
-  caption = "Item-level diagnostics by task. Extreme p: items with very low/high proportion correct (< .20 or > .90). Low pbis: items with point–biserial correlations < .20. Values are n (percentage of items in task).",
-  label   = "item-diagnostics-summary"
+# --- APA Table ---
+options(papaja.na_string = "–")
+papaja::apa_table(
+  task_summary_selected_report,  # your tibble with proportions only
+  caption = NULL,                # omit caption for slide
+  note    = NULL,                # omit long notes
+  col_spanners = list("Proportion of flagged items" = 3:9),
+  landscape = TRUE,             
+  fontsize = "scriptsize"        # shrink if needed for slide fit
 )
+
+options(papaja.na_string = "NA")
 ```
-In addition to overall model calibration, we examined item-level performance to identify potential weaknesses in the pilot instruments. Classical item statistics included the proportion correct and point-biserial item–total correlations. Items with very low or very high proportions correct (below .20 or above .90) were flagged as potentially uninformative, and items with point-biserial correlations below .20 were flagged as weakly discriminating. Complementary IRT-based diagnostics included inspection of item infit and outfit statistics, although these results are not displayed here. Together, these indices provide a first pass at identifying problematic items that may warrant revision, removal, or further testing in subsequent piloting rounds.
-
-.... DORIA stopped here ....
-
-Classical indices included proportion correct (flagged if <0.20 or >0.90) and point-biserial correlations (flagged if <0.20). 
-IRT-based fit statistics included infit and outfit mean squares.
-DIF
-Removal and Revision of Problematic Items
-Ability Estimation
-CAT-Specific Scoring
-
-Multigroup models and invariance
-Model selection approach
-1PL/2PL and different degrees of invariance
-Item-level diagnostics
-Removal of outlier items
-Tests for item-level DIF in cases where we use multigroup scoring
 
 # Psychometric properties of tasks
 
