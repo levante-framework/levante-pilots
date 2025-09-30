@@ -117,7 +117,7 @@ library(lmerTest)
 
 source(here("03_summaries","plotting_helper.R"))
 source(here("plot_settings.R"))
-source(here("03_summaries","scores_helper.R"))
+#source(here("03_summaries","scores_helper.R"))
 
 sites <- c("Colombia", "Germany", "Canada") #, "pilot_langcog_us", 
 site_pal <- solarized_pal()(length(sites)) |> rlang::set_names(sites)
@@ -657,9 +657,10 @@ ggplot(retest_wide, aes(x = run_1, y = run_2, color = age)) +
 
 ### Construct validity
 
-We assessed construct validity using confirmatory factor analysis (CFA) specified a priori, based on our theory of which indicators load on each construct. The measurement model specified three latent factors: Reasoning (matrix reasoning, mental rotation), Executive Function (EF; hearts and flowers, memory game, same-different-selection), and Language (grammar, vocab)– and treated math and Social Cognition (Theory of Mind; ToM) as observed outcomes. Math and ToM were modeled as observed outcomes rather than latent factors because each construct contained a single task. Forming a latent factor with one indicator would require strong, unverifiable assumptions about reliability/error variances and can be weakly identified. Treating them as endogenous observed variables keeps the model parsimonious and transparent while allowing them to be predicted by the latent domains and age. We included age to account for developmental change. 
 
-We estimated two models. Model 1 included three latent factors and paths from age to the three factors as well as to math and ToM \@ref(fig:semplot-main). Fit was mixed: CFI = .923, TLI = .850, RMSEA = .084 (90% CI .073–.095), SRMR = .059. However, factor correlations (residual, controlling for age) were high: Reasoning--EF .882, Reasoning--Language .747, and EF--Language .921. This suggests a general ability component could underpin these three latent factors. Controlling for age, maths and ToM showed a small positive residual association (r = .15), suggesting minor overlap not captured by age alone.
+We assessed construct validity using confirmatory factor analysis (CFA) specified a priori, based on our theory of which indicators load on each construct. The measurement model specified three latent factors–Reasoning (matrix reasoning, mental rotation), Executive Function (EF; hearts and flowers, memory game, same-different-selection), and Language (grammar, vocab)– and treated math and Social Cognition (Theory of Mind; ToM) as observed outcomes. Math and ToM were modeled as observed outcomes rather than latent factors because each construct contained a single task. Forming a latent factor with one indicator would require strong, unverifiable assumptions about reliability/error variances and can be weakly identified. Treating them as endogenous observed variables keeps the model parsimonious and transparent while allowing them to be predicted by the latent domains and age. We included age to account for developmental change. 
+
+We estimated two models. Model 1 included three latent factors and paths from age to the three factors as well as to math and ToM \@ref(fig:semplot-main). Fit was mixed–CFI = .923, TLI = .850, RMSEA = .084 (90% CI .073–.095), SRMR = .059. However, factor correlations (residual, controlling for age) were high: Reasoning–EF .882, Reasoning–Language .747, and EF–Language .921. This suggests a general ability component could underpin these three latent factors. Controlling for age, maths and ToM showed a small positive residual association (r = .15), suggesting minor overlap not captured by age alone.
 
 ```{r prep-sem, include=FALSE}
 
@@ -799,7 +800,9 @@ semPlot::semPaths(
 
 ### External validity
 
+
 To assess external validity, we fitted a single-factor EF model with hearts and flowers (hf), memory game (mg), same-different-selection (sds), and the external measure, the Minnesota Executive Function Scale (MEFS) as indicators \@ref(fig:semplot-ef). We modeled age as a predictor of the latent EF factor. Fit was generally good (CFI = .971, TLI = .943, SRMR = .034; RMSEA = .071, 90% CI .040–.106). Standardized loadings were moderate to strong (hf = .63, mg = .63, sds = .50, MEFS = .67), indicating that MEFS aligns closely with the latent EF construct. Age strongly predicted EF (\(\beta = 0.79\); R² = .62), consistent with expected developmental gains.
+
 
 ```{r prep for sem - ef, include=FALSE}
 
@@ -879,7 +882,6 @@ semPlot::semPaths(
   mar = c(6,6,6,6)       
 )
 ```
-
 
 We ran a similar model to determine the external validity of the language and literacy measures (grammar and vocab) against ROAR tasks including measures of Phonological Awareness (pa), Single Word Reading (swr) and Sentence Reading Efficiency (sre). We fitted a single latent Language factor with ROAR tasks plus grammar (trog) and vocabulary as indicators, and modeled age as a predictor of the latent factor \@ref(fig:fig-semplot-lang). Fit was borderline acceptable: CFI = .937, TLI = .895, RMSEA = .070, 90% CI .052–.089; SRMR = .070. Standardized loadings were: swr = .743, sre = .557, pa = .685, trog = .655, vocab = .814–all significant, indicating that the ROAR tasks align with grammar and vocabulary on a common language/literacy factor, with vocabulary the strongest indicator. Age positively predicted the latent factor (\(\beta = 0.66\); R² = .44), consistent with expected developmental gains.
 
