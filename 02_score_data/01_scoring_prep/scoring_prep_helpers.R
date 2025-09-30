@@ -92,13 +92,25 @@
 # }
 
 
-# special for SDS, code too fast/slow RTs as incorrect
 recode_hf <- function(df) {
   hf_trials <- df |>
     filter(item_task == "hf") |>
+    # code too fast/slow RTs as incorrect
     mutate(response_fast = rt_numeric < 200, response_slow = rt_numeric > 2000,
            correct = correct & !response_fast & !response_slow) |>
-    select(-response_fast, -response_slow)
+    select(-response_fast, -response_slow) |>
+    # recode items based on whether they're same as previous item
+    group_by(run_id, item_group) |>
+    arrange(trial_number) |>
+    mutate(hf_type = case_when(
+      is.na(lag(item)) ~ "start",
+      item == lag(item) ~ "stay",
+      item != lag(item) ~ "switch")) |>
+    ungroup() |>
+    mutate(item = paste(item, hf_type, sep = "_"),
+           item_uid = paste(item_group, item, sep = "_")) |>
+    select(-hf_type)
+
   df |>
     filter(item_task != "hf") |>
     bind_rows(hf_trials)
