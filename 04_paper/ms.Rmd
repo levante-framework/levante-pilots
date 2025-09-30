@@ -112,6 +112,8 @@ library(lavaan)
 # library(dplyr);library(tidyr); library(readr)
 library(mirt)
 library(tidyverse)
+library(broom.mixed)
+library(lmerTest)
 
 source(here("03_summaries","plotting_helper.R"))
 source(here("plot_settings.R"))
@@ -327,7 +329,7 @@ Within the included runs, there were a total of `r total_trial_counts$n_trials` 
 
 ## Colombia
 
-The Universidad de Los Andes conducted school-based data collection across four schools in Bogotá and three schools in the rural areas of Caquetá and Boyacá, Colombia. By partnering with schools, the research team oversaw task data collection with children using a group testing format on tablets provided by the team. Children were tested in groups, with larger groups for older children and smaller groups for younger children. The Colombia site collected data from `r user_totals$n_users[user_totals$site == "Colombia"]` children ages 5-12 years. Due to time constraints for school-based administration, children typically completed a subset of the tasks. 
+The Universidad de Los Andes conducted school-based data collection across four schools in Bogotá and three schools in the rural areas of Caquetá and Boyacá, Colombia. By partnering with schools, the research team oversaw task data collection with children using a group testing format on tablets provided by the team. Children were tested in groups, with larger groups for older children and smaller groups for younger children. The Colombia site collected data from `r user_totals$n_users[user_totals$site == "Colombia"]` children ages 5--12 years. Due to time constraints for school-based administration, children typically completed a subset of the tasks. 
 
 ## Germany
 
@@ -497,7 +499,9 @@ options(papaja.na_string = "NA")
 # Psychometric properties of tasks
 
 ## Developmental change
-Across all nine tasks we observe positive age–ability trends. The smoothed lines are roughly parallel within each panel, indicating that sites differ mostly in level with only modest differences in slope (see Figure \@ref(fig:age trends). Growth appears steepest for Math and Hearts & Flowers, moderate for Vocabulary, Memory, and Theory of Mind, and shallower for Shape Rotation; Sentence Understanding shows a positive but weaker trend.
+
+Across all nine tasks we observed positive age–ability trends. The smoothed lines are roughly parallel within each panel, indicating that sites differ mostly in level with only modest differences in slope (see Figure \@ref(fig:age trends)). Growth appears steepest for Math and Hearts & Flowers, moderate for Vocabulary, Memory, and Theory of Mind, and shallower for Shape Rotation; Sentence Understanding shows a positive but weaker trend.
+
 ```{r age trends, fig.cap="Age related trends by task", fig.width = 8, fig.height = 8, echo=FALSE, message=FALSE, warning=FALSE}
 
 ggplot(coretask_scores, aes(age, metric_value)) +
@@ -513,9 +517,16 @@ ggplot(coretask_scores, aes(age, metric_value)) +
   labs(x = "Age (years)", y = "Ability (IRT score)", colour = "Site") +
   theme(legend.position = "bottom")
 ```
-To formally quantify developmental change while treating sites as a random sample from a broader population, we fit linear mixed-effects models with site-specific random intercepts and slopes, which estimate within-site age slopes (IRT units per year) with partial pooling across sites (Figure \@ref(fig:random-slopes-graph)). Consistent with the descriptive smooths, the largest gains were in Math (\(\beta = 0.61\), 95% CI [0.40, 0.82], p=.01) and Hearts & Flowers (\(\beta = 0.50\), [0.09, 0.91], p=.03). Vocabulary (\(\beta = 0.37\), [0.22, 0.52], p=.01), Memory (\(\beta = 0.36\), [0.13, 0.59], p=.02), and Theory of Mind (\(\beta = 0.33\), [0.04, 0.62], p=.04) also showed clear positive change. Sentence Understanding (\(\beta = 0.30\) and Shape Rotation (\(\beta = 0.15\) provided weaker evidence (95% CIs include 0). Pattern Matching had a positive point estimate but a wide CI, indicating limited information or instability for that task. See Table \@ref(tab:age-slopes) for per-task estimates.
 
-```{r age slopes, echo=FALSE, message=FALSE, warning=FALSE, results='asis'}
+To formally quantify developmental change while treating sites as a random sample from a broader population, we fit linear mixed-effects models with site-specific random intercepts and slopes, which estimate within-site age slopes (IRT units per year) with partial pooling across sites (Figure \@ref(fig:random-slopes-graph)). 
+
+<!-- MAYBE MOVE TO TABLE -->
+<!-- Consistent with the descriptive smooths, the largest gains were in Math (\(\beta = 0.61\), 95% CI [0.40, 0.82], p=.01) and Hearts & Flowers (\(\beta = 0.50\), [0.09, 0.91], p=.03). Vocabulary (\(\beta = 0.37\), [0.22, 0.52], p=.01), Memory (\(\beta = 0.36\), [0.13, 0.59], p=.02), and Theory of Mind (\(\beta = 0.33\), [0.04, 0.62], p=.04) also showed clear positive change. Sentence Understanding (\(\beta = 0.30\) and Shape Rotation (\(\beta = 0.15\) provided weaker evidence (95% CIs include 0). Pattern Matching had a positive point estimate but a wide CI, indicating limited information or instability for that task. See Table \@ref(tab:age-slopes) for per-task estimates. -->
+
+
+<!-- TODO: RAW AGE CORRELATIONS -->
+
+```{r age_slopes, echo=FALSE, message=FALSE, warning=FALSE, results='asis'}
 coretask_scores <- coretask_scores %>%
   mutate(
     age_c = age - mean(age, na.rm = TRUE),
@@ -525,7 +536,7 @@ coretask_scores <- coretask_scores %>%
 slopes_by_task <- coretask_scores %>%
   tidyr::nest(data = -task) %>%                               
   mutate(
-    fit   = purrr::map(data, ~ lmer(metric_value ~ age_c + (age_c || site), data = .x)),
+    fit   = purrr::map(data, ~ lmer(metric_value ~ age_c + (age_c | site), data = .x)),
     fixed = purrr::map(fit,  ~ broom.mixed::tidy(.x, effects = "fixed", conf.int = TRUE))
   ) %>%
   tidyr::unnest(fixed) %>%
@@ -553,62 +564,10 @@ slopes_print <- slopes_by_task %>%
          ci_low, ci_high,
          p, sig)
 
-knitr::kable(
+papaja::apa_table(
   slopes_print, digits = 2,
   caption = "Per-task age slopes (IRT units/year) with 95% CIs; site as random intercept and slope. *p* values from lmerTest. Sig: *p*<.05(*), <.01(**), <.001(***)."
 )
-
-```
-
-```{r random slopes, include=FALSE}
-# random slopes model
-library(lme4)
-colnames(coretask_scores)
-
-coretask_scores <- coretask_scores %>%
-  mutate(age_c = age - mean(age, na.rm = TRUE))
-
-# drop the correlation between intercept & slope 
-fit <- lmer(metric_value ~ age_c + (age_c || site),
-             data = coretask_scores,
-             control = lmerControl(optimizer = "bobyqa", optCtrl = list(maxfun = 2e5)))
-fit
-```
-
-```{r random slopes graph, fig.cap="Random Effects model - Developmental trends", fig.width = 8, fig.height = 8, echo=FALSE, message=FALSE, warning=FALSE}
-site_key <- coretask_scores %>% distinct(site, site_label)
-
-age_mean <- mean(coretask_scores$age, na.rm = TRUE)
-age_seq  <- seq(min(coretask_scores$age_c, na.rm = TRUE),
-                max(coretask_scores$age_c, na.rm = TRUE), length.out = 200)
-
-newdata <- expand.grid(
-  age_c = age_seq,
-  site  = levels(factor(coretask_scores$site))
-) %>%
-  left_join(site_key, by = "site") %>%
-  mutate(age = age_c + age_mean)
-
-# site-specific predictions
-newdata$y_hat_site <- predict(fit, newdata = newdata, re.form = NULL)
-
-ggplot() +
-  geom_point(data = coretask_scores,
-             aes(x = age, y = metric_value, colour = site_label),
-             alpha = 0.3, size = 1) +
-  geom_line(data = newdata,
-            aes(x = age, y = y_hat_site, colour = site_label),
-            linewidth = 1.1) +
-  scale_x_continuous(breaks = seq(6, 14, 2)) +
-  .scale_colour_site() +
-  guides(color = guide_legend(override.aes = list(fill = "white"))) +
-  labs(
-    x = "Age (years)",
-    y = "Ability (IRT score)",
-    colour = "Site",
-    title = "Random-intercept & slope by site: fitted developmental trends"
-  ) +
-  theme(legend.position = "bottom")
 
 ```
 
@@ -616,22 +575,28 @@ ggplot() +
 
 ### Marginal reliability
 
-We extracted marginal 
+- what is marginal reliability
+- which models is it coming from 
+- reference table 
 
-```{r}
+```{r, output='asis'}
 task_rxx <- read_rds(here("02_scoring_outputs", "task_rxx.rds"))
 
 options(papaja.na_string = "–")
-task_rxx_table |>
+task_rxx |>
   rename(Task = task, Parameters = itemtype, Invariance = invariance) |>
   papaja::apa_table(col_spanners = list("Marginal reliability" = c(4, 6)))
 options(papaja.na_string = "NA")
 ```
 
 ### Test-retest reliability
-<!-- > ### Test-retest [bd edit: can we put correlations in each panel?  ] -->
+
+- Describe retest (how many runs, how many kids, what interval
+- Describe which were CAT/not / retest item sets (e.g., go task by task)
+- Report retest correlations / reference figure and table [which needs numbers on it]
 
 ```{r, output='asis'}
+
 de_retest_scores <- coretask_scores |> 
   filter(site == "pilot_leuphana_de") |>
   group_by(user_id, task) |>
@@ -667,6 +632,7 @@ papaja::apa_table(trt, digits = 2, caption = "Task-wise test-retest correlations
 ```
 
 ```{r, fig.width = 8, fig.height = 8, results='asis'}
+# [bd edit: can we put correlations in each panel?  ]
 
 # trt_for_plot <- trt |>
 #   rename(task = Task)
@@ -691,9 +657,9 @@ ggplot(retest_wide, aes(x = run_1, y = run_2, color = age)) +
 
 ### Construct validity
 
-We assessed construct validity using confirmatory factor analysis (CFA) specified a priori, based on our theory of which indicators load on each construct. The measurement model specified three latent factors–Reasoning (matrix reasoning, mental rotation), Executive Function (EF; hearts and flowers, memory game, same-different-selection), and Language (grammar, vocab)– and treated math and Social Cognition (Theory of Mind; ToM) as observed outcomes. Math and ToM were modeled as observed outcomes rather than latent factors because each construct contained a single task. Forming a latent factor with one indicator would require strong, unverifiable assumptions about reliability/error variances and can be weakly identified. Treating them as endogenous observed variables keeps the model parsimonious and transparent while allowing them to be predicted by the latent domains and age. We included age to account for developmental change. 
+We assessed construct validity using confirmatory factor analysis (CFA) specified a priori, based on our theory of which indicators load on each construct. The measurement model specified three latent factors: Reasoning (matrix reasoning, mental rotation), Executive Function (EF; hearts and flowers, memory game, same-different-selection), and Language (grammar, vocab)– and treated math and Social Cognition (Theory of Mind; ToM) as observed outcomes. Math and ToM were modeled as observed outcomes rather than latent factors because each construct contained a single task. Forming a latent factor with one indicator would require strong, unverifiable assumptions about reliability/error variances and can be weakly identified. Treating them as endogenous observed variables keeps the model parsimonious and transparent while allowing them to be predicted by the latent domains and age. We included age to account for developmental change. 
 
-We estimated two models. Model 1 included three latent factors and paths from age to the three factors as well as to math and ToM \@ref(fig:semplot-main). Fit was mixed–CFI = .923, TLI = .850, RMSEA = .084 (90% CI .073–.095), SRMR = .059. However, factor correlations (residual, controlling for age) were high: Reasoning–EF .882, Reasoning–Language .747, and EF–Language .921. This suggests a general ability component could underpin these three latent factors. Controlling for age, maths and ToM showed a small positive residual association (r = .15), suggesting minor overlap not captured by age alone.
+We estimated two models. Model 1 included three latent factors and paths from age to the three factors as well as to math and ToM \@ref(fig:semplot-main). Fit was mixed: CFI = .923, TLI = .850, RMSEA = .084 (90% CI .073–.095), SRMR = .059. However, factor correlations (residual, controlling for age) were high: Reasoning--EF .882, Reasoning--Language .747, and EF--Language .921. This suggests a general ability component could underpin these three latent factors. Controlling for age, maths and ToM showed a small positive residual association (r = .15), suggesting minor overlap not captured by age alone.
 
 ```{r prep-sem, include=FALSE}
 
@@ -1006,7 +972,7 @@ The LEVANTE CATs are configurable with respect to the initial value of theta and
 
 In this paper we presented the LEVANTE core tasks, a group of nine tasks for children ages 5--12 that use psychometric principles for efficient, reliable, and valid assessment across a range of constructs including language, mathematics, reasoning, executive function, and social cognition. Using pilot data from three different countries, collected via three different administration methods (in-school, in-lab, and at-home administration), we provided preliminary evidence of reliability and validity. Further, using computer adaptive testing algorithms, we are able to deploy efficient versions of these tasks that produce scores for children across a wide range of abilities in just a few minutes.  
 
-We hope that these tasks will become the backbone of the LEVANTE framework, in which sites around the world collaborate to collect longitudinal data measuring children's learning and development as well as the overlapping contexts in which they develop. De-identified data collected using the tasks presented here flow into a shared repository, becoming part of a large-scale dataset that we hope will enable a wide variety of downstream investigations. The power of these data is that -- especially when combined with contextual data about children's caregivers, home environment, school, and built environment -- they afford one analyses of the sources of developmental and contexual variability at global scale.
+We hope that these tasks will become the backbone of the LEVANTE framework, in which sites around the world collaborate to collect longitudinal data measuring children's learning and development as well as the overlapping contexts in which they develop. De-identified data collected using the tasks presented here flow into a shared repository, becoming part of a large-scale dataset that we hope will enable a wide variety of downstream investigations. The power of these data is that -- especially when combined with contextual data about children's caregivers, home environment, school, and built environment -- they afford one analyses of the sources of developmental and contextual variability at global scale.
 
 Towards this goal, one strength of our approach here is that it easily accommodates future internationalization and adaptation. In fact, at the time of writing we are working on adaptations for two more languages (French and Dutch) and intend to further broaden the set of languages for which the tasks are available. As part of this process, we have created an site using the CrowdIn for generating and reviewing translation materials. The LEVANTE researcher website documents the use of this platform and our ongoing language adaptation efforts: [http://researcher.levante-network.org]().
 
