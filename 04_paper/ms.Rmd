@@ -518,7 +518,7 @@ ggplot(coretask_scores, aes(age, metric_value)) +
   theme(legend.position = "bottom")
 ```
 
-To formally quantify developmental change while treating sites as a random sample from a broader population, we fit linear mixed-effects models with site-specific random intercepts and slopes, which estimate within-site age slopes (IRT units per year) with partial pooling across sites. In addition, we calculated pooled zero-order correlations between age and IRT scores and found that they were  positive and of moderate magnitude across tasks (see Table \ref{tab:age_slopes}). 
+To formally quantify developmental change while treating sites as a random sample from a broader population, we fit linear mixed-effects models with site-specific random intercepts and slopes, which estimate within-site age slopes (IRT units per year) with partial pooling across sites. In addition, we calculated pooled zero-order correlations between age and IRT scores and found that they were  positive and of moderate magnitude across tasks (see Table \ref{tab:slopes_print2}). 
 
 ```{r age_slopes, echo=FALSE, message=FALSE, warning=FALSE, results='asis'}
 coretask_scores <- coretask_scores %>%
@@ -663,10 +663,9 @@ ggplot(retest_wide, aes(x = run_1, y = run_2, color = age)) +
 
 ### Construct validity
 
+We assessed construct validity using a hierarchical CFA in which three first-order factors—Reasoning (matrix reasoning, mental rotation), Executive Function (Hearts & Flowers, Memory Game, Same–Different Selection), and Language (grammar, vocabulary)—loaded on a second-order general factor (g; Figure \@ref(fig:fig-semplot-g)). Mathematics and Social Cognition (Theory of Mind; ToM) were treated as observed endogenous outcomes because each construct had a single task; introducing one-indicator latent variables would require strong, unverifiable assumptions about reliability/error variances. Age was specified to predict g (age → g). Model fit was acceptable (Confirmatory fit index: `r round(g$fit["cfi"], 3)`, RMSE: `r round(g$fit["rmsea"], 3)`, RMSE $p$-value: `r round(g$fit["rmsea.pvalue"], 3)`). 
 
-We assessed construct validity using confirmatory factor analysis (CFA) specified a priori, based on our theory of which indicators load on each construct. The measurement model specified three latent factors–Reasoning (matrix reasoning, mental rotation), Executive Function (EF; hearts and flowers, memory game, same-different-selection), and Language (grammar, vocab)– and treated math and Social Cognition (Theory of Mind; ToM) as observed outcomes. Math and ToM were modeled as observed outcomes rather than latent factors because each construct contained a single task. Forming a latent factor with one indicator would require strong, unverifiable assumptions about reliability/error variances and can be weakly identified. Treating them as endogenous observed variables keeps the model parsimonious and transparent while allowing them to be predicted by the latent domains and age. We included age to account for developmental change. 
-
-We estimated two models. Model 1 included three latent factors and paths from age to the three factors as well as to math and ToM \@ref(fig:semplot-main). Fit was mixed–CFI = .923, TLI = .850, RMSEA = .084 (90% CI .073–.095), SRMR = .059. However, factor correlations (residual, controlling for age) were high: Reasoning–EF .882, Reasoning–Language .747, and EF–Language .921. This suggests a general ability component could underpin these three latent factors. Controlling for age, maths and ToM showed a small positive residual association (r = .15), suggesting minor overlap not captured by age alone.
+Overall, factor loadings supported the intended three-factor structure (convergent validity), and age related to each domain as expected. The high inter-factor correlations and strong second-order loadings indicate that much of the variance is shared across domains, consistent with a broad general ability underpinning performance on the nine core tasks.
 
 ```{r prep-sem, include=FALSE}
 
@@ -705,55 +704,6 @@ str(vars_core_std[vars_core])
 
 ```
 
-```{r cfa, main model, include=FALSE}
-cfa_1 <- "
-  reasoning =~ matrix + mrot
-  ef        =~ hf + mg + sds
-  language  =~ trog + vocab
-
-  reasoning ~ age
-  ef        ~ age
-  language  ~ age
-  math      ~ age
-  tom       ~ age"
-
-fit_1 <- cfa(cfa_1, data = vars_core_std,
-             estimator = "MLR", std.lv = TRUE, missing = "fiml")
-summary(fit_1, fit.measures = TRUE, standardized = TRUE)
-
-```
-
-```{r semplot-main, fig.cap="SEM for core tasks", echo=FALSE, message=FALSE, warning=FALSE}
-semPlot::semPaths(
-  fit_1, 
-  what="mod", 
-  whatLabels="std", 
-  style="lisrel", 
-  layout="tree2",
-  rotation=3, 
-  intercepts=FALSE, 
-  residuals=FALSE, 
-  thresholds=TRUE,
-  intStyle = "multi",
-  curvePivot = TRUE, curve = 1,
-  # size
-  sizeMan=6, sizeLat=10, sizeInt=6,
-  sizeMan2=6, sizeLat2=6, sizeInt2=6,
-  esize=2, asize=1,
-  # bigger text
-  label.cex=1.2, edge.label.cex=1.1, edge.label.bg=TRUE,
-  label.prop=.7, label.curv=0.1,
-  nDigits=1, nCharNodes=8,
-  mar=c(6,6,6,6)
-)
-```
-
-Given the strong inter-factor correlations, we specified a second model with a hierarchical structure: three first-order factors (Reasoning, EF, Language) loading on a second-order general factor (g) \@ref(fig:fig-semplot-g). Math and ToM were again treated as observed endogenous outcomes regressed on g. We included a single developmental path for age → g Conventional fit indices was similar to Model 1 (CFI = .902, TLI = .857, RMSEA = .081, SRMR = .064). 
-
-Indicator loadings on their first-order factors were moderate–strong (e.g., matrix reasoning = .79; grammar = .78; vocab = .76), and g strongly underpinned the domains (Reasoning = .91; EF = .99; Language = .89; all standardized). Age positively predicted g (\(\beta = 0.69\); R²(g) = .48). In turn, g strongly predicted math (\(\beta = 0.87\); R² = .76) and moderately predicted ToM (\(\beta = 0.58\); R² = .33), yielding sizable indirect effects of age via g (age → g → Maths = .60; age → g → ToM = .40). After accounting for g, we found a negative residual math–ToM association (r = −.35), indicating that the small positive overlap in Model 1 largely reflected unmodeled general ability.
-
-Overall, factor loadings supported the intended three-factor structure (convergent validity), and age related to each domain as expected. The high inter-factor correlations and strong second-order loadings indicate that much of the variance is shared across domains, consistent with a broad general ability underpinning performance on the nine core tasks.
-
 ```{r second fit, include=FALSE}
 model_g_no_age <- "
   # first-order factors
@@ -780,8 +730,8 @@ head(lavaan::modindices(fit_g, sort.=TRUE, minimum.value=10), 15)
 model_g_age <- paste0(model_g_no_age, "\n g ~ age")
 fit_g_age <- sem(model_g_age, data = vars_core_std,
                  estimator = "MLR", std.lv = TRUE, missing = "fiml")
-summary(fit_g_age, fit.measures = TRUE, standardized = TRUE)
-#head(lavaan::modindices(fit_g_age, sort.=TRUE, minimum.value=10), 15)
+g <- summary(fit_g_age, fit.measures = TRUE, standardized = TRUE)
+head(lavaan::modindices(fit_g_age, sort.=TRUE, minimum.value=10), 15)
 ```
 
 ```{r fig-semplot-g, fig.cap="SEM for core tasks with general factor", echo=FALSE, message=FALSE, warning=FALSE}
@@ -806,7 +756,6 @@ semPlot::semPaths(
 
 ### External validity
 To assess external validity, we fitted a single-factor EF model with hearts and flowers (hf), memory game (mg), same-different-selection (sds), and the external measure, the Minnesota Executive Function Scale (MEFS) as indicators \@ref(fig:semplot-ef). We modeled age as a predictor of the latent EF factor. Fit was generally good (CFI = .971, TLI = .943, SRMR = .034; RMSEA = .071, 90% CI .040–.106). Standardized loadings were moderate to strong (hf = .63, mg = .63, sds = .50, MEFS = .67), indicating that MEFS aligns closely with the latent EF construct. Age strongly predicted EF (\(\beta = 0.79\); R² = .62), consistent with expected developmental gains.
-
 
 ```{r prep for sem - ef, include=FALSE}
 
