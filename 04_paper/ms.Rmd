@@ -117,11 +117,11 @@ library(lmerTest)
 
 source(here("03_summaries","plotting_helper.R"))
 source(here("plot_settings.R"))
-#source(here("03_summaries","scores_helper.R"))
+source(here("03_summaries","scores_helper.R"))
 
 sites <- c("Colombia", "Germany", "Canada") #, "pilot_langcog_us", 
 site_pal <- solarized_pal()(length(sites)) |> rlang::set_names(sites)
-# r_refs("r-references.bib")
+#r_refs("r-references.bib")
 ```
 
 ```{r analysis-preferences}
@@ -212,7 +212,7 @@ task_time_table <- task_time_summary |>
   left_join(task_map) |>
   select(task, site_label, adaptive, median_diff) |>
   pivot_wider(names_from = c(adaptive, site_label), values_from = median_diff) |>
-  select(task, starts_with("Non"), , starts_with("Adaptive")) |>
+  select(task, starts_with("Non"), starts_with("Adaptive")) |>
   arrange(task)
 
 options(papaja.na_string = "–")
@@ -227,11 +227,11 @@ options(papaja.na_string = "NA")
 
 ## General Task Properties
 
-The LEVANTE core tasks are short behavioral tasks that can be presented in a web browser on a tablet or laptop, with responses possible using a touchscreen, keyboard, or mouse. Because of this variability in format of administration, they focus on response correctness not reaction time and so they are mostly untimed. The tasks are designed for simplicity and clarity so as to be accessible to children across a wide age range, and so with only modest exceptions, nearly all are in the format of a multi-alternative forced choice with a maximum of four choices. This uniformity of format means that in most cases instructions can be short and easy to understand, minimizing delays when the tasks are given in sequence as a battery. Figure \@ref{fig:tasks} shows screenshots from a number of tasks. Below we briefly present each task.
+The LEVANTE core tasks are short behavioral tasks that can be presented in a web browser on a tablet or laptop, with responses possible using a touchscreen, keyboard, or mouse. Because of this variability in format of administration, they focus on response correctness not reaction time and so they are mostly untimed. The tasks are designed for simplicity and clarity so as to be accessible to children across a wide age range, and so with only modest exceptions, nearly all are in the format of a multi-alternative forced choice with a maximum of four choices. This uniformity of format means that in most cases instructions can be short and easy to understand, minimizing delays when the tasks are given in sequence as a battery. Figure \@ref(fig:tasks) shows screenshots from a number of tasks. Below we briefly present each task.
 
 Tasks were implemented using jsPsych [@de-leeuw2015] in a common framework. Illustrations were produced by hand while auditory stimuli were generated using AI voice synthesis tools (currently, [elevenlabs.io]()). The tasks generally share a set of usability features including simple instructions, a small number of practice trials, and buttons to replay audio. 
 
-All tasks are available for demonstration purposes at [http://researcher.levante-network.org](). Source code for the tasks is available at [https://github.com/levante-framework/core-tasks](). Task code and assets are licensed CC-BY-NC 4.0 for non-commercial reuse (including educational use by not-for-profit and governmental entities) with appropriate attribution. Please see repository license for more details. We anticipate that once the LEVANTE resarcher management dashboard is completed, interested researchers will be able to create accounts and use the tasks in their own research. 
+All tasks are available for demonstration purposes at [http://researcher.levante-network.org](). Source code for the tasks is available at [https://github.com/levante-framework/core-tasks](). Task code and assets are licensed CC-BY-NC 4.0 for non-commercial reuse (including educational use by not-for-profit and governmental entities) with appropriate attribution. Please see repository license for more details. We anticipate that once the LEVANTE researcher management dashboard is completed, interested researchers will be able to create accounts and use the tasks in their own research. 
 
 General task lengths are described below and average task durations are given in Table \@ref(tab:durations). Because of our interest in testing children across a wide range of ages, we intentionally included trials that we anticipated would be both very easy and very hard for children with the aim of deploying these adaptively after we had gathered sufficient data. We wanted to avoid  frustration for children, however, so during pilot testing, we experimented with a number of different stopping rules. In early iterations of pilot testing in Bogota, Colombia, we ended tasks after three incorrect trials; we later modified this rule to end tasks after six incorrect trials. 
 
@@ -500,9 +500,9 @@ options(papaja.na_string = "NA")
 
 ## Developmental change
 
-Across all nine tasks we observed positive age–ability trends. The smoothed lines are roughly parallel within each panel, indicating that sites differ mostly in level with only modest differences in slope (see Figure \@ref(fig:age trends)). Growth appears steepest for Math and Hearts & Flowers, moderate for Vocabulary, Memory, and Theory of Mind, and shallower for Shape Rotation; Sentence Understanding shows a positive but weaker trend.
+Across all nine tasks we observed positive age–ability trends. The smoothed lines in Figure \ref{fig:age-trends} are roughly parallel within each panel, indicating that sites differ mostly in level with only modest differences in slope. Growth appears steepest for Math and Hearts & Flowers, moderate for Vocabulary, Memory, and Theory of Mind, and shallower for Shape Rotation; Sentence Understanding shows a positive but weaker trend.
 
-```{r age trends, fig.cap="Age related trends by task", fig.width = 8, fig.height = 8, echo=FALSE, message=FALSE, warning=FALSE}
+```{r age-trends, fig.cap="Age related trends by task", fig.width = 8, fig.height = 8, echo=FALSE, message=FALSE, warning=FALSE}
 
 ggplot(coretask_scores, aes(age, metric_value)) +
   ggh4x::facet_nested_wrap(vars(task_category, task),
@@ -518,13 +518,7 @@ ggplot(coretask_scores, aes(age, metric_value)) +
   theme(legend.position = "bottom")
 ```
 
-To formally quantify developmental change while treating sites as a random sample from a broader population, we fit linear mixed-effects models with site-specific random intercepts and slopes, which estimate within-site age slopes (IRT units per year) with partial pooling across sites (Figure \@ref(fig:random-slopes-graph)). 
-
-<!-- MAYBE MOVE TO TABLE -->
-<!-- Consistent with the descriptive smooths, the largest gains were in Math (\(\beta = 0.61\), 95% CI [0.40, 0.82], p=.01) and Hearts & Flowers (\(\beta = 0.50\), [0.09, 0.91], p=.03). Vocabulary (\(\beta = 0.37\), [0.22, 0.52], p=.01), Memory (\(\beta = 0.36\), [0.13, 0.59], p=.02), and Theory of Mind (\(\beta = 0.33\), [0.04, 0.62], p=.04) also showed clear positive change. Sentence Understanding (\(\beta = 0.30\) and Shape Rotation (\(\beta = 0.15\) provided weaker evidence (95% CIs include 0). Pattern Matching had a positive point estimate but a wide CI, indicating limited information or instability for that task. See Table \@ref(tab:age-slopes) for per-task estimates. -->
-
-
-<!-- TODO: RAW AGE CORRELATIONS -->
+To formally quantify developmental change while treating sites as a random sample from a broader population, we fit linear mixed-effects models with site-specific random intercepts and slopes, which estimate within-site age slopes (IRT units per year) with partial pooling across sites. In addition, we calculated pooled zero-order correlations between age and IRT scores and found that they were  positive and of moderate magnitude across tasks (see Table \ref{tab:age_slopes}). 
 
 ```{r age_slopes, echo=FALSE, message=FALSE, warning=FALSE, results='asis'}
 coretask_scores <- coretask_scores %>%
@@ -564,10 +558,22 @@ slopes_print <- slopes_by_task %>%
          ci_low, ci_high,
          p, sig)
 
+r_by_task <- coretask_scores %>%
+  dplyr::group_by(task) %>%
+  dplyr::summarise(
+    n      = sum(stats::complete.cases(age, metric_value)),
+    r_age  = stats::cor(age, metric_value, use = "pairwise.complete.obs"),
+    .groups = "drop"
+  )
+
+slopes_print2 <- slopes_print %>%
+  dplyr::left_join(r_by_task, by = "task") %>%
+  dplyr::relocate(r_age, .after = slope_per_year)
+
 papaja::apa_table(
-  slopes_print, digits = 2,
-  caption = "Per-task age slopes (IRT units/year) with 95% CIs; site as random intercept and slope. *p* values from lmerTest. Sig: *p*<.05(*), <.01(**), <.001(***)."
-)
+  slopes_print2,
+  digits = 3,
+  caption = "(#tab:age_slopes) Per-task age slopes (IRT units/year) with 95% CIs and pooled zero-order correlations (r). *p* values from lmerTest. Sig: *p*<.05(*), <.01(**), <.001(***).")
 
 ```
 
@@ -799,8 +805,6 @@ semPlot::semPaths(
 ```
 
 ### External validity
-
-
 To assess external validity, we fitted a single-factor EF model with hearts and flowers (hf), memory game (mg), same-different-selection (sds), and the external measure, the Minnesota Executive Function Scale (MEFS) as indicators \@ref(fig:semplot-ef). We modeled age as a predictor of the latent EF factor. Fit was generally good (CFI = .971, TLI = .943, SRMR = .034; RMSEA = .071, 90% CI .040–.106). Standardized loadings were moderate to strong (hf = .63, mg = .63, sds = .50, MEFS = .67), indicating that MEFS aligns closely with the latent EF construct. Age strongly predicted EF (\(\beta = 0.79\); R² = .62), consistent with expected developmental gains.
 
 
