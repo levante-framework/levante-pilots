@@ -341,6 +341,10 @@ Partners at Western University, led by Daniel Ansari, recruited participants fro
 
 # Scoring
 
+## Heuristic item pruning and data checking
+
+Prior to fitting psychometric models, we examined sumscore data for each task within each site and identified items that were functioning unusually poorly (e.g., showing sumscores close to or even below chance). In some cases this was due to potential translation issues; in a few others it was due to aspects of item design. We manually excluded these items from further processing (N=XYZ). In one case, this process helped us identify a bug in the scoring of data for three tasks; we excluded these observations, which were made during a two day period of testing for one site. 
+
 
 ## IRT Calibration and Model Selection
 
