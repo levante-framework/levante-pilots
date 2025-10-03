@@ -117,11 +117,11 @@ library(lmerTest)
 
 source(here("03_summaries","plotting_helper.R"))
 source(here("plot_settings.R"))
-#source(here("03_summaries","scores_helper.R"))
+source(here("03_summaries","scores_helper.R"))
 
 sites <- c("Colombia", "Germany", "Canada") #, "pilot_langcog_us", 
 site_pal <- solarized_pal()(length(sites)) |> rlang::set_names(sites)
-# r_refs("r-references.bib")
+#r_refs("r-references.bib")
 ```
 
 ```{r analysis-preferences}
@@ -212,7 +212,7 @@ task_time_table <- task_time_summary |>
   left_join(task_map) |>
   select(task, site_label, adaptive, median_diff) |>
   pivot_wider(names_from = c(adaptive, site_label), values_from = median_diff) |>
-  select(task, starts_with("Non"), , starts_with("Adaptive")) |>
+  select(task, starts_with("Non"), starts_with("Adaptive")) |>
   arrange(task)
 
 options(papaja.na_string = "–")
@@ -227,11 +227,11 @@ options(papaja.na_string = "NA")
 
 ## General Task Properties
 
-The LEVANTE core tasks are short behavioral tasks that can be presented in a web browser on a tablet or laptop, with responses possible using a touchscreen, keyboard, or mouse. Because of this variability in format of administration, they focus on response correctness not reaction time and so they are mostly untimed. The tasks are designed for simplicity and clarity so as to be accessible to children across a wide age range, and so with only modest exceptions, nearly all are in the format of a multi-alternative forced choice with a maximum of four choices. This uniformity of format means that in most cases instructions can be short and easy to understand, minimizing delays when the tasks are given in sequence as a battery. Figure \@ref{fig:tasks} shows screenshots from a number of tasks. Below we briefly present each task.
+The LEVANTE core tasks are short behavioral tasks that can be presented in a web browser on a tablet or laptop, with responses possible using a touchscreen, keyboard, or mouse. Because of this variability in format of administration, they focus on response correctness not reaction time and so they are mostly untimed. The tasks are designed for simplicity and clarity so as to be accessible to children across a wide age range, and so with only modest exceptions, nearly all are in the format of a multi-alternative forced choice with a maximum of four choices. This uniformity of format means that in most cases instructions can be short and easy to understand, minimizing delays when the tasks are given in sequence as a battery. Figure \@ref(fig:tasks) shows screenshots from a number of tasks. Below we briefly present each task.
 
 Tasks were implemented using jsPsych [@de-leeuw2015] in a common framework. Illustrations were produced by hand while auditory stimuli were generated using AI voice synthesis tools (currently, [elevenlabs.io]()). The tasks generally share a set of usability features including simple instructions, a small number of practice trials, and buttons to replay audio. 
 
-All tasks are available for demonstration purposes at [http://researcher.levante-network.org](). Source code for the tasks is available at [https://github.com/levante-framework/core-tasks](). Task code and assets are licensed CC-BY-NC 4.0 for non-commercial reuse (including educational use by not-for-profit and governmental entities) with appropriate attribution. Please see repository license for more details. We anticipate that once the LEVANTE resarcher management dashboard is completed, interested researchers will be able to create accounts and use the tasks in their own research. 
+All tasks are available for demonstration purposes at [http://researcher.levante-network.org](). Source code for the tasks is available at [https://github.com/levante-framework/core-tasks](). Task code and assets are licensed CC-BY-NC 4.0 for non-commercial reuse (including educational use by not-for-profit and governmental entities) with appropriate attribution. Please see repository license for more details. We anticipate that once the LEVANTE researcher management dashboard is completed, interested researchers will be able to create accounts and use the tasks in their own research. 
 
 General task lengths are described below and average task durations are given in Table \@ref(tab:durations). Because of our interest in testing children across a wide range of ages, we intentionally included trials that we anticipated would be both very easy and very hard for children with the aim of deploying these adaptively after we had gathered sufficient data. We wanted to avoid  frustration for children, however, so during pilot testing, we experimented with a number of different stopping rules. In early iterations of pilot testing in Bogota, Colombia, we ended tasks after three incorrect trials; we later modified this rule to end tasks after six incorrect trials. 
 
@@ -500,9 +500,9 @@ options(papaja.na_string = "NA")
 
 ## Developmental change
 
-Across all nine tasks we observed positive age–ability trends. The smoothed lines are roughly parallel within each panel, indicating that sites differ mostly in level with only modest differences in slope (see Figure \@ref(fig:age trends)). Growth appears steepest for Math and Hearts & Flowers, moderate for Vocabulary, Memory, and Theory of Mind, and shallower for Shape Rotation; Sentence Understanding shows a positive but weaker trend.
+Across all nine tasks we observed positive age–ability trends. The smoothed lines in Figure \ref{fig:age-trends} are roughly parallel within each panel, indicating that sites differ mostly in level with only modest differences in slope. Growth appears steepest for Math and Hearts & Flowers, moderate for Vocabulary, Memory, and Theory of Mind, and shallower for Shape Rotation; Sentence Understanding shows a positive but weaker trend.
 
-```{r age trends, fig.cap="Age related trends by task", fig.width = 8, fig.height = 8, echo=FALSE, message=FALSE, warning=FALSE}
+```{r age-trends, fig.cap="Age related trends by task", fig.width = 8, fig.height = 8, echo=FALSE, message=FALSE, warning=FALSE}
 
 ggplot(coretask_scores, aes(age, metric_value)) +
   ggh4x::facet_nested_wrap(vars(task_category, task),
@@ -518,13 +518,7 @@ ggplot(coretask_scores, aes(age, metric_value)) +
   theme(legend.position = "bottom")
 ```
 
-To formally quantify developmental change while treating sites as a random sample from a broader population, we fit linear mixed-effects models with site-specific random intercepts and slopes, which estimate within-site age slopes (IRT units per year) with partial pooling across sites (Figure \@ref(fig:random-slopes-graph)). 
-
-<!-- MAYBE MOVE TO TABLE -->
-<!-- Consistent with the descriptive smooths, the largest gains were in Math (\(\beta = 0.61\), 95% CI [0.40, 0.82], p=.01) and Hearts & Flowers (\(\beta = 0.50\), [0.09, 0.91], p=.03). Vocabulary (\(\beta = 0.37\), [0.22, 0.52], p=.01), Memory (\(\beta = 0.36\), [0.13, 0.59], p=.02), and Theory of Mind (\(\beta = 0.33\), [0.04, 0.62], p=.04) also showed clear positive change. Sentence Understanding (\(\beta = 0.30\) and Shape Rotation (\(\beta = 0.15\) provided weaker evidence (95% CIs include 0). Pattern Matching had a positive point estimate but a wide CI, indicating limited information or instability for that task. See Table \@ref(tab:age-slopes) for per-task estimates. -->
-
-
-<!-- TODO: RAW AGE CORRELATIONS -->
+To formally quantify developmental change while treating sites as a random sample from a broader population, we fit linear mixed-effects models with site-specific random intercepts and slopes, which estimate within-site age slopes (IRT units per year) with partial pooling across sites. In addition, we calculated pooled zero-order correlations between age and IRT scores and found that they were  positive and of moderate magnitude across tasks (see Table \ref{tab:slopes_print2}). 
 
 ```{r age_slopes, echo=FALSE, message=FALSE, warning=FALSE, results='asis'}
 coretask_scores <- coretask_scores %>%
@@ -564,10 +558,22 @@ slopes_print <- slopes_by_task %>%
          ci_low, ci_high,
          p, sig)
 
+r_by_task <- coretask_scores %>%
+  dplyr::group_by(task) %>%
+  dplyr::summarise(
+    n      = sum(stats::complete.cases(age, metric_value)),
+    r_age  = stats::cor(age, metric_value, use = "pairwise.complete.obs"),
+    .groups = "drop"
+  )
+
+slopes_print2 <- slopes_print %>%
+  dplyr::left_join(r_by_task, by = "task") %>%
+  dplyr::relocate(r_age, .after = slope_per_year)
+
 papaja::apa_table(
-  slopes_print, digits = 2,
-  caption = "Per-task age slopes (IRT units/year) with 95% CIs; site as random intercept and slope. *p* values from lmerTest. Sig: *p*<.05(*), <.01(**), <.001(***)."
-)
+  slopes_print2,
+  digits = 3,
+  caption = "(#tab:age_slopes) Per-task age slopes (IRT units/year) with 95% CIs and pooled zero-order correlations (r). *p* values from lmerTest. Sig: *p*<.05(*), <.01(**), <.001(***).")
 
 ```
 
@@ -657,10 +663,7 @@ ggplot(retest_wide, aes(x = run_1, y = run_2, color = age)) +
 
 ### Construct validity
 
-
-We assessed construct validity using confirmatory factor analysis (CFA) specified a priori, based on our theory of which indicators load on each construct. The measurement model specified three latent factors–Reasoning (matrix reasoning, mental rotation), Executive Function (EF; hearts and flowers, memory game, same-different-selection), and Language (grammar, vocab)– and treated math and Social Cognition (Theory of Mind; ToM) as observed outcomes. Math and ToM were modeled as observed outcomes rather than latent factors because each construct contained a single task. Forming a latent factor with one indicator would require strong, unverifiable assumptions about reliability/error variances and can be weakly identified. Treating them as endogenous observed variables keeps the model parsimonious and transparent while allowing them to be predicted by the latent domains and age. We included age to account for developmental change. 
-
-We estimated two models. Model 1 included three latent factors and paths from age to the three factors as well as to math and ToM \@ref(fig:semplot-main). Fit was mixed–CFI = .923, TLI = .850, RMSEA = .084 (90% CI .073–.095), SRMR = .059. However, factor correlations (residual, controlling for age) were high: Reasoning–EF .882, Reasoning–Language .747, and EF–Language .921. This suggests a general ability component could underpin these three latent factors. Controlling for age, maths and ToM showed a small positive residual association (r = .15), suggesting minor overlap not captured by age alone.
+We assessed construct validity using a hierarchical CFA in which three first-order factors—Reasoning (matrix reasoning, mental rotation), Executive Function (Hearts & Flowers, Memory Game, Same–Different Selection), and Language (grammar, vocabulary)—loaded on a second-order general factor (G; Figure \ref{fig:fig-semplot-g}). Mathematics and Social Cognition (Theory of Mind; ToM) were treated as observed endogenous outcomes because each construct had a single task; introducing one-indicator latent variables would require strong, unverifiable assumptions about reliability/error variances. Age was specified to predict G (age → G). Model fit was poor [ADD FIT INDICES]. Overall, factor loadings supported the intended three-factor structure (convergent validity), and age related to each domain as expected. The high inter-factor correlations and strong second-order loadings indicate that much of the variance is shared across domains, consistent with a broad general ability underpinning performance on the nine core tasks.
 
 ```{r prep-sem, include=FALSE}
 
@@ -699,56 +702,7 @@ str(vars_core_std[vars_core])
 
 ```
 
-```{r cfa, main model, include=FALSE}
-cfa_1 <- "
-  reasoning =~ matrix + mrot
-  ef        =~ hf + mg + sds
-  language  =~ trog + vocab
-
-  reasoning ~ age
-  ef        ~ age
-  language  ~ age
-  math      ~ age
-  tom       ~ age"
-
-fit_1 <- cfa(cfa_1, data = vars_core_std,
-             estimator = "MLR", std.lv = TRUE, missing = "fiml")
-summary(fit_1, fit.measures = TRUE, standardized = TRUE)
-
-```
-
-```{r semplot-main, fig.cap="SEM for core tasks", echo=FALSE, message=FALSE, warning=FALSE}
-semPlot::semPaths(
-  fit_1, 
-  what="mod", 
-  whatLabels="std", 
-  style="lisrel", 
-  layout="tree2",
-  rotation=3, 
-  intercepts=FALSE, 
-  residuals=FALSE, 
-  thresholds=TRUE,
-  intStyle = "multi",
-  curvePivot = TRUE, curve = 1,
-  # size
-  sizeMan=6, sizeLat=10, sizeInt=6,
-  sizeMan2=6, sizeLat2=6, sizeInt2=6,
-  esize=2, asize=1,
-  # bigger text
-  label.cex=1.2, edge.label.cex=1.1, edge.label.bg=TRUE,
-  label.prop=.7, label.curv=0.1,
-  nDigits=1, nCharNodes=8,
-  mar=c(6,6,6,6)
-)
-```
-
-Given the strong inter-factor correlations, we specified a second model with a hierarchical structure: three first-order factors (Reasoning, EF, Language) loading on a second-order general factor (g) \@ref(fig:fig-semplot-g). Math and ToM were again treated as observed endogenous outcomes regressed on g. We included a single developmental path for age → g Conventional fit indices was similar to Model 1 (CFI = .902, TLI = .857, RMSEA = .081, SRMR = .064). 
-
-Indicator loadings on their first-order factors were moderate–strong (e.g., matrix reasoning = .79; grammar = .78; vocab = .76), and g strongly underpinned the domains (Reasoning = .91; EF = .99; Language = .89; all standardized). Age positively predicted g (\(\beta = 0.69\); R²(g) = .48). In turn, g strongly predicted math (\(\beta = 0.87\); R² = .76) and moderately predicted ToM (\(\beta = 0.58\); R² = .33), yielding sizable indirect effects of age via g (age → g → Maths = .60; age → g → ToM = .40). After accounting for g, we found a negative residual math–ToM association (r = −.35), indicating that the small positive overlap in Model 1 largely reflected unmodeled general ability.
-
-Overall, factor loadings supported the intended three-factor structure (convergent validity), and age related to each domain as expected. The high inter-factor correlations and strong second-order loadings indicate that much of the variance is shared across domains, consistent with a broad general ability underpinning performance on the nine core tasks.
-
-```{r second fit, include=FALSE}
+```{r hierarchical, include=FALSE}
 model_g_no_age <- "
   # first-order factors
   reasoning =~ matrix + mrot
@@ -763,46 +717,126 @@ model_g_no_age <- "
   tom  ~ g
 "
 
-fit_g <- sem(model_g_no_age, data = vars_core_std,
-             estimator = "MLR", std.lv = TRUE, missing = "fiml")
+fit_g <- lavaan::sem(model_g_no_age, data = vars_core_std,
+                     estimator = "MLR", std.lv = TRUE, missing = "fiml")
 
+# store modification indices 
+mi_g <- lavaan::modindices(fit_g, sort. = TRUE, minimum.value = 10)
 summary(fit_g, fit.measures = TRUE, standardized = TRUE)
-head(lavaan::modindices(fit_g, sort.=TRUE, minimum.value=10), 15)
 ```
 
-```{r add age, include=FALSE}
-model_g_age <- paste0(model_g_no_age, "\n g ~ age")
-fit_g_age <- sem(model_g_age, data = vars_core_std,
-                 estimator = "MLR", std.lv = TRUE, missing = "fiml")
+```{r hierarchical-with-age, include=FALSE}
+stopifnot(all(vars_core_std$age > 0, na.rm = TRUE))
+
+# use log age, centered
+vars_core_std$log_age_c <- scale(log(vars_core_std$age))[,1]
+
+model_g_age <- "
+  reasoning =~ 1*matrix + mrot
+  ef        =~ 1*hf     + mg + sds
+  language  =~ 1*trog   + vocab
+
+  g =~ 1*reasoning + ef + language
+
+  g ~ log_age_c
+
+  math ~ g
+  tom  ~ g
+
+  # resolve Heywood
+  ef ~~ 0*ef
+"
+
+fit_g_age <- sem(
+  model_g_age, data = vars_core_std,
+  estimator = "MLR", missing = "fiml",
+  std.lv = FALSE, optim.method = "nlminb",
+  control = list(iter.max = 50000, rel.tol = 1e-6)
+)
+
 summary(fit_g_age, fit.measures = TRUE, standardized = TRUE)
-#head(lavaan::modindices(fit_g_age, sort.=TRUE, minimum.value=10), 15)
+g_with_age_fit <- fitMeasures(fit_g_age)
+g_with_age_fit
+
 ```
 
 ```{r fig-semplot-g, fig.cap="SEM for core tasks with general factor", echo=FALSE, message=FALSE, warning=FALSE}
 
-semPlot::semPaths(
-  fit_g_age,
-  whatLabels = "std",
-  residuals  = FALSE,
-  intercepts = FALSE,
-  thresholds = FALSE,
-  layout     = "tree2",
-  # text sizes
-  label.cex       = 1.2,   
-  edge.label.cex  = 1,   
-  sizeMan = 6,
-  sizeLat = 10,
-  nCharNodes = 0,
-  nDigits=2,
-  mar = c(6,6,6,6)       
+#source(here::here("03_summaries", "modified_sem_plot.R"))
+
+library(tidySEM)
+library(dplyr); library(stringr); library(tibble)
+
+# update names 
+nodes <- get_nodes(fit_g_age, columns = c("name","shape")) |>
+  left_join(tibble(
+    name = c("log_age_c","g","math","tom","reasoning","ef","language",
+             "matrix","mrot","hf","mg","sds","trog","vocab"),
+    pretty = c("Age (log years)","G","Math","Theory of Mind","Reasoning",
+               "Exec Function","Language","Matrix Reasoning","Mental Rotation",
+               "Hearts & Flowers","Memory","Same & Different",
+               "Sentence Understanding","Vocabulary")
+  ), by = "name") |>
+  mutate(label = pretty)
+
+# use standardised labels
+pe <- lavaan::parameterEstimates(fit_g_age, standardized = TRUE)
+
+edges <- pe %>%
+  filter(op %in% c("~","=~","~~")) %>%
+  transmute(
+    from = if_else(op == "~", rhs, lhs),
+    to   = if_else(op == "~", lhs, rhs),
+    op, est, std.all, pvalue,
+    arrow = case_when(op == "~~" & lhs == rhs ~ "both",
+                      op == "~~"              ~ "none",
+                      TRUE                    ~ "last"),
+    curvature = if_else(op == "~~" & lhs != rhs, 60, NA_real_),
+    linetype  = if_else(op == "~~" & lhs != rhs, 2, 1)
+  ) %>%
+  # standardised labels with stars
+  mutate(stars = case_when(pvalue < .001 ~ "***",
+                           pvalue < .01  ~ "**",
+                           pvalue < .05  ~ "*",
+                           TRUE ~ ""),
+         label = sprintf("%.2f%s", std.all, stars)) %>%
+  # drop marker loading g =~ 1*reasoning
+  filter(!(op == "=~" & from == "g" & to == "reasoning" & abs(est - 1) < 1e-8)) %>%
+  # hide variance loop for exogenous age
+  filter(!(from == to & from == "log_age_c"))
+
+layout_g_age <- matrix(
+  c(
+    NA,       NA,        "log_age_c", NA,     NA,     NA,     NA,
+    NA,       NA,        NA,          "g",    NA,     NA,     NA,
+    "math",   "tom",     "reasoning", NA,     "ef",   NA,     "language",
+    NA,       NA,        NA,          NA,     NA,     NA,     NA,
+    "matrix", "mrot",    "hf",        "mg",   "sds",  "trog", "vocab"
+  ),
+  nrow = 5, byrow = TRUE
 )
+
+g <- tidySEM::prepare_graph(
+  edges = edges, nodes = nodes, text_size = 2.5, layout = t(layout_g_age),
+  rect_width=4.2, rect_height=3,
+  ellipses_width=3, ellipses_height=3,
+  variance_height=2, variance_width=1.5,
+  arrow_angle=15, arrow_length=.1,
+  var_arrow_angle=15, var_arrow_length=.1,
+  spacing_y=4, spacing_x=4,
+  fix_coord=FALSE
+)
+
+# make label boxes white
+g$edges$label_fill   <- "white"
+g$edges$label_colour <- "black"   
+g$edges$label_alpha  <- 1
+
+plot_happy_arrows(g)
 ```
 
 ### External validity
-
-
 To assess external validity, we fitted a single-factor EF model with hearts and flowers (hf), memory game (mg), same-different-selection (sds), and the external measure, the Minnesota Executive Function Scale (MEFS) as indicators \@ref(fig:semplot-ef). We modeled age as a predictor of the latent EF factor. Fit was generally good (CFI = .971, TLI = .943, SRMR = .034; RMSEA = .071, 90% CI .040–.106). Standardized loadings were moderate to strong (hf = .63, mg = .63, sds = .50, MEFS = .67), indicating that MEFS aligns closely with the latent EF construct. Age strongly predicted EF (\(\beta = 0.79\); R² = .62), consistent with expected developmental gains.
-
 
 ```{r prep for sem - ef, include=FALSE}
 
@@ -868,10 +902,10 @@ print(fitMeasures(fit_ef, c("cfi","tli","rmsea","srmr", "aic", "bic")))
 semPlot::semPaths(
   fit_ef,
   whatLabels = "std",
-  residuals  = FALSE,
-  intercepts = FALSE,
+  residuals  = TRUE,
+  intercepts = TRUE,
   thresholds = FALSE,
-  layout     = "tree2",
+  layout     = "tree3",
   # text sizes
   label.cex       = 1.4,   
   edge.label.cex  = 1,   
