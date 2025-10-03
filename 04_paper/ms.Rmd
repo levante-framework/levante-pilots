@@ -663,9 +663,7 @@ ggplot(retest_wide, aes(x = run_1, y = run_2, color = age)) +
 
 ### Construct validity
 
-We assessed construct validity using a hierarchical CFA in which three first-order factors—Reasoning (matrix reasoning, mental rotation), Executive Function (Hearts & Flowers, Memory Game, Same–Different Selection), and Language (grammar, vocabulary)—loaded on a second-order general factor (g; Figure \@ref(fig:fig-semplot-g)). Mathematics and Social Cognition (Theory of Mind; ToM) were treated as observed endogenous outcomes because each construct had a single task; introducing one-indicator latent variables would require strong, unverifiable assumptions about reliability/error variances. Age was specified to predict g (age → g). Model fit was acceptable (Confirmatory fit index: `r round(g$fit["cfi"], 3)`, RMSE: `r round(g$fit["rmsea"], 3)`, RMSE $p$-value: `r round(g$fit["rmsea.pvalue"], 3)`). 
-
-Overall, factor loadings supported the intended three-factor structure (convergent validity), and age related to each domain as expected. The high inter-factor correlations and strong second-order loadings indicate that much of the variance is shared across domains, consistent with a broad general ability underpinning performance on the nine core tasks.
+We assessed construct validity using a hierarchical CFA in which three first-order factors—Reasoning (matrix reasoning, mental rotation), Executive Function (Hearts & Flowers, Memory Game, Same–Different Selection), and Language (grammar, vocabulary)—loaded on a second-order general factor (G; Figure \ref{fig:fig-semplot-g}). Mathematics and Social Cognition (Theory of Mind; ToM) were treated as observed endogenous outcomes because each construct had a single task; introducing one-indicator latent variables would require strong, unverifiable assumptions about reliability/error variances. Age was specified to predict G (age → G). Model fit was poor [ADD FIT INDICES]. Overall, factor loadings supported the intended three-factor structure (convergent validity), and age related to each domain as expected. The high inter-factor correlations and strong second-order loadings indicate that much of the variance is shared across domains, consistent with a broad general ability underpinning performance on the nine core tasks.
 
 ```{r prep-sem, include=FALSE}
 
@@ -704,7 +702,7 @@ str(vars_core_std[vars_core])
 
 ```
 
-```{r second fit, include=FALSE}
+```{r hierarchical, include=FALSE}
 model_g_no_age <- "
   # first-order factors
   reasoning =~ matrix + mrot
@@ -719,39 +717,122 @@ model_g_no_age <- "
   tom  ~ g
 "
 
-fit_g <- sem(model_g_no_age, data = vars_core_std,
-             estimator = "MLR", std.lv = TRUE, missing = "fiml")
+fit_g <- lavaan::sem(model_g_no_age, data = vars_core_std,
+                     estimator = "MLR", std.lv = TRUE, missing = "fiml")
 
+# store modification indices 
+mi_g <- lavaan::modindices(fit_g, sort. = TRUE, minimum.value = 10)
 summary(fit_g, fit.measures = TRUE, standardized = TRUE)
-head(lavaan::modindices(fit_g, sort.=TRUE, minimum.value=10), 15)
 ```
 
-```{r add age, include=FALSE}
-model_g_age <- paste0(model_g_no_age, "\n g ~ age")
-fit_g_age <- sem(model_g_age, data = vars_core_std,
-                 estimator = "MLR", std.lv = TRUE, missing = "fiml")
-g <- summary(fit_g_age, fit.measures = TRUE, standardized = TRUE)
-head(lavaan::modindices(fit_g_age, sort.=TRUE, minimum.value=10), 15)
+```{r hierarchical-with-age, include=FALSE}
+stopifnot(all(vars_core_std$age > 0, na.rm = TRUE))
+
+# use log age, centered
+vars_core_std$log_age_c <- scale(log(vars_core_std$age))[,1]
+
+model_g_age <- "
+  reasoning =~ 1*matrix + mrot
+  ef        =~ 1*hf     + mg + sds
+  language  =~ 1*trog   + vocab
+
+  g =~ 1*reasoning + ef + language
+
+  g ~ log_age_c
+
+  math ~ g
+  tom  ~ g
+
+  # resolve Heywood
+  ef ~~ 0*ef
+"
+
+fit_g_age <- sem(
+  model_g_age, data = vars_core_std,
+  estimator = "MLR", missing = "fiml",
+  std.lv = FALSE, optim.method = "nlminb",
+  control = list(iter.max = 50000, rel.tol = 1e-6)
+)
+
+summary(fit_g_age, fit.measures = TRUE, standardized = TRUE)
+g_with_age_fit <- fitMeasures(fit_g_age)
+g_with_age_fit
+
 ```
 
 ```{r fig-semplot-g, fig.cap="SEM for core tasks with general factor", echo=FALSE, message=FALSE, warning=FALSE}
 
-semPlot::semPaths(
-  fit_g_age,
-  whatLabels = "std",
-  residuals  = FALSE,
-  intercepts = FALSE,
-  thresholds = FALSE,
-  layout     = "tree2",
-  # text sizes
-  label.cex       = 1.2,   
-  edge.label.cex  = 1,   
-  sizeMan = 6,
-  sizeLat = 10,
-  nCharNodes = 0,
-  nDigits=2,
-  mar = c(6,6,6,6)       
+#source(here::here("03_summaries", "modified_sem_plot.R"))
+
+library(tidySEM)
+library(dplyr); library(stringr); library(tibble)
+
+# update names 
+nodes <- get_nodes(fit_g_age, columns = c("name","shape")) |>
+  left_join(tibble(
+    name = c("log_age_c","g","math","tom","reasoning","ef","language",
+             "matrix","mrot","hf","mg","sds","trog","vocab"),
+    pretty = c("Age (log years)","G","Math","Theory of Mind","Reasoning",
+               "Exec Function","Language","Matrix Reasoning","Mental Rotation",
+               "Hearts & Flowers","Memory","Same & Different",
+               "Sentence Understanding","Vocabulary")
+  ), by = "name") |>
+  mutate(label = pretty)
+
+# use standardised labels
+pe <- lavaan::parameterEstimates(fit_g_age, standardized = TRUE)
+
+edges <- pe %>%
+  filter(op %in% c("~","=~","~~")) %>%
+  transmute(
+    from = if_else(op == "~", rhs, lhs),
+    to   = if_else(op == "~", lhs, rhs),
+    op, est, std.all, pvalue,
+    arrow = case_when(op == "~~" & lhs == rhs ~ "both",
+                      op == "~~"              ~ "none",
+                      TRUE                    ~ "last"),
+    curvature = if_else(op == "~~" & lhs != rhs, 60, NA_real_),
+    linetype  = if_else(op == "~~" & lhs != rhs, 2, 1)
+  ) %>%
+  # standardised labels with stars
+  mutate(stars = case_when(pvalue < .001 ~ "***",
+                           pvalue < .01  ~ "**",
+                           pvalue < .05  ~ "*",
+                           TRUE ~ ""),
+         label = sprintf("%.2f%s", std.all, stars)) %>%
+  # drop marker loading g =~ 1*reasoning
+  filter(!(op == "=~" & from == "g" & to == "reasoning" & abs(est - 1) < 1e-8)) %>%
+  # hide variance loop for exogenous age
+  filter(!(from == to & from == "log_age_c"))
+
+layout_g_age <- matrix(
+  c(
+    NA,       NA,        "log_age_c", NA,     NA,     NA,     NA,
+    NA,       NA,        NA,          "g",    NA,     NA,     NA,
+    "math",   "tom",     "reasoning", NA,     "ef",   NA,     "language",
+    NA,       NA,        NA,          NA,     NA,     NA,     NA,
+    "matrix", "mrot",    "hf",        "mg",   "sds",  "trog", "vocab"
+  ),
+  nrow = 5, byrow = TRUE
 )
+
+g <- tidySEM::prepare_graph(
+  edges = edges, nodes = nodes, text_size = 2.5, layout = t(layout_g_age),
+  rect_width=4.2, rect_height=3,
+  ellipses_width=3, ellipses_height=3,
+  variance_height=2, variance_width=1.5,
+  arrow_angle=15, arrow_length=.1,
+  var_arrow_angle=15, var_arrow_length=.1,
+  spacing_y=4, spacing_x=4,
+  fix_coord=FALSE
+)
+
+# make label boxes white
+g$edges$label_fill   <- "white"
+g$edges$label_colour <- "black"   
+g$edges$label_alpha  <- 1
+
+plot_happy_arrows(g)
 ```
 
 ### External validity
@@ -821,10 +902,10 @@ print(fitMeasures(fit_ef, c("cfi","tli","rmsea","srmr", "aic", "bic")))
 semPlot::semPaths(
   fit_ef,
   whatLabels = "std",
-  residuals  = FALSE,
-  intercepts = FALSE,
+  residuals  = TRUE,
+  intercepts = TRUE,
   thresholds = FALSE,
-  layout     = "tree2",
+  layout     = "tree3",
   # text sizes
   label.cex       = 1.4,   
   edge.label.cex  = 1,   
