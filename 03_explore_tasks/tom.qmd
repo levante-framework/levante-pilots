@@ -30,6 +30,7 @@ Helper functions
 
 source(here::here("plot_settings.R"))
 source(here("03_explore_tasks/explore_helper.R"))
+run_data <- read_rds(here("01_fetched_data/run_data.rds"))
 
 ```
 
