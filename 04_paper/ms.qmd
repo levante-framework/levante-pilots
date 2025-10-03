@@ -197,10 +197,10 @@ The current manuscript introduces the LEVANTE core tasks, a suite of behavioral 
 
 To create our core tasks, we selected pre-existing measures from the literature that tapped each of these constructs. When possible, we prioritized measures with strong psychometric properties, previous use across a broad range of cultures, applicability across a broad range of ages, and lack of commercial or licensing constraints. This process yielded a series of candidate tasks, which we adapted and re-implemented in an open source web platform. @tbl-tasks shows these tasks, organized by construct. Some of these implementations remained quite close to prior versions, while others by necessity required the creation of additional test items or changes to specifics of their procedure. 
 
-In addition to the constructs described above, we were also interested in the assessment of literacy. The LEVANTE core tasks battery makes use of a number of previously-validated literacy tasks from the Rapid Online Assessment of Reading [@yeatman2021] , including single word reading, sentence reading efficiency, and phonological awareness. We do not report on these tasks extensively here, though we make use of literacy data for validation of language measures. Similarly, we included a commercially-available broad measure of executive function, the Minnesota Executive Function Scale (MEFS) [@carlson2021], for validation purposes. 
+In addition to the constructs described above, we were also interested in the assessment of literacy. The LEVANTE core tasks battery makes use of a number of previously-validated literacy tasks from the Rapid Online Assessment of Reading [@yeatman2021], including single word reading, sentence reading efficiency, and phonological awareness. We do not report on these tasks extensively here, though we make use of literacy data for validation of language measures. Similarly, we included a commercially-available broad measure of executive function, the Minnesota Executive Function Scale (MEFS) [@carlson2021], for validation purposes. 
  
 ::: {.landscape}
-| Construct          | LEVANTE name           | Prior names / Source task name       | Adaptive? | Reference |
+| Construct          | LEVANTE task name      | Prior/Source task name               | Adaptive? | Reference |
 |:-------------------|:-----------------------|:-------------------------------------|:----------|:----------|
 | Executive Function | Hearts and Flowers     | Hearts and Flowers                   | no        | XYZ       |
 |                    | Memory                 | Corsi Block Task                     | yes       |           |
@@ -419,7 +419,7 @@ Partners at Western University, led by Daniel Ansari, recruited participants fro
 
 ## IRT Calibration and Model Selection
 
-Model calibration proceeded in two steps. First, for each task, alternative unidimensional IRT specifications (Rasch vs. 2PL) were fit within a multigroup framework using the set of items overlapping across sites. The best-fitting model was selected by the Bayesian Information Criterion (BIC), considering both model family (Rasch vs. 2PL) and invariance level (configural, metric, scalar). As summarized in @tbl-model-invariance, Rasch models provided the best fit for the majority of tasks, whereas 2PL models were favored for Same & Different and Shape Rotation. This pattern suggests that a simple Rasch parameterization was sufficient to capture response variation in most domains, whereas tasks involving more complex perceptual or reasoning demands benefitted from the additional flexibility of the 2PL specification. The use of a single overlap-based winner per task ensured that selection was driven by fit to the cross-site data rather than majority preference within individual sites.
+Model calibration proceeded in two steps. First, for each task, alternative unidimensional IRT specifications (Rasch vs. 2PL) were fit within a multigroup framework using the set of items overlapping across sites. The best-fitting model was selected by the Bayesian Information Criterion (BIC), considering both model family (Rasch vs. 2PL) and invariance level (configural, metric, scalar). As summarized in @tbl-model-invariance, Rasch models provided the best fit for the majority of tasks, whereas 2PL models were favored for Same & Different and Shape Rotation. This pattern suggests that a simple Rasch parameterization was sufficient to capture response variation in most domains, whereas tasks involving more complex perceptual or reasoning demands benefited from the additional flexibility of the 2PL specification. The use of a single overlap-based winner per task ensured that selection was driven by fit to the cross-site data rather than majority preference within individual sites.
 
 ```{r}
 #| label: tbl-model-invariance
@@ -525,7 +525,7 @@ For scoring, all multigroup models were extended to the full item pool. Overlapp
 
 ## Item-Level Diagnostics
 
-```{r}
+```{r load-models}
 # regdir <- here::here("02_score_data/02_fit_irt/model_registry")
 # Load helpers
 # source(here::here("02_score_data/02_fit_irt/irt_modular.R"), chdir = TRUE)
@@ -618,7 +618,7 @@ ggplot(coretask_scores, aes(age, metric_value)) +
 
 To formally quantify developmental change while treating sites as a random sample from a broader population, we fit linear mixed-effects models with site-specific random intercepts and slopes, which estimate within-site age slopes (IRT units per year) with partial pooling across sites. In addition, we calculated pooled zero-order correlations between age and IRT scores and found that they were  positive and of moderate magnitude across tasks (see @tbl-age-slopes).
 
-```{r age_slopes}
+```{r age-slopes}
 coretask_scores <- coretask_scores |>
   mutate(age_c = age - mean(age, na.rm = TRUE),
          site = factor(site))
@@ -803,7 +803,7 @@ vars_core_std <- wide_scores |>
 # str(vars_core_std[vars_core])
 ```
 
-```{r sem-hierarchical}
+```{r sem-g}
 model_g_no_age <- "
   # first-order factors
   reasoning =~ matrix + mrot
@@ -826,7 +826,7 @@ mi_g <- lavaan::modindices(fit_g, sort. = TRUE, minimum.value = 10)
 # summary(fit_g, fit.measures = TRUE, standardized = TRUE)
 ```
 
-```{r sem-hierarchical-age}
+```{r sem-g-age}
 stopifnot(all(vars_core_std$age > 0, na.rm = TRUE))
 
 # use log age, centered
