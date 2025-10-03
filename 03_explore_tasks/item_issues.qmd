@@ -1,0 +1,179 @@
+---
+title: "item issue investigations"
+format: html
+---
+
+
+```{r}
+
+#| echo: false
+
+library("tidyverse")
+library("glue")
+library("here")
+library("viridis")
+library("quarto")
+
+```
+
+Helper functions
+
+```{r}
+#| echo: false
+
+source(here::here("plot_settings.R"))
+source(here("03_explore_tasks/explore_helper.R"))
+run_data <- read_rds(here("01_fetched_data/run_data.rds"))
+```
+
+# Matrix
+
+```{r}
+matrix <- load_task_data("matrix")
+```
+
+Let's figure out what's going on with item 14 in matrix. 
+
+```{r}
+filter(matrix, item_uid == "matrix_set1_md_mat14", 
+       answer != "tf1_64_T1_ss3_md") |> 
+  group_by(site, response) |> 
+  count()
+ 
+```
+
+Modal response is the wrong one, but we can't figure out why. 
+
+This one looks hard? 
+
+```{r}
+filter(matrix, item_uid == "matrix_set1_md_mat21", 
+       answer != "tf1_64_T1_ss3_md") |> 
+  group_by(site, response) |> 
+  count()
+```
+
+
+```{r}
+filter(matrix, item_uid == "matrix_set1_md_mat47", 
+       answer != "tf1_64_T1_ss3_md") |> 
+  group_by(site, response) |> 
+  count()
+```
+
+Note we have a last-trial bug.
+
+```{r}
+filter(matrix, item_uid == "matrix_set1_md_mat47") |> 
+  group_by(answer, response) |> 
+  count()
+```
+
+
+
+```{r}
+filter(matrix, answer == "tf1_64_T1_ss3_md") |> 
+  left_join(select(run_data, run_id, task_version)) |>
+  filter(item_uid != "matrix_set1_md_mat64") |>
+  distinct(task_version) 
+
+
+filter(matrix, answer == "tf1_64_T1_ss3_md") |> 
+  left_join(select(run_data, run_id, task_version)) |>
+  filter(item_uid != "matrix_set1_md_mat64") |>
+  distinct(response) 
+
+```
+
+We discover that for beta.20 and beta.21 the last trial answer is still propagated even if the correct response is visible. This is recoverable for matrix at least. Perhaps for other tasks. 
+
+# Mental rotation
+
+```{r}
+mrot <- load_task_data("mrot")
+
+filter(mrot, item_uid == "mrot_3d_shape_120") |> 
+  group_by(site, item_original) |>
+  summarise(correct = mean(correct)) |> View()
+```
+
+# TROG
+
+```{r}
+trog <- load_task_data("trog")
+
+filter(trog, item_uid == "trog_conjcoord_say_sunny_however_rain") |> 
+  count(response)
+```
+
+```{r}
+filter(trog, item_uid == "trog_preploc_fish_swim_beneath_whale") |> 
+  count(site, response)
+
+
+```
+
+
+# Vocab
+
+
+```{r}
+vocab <- load_task_data("vocab")
+
+filter(vocab, item_uid == "vocab_word_timid") |> 
+  count(site, 
+        response)
+
+filter(vocab, item_uid == "vocab_word_divan") |> 
+  count(site, 
+        response)
+
+
+filter(vocab, item_uid == "vocab_word_squash") |> 
+  count(site, 
+        response)
+
+filter(vocab, item_uid == "vocab_word_suede") |> 
+  count(site, 
+        response)
+
+filter(vocab, item_uid == "vocab_word_stretcher") |> 
+  count(site, 
+        response)
+
+```
+
+
+# TOM
+
+Get tom data
+
+```{r}
+tom <- load_task_data("tom")
+
+tom_means <- tom |> 
+  group_by(site, item_group, item, item_uid, item_original) |>
+  summarise(correct = mean(correct), 
+            n = n()) 
+
+write_csv(tom_means, "~/Desktop/tom_means.csv")
+
+```
+
+```{r}
+filter(tom, item_uid == "tom_deception_emotion_reasoning_2") |> 
+  group_by(site, item_original, response) |>
+  summarise(n = n(), 
+            correct = mean(correct)) |>
+  group_by(site, item_original) |>
+  mutate(prop = n / sum(n))
+
+filter(tom, item_uid == "tom_second_order_false_belief_2") |> 
+  group_by(site, item_original, response) |>
+  summarise(n = n(), 
+            correct = mean(correct)) |>
+  group_by(site, item_original) |>
+  mutate(prop = n / sum(n))
+
+```
+
