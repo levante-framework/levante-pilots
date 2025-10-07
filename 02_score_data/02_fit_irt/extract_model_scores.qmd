@@ -7,6 +7,7 @@ library(mirt)
 
 source(here("02_score_data/02_fit_irt/irt_modular.R"), chdir = TRUE)
 source(here("02_score_data/02_fit_irt/registry_helper.R"))
+source(here("02_score_data/02_fit_irt/irt_helpers.R"))
 ```
 
 ```{r}
