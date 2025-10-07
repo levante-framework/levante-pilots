@@ -396,7 +396,7 @@ Prior to fitting psychometric models, we examined sumscore data for each task wi
 
 Model calibration proceeded in two steps. First, for each task, alternative unidimensional IRT specifications (Rasch vs. 2PL) were fit within a multigroup framework using the set of items overlapping across sites. The best-fitting model was selected by the Bayesian Information Criterion (BIC), considering both model family (Rasch vs. 2PL) and invariance level (configural, metric, scalar). As summarized in Table \@ref(tab:model-invariance), Rasch models provided the best fit for the majority of tasks, whereas 2PL models were favored for Same & Different and Shape Rotation. This pattern suggests that a simple Rasch parameterization was sufficient to capture response variation in most domains, whereas tasks involving more complex perceptual or reasoning demands benefitted from the additional flexibility of the 2PL specification. The use of a single overlap-based winner per task ensured that selection was driven by fit to the cross-site data rather than majority preference within individual sites.
 
-```{r model-invariance, echo=FALSE, results='asis', message=FALSE, warning=FALSE}
+```{r model-invariance-chunk, echo=FALSE, results='asis', message=FALSE, warning=FALSE}
 
 
 # Load reliability summary
@@ -501,7 +501,7 @@ mods_coded <- mods |>
 
 ```
 
-```{r item-diagnostics, echo=FALSE, results='asis', message=FALSE, warning=FALSE}
+```{r item-diagnostics-chunk, echo=FALSE, results='asis', message=FALSE, warning=FALSE}
 # --- Proportion-only summary table ---
 task_summary_selected_report <- task_summary_selected %>%
   mutate(
@@ -651,11 +651,8 @@ options(papaja.na_string = "NA")
 - Describe which were CAT/not / retest item sets (e.g., go task by task)
 - Report retest correlations / reference figure and table [which needs numbers on it]
 
-```{r, output='asis'}
-
-=======
 ```{r retest}
->>>>>>> e7b85f0d3f3262ec0b7408d7ee6254a5447ba9f8:04_paper/ms.qmd
+
 de_retest_scores <- coretask_scores |> 
   filter(site == "pilot_leuphana_de") |>
   group_by(user_id, task) |>
