@@ -132,37 +132,53 @@ fit_task_models_multigroup <- \(task_data, models, task, group = site,
       write_rds(mod_rec_overlap, file.path(out_dir_overlap, mod_file), compress = "gz")
       
       if (invariance == "configural") return()
+
+      item_inst_map <- data_filtered_full |>
+        distinct(item_uid, item_inst) |>
+        rename(item = item_inst) |>
+        mutate(item = as.character(item))
       
+      overlap_pars <- mod2values(mod_overlap)
       # get item parameter values from overlap model
-      overlap_vals <- mod2values(mod_overlap) |> #as_tibble() |>
+      overlap_vals <- overlap_pars |> #as_tibble() |>
         select(group, item, name, fixed_value = value) |>
         # remove group mean/cov
         filter(item != "GROUP") |>
-        # mark params to not be estimated
-        mutate(fixed_est = FALSE)
+        # mark params to not be estimated and ignore equality constraints
+        mutate(fixed_est = FALSE, fixed_const = "none") |>
+        # map item instances back to item UIDs
+        left_join(item_inst_map, by = "item") |>
+        select(-item) |>
+        distinct()
       
+      model_str_full <- generate_model_str_numeric(data_filtered_full, data_prepped_full, itemtype, nfact) #, exclude = fixed_items)
       # set up parameter structure of full model
       mod_pars <- multipleGroup(
         data = data_prepped_full,
         itemtype = itemtype,
+        model = mirt.model(model_str_full),
         group = data_wide_full$group,
-        pars = "values"
+        invariance = invariances[[invariance]],
+        pars = "values",
+        guess = guess_full
       ) #|> as_tibble()
       
-      # change values for overlap items to values from overlap model
-      mod_pars_fixed <- mod_pars |> left_join(overlap_vals) |>
+      # change values for overlapping items to values from overlap model
+      mod_pars_fixed <- mod_pars |>
+        # map item instances back to item UIDs
+        left_join(item_inst_map, by = "item") |>
+        # add in parameter values from overlap by item UID
+        left_join(overlap_vals, by = c("group", "name", "item_uid")) |>
+        # use fixes values from overlap when available, mark to not estimate
         mutate(value = if_else(!is.na(fixed_value), fixed_value, value),
-               est = if_else(!is.na(fixed_est), fixed_est, est)) |>
-        select(-fixed_value, -fixed_est)
-      
-      # generate model string with item constraints + dimensionality
-      model_str_full <- generate_model_str_numeric(data_filtered_full, data_prepped_full, itemtype, nfact)
-      
+               est = if_else(!is.na(fixed_est), fixed_est, est),
+               const = if_else(!is.na(fixed_const), fixed_const, const)) |>
+        select(-fixed_value, -fixed_est, -fixed_const, -item_uid)
+
       # fit full items model
       mod_full <- multipleGroup(
         data = data_prepped_full,
         itemtype = itemtype,
-        model = mirt.model(model_str_full),
         group = data_wide_full$group,
         invariance = invariances[[invariance]],
         pars = mod_pars_fixed,
@@ -179,7 +195,7 @@ fit_task_models_multigroup <- \(task_data, models, task, group = site,
       out_dir_full <- file.path(out_dir, "all_items")
       dir.create(out_dir_full, recursive = TRUE, showWarnings = FALSE)
       write_rds(mod_rec_full, file.path(out_dir_full, mod_file), compress = "gz")
-      
+
     })
 }
 
