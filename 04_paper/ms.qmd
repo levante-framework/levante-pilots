@@ -378,7 +378,281 @@ The Universidad de Los Andes conducted school-based data collection across four 
 
 ## Germany
 
+<<<<<<< HEAD:04_paper/ms.Rmd
+The Max Planck Institute for Evolutionary Anthropology collected data using family-based remote data collection. Participants were recruited via an existing database by first contacting families via telephone with an invitation to participate in the study. Upon agreement, families received an email with information to log into the LEVANTE system and complete the tasks assigned to them at home using their own computer or tablet. Germany provided retest data with follow-up assignments sent to families 3-6 months after initial completion of the tasks. The Germany site collected data from `r user_totals$n_users[user_totals$site == "Germany"]` children, ages 5-12 years, with XX children completing the retest assignments. 
+
+## Canada
+
+Partners at Western University, led by Daniel Ansari, recruited participants from the local community and tested children individually in a clinic setting. The Canadian site collected data from `r user_totals$n_users[user_totals$site == "Canada"]` children, ages 5-12 years. 
+
+# Scoring
+
+## Heuristic item pruning and data checking
+
+Prior to fitting psychometric models, we examined sumscore data for each task within each site and identified items that were functioning unusually poorly (e.g., showing sumscores close to or even below chance). In some cases this was due to potential translation issues; in a few others it was due to aspects of item design. We manually excluded these items from further processing (N=XYZ). In one case, this process helped us identify a bug in the scoring of data for three tasks; we excluded these observations, which were made during a two day period of testing for one site. 
+
+
+## IRT Calibration and Model Selection
+
+Model calibration proceeded in two steps. First, for each task, alternative unidimensional IRT specifications (Rasch vs. 2PL) were fit within a multigroup framework using the set of items overlapping across sites. The best-fitting model was selected by the Bayesian Information Criterion (BIC), considering both model family (Rasch vs. 2PL) and invariance level (configural, metric, scalar). As summarized in Table \@ref(tab:model-invariance), Rasch models provided the best fit for the majority of tasks, whereas 2PL models were favored for Same & Different and Shape Rotation. This pattern suggests that a simple Rasch parameterization was sufficient to capture response variation in most domains, whereas tasks involving more complex perceptual or reasoning demands benefitted from the additional flexibility of the 2PL specification. The use of a single overlap-based winner per task ensured that selection was driven by fit to the cross-site data rather than majority preference within individual sites.
+
+```{r model-invariance-chunk, echo=FALSE, results='asis', message=FALSE, warning=FALSE}
+
+
+# Load reliability summary
+task_rxx_path <- here::here("02_scoring_outputs","task_rxx.rds")
+task_rxx <- readRDS(task_rxx_path)
+
+# Site labels
+if (!exists("site_labels")) {
+  site_labels <- c("pilot_western_ca" = "Canada",
+                   "pilot_uniandes_co" = "Colombia",
+                   "pilot_leuphana_de" = "Germany")
+}
+
+mutate(site_label = recode(site, !!!site_labels),
+           Model = case_match(itemtype,
+                              "rasch" ~ "Rasch",
+                              "2pl"   ~ "2PL",
+                              .default = toupper(itemtype))) |>
+    group_by(task, site_label) |>
+    slice_max(order_by = rxx, n = 1, with_ties = FALSE) |>
+    ungroup()
+
+# Pick a column to read the invariance level from, if available
+lvl_candidates <- intersect(c("Level", "Invariance"), names(inv))
+
+if (length(lvl_candidates) > 0) {
+  # Use the first matching column for level extraction
+  lvl_col <- lvl_candidates[1]
+  inv_levels <- inv |>
+    mutate(Level_norm_raw = tolower(.data[[lvl_col]]))
+} else if ("Interpretation" %in% names(inv)) {
+  # Fall back to Interpretation text
+  inv_levels <- inv |>
+    mutate(Level_norm_raw = tolower(.data[["Interpretation"]]))
+} else {
+  # If neither exists, mark as unspecified
+  inv_levels <- inv |>
+    mutate(Level_norm_raw = "unspecified")
+}
+
+inv_levels <- inv_levels |>
+  mutate(Level_norm = case_when(
+    str_detect(Level_norm_raw, "scalar")    ~ "Scalar",
+    str_detect(Level_norm_raw, "metric")    ~ "Metric",
+    str_detect(Level_norm_raw, "configur")  ~ "Configural",
+    TRUE                                    ~ "Unspecified"
+  ))
+
+# Summary counts by invariance level
+sum_counts <- inv_levels |>
+  count(Level_norm, name = "Number of tasks") |>
+  mutate(Level_norm = factor(Level_norm, levels = c("Scalar","Metric","Configural","Unspecified"))) |>
+  arrange(Level_norm)
+
+papaja::apa_table(
+  sum_counts |>
+    rename(`Invariance level` = Level_norm),
+  caption = "Summary of multigroup invariance outcomes across LEVANTE tasks.",
+  label = "model-invariance"
+)
+
+
+```
+
+## Multigroup Calibration and Measurement Invariance
+
+
+In the second step, we evaluated cross-site comparability using multigroup IRT models. These were estimated on the overlapping items common to all sites, under a sequence of increasingly restrictive invariance constraints. Following the conventional factor-analytic hierarchy, translated into IRT terms, we tested:
+
+-   Configural invariance: common factor structure, item parameters free across sites.
+-   Metric invariance: item discriminations constrained equal across sites.
+-   Scalar invariance: item discriminations and intercepts constrained equal (and guessing parameters, where applicable).
+
+Scalar invariance therefore provides the strongest basis for direct cross-site comparability of latent ability estimates, whereas metric and configural levels reflect progressively weaker comparability.
+
+Results (Table \@ref(tab:model-invariance)) indicated that scalar invariance held for most tasks, suggesting that both item difficulties and slopes generalized across sites. Two tasks supported only metric invariance, implying that discriminations were stable but intercepts varied across groups. Three tasks (Hearts & Flowers, Theory of Mind, Vocabulary) achieved only configural invariance, indicating consistent dimensional structure but insufficient parameter equivalence for strict comparability.
+
+For scoring, all multigroup models were extended to the full item pool. Overlapping items retained their parameter values from the overlap stage, while non-overlapping items were freely estimated. This ensured that scores were placed on a common cross-site scale for all tasks. The level of invariance (scalar, metric, configural) documents the strength of comparability, but scoring itself was always based on multigroup calibrations rather than site-level majority voting.
+
+
+## Item-Level Diagnostics
+
+```{r message=FALSE, warning=FALSE, include=FALSE, eval=FALSE, results='asis'}
+
+regdir <- here::here("02_score_data/02_fit_irt/model_registry")
+# Load helpers
+source(here::here("02_score_data/02_fit_irt/irt_modular.R"), chdir = TRUE)
+source(here::here("02_score_data/02_fit_irt/registry_helper.R"), chdir = TRUE)
+source(here::here("04_paper/item-diagnostic_helper.R"), chdir = TRUE)
+# Sanity check: does the registry have files?
+list.files(regdir, recursive = TRUE)
+# read in all models in registry
+mods <- list_models() |> load_models()
+# extract model specifications from model records
+mods_coded <- mods |>
+  mutate(nfact = map_int(mod_rec, \(mr) mr@nfact),
+         itemtype = map_chr(mod_rec, \(mr) mr@itemtype),
+         invariance_terms = map(mod_rec, \(mr) mr@invariance),
+         invariance = map_chr(invariance_terms, translate_invariance)) |>
+  select(-filename, -path, -invariance_terms) |>
+  mutate(mod = map(mod_rec, model_from_record))
+
+```
+
+```{r item-diagnostics-chunk, echo=FALSE, results='asis', message=FALSE, warning=FALSE}
+# --- Proportion-only summary table ---
+task_summary_selected_report <- task_summary_selected %>%
+  mutate(
+    # proportions
+    prop_flag_p        = n_flag_p       / n_items,
+    prop_flag_pb       = n_flag_pb      / n_items,
+    prop_flag_infit    = n_flag_infit   / n_items,
+    prop_flag_zinfit   = n_flag_zinfit  / n_items,
+    prop_flag_SX2_01   = n_flag_SX2_p01 / n_items,
+    prop_flag_SX2_001  = n_flag_SX2_p001/ n_items,
+    prop_flag_RMSEA    = n_flag_RMSEA_SX2_poor / n_items,
+    # label cleanup
+    Task       = if (exists("task_labels")) recode(task, !!!task_labels) else task,
+    Model      = dplyr::recode(itemtype, "rasch" = "Rasch", "2pl" = "2PL", .default = toupper(itemtype)),
+    Invariance = stringr::str_to_title(invariance),
+    Subset     = dplyr::recode(subset, "all_items" = "All items", "overlap_items" = "Overlap items", .default = subset)
+  ) %>%
+  select(
+    Task, Subset, Items = n_items,
+    `Prop flag p`          = prop_flag_p,
+    `Prop flag pb`         = prop_flag_pb,
+    `Prop flag infit`      = prop_flag_infit,
+    `Prop flag z.infit`    = prop_flag_zinfit,
+    #`Prop flag S–X² p<.01` = prop_flag_SX2_01,
+    `Prop flag S–X² p<.001`= prop_flag_SX2_001,
+    `Prop poor RMSEA(S–X²)`= prop_flag_RMSEA
+  ) %>%
+  # APA-style rounding
+  mutate(across(where(is.numeric), ~ round(.x, 2)))
+
+# --- APA Table ---
+options(papaja.na_string = "–")
+papaja::apa_table(
+  task_summary_selected_report,  # your tibble with proportions only
+  caption = NULL,                # omit caption for slide
+  note    = NULL,                # omit long notes
+  col_spanners = list("Proportion of flagged items" = 3:9),
+  landscape = TRUE,             
+  fontsize = "scriptsize"        # shrink if needed for slide fit
+)
+
+options(papaja.na_string = "NA")
+```
+
+# Psychometric properties of tasks
+
+## Developmental change
+
+Across all nine tasks we observed positive age–ability trends. The smoothed lines in Figure \ref{fig:age-trends} are roughly parallel within each panel, indicating that sites differ mostly in level with only modest differences in slope. Growth appears steepest for Math and Hearts & Flowers, moderate for Vocabulary, Memory, and Theory of Mind, and shallower for Shape Rotation; Sentence Understanding shows a positive but weaker trend.
+
+```{r age-trends, fig.cap="Age related trends by task", fig.width = 8, fig.height = 8, echo=FALSE, message=FALSE, warning=FALSE}
+
+ggplot(coretask_scores, aes(age, metric_value)) +
+  ggh4x::facet_nested_wrap(vars(task_category, task),
+                           nest_line = element_line(), solo_line = TRUE,
+                           axes = "x", scales = "free_y") +
+  geom_smooth(aes(colour = site_label, group = site_label),
+              method = "gam", formula = y ~ s(x, bs = "re"), se = FALSE) +
+  geom_point(aes(colour = site_label), alpha = 0.5, show.legend = FALSE) +  # hide points from legend
+  scale_x_continuous(breaks = seq(6, 14, 2)) +
+  .scale_colour_site() +
+  guides(colour = guide_legend(override.aes = list(shape = NA, linetype = 1, linewidth = 2))) +
+  labs(x = "Age (years)", y = "Ability (IRT score)", colour = "Site") +
+  theme(legend.position = "bottom")
+```
+
+To formally quantify developmental change while treating sites as a random sample from a broader population, we fit linear mixed-effects models with site-specific random intercepts and slopes, which estimate within-site age slopes (IRT units per year) with partial pooling across sites. In addition, we calculated pooled zero-order correlations between age and IRT scores and found that they were  positive and of moderate magnitude across tasks (see Table \ref{tab:slopes_print2}). 
+
+```{r age_slopes, echo=FALSE, message=FALSE, warning=FALSE, results='asis'}
+coretask_scores <- coretask_scores %>%
+  mutate(
+    age_c = age - mean(age, na.rm = TRUE),
+    site  = factor(site)
+  )
+
+slopes_by_task <- coretask_scores %>%
+  tidyr::nest(data = -task) %>%                               
+  mutate(
+    fit   = purrr::map(data, ~ lmer(metric_value ~ age_c + (age_c | site), data = .x)),
+    fixed = purrr::map(fit,  ~ broom.mixed::tidy(.x, effects = "fixed", conf.int = TRUE))
+  ) %>%
+  tidyr::unnest(fixed) %>%
+  dplyr::filter(term == "age_c") %>%
+  dplyr::select(
+    task,
+    slope_per_year = estimate,
+    ci_low  = conf.low,
+    ci_high = conf.high,
+    p       = p.value
+  ) %>%
+  dplyr::arrange(desc(slope_per_year))
+
+slopes_print <- slopes_by_task %>%
+  mutate(
+    sig = case_when(
+      p < .001 ~ "***",
+      p < .01  ~ "**",
+      p < .05  ~ "*",
+      TRUE     ~ ""
+    )
+  ) %>%
+  dplyr::select(task,
+         slope_per_year,
+         ci_low, ci_high,
+         p, sig)
+
+r_by_task <- coretask_scores %>%
+  dplyr::group_by(task) %>%
+  dplyr::summarise(
+    n      = sum(stats::complete.cases(age, metric_value)),
+    r_age  = stats::cor(age, metric_value, use = "pairwise.complete.obs"),
+    .groups = "drop"
+  )
+
+slopes_print2 <- slopes_print %>%
+  dplyr::left_join(r_by_task, by = "task") %>%
+  dplyr::relocate(r_age, .after = slope_per_year)
+
+papaja::apa_table(
+  slopes_print2,
+  digits = 3,
+  caption = "(#tab:age_slopes) Per-task age slopes (IRT units/year) with 95% CIs and pooled zero-order correlations (r). *p* values from lmerTest. Sig: *p*<.05(*), <.01(**), <.001(***).")
+
+```
+
+## Reliability 
+
+### Marginal reliability
+
+- what is marginal reliability
+- which models is it coming from 
+- reference table 
+
+```{r, output='asis'}
+task_rxx <- read_rds(here("02_scoring_outputs", "task_rxx.rds"))
+
+options(papaja.na_string = "–")
+task_rxx |>
+  rename(Task = task, Parameters = itemtype, Invariance = invariance) |>
+  papaja::apa_table(col_spanners = list("Marginal reliability" = c(4, 6)))
+options(papaja.na_string = "NA")
+```
+
+### Test-retest reliability
+
+- Describe retest (how many runs, how many kids, what interval
+- Describe which were CAT/not / retest item sets (e.g., go task by task)
+- Report retest correlations / reference figure and table [which needs numbers on it]
+
 ```{r retest}
+
 de_retest_scores <- coretask_scores |> 
   filter(site == "pilot_leuphana_de") |>
   group_by(user_id, task) |>
