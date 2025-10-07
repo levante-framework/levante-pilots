@@ -12,15 +12,20 @@ trial_data <- read_rds(here(glue("01_fetched_data/trial_data.rds")))
 ```
 
 ```{r}
-# recode correctness for math slider items, hearts & flowers, and SDS
-# set chance values for slider items accordingly
 slider_threshold <- 0.15
+item_fixes <- tribble(
+  ~item_uid,             ~answer_fixed,
+  "math_subtract_37_24", "13"
+)
+
+# recode correctness for HF, SDS, math slider items, and items with wrong answers
 trial_data_coded <- trial_data |>
   mutate(original_correct = correct, .after = correct) |>
   recode_hf() |>
   recode_sds() |>
-  # recode_de_v19() |>
   recode_slider(threshold = slider_threshold) |>
+  recode_wrong_items(wrong_items = item_fixes) |>
+  # set chance values for slider items accordingly
   mutate(chance = if_else(item_group == "slider", 1 / slider_threshold / 100, chance),
          chance = chance |> replace_na(0))
 ```

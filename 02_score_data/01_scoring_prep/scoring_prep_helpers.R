@@ -91,7 +91,7 @@
     
 # }
 
-
+# recode correctness + reclassify items for HF
 recode_hf <- function(df) {
   hf_trials <- df |>
     filter(item_task == "hf") |>
@@ -116,19 +116,34 @@ recode_hf <- function(df) {
     bind_rows(hf_trials)
 }
 
-recode_slider <- function(df, threshold = 0.15) {
+# recode correctness for slider
+recode_slider <- function(df, threshold) {
   slider_trials <- df |>
     filter(item_group == "slider") |>
+    # get target and max values out of item
     tidyr::separate_wider_delim(item, "_",
                                 names = c("target", "max_value"),
                                 cols_remove = FALSE) |>
+    # convert target and max values to numeric and compute if within threshold
     mutate(target = target |> stringr::str_replace("^0", "0."),
            across(c(target, max_value), as.numeric),
            correct = (abs(as.numeric(response) - target) / max_value < threshold)) |>
+    # remove trials where response greater than max value (must be from a bug)
+    filter(as.numeric(response) <= max_value) |>
     select(-c("target", "max_value"))
   df |>
     filter(item_group != "slider") |>
     bind_rows(slider_trials)
+}
+
+# recode correctness for items with wrong answers
+recode_wrong_items <- function(df, wrong_items) {
+  wrong_trials <- df |>
+    right_join(wrong_items) |>
+    mutate(correct = !is.na(response) & response == answer_fixed)
+  df |>
+    anti_join(wrong_items) |>
+    bind_rows(wrong_trials)
 }
 
 source("rescore_sds.R")
