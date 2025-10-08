@@ -217,7 +217,7 @@ In addition to the constructs described above, we were also interested in the as
 
 ## The current study
 
-Here we report on the development and validation of the LEVANTE core tasks. This is an iterative process in which data from 5--12 year old children has been collected across three sites: Bogota, Colombia; Leipzig, Germany; and Ottawa, Canada. In some cases that we note below, we used these data during the data collection process to make minor changes to the tasks. We use data from these three pilot sites both to provide initial evidence on the reliability and validity of the measures and to develop efficient, computer adaptive (CAT) versions of nearly all of the tasks. 
+Here we report on the development and validation of the LEVANTE core tasks. This is an iterative process in which data from 5--12 year old children has been collected across three sites: Bogota, Colombia; Leipzig, Germany; and Ottawa, Canada.^[In the remainder of the manuscript, we refer to these sites by their site designators, `uniandes-co`, `leuphana-de`, and `western-ca`. These designators mark the research group and country of data collection. We make this choice to avoid the inference that these data are particularly representative of, for example, German or Colombian children more broadly.] In some cases that we note below, we used these data during the data collection process to make minor changes to the tasks. We use data from these three pilot sites both to provide initial evidence on the reliability and validity of the measures and to develop efficient, computer adaptive (CAT) versions of nearly all of the tasks. 
 
 A key component of this process is the use of psychometric models based on item-response theory (IRT) [@embretson2013]. IRT models provide a family of models that allow the joint estimation of the difficulty of individual task items (e.g., math questions) and the ability of individual children. A fitted IRT model provides task parameters that can be used to estimate the ability of a new test taker given their responses on some or all of the same items. In addition, IRT parameters are used in the construction of CATs, which choose the most relevant items to give to estimate the ability of a particular individual. Critically for our purposes, the use of IRT models means that we can provide comparable scores on the same scale to a younger child who saw mostly easier task items and an older child who saw harder items; these models thus allow us to address our first key challenge posed above.  
 
@@ -374,15 +374,15 @@ Within the included runs, there were a total of `{r} total_trial_counts$n_trials
 
 ## Colombia
 
-The Universidad de Los Andes conducted school-based data collection across four schools in Bogotá and three schools in the rural areas of Caquetá and Boyacá, Colombia. By partnering with schools, the research team oversaw task data collection with children using a group testing format on tablets provided by the team. Children were tested in groups, with larger groups for older children and smaller groups for younger children. The Colombia site collected data from `{r} user_totals$n_users[user_totals$site == "Colombia"]` children ages 5--12 years. Due to time constraints for school-based administration, children typically completed a subset of the tasks. 
+The Universidad de Los Andes conducted school-based data collection across four schools in Bogotá and three schools in the rural areas of Caquetá and Boyacá, Colombia. By partnering with schools, the research team oversaw task data collection with children using a group testing format on tablets provided by the team. Children were tested in groups, with larger groups for older children and smaller groups for younger children. The losandes-co site collected data from `{r} user_totals$n_users[user_totals$site == "Colombia"]` children ages 5--12 years. Due to time constraints for school-based administration, children typically completed a subset of the tasks. 
 
 ## Germany
 
-The Max Planck Institute for Evolutionary Anthropology collected data using family-based remote data collection. Participants were recruited via an existing database by first contacting families via telephone with an invitation to participate in the study. Upon agreement, families received an email with information to log into the LEVANTE system and complete the tasks assigned to them at home using their own computer or tablet. Germany provided retest data with follow-up assignments sent to families 3-6 months after initial completion of the tasks. The Germany site collected data from `r user_totals$n_users[user_totals$site == "Germany"]` children, ages 5-12 years, with XX children completing the retest assignments. 
+The Max Planck Institute for Evolutionary Anthropology and Leuphana University collected data using family-based remote data collection. Participants were recruited via an existing database of Leipzig families by first contacting families via telephone with an invitation to participate in the study. Upon agreement, families received an email with information to log into the LEVANTE system and complete the tasks assigned to them at home using their own computer or tablet. This site provided retest data with follow-up assignments sent to families 4--5 months after initial completion of the tasks. The leuphana-de site collected data from `r user_totals$n_users[user_totals$site == "Germany"]` children, ages 5--12 years. 
 
 ## Canada
 
-Partners at Western University, led by Daniel Ansari, recruited participants from the local community and tested children individually in a clinic setting. The Canadian site collected data from `r user_totals$n_users[user_totals$site == "Canada"]` children, ages 5-12 years. 
+Partners at Western University, led by Daniel Ansari, recruited participants from the local community and tested children individually in a clinic setting. The western-ca site collected data from `r user_totals$n_users[user_totals$site == "Canada"]` children, ages 5-12 years. 
 
 # Scoring
 
@@ -687,11 +687,7 @@ trt <- retest_wide |>
   arrange(task)
 ```
 
-The Max Planck Institute for Evolutionary Anthropology collected data using family-based remote data collection. Participants were recruited via an existing database by first contacting families via telephone with an invitation to participate in the study. Upon agreement, families received an email with information to log into the LEVANTE system and complete the tasks assigned to them at home using their own computer or tablet. Germany provided retest data with follow-up assignments sent to families 3-6 months after initial completion of the tasks. The Germany site collected data from `{r} user_totals$n_users[user_totals$site == "Germany"]` children, ages 5-12 years, with `{r} n_distinct(retest_wide$user_id)` children completing the retest assignments. 
 
-## Canada
-
-Partners at Western University, led by Daniel Ansari, recruited participants from the local community and tested children individually in a clinic setting. The Canadian site collected data from `{r} user_totals$n_users[user_totals$site == "Canada"]` children, ages 5-12 years.
 
 # Scoring
 
@@ -880,7 +876,9 @@ Across all nine tasks we observed positive age–ability trends. The smoothed li
 #| fig-width: 8
 #| fig-height: 8
 
-ggplot(coretask_scores, aes(age, metric_value)) +
+ggplot(coretask_scores |>
+       filter(run_number == 1),
+       aes(age, metric_value)) +
   ggh4x::facet_nested_wrap(vars(task_category, task),
                            nest_line = element_line(), solo_line = TRUE,
                            axes = "x", scales = "free_y") +
@@ -894,7 +892,7 @@ ggplot(coretask_scores, aes(age, metric_value)) +
   theme(legend.position = "bottom")
 ```
 
-To formally quantify developmental change while treating sites as a random sample from a broader population, we fit linear mixed-effects models with site-specific random intercepts and slopes, which estimate within-site age slopes (IRT units per year) with partial pooling across sites. In addition, we calculated pooled zero-order correlations between age and IRT scores and found that they were  positive and of moderate magnitude across tasks (see @tbl-age-slopes).
+To formally quantify developmental change while treating sites as a random sample from a broader population, we fit a linear mixed-effects model to scores from each task. Each model contained a fixed effect of age as well as random intercepts and age slopes for each site. In all cases, slopes were positive, though in two cases confidence intervals on the slope estimate included zero (likely due to site-level variation in age gradients for these tasks; e.g. a ceiling effect in sentence understanding for the leuphana-de site). In addition, we calculated pooled zero-order correlations between age and IRT scores and found that they were positive and of moderate magnitude across tasks (see @tbl-age-slopes).
 
 ```{r age-slopes}
 coretask_scores <- coretask_scores |>
@@ -903,8 +901,10 @@ coretask_scores <- coretask_scores |>
 
 # TODO: boundary (singular) fit for several models
 slopes_by_task <- coretask_scores |>
+  filter(run_number == 1) |>
   nest(data = -task) |>                               
-  mutate(fit = map(data, \(f) lmer(metric_value ~ age_c + (age_c | site), data = f)),
+  mutate(fit = map(data, \(f) lmer(metric_value ~ age_c + (age_c | site), 
+                                   data = f)),
          fixed = map(fit, \(f) tidy(f, effects = "fixed", conf.int = TRUE))) |>
   unnest(fixed) |>
   filter(term == "age_c") |>
@@ -959,11 +959,9 @@ slopes_print |>
 
 ## Reliability 
 
-### Marginal reliability
+One goal for the LEVANTE core tasks is strong reliability both within an individual administration (across test items) and across multiple administrations separated in time. We report on each of these. 
 
-- what is marginal reliability
-- which models is it coming from
-- reference table
+### Marginal reliability
 
 ::: {.landscape}
 ```{r}
@@ -994,19 +992,22 @@ trx |>
 ```
 :::
 
+IRT models allow the computation of marginal reliability, which captures the interrelatedness of items in an assessment and hence the proportion of variation attributed to shared variance. In multi-group IRT models, marginal reliabilities can be computed only for individual sub-models.  @tbl-task-rxx shows marginal reliabilities for each task, reporting reliability for each sub-model for the best fitting model. 
+
 ### Test-retest reliability
 
-- Describe retest (how many runs, how many kids, what interval
-- Describe which were CAT/not / retest item sets (e.g., go task by task)
-- Report retest correlations / reference figure and table [which needs numbers on it]
 
 ```{r}
 #| label: tbl-retest
 #| tbl-cap: "Task-wise test-retest correlations computed for Germany data, with projected reliability computed via the Spearman-Brown \"prophecy\" formula."
 
 trt |>
+  mutate(retest_cat = c("","x","","x","x","","x","","x"), 
+         retest_corpus = c("","","","x","","x","x","","")) |>
   flextable() |>
   set_header_labels(task = "Task",
+                    retest_cat = "CAT retest",
+                    retest_cat = "new items",
                     test_retest_r = "Test-retest correlation",
                     prophecy_r = "Projected reliability",
                     n = "N runs",
@@ -1039,6 +1040,10 @@ ggplot(retest_wide, aes(x = run_1, y = run_2, color = age)) +
   labs(x = "Score 1", y = "Score 2", color = "Age (years)") +
   theme(legend.position = "bottom")
 ```
+
+We were also interested in capturing the extent to which the LEVANTE tasks yield reliable signal across a delay. The leuphana-de pilot site was able to re-administer tasks to a subset of their original participant group with a retest interval of approximately 4--5 months. We used this re-administration as an opportunity to collect data with computer adaptive versions of many of the tasks (sentence understanding, pattern matching, shape rotation, math and vocabulary); see below for further details of computer adaptive versions. In addition, for several tasks (math, theory of mind, pattern matching), we used this opportunity to gather item data about new groups of retest items that were designed to match the content of the original items but vary in their surface forms. For the other tasks, we retested using the same items. 
+
+Figure @fig-retest shows the relations between time 1 and time 2 scores. Uptake for retest administrations varied between N=68--137, likely due to differences in when tasks were sent out and the ordering of tasks in the retest administration. Table @tbl-retest shows test-retest correlations as well as projected reliabilities for the measures based on the Spearman-Brown "prophecy" formula. These reliabilities were lower than the observed marginal reliabilities but generally acceptable, especially considering the substantial delay between administrations and -- in some cases -- the use of alternate items and CAT administration. 
 
 ## Validity 
 
