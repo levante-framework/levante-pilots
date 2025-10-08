@@ -1381,7 +1381,6 @@ semPlot::semPaths(
 
 # Adaptive Task Construction
 
-somewhere? would clarify meaning here (and be generally helpful)] -->
 Many of the LEVANTE tasks have been adapted and piloted as CATs (Computerized Adaptive Tests). To date, these include the Test For Reception of Grammar (TROG), Vocabulary, Shape Rotation, Matrix Reasoning, Same Difference Selection, and Math. These tasks maintain an ability score, theta, as an estimate of the participant’s skill level that is updated at the end of each trial. They then present participants with the item best suited to their estimated ability, which both improves test-taker experience and yields more information on participant skill per item, allowing for a shorter task with fewer items. 
 
 The CAT tasks use an adaptive algorithm made available by the jsCat JavaScript library [@ma2025]. The present LEVANTE CAT implementation varies difficulty and guessing for each item while holding both discrimination and upper asymptote constant at 1. Items are selected based on Maximum Fisher Information, and theta is updated according to a maximum likelihood estimator, with limits of -6 and 6. 
