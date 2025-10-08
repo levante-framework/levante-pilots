@@ -378,7 +378,6 @@ The Universidad de Los Andes conducted school-based data collection across four 
 
 ## Germany
 
-<<<<<<< HEAD:04_paper/ms.Rmd
 The Max Planck Institute for Evolutionary Anthropology collected data using family-based remote data collection. Participants were recruited via an existing database by first contacting families via telephone with an invitation to participate in the study. Upon agreement, families received an email with information to log into the LEVANTE system and complete the tasks assigned to them at home using their own computer or tablet. Germany provided retest data with follow-up assignments sent to families 3-6 months after initial completion of the tasks. The Germany site collected data from `r user_totals$n_users[user_totals$site == "Germany"]` children, ages 5-12 years, with XX children completing the retest assignments. 
 
 ## Canada
@@ -652,6 +651,10 @@ options(papaja.na_string = "NA")
 - Report retest correlations / reference figure and table [which needs numbers on it]
 
 ```{r retest}
+prophecy <- function (n = 2, r) {
+  (n * r) /  (1 + (n - 1) * r)
+}
+
 
 de_retest_scores <- coretask_scores |> 
   filter(site == "pilot_leuphana_de") |>
@@ -677,6 +680,7 @@ retest_wide <- de_retest_scores |>
 trt <- retest_wide |>
   group_by(task) |>
   summarise(test_retest_r = cor(run_1, run_2, use = "complete.obs"), 
+            prophecy_r = prophecy(n = 2, r = test_retest_r),
             n = n(), 
             age_gap = mean(age_gap) * 12) |>
   ungroup() |>
@@ -998,12 +1002,13 @@ trx |>
 
 ```{r}
 #| label: tbl-retest
-#| tbl-cap: "Task-wise test-retest correlations computed for Germany data."
+#| tbl-cap: "Task-wise test-retest correlations computed for Germany data, with projected reliability computed via the Spearman-Brown \"prophecy\" formula."
 
 trt |>
   flextable() |>
   set_header_labels(task = "Task",
                     test_retest_r = "Test-retest correlation",
+                    prophecy_r = "Projected reliability",
                     n = "N runs",
                     age_gap = "Mean retest interval (months)") |>
   flextable::autofit(add_w = 0, add_h = 0)
