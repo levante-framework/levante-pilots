@@ -621,11 +621,6 @@ For scoring, all multigroup models were extended to the full item pool. Overlapp
 
 # Psychometric properties of tasks
 
-## Developmental change
-
-Across all nine tasks we observed positive age–ability trends. The smoothed lines in @fig-age-trends are roughly parallel within each panel, indicating that sites differ mostly in level with only modest differences in slope. Growth appears steepest for Math and Hearts & Flowers, moderate for Vocabulary, Memory, and Theory of Mind, and shallower for Shape Rotation; Sentence Understanding shows a positive but weaker trend.
-
-
 ```{r}
 #| label: fig-age-trends
 #| fig-cap: "Age related trends by task."
@@ -646,31 +641,35 @@ ggplot(coretask_scores, aes(age, metric_value)) +
 ```
 
 ```{r}
-#| label: tab-slopes
-#| caption: "Per-task age correlation (r) and age slopes from OLS with site fixed effects (IRT units per year)" 
+#| label: tbl-slopes
+#| tbl-cap: "Per-task age correlations and per-site linear slopes (IRT units/year)."
 
-coretask_scores <- coretask_scores |>
-  mutate(age_c = age - mean(age, na.rm = TRUE),
-         site  = factor(site))
-         
+coretask_scores <- coretask_scores %>%
+  mutate(
+    age_c = age - mean(age, na.rm = TRUE),
+    site  = factor(site)
+  )
+
+# per-task × site slopes
 slopes <- coretask_scores %>%
   group_by(task) %>%
   group_modify(~{
     fit <- lm(metric_value ~ age_c * site, data = .x)
-    est <- emtrends(fit, ~ site, var = "age_c") |>
-      summary(infer = c(TRUE, TRUE)) |>   
-      as_tibble()
-    transmute(est,
-      task  = unique(.x$task),
-      site,
-      slope_per_year = age_c.trend,
-      ci_low  = lower.CL,
-      ci_high = upper.CL,
-      p = p.value
-    )
+    emtrends(fit, ~ site, var = "age_c") |>
+      summary(infer = TRUE) |>
+      as_tibble() |>
+      transmute(
+        task = unique(.x$task),
+        site,
+        slope_per_year = age_c.trend,
+        ci_low  = lower.CL,
+        ci_high = upper.CL,
+        p = p.value
+      )
   }) %>%
   ungroup()
-  
+
+# per-task × site correlations
 r_by_task_site <- coretask_scores %>%
   group_by(task, site) %>%
   summarise(
@@ -679,22 +678,26 @@ r_by_task_site <- coretask_scores %>%
     .groups = "drop"
   )
 
-final_tab2 <- final_tab %>%
-  mutate(
-    site = fct_relevel(site, "pilot_western_ca","pilot_unandes_co","pilot_leuphana_de"),
-    p_fdr = p.adjust(p, method = "fdr")
-  ) %>%
-  arrange(task, site)
+# final table
+final_tab <- slopes %>%
+  left_join(r_by_task_site, by = c("task","site")) %>%
+  select(task, site, r_age, slope_per_year, ci_low, ci_high, p, n) %>%
+  arrange(task, site) %>%
+  mutate(p_fdr = p.adjust(p, method = "fdr"))
 
 knitr::kable(
-  final_tab2,
+  final_tab,
   digits = 3,
   col.names = c("Task","Site","r (age)","Slope / year","CI low","CI high","p-value","N","p (FDR)")
 )
-
+  
 ```
+## Developmental change
+Across all nine tasks we observed positive age–ability trends. The smoothed lines in Figure @fig-age-trends are roughly parallel within each panel, indicating that sites differ mostly in overall level rather than in developmental rate. Growth appeared steepest for Math and Hearts & Flowers, moderate for Vocabulary, Memory, and Theory of Mind, and shallower for Shape Rotation and Sentence Understanding, which showed positive but weaker age effects.
 
-To quantify developmental change, we fit linear mixed-effects models with site-specific random intercepts and slopes, which estimate within-site age slopes (IRT units per year) with partial pooling across sites. In addition, we calculated pooled zero-order correlations between age and IRT scores and found that they were  positive and of moderate magnitude across tasks (see @tab-slopes). 
+To quantify developmental change, we fitted separate ordinary least-squares models predicting ability scores (IRT units) from centred age with site fixed effects and an age × site interaction, allowing slopes to vary by site. As summarised in Table @tbl-slopes, age-related slopes were positive for all tasks and sites, indicating that older children performed better on every measure. 
+
+In addition, we calculated per-site zero-order correlations between age and IRT ability scores. These correlations were uniformly positive (r ≈ .40–.70) and of moderate magnitude across tasks, consistent with the regression estimates. The close correspondence between the linear slopes and the smooth trends suggests that, within the studied age range, developmental gains are approximately linear and broadly comparable across cultural contexts.
 
 ## Reliability 
 
