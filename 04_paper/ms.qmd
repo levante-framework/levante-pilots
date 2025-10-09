@@ -649,7 +649,7 @@ slopes_print2 <- slopes_print %>%
   dplyr::relocate(r_age, .after = task) 
 
 # no idea why flextable throws an error here in compilation
-knitr::kable(slopes_print2, digits = 3) 
+knitr::kable(slopes_print2, digits = 3)
 # flextable(slopes_print2) |>
 #   set_header_labels(task = "Task",
 #                     slope_per_year = "slope",
