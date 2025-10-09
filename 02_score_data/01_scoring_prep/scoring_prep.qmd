@@ -3,6 +3,7 @@ library(tidyverse)
 library(glue)
 library(here)
 library(mirt)
+library(redivis)
 
 source(here("plot_settings.R"))
 source(here("02_score_data/01_scoring_prep/scoring_prep_helpers.R"), chdir = TRUE)
@@ -23,11 +24,15 @@ trial_data_coded <- trial_data |>
   mutate(original_correct = correct, .after = correct) |>
   recode_hf() |>
   recode_sds() |>
-  recode_slider(threshold = slider_threshold) |>
   recode_wrong_items(wrong_items = item_fixes) |>
+  recode_slider(threshold = slider_threshold) |>
   # set chance values for slider items accordingly
   mutate(chance = if_else(item_group == "slider", 1 / slider_threshold / 100, chance),
          chance = chance |> replace_na(0))
+
+# exclude items that are marked for exclusion
+exclusions <- redivis$organization("levante")$dataset("item_metadata:czjv")$table("exclusions:0b5t")$to_tibble()
+trial_data_included <- trial_data_coded |> anti_join(exclusions)
 ```
 
 ```{r}
@@ -48,7 +53,7 @@ write_rds(runs_filtered, here("01_fetched_data/runs_filtered.rds"),
           compress = "gz")
 
 # subset trials to above runs
-trial_data_subset <- trial_data_coded |>
+trial_data_subset <- trial_data_included |>
   inner_join(runs_filtered |> select(run_id, task_version, language))
 write_rds(trial_data_subset, here("01_fetched_data/trial_data_subset.rds"),
           compress = "gz")

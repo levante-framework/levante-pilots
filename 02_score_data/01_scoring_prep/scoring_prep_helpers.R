@@ -150,8 +150,8 @@ source("rescore_sds.R")
 recode_sds <- function(df) {
   sds <- df |>
     filter(item_task == "sds") |> #, site != "us_pilot", item_group!="3unique") |>
-    filter(!str_detect(response, "mittel|rote|gelb|blau")) |>
-    filter(!(site == "ca_pilot" & timestamp < "2025-02-21"))
+    filter(!str_detect(response, "mittel|rote|gelb|blau|grün")) |>
+    filter(!(site == "pilot_western_ca" & timestamp < "2025-02-21"))
   
   # ToDo: apply per user and run to 3-match and 4-match (maybe test on 2-match? shouldn't influence outcome)
   dimension_indices <- c(size = 1, color = 2, shape = 3, number = 4, bgcolor = 5)
@@ -169,7 +169,8 @@ recode_sds <- function(df) {
     mutate(trial_index = NA_integer_) |>
     mutate(trial_index = if_else(item == "choice1", 1L, NA_integer_)) |>
     mutate(trial_index = cumsum(!is.na(trial_index))) |>
-    ungroup()
+    ungroup() |>
+    filter(trial_index != 0)
   
   sds_disambig <- sds_trials %>%
     group_by(run_id, trial_type, trial_index) %>%
@@ -180,7 +181,7 @@ recode_sds <- function(df) {
       )
     ) %>%
     ungroup()
-  
+
   # Nest by trial
   sds_nested <- sds_disambig |>
     select(run_id, trial_type, trial_index, item, response, selection, correct, trial_id) |>
