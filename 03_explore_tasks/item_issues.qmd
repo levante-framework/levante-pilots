@@ -161,7 +161,7 @@ write_csv(tom_means, "~/Desktop/tom_means.csv")
 ```
 
 ```{r}
-filter(tom, item_uid == "tom_deception_emotion_reasoning_2") |> 
+filter(tom, item_uid == "tom_moral_reasoning_reality_check_1", item_original == "2e") |> 
   group_by(site, item_original, response) |>
   summarise(n = n(), 
             correct = mean(correct)) |>
