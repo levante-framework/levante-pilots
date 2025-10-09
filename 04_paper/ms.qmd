@@ -594,69 +594,53 @@ ggplot(coretask_scores, aes(age, metric_value)) +
   theme(legend.position = "bottom")
 ```
 
-
 ```{r}
 #| label: tab-slopes
-#| caption: "Per-task age correlation and mixed model age slopes (IRT units/year) with 95% CIs."
+#| caption: "Per-task age correlation (r) and age slopes from OLS with site fixed effects (IRT units per year)" 
 
-coretask_scores <- coretask_scores %>%
-  mutate(
-    age_c = age - mean(age, na.rm = TRUE),
-    site  = factor(site)
-  )
-
-slopes_by_task <- coretask_scores %>%
-  tidyr::nest(data = -task) %>%                               
-  mutate(
-    fit   = purrr::map(data, ~ lmer(metric_value ~ age_c + (age_c | site), data = .x)),
-    fixed = purrr::map(fit,  ~ broom.mixed::tidy(.x, effects = "fixed", conf.int = TRUE))
-  ) %>%
-  tidyr::unnest(fixed) %>%
-  dplyr::filter(term == "age_c") %>%
-  dplyr::select(
-    task,
-    slope_per_year = estimate,
-    ci_low  = conf.low,
-    ci_high = conf.high,
-    p       = p.value
-  ) %>%
-  dplyr::arrange(desc(slope_per_year))
-
-slopes_print <- slopes_by_task %>%
-#   mutate(
-#     sig = case_when(
-#       p < .001 ~ "***",
-#       p < .01  ~ "**",
-#       p < .05  ~ "*",
-#       TRUE     ~ ""
-#     )
-#   ) %>%
-  dplyr::select(task,
-         slope_per_year,
-         ci_low, ci_high,
-         p)
-
-r_by_task <- coretask_scores %>%
-  dplyr::group_by(task) %>%
-  dplyr::summarise(
-    n      = sum(stats::complete.cases(age, metric_value)),
-    r_age  = stats::cor(age, metric_value, use = "pairwise.complete.obs"),
+coretask_scores <- coretask_scores |>
+  mutate(age_c = age - mean(age, na.rm = TRUE),
+         site  = factor(site))
+         
+slopes <- coretask_scores %>%
+  group_by(task) %>%
+  group_modify(~{
+    fit <- lm(metric_value ~ age_c * site, data = .x)
+    est <- emtrends(fit, ~ site, var = "age_c") |>
+      summary(infer = c(TRUE, TRUE)) |>   
+      as_tibble()
+    transmute(est,
+      task  = unique(.x$task),
+      site,
+      slope_per_year = age_c.trend,
+      ci_low  = lower.CL,
+      ci_high = upper.CL,
+      p = p.value
+    )
+  }) %>%
+  ungroup()
+  
+r_by_task_site <- coretask_scores %>%
+  group_by(task, site) %>%
+  summarise(
+    n     = sum(complete.cases(age, metric_value)),
+    r_age = if (n >= 3) cor(age, metric_value, use = "pairwise.complete.obs") else NA_real_,
     .groups = "drop"
   )
 
-slopes_print2 <- slopes_print %>%
-  dplyr::left_join(r_by_task, by = "task") |>
-  dplyr::relocate(r_age, .after = task) 
+final_tab2 <- final_tab %>%
+  mutate(
+    site = fct_relevel(site, "pilot_western_ca","pilot_unandes_co","pilot_leuphana_de"),
+    p_fdr = p.adjust(p, method = "fdr")
+  ) %>%
+  arrange(task, site)
 
-# no idea why flextable throws an error here in compilation
-knitr::kable(slopes_print2, digits = 3)
-# flextable(slopes_print2) |>
-#   set_header_labels(task = "Task",
-#                     slope_per_year = "slope",
-#                     ci_low = "lower CI",
-#                     ci_high = "upper CI",
-#                     r_age = "r") |>
-#   flextable::autofit(add_w = 0, add_h = 0)
+knitr::kable(
+  final_tab2,
+  digits = 3,
+  col.names = c("Task","Site","r (age)","Slope / year","CI low","CI high","p-value","N","p (FDR)")
+)
+
 ```
 
 To quantify developmental change, we fit linear mixed-effects models with site-specific random intercepts and slopes, which estimate within-site age slopes (IRT units per year) with partial pooling across sites. In addition, we calculated pooled zero-order correlations between age and IRT scores and found that they were  positive and of moderate magnitude across tasks (see @tab-slopes). 
