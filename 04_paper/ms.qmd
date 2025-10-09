@@ -156,6 +156,7 @@ library(mirt)
 library(broom.mixed)
 library(lmerTest)
 library(png)
+library(emmeans)
 
 source(here("03_summaries","plotting_helper.R"))
 source(here("plot_settings.R"))
@@ -704,9 +705,10 @@ knitr::kable(
   
 ```
 ## Developmental change
+
 Across all nine tasks we observed positive age–ability trends. The smoothed lines in Figure @fig-age-trends are roughly parallel within each panel, indicating that sites differ mostly in overall level rather than in developmental rate. Growth appeared steepest for Math and Hearts & Flowers, moderate for Vocabulary, Memory, and Theory of Mind, and shallower for Shape Rotation and Sentence Understanding, which showed positive but weaker age effects.
 
-To quantify developmental change, we fitted separate ordinary least-squares models predicting ability scores (IRT units) from centred age with site fixed effects and an age × site interaction, allowing slopes to vary by site. As summarised in Table @tbl-slopes, age-related slopes were positive for all tasks and sites, indicating that older children performed better on every measure. 
+To quantify developmental change, we fitted separate ordinary least-squares models predicting ability scores (IRT units) from centered age with site fixed effects and an age × site interaction, allowing slopes to vary by site. As summarized in Table @tbl-slopes, age-related slopes were positive for all tasks and sites, indicating that older children performed better on every measure. 
 
 In addition, we calculated per-site zero-order correlations between age and IRT ability scores. These correlations were uniformly positive (r ≈ .40–.70) and of moderate magnitude across tasks, consistent with the regression estimates. The close correspondence between the linear slopes and the smooth trends suggests that, within the studied age range, developmental gains are approximately linear and broadly comparable across cultural contexts.
 
