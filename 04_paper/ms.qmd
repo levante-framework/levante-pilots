@@ -503,7 +503,6 @@ For scoring, all multigroup models were extended to the full item pool. Overlapp
 ## Item-level diagnostics
 
 ```{r }
-# 
 # regdir <- here::here("02_score_data/02_fit_irt/model_registry")
 # # Load helpers
 # source(here::here("02_score_data/02_fit_irt/irt_modular.R"), chdir = TRUE)
@@ -788,10 +787,6 @@ Figure @fig-retest shows the relations between time 1 and time 2 scores. Uptake 
 
 ## Validity 
 
-### Construct validity
-
-We assessed construct validity using a hierarchical CFA in which three first-order factors—Reasoning (matrix reasoning, mental rotation), Executive Function (Hearts & Flowers, Memory Game, Same–Different Selection), and Language (grammar, vocabulary)—loaded on a second-order general factor (G; @fig-semplot-g). Mathematics and Social Cognition (Theory of Mind; ToM) were treated as observed endogenous outcomes because each construct had a single task; introducing one-indicator latent variables would require strong, unverifiable assumptions about reliability/error variances. Age was specified to predict G (age → G). Model fit was poor [ADD FIT INDICES]. Overall, factor loadings supported the intended three-factor structure (convergent validity), and age related to each domain as expected. The high inter-factor correlations and strong second-order loadings indicate that much of the variance is shared across domains, consistent with a broad general ability underpinning performance on the nine core tasks.
-
 ```{r prep-sem, include=FALSE}
 
 # one row per user (metadata + task scores from first run)
@@ -852,6 +847,9 @@ mi_g <- lavaan::modindices(fit_g, sort. = TRUE, minimum.value = 10)
 ```
 
 ```{r sem-g-age}
+#| echo: false
+#| results: "hide" 
+
 stopifnot(all(vars_core_std$age > 0, na.rm = TRUE))
 
 # use log age, centered
@@ -880,16 +878,19 @@ fit_g_age <- sem(
   control = list(iter.max = 50000, rel.tol = 1e-6)
 )
 
-# summary(fit_g_age, fit.measures = TRUE, standardized = TRUE)
-g_with_age_fit <- fitMeasures(fit_g_age)
-# g_with_age_fit
-```
+summary(fit_g_age, fit.measures = TRUE, standardized = TRUE)
 
+fit_g_age_fit <- lavaan::fitMeasures(fit_g_age)
+
+```
+### Construct validity
+
+We assessed construct validity using a hierarchical CFA in which three first-order factors—Reasoning (matrix reasoning, mental rotation), Executive Function (Hearts & Flowers, Memory Game, Same–Different Selection), and Language (grammar, vocabulary)—loaded on a second-order general factor (G; @fig-semplot-g). Mathematics and Social Cognition (Theory of Mind; ToM) were treated as observed endogenous outcomes because each construct had a single task; introducing one-indicator latent variables would require strong, unverifiable assumptions about reliability/error variances. Age was specified to predict G (age → G). Model fit was poor -- CFI: `r round(lavaan::fitMeasures(fit_g_age)["cfi"], 3)`, RMSE: `r round(lavaan::fitMeasures(fit_g_age)["rmsea"], 3)` RMSE p-value: `r round(lavaan::fitMeasures(fit_g_age)["rmsea.pvalue"], 3)`. Overall, factor loadings supported the intended three-factor structure (convergent validity), and age related to each domain as expected. The high inter-factor correlations and strong second-order loadings indicate that much of the variance is shared across domains, consistent with a broad general ability underpinning performance on the nine core tasks.
 ```{r}
 #| label: fig-semplot-g
 #| fig-cap: "SEM for core tasks with general factor."
 
-# source(here("03_summaries/modified_sem_plot.R"))
+source(here("03_summaries/modified_sem_plot.R"))
 
 library(tidySEM)
 
@@ -962,7 +963,6 @@ p <- plot(g)
 p
 # plot_happy_arrows(g)
 ```
-
 ### External validity
 
 To assess external validity, we fitted a single-factor EF model with hearts and flowers (hf), memory game (mg), same-different-selection (sds), and the external measure, the Minnesota Executive Function Scale (MEFS) as indicators (@fig-semplot-ef). We modeled age as a predictor of the latent EF factor. Fit was generally good (CFI = .971, TLI = .943, SRMR = .034; RMSEA = .071, 90% CI .040–.106). Standardized loadings were moderate to strong (hf = .63, mg = .63, sds = .50, MEFS = .67), indicating that MEFS aligns closely with the latent EF construct. Age strongly predicted EF ($\beta = 0.79$; $R^2 = .62$), consistent with expected developmental gains.
@@ -1014,6 +1014,9 @@ ef_wide_std <- ef_wide_scores |>
 ```
 
 ```{r sem-ef}
+#| echo: false
+#| results: "hide" 
+
 cfa_ef <-  '
 EF =~ hf + mg + sds + mefs
 EF ~ age
@@ -1021,33 +1024,87 @@ EF ~ age
 
 fit_ef <- cfa(cfa_ef, data = ef_wide_std,
               estimator = "MLR", std.lv = TRUE, missing = "fiml")
-# summary(fit_ef, fit.measures = TRUE, standardized = TRUE)
-# print(fitMeasures(fit_ef, c("cfi","tli","rmsea","srmr", "aic", "bic")))
+summary(fit_ef, fit.measures = TRUE, standardized = TRUE)
+#print(fitMeasures(fit_ef, c("cfi","tli","rmsea","srmr", "aic", "bic")))
+```
+
+```{r}
+#| label: ef-stats
+#| include: false
+pe_ef <- lavaan::parameterEstimates(fit_ef, standardized = TRUE)
+
+beta_age_EF <- pe_ef |>
+  dplyr::filter(lhs == "EF", op == "~", rhs == "age") |>
+  dplyr::pull(std.all) |> as.numeric()
+
+r2_EF <- as.numeric(lavaan::lavInspect(fit_ef, "r2")["EF"])
+
 ```
 
 ```{r}
 #| label: fig-semplot-ef
 #| fig-cap: "SEM for executive function model."
 
-semPlot::semPaths(
-  fit_ef,
-  whatLabels = "std",
-  residuals  = TRUE,
-  intercepts = TRUE,
-  thresholds = FALSE,
-  layout     = "tree3",
-  # text sizes
-  label.cex       = 1.4,   
-  edge.label.cex  = 1,   
-  sizeMan = 6,
-  sizeLat = 10,
-  nCharNodes = 0,
-  nDigits=2,
-  mar = c(6,6,6,6)       
-)
-```
+# update names 
+nodes <- get_nodes(fit_ef, columns = c("name","shape")) |>
+  dplyr::left_join(tibble::tibble(
+    name   = c("age","EF","hf","mg","sds","mefs"),
+    pretty = c("Age (years)","Executive Function",
+               "Hearts & Flowers","Memory","Same & Different","MEFS")
+  ), by = "name") |>
+  dplyr::mutate(label = dplyr::coalesce(pretty, name))
 
-We ran a similar model to determine the external validity of the language and literacy measures (grammar and vocab) against ROAR tasks including measures of Phonological Awareness (pa), Single Word Reading (swr) and Sentence Reading Efficiency (sre). We fitted a single latent Language factor with ROAR tasks plus grammar (trog) and vocabulary as indicators, and modeled age as a predictor of the latent factor (@fig-semplot-lang). Fit was borderline acceptable: CFI = .937, TLI = .895, RMSEA = .070, 90% CI .052–.089; SRMR = .070. Standardized loadings were: swr = .743, sre = .557, pa = .685, trog = .655, vocab = .814–all significant, indicating that the ROAR tasks align with grammar and vocabulary on a common language/literacy factor, with vocabulary the strongest indicator. Age positively predicted the latent factor ($\beta = 0.66$; $R^2 = .44$), consistent with expected developmental gains.
+# use standardised labels
+pe_ef <- lavaan::parameterEstimates(fit_ef, standardized = TRUE)
+
+edges <- pe_ef |>
+  dplyr::filter(op %in% c("~","=~","~~")) |>
+  dplyr::transmute(
+    lhs, rhs, op,
+    from = dplyr::if_else(op == "~", rhs, lhs),
+    to   = dplyr::if_else(op == "~", lhs, rhs),
+    std.all, pvalue,
+    # draw rules
+    arrow = dplyr::case_when(
+      op == "~~" & lhs == rhs ~ "both",   # variance/residual loop
+      op == "~~" & lhs != rhs ~ "none",   # covariance (double-headed line)
+      TRUE ~ "last"                        # regressions/loadings
+    ),
+    curvature = dplyr::if_else(op == "~~" & lhs != rhs, 50, NA_real_),
+    linetype  = dplyr::if_else(op == "~~", 2, 1),       # dashed for ~~ edges
+    # labels: stars only for paths/loadings (optional)
+    label = dplyr::case_when(
+      op %in% c("~","=~") ~ sprintf("%.2f%s", std.all,
+         dplyr::case_when(pvalue < .001 ~ "***", pvalue < .01 ~ "**",
+                          pvalue < .05  ~ "*", TRUE ~ "")),
+      TRUE ~ sprintf("%.2f", std.all)  # variances/covariances
+    )
+  ) |>
+  # hide variance loop for EF (often 1.00 when std.lv=TRUE) or age
+  dplyr::filter(!(op == "~~" & lhs == rhs & lhs %in% c("EF"))) 
+
+layout_ef <- matrix(
+  c(
+    NA,  "age",  NA,     NA,    NA,    NA,
+    NA,   "EF",  NA,     NA,    NA,    NA,
+    "hf", "mg", "sds",    NA,   "mefs", NA  # extra column pushes MEFS right
+  ),
+  nrow = 3, byrow = TRUE
+)
+
+g_ef <- tidySEM::prepare_graph(
+  edges = edges, nodes = nodes, layout = t(layout_ef),
+  text_size = 3, rect_width = 3, rect_height = 2,
+  ellipses_width = 2.4, ellipses_height = 2.4,
+  spacing_x = 5, spacing_y = 4.5,
+  variance_height = 1.6, variance_width = 1.0,  # controls loop size
+  arrow_angle = 15, arrow_length = .12, fix_coord = FALSE
+)
+g_ef$edges$label_fill <- "white"; g_ef$edges$label_colour <- "black"; g_ef$edges$label_size <- 3.2
+plot(g_ef)
+
+
+```
 
 ```{r prep-sem-lang}
 lang_vars <- c("swr","sre","pa","vocab","trog")
@@ -1093,6 +1150,9 @@ lang_wide_std <- lang_wide_scores |>
 ```
 
 ```{r sem-lang}
+#| echo: false
+#| results: "hide" 
+
 # model
 cfa_lang <-  '
 Language =~ swr + sre + pa + trog + vocab
@@ -1101,30 +1161,76 @@ Language ~ age
 
 fit_lang <- cfa(cfa_lang, data = lang_wide_std,
                 estimator = "MLR", std.lv = TRUE, missing = "fiml")
-# summary(fit_lang, fit.measures = TRUE, standardized = TRUE)
+summary(fit_lang, fit.measures = TRUE, standardized = TRUE)
 # print(fitMeasures(fit_lang, c("cfi","tli","rmsea","srmr", "aic", "bic")))
 ```
+We ran a similar model to determine the external validity of the language and literacy measures (grammar and vocab) against ROAR tasks including measures of Phonological Awareness (pa), Single Word Reading (swr) and Sentence Reading Efficiency (sre). We fitted a single latent Language factor with ROAR tasks plus grammar (trog) and vocabulary as indicators, and modeled age as a predictor of the latent factor (@fig-semplot-lang). Fit was borderline acceptable: CFI: `r round(lavaan::fitMeasures(fit_ef)["cfi"], 3)`, RMSE: `r round(lavaan::fitMeasures(fit_ef)["rmsea"], 3)` RMSE p-value: `r round(lavaan::fitMeasures(fit_ef)["rmsea.pvalue"], 3)`. Standardized loadings were all statistically significant, indicating that the ROAR tasks align with grammar and vocabulary on a common language/literacy factor, with vocabulary the strongest indicator. Age positively predicted the latent factor ($\beta = `r sprintf('%.2f', beta_age_EF)`$; $R^2 = `r sprintf('%.2f', r2_EF)`$), consistent with expected developmental gains.
 
 ```{r}
 #| label: fig-semplot-lang
 #| fig-cap: "SEM for language model."
 
-semPlot::semPaths(
-  fit_lang,
-  whatLabels = "std",
-  residuals  = FALSE,
-  intercepts = FALSE,
-  thresholds = FALSE,
-  layout     = "tree2",
-  # text sizes
-  label.cex       = 1.4,   
-  edge.label.cex  = 1,   
-  sizeMan = 6,
-  sizeLat = 10,
-  nCharNodes = 0,
-  nDigits=2,
-  mar = c(6,6,6,6)       
+# node labels
+nodes_lang <- get_nodes(fit_lang, columns = c("name","shape")) |>
+  left_join(tibble(
+    name   = c("age","Language","trog","vocab", "swr","sre","pa"),
+    pretty = c("Age (years)","Language",
+               "Sentence Understanding", "Vocabulary", "Single Word Reading","Sentence Reading Efficiency", "Phonological Awareness")
+  ), by = "name") |>
+  mutate(label = coalesce(pretty, name))
+
+# edges (paths, loadings, residuals, covariances)
+pe_lang <- lavaan::parameterEstimates(fit_lang, standardized = TRUE)
+
+edges_lang <- pe_lang |>
+  filter(op %in% c("~","=~","~~")) |>
+  transmute(
+    lhs, rhs, op,
+    from = if_else(op == "~", rhs, lhs),
+    to   = if_else(op == "~", lhs, rhs),
+    std.all, pvalue,
+    arrow = case_when(
+      op == "~~" & lhs == rhs ~ "both",   # residual/variance loop
+      op == "~~" & lhs != rhs ~ "none",   # covariance (double-headed)
+      TRUE ~ "last"                        # regressions + loadings
+    ),
+    curvature = if_else(op == "~~" & lhs != rhs, 50, NA_real_),
+    linetype  = if_else(op == "~~", 2, 1),
+    label = case_when(
+      op %in% c("~","=~") ~ sprintf("%.2f%s", std.all,
+        case_when(pvalue < .001 ~ "***", pvalue < .01 ~ "**",
+                  pvalue < .05  ~ "*",   TRUE ~ "")),
+      TRUE ~ sprintf("%.2f", std.all)  
+    )
+  ) |>
+  # hide factor variance loop (1.00 when std.lv=TRUE)
+  filter(!(op == "~~" & lhs == rhs & lhs == "Language"))
+
+# layout
+layout_lang <- matrix(
+  c(
+    NA,       "age",      NA,    NA,    NA,     NA, NA,
+    NA,     "Language",   NA,    NA,    NA,     NA, NA,
+    "trog",  "vocab",    NA, "swr", "sre", "pa",    NA
+  ),
+  nrow = 3, byrow = TRUE
 )
+
+g_lang <- tidySEM::prepare_graph(
+  edges = edges_lang, nodes = nodes_lang, layout = t(layout_lang),
+  text_size = 3.0,
+  rect_width = 4.2,   
+  rect_height = 2.0,
+  ellipses_width = 2.4, ellipses_height = 2.4,
+  spacing_x = 5.5,   
+  spacing_y = 4.5,
+  variance_height = 1.6, variance_width = 1.0,
+  arrow_angle = 15, arrow_length = .12, fix_coord = FALSE
+)
+
+g_lang$edges$label_fill <- "white"; g_lang$edges$label_colour <- "black"; g_lang$edges$label_size <- 3.2
+plot(g_lang)
+
 ```
 
 # Adaptive Task Construction
