@@ -386,11 +386,13 @@ Partners at Western University, led by Daniel Ansari, recruited participants fro
 
 # Scoring
 
+Our goal for each task was to extract administration-level scores with the highest reliability and validity. Accordingly, we began by heuristically removing items that functioned poorly and then followed up by fitting a range of IRT models to compute ability scores using responses from the remaining items. 
+
 ## Heuristic item pruning and data checking
 
 Prior to fitting psychometric models, we examined sumscore data for each task within each site and identified items that were functioning unusually poorly (e.g., showing sumscores close to or even below chance). In some cases this was due to potential translation issues; in a few others it was due to aspects of item design. We manually excluded these items from further processing (N=XYZ). In one case, this process helped us identify a bug in the scoring of data for three tasks; we excluded these observations, which were made during a two day period of testing for the leuphana-de site. 
 
-## IRT calibration and model selection
+## Multigroup IRT model selection
 
 ```{r}
 #| label: tbl-model-invariance
@@ -419,7 +421,7 @@ invariance_summary |>
 ```
 
 
-Model calibration proceeded in two steps. First, for each task, alternative unidimensional IRT specifications (Rasch vs. 2PL) were fit within a multigroup framework using the set of items overlapping across sites. The best-fitting model was selected by the Bayesian Information Criterion (BIC), considering both model family (Rasch vs. 2PL) and invariance level (configural, metric, scalar). As summarized in @tbl-model-invariance, Rasch models provided the best fit for the majority of tasks, whereas 2PL models were favored for Same & Different and Shape Rotation. This pattern suggests that a simple Rasch parameterization was sufficient to capture response variation in most domains, whereas tasks involving more complex perceptual or reasoning demands benefitted from the additional flexibility of the 2PL specification. The use of a single overlap-based winner per task ensured that selection was driven by fit to the cross-site data rather than majority preference within individual sites.
+
 
 ```{r model-invariance-chunk, echo=FALSE, results='asis', message=FALSE, warning=FALSE}
 
@@ -486,21 +488,22 @@ Model calibration proceeded in two steps. First, for each task, alternative unid
 
 ```
 
-## Multigroup calibration and measurement invariance
+For each task, we fit alternative unidimensional IRT specifications (Rasch vs. 2PL) under a sequence of increasingly restrictive invariance constraints. Following the conventional factor-analytic hierarchy, translated into IRT terms, we tested:
 
-In the second step, we evaluated cross-site comparability using multigroup IRT models. These were estimated on the overlapping items common to all sites, under a sequence of increasingly restrictive invariance constraints. Following the conventional factor-analytic hierarchy, translated into IRT terms, we tested:
-  
-  - Configural invariance: common factor structure, item parameters free across sites.
-- Metric invariance: item discriminations constrained equal across sites.
-- Scalar invariance: item discriminations and intercepts constrained equal (and guessing parameters, where applicable).
+- Configural invariance: common factor structure, item parameters free across sites
+- Metric invariance: item discriminations constrained equal across sites
+- Scalar invariance: item discriminations and intercepts constrained equal (and guessing parameters, where applicable)
 
-Scalar invariance therefore provides the strongest basis for direct cross-site comparability of latent ability estimates, whereas metric and configural levels reflect progressively weaker comparability.
+Scalar invariance provides the strongest basis for direct cross-site comparability of latent ability estimates, whereas metric and configural levels reflect progressively weaker comparability.
 
-Results (shown in @tbl-model-invariance) indicated that scalar invariance held for most tasks, suggesting that both item difficulties and slopes generalized across sites. Two tasks supported only metric invariance, implying that discriminations were stable but intercepts varied across groups. Three tasks (Hearts & Flowers, Theory of Mind, Vocabulary) achieved only configural invariance, indicating consistent dimensional structure but insufficient parameter equivalence for strict comparability.
+These models were estimated on the overlapping items common to all sites. The best-fitting model for each task was selected by the Bayesian Information Criterion (BIC), considering both model family (Rasch vs. 2PL) and invariance level (configural, metric, scalar). 
+
+As summarized in @tbl-model-invariance, Rasch models provided the best fit for the majority of tasks, whereas 2PL models were favored for Same & Different and Shape Rotation. This pattern suggests that a simple Rasch parameterization was sufficient to capture response variation in most domains, whereas tasks involving more complex perceptual or reasoning demands benefitted from the additional flexibility of the 2PL specification. The use of a single overlap-based winner per task ensured that selection was driven by fit to the cross-site data rather than majority preference within individual sites.
+
+Scalar invariance held for most tasks, suggesting that both item difficulties and slopes generalized across sites. Two tasks supported only metric invariance, implying that discriminations were stable but intercepts varied across groups. Three tasks (Hearts & Flowers, Theory of Mind, Vocabulary) achieved only configural invariance, indicating consistent dimensional structure but insufficient parameter equivalence for strict comparability.
 
 For scoring, all multigroup models were extended to the full item pool. Overlapping items retained their parameter values from the overlap stage, while non-overlapping items were freely estimated. This ensured that scores were placed on a common cross-site scale for all tasks. The level of invariance (scalar, metric, configural) documents the strength of comparability, but scoring itself was always based on multigroup calibrations rather than site-level majority voting.
 
-## Item-level diagnostics
 
 ```{r }
 # regdir <- here::here("02_score_data/02_fit_irt/model_registry")
