@@ -745,7 +745,7 @@ trt <- retest_wide |>
 #| tbl-cap: "Task-wise test-retest correlations computed for Germany data, with projected reliability computed via the Spearman-Brown \"prophecy\" formula."
 
 trt |>
-  mutate(retest_cat = c("","x","","x","x","","x","","x"), 
+  mutate(retest_cat = c("","x","","","x","","","","x"), 
          retest_corpus = c("","","","x","","x","x","","")) |>
   flextable() |>
   set_header_labels(task = "Task",
@@ -889,6 +889,7 @@ fit_g_age_fit <- lavaan::fitMeasures(fit_g_age)
 ### Construct validity
 
 We assessed construct validity using a hierarchical CFA in which three first-order factors—Reasoning (matrix reasoning, mental rotation), Executive Function (Hearts & Flowers, Memory Game, Same–Different Selection), and Language (grammar, vocabulary)—loaded on a second-order general factor (G; @fig-semplot-g). Mathematics and Social Cognition (Theory of Mind; ToM) were treated as observed endogenous outcomes because each construct had a single task; introducing one-indicator latent variables would require strong, unverifiable assumptions about reliability/error variances. Age was specified to predict G (age → G). Model fit was poor -- CFI: `r round(lavaan::fitMeasures(fit_g_age)["cfi"], 3)`, RMSE: `r round(lavaan::fitMeasures(fit_g_age)["rmsea"], 3)` RMSE p-value: `r round(lavaan::fitMeasures(fit_g_age)["rmsea.pvalue"], 3)`. Overall, factor loadings supported the intended three-factor structure (convergent validity), and age related to each domain as expected. The high inter-factor correlations and strong second-order loadings indicate that much of the variance is shared across domains, consistent with a broad general ability underpinning performance on the nine core tasks.
+
 ```{r}
 #| label: fig-semplot-g
 #| fig-cap: "SEM for core tasks with general factor."
@@ -1167,6 +1168,7 @@ fit_lang <- cfa(cfa_lang, data = lang_wide_std,
 summary(fit_lang, fit.measures = TRUE, standardized = TRUE)
 # print(fitMeasures(fit_lang, c("cfi","tli","rmsea","srmr", "aic", "bic")))
 ```
+
 We ran a similar model to determine the external validity of the language and literacy measures (grammar and vocab) against ROAR tasks including measures of Phonological Awareness (pa), Single Word Reading (swr) and Sentence Reading Efficiency (sre). We fitted a single latent Language factor with ROAR tasks plus grammar (trog) and vocabulary as indicators, and modeled age as a predictor of the latent factor (@fig-semplot-lang). Fit was borderline acceptable: CFI: `r round(lavaan::fitMeasures(fit_ef)["cfi"], 3)`, RMSE: `r round(lavaan::fitMeasures(fit_ef)["rmsea"], 3)` RMSE p-value: `r round(lavaan::fitMeasures(fit_ef)["rmsea.pvalue"], 3)`. Standardized loadings were all statistically significant, indicating that the ROAR tasks align with grammar and vocabulary on a common language/literacy factor, with vocabulary the strongest indicator. Age positively predicted the latent factor ($\beta = `r sprintf('%.2f', beta_age_EF)`$; $R^2 = `r sprintf('%.2f', r2_EF)`$), consistent with expected developmental gains.
 
 ```{r}
