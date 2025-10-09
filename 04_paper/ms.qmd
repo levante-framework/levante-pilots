@@ -392,6 +392,54 @@ Prior to fitting psychometric models, we examined sumscore data for each task wi
 
 ## IRT calibration and model selection
 
+
+```{r}
+#| label: tbl-invariance-explainer
+#| tbl-cap: "Measurement invariance across factor analysis and item response theory."
+
+
+# read and lightly normalize columns
+inv_explainer <- read_csv(here("04_paper", "display", "invariance.csv"), show_col_types = FALSE) |>
+  mutate(across(everything(), \(v) replace_na(v, ""))) |>
+  transmute(
+    Invariance = str_to_title(Invariance),
+    Model = case_when(
+      str_detect(Model, regex("2\\s*pl|^2pl$", ignore_case = TRUE)) ~ "2PL",
+      str_detect(Model, regex("rasch", ignore_case = TRUE)) ~ "Rasch",
+      TRUE ~ Model
+    ),
+    `mirt code` = `mirt code`,
+    `Factor-analytic analogue` = `Factor analysis name`,
+    `IRT explanation` = `IRT explanation`,
+    `Practical interpretation` = Interpretation
+  ) |>
+  # ensure desired column order
+  select(Invariance, Model, `mirt code`, `Factor-analytic analogue`, `IRT explanation`, `Practical interpretation`)
+
+# build table (mirrors tbl-task-rxx style)
+inv_explainer |>
+  flextable() |>
+  set_header_labels(
+    Invariance = "Invariance",
+    Model = "Model",
+    `mirt code` = "mirt code",
+    `Factor-analytic analogue` = "Factor-analytic analogue",
+    `IRT explanation` = "IRT explanation",
+    `Practical interpretation` = "Practical interpretation"
+  ) |>
+  separate_header() |>
+  width(j = "Invariance", width = 0.6) |>
+  width(j = "Model", width = 0.6) |>
+  width(j = "mirt code", width = 0.9) |>
+  width(j = "Factor-analytic analogue", width = 1.2) |>
+  width(j = "IRT explanation", width = 1.5) |>
+  width(j = "Practical interpretation", width = 1.5) |>
+  align(align = "left", part = "all") |>
+  valign(val = "top", part = "all") |>
+  line_spacing(space = 1.1, part = "all") |>
+  padding(padding.top = 2, padding.bottom = 2, part = "all") |>
+  fontsize(size = 8.5, part = "all") 
+```
 ```{r}
 #| label: tbl-model-invariance
 #| tbl-cap: "Summary of multigroup invariance outcomes across LEVANTE tasks."
