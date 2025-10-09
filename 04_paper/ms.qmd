@@ -155,6 +155,7 @@ library(lavaan)
 library(mirt)
 library(broom.mixed)
 library(lmerTest)
+library(png)
 
 source(here("03_summaries","plotting_helper.R"))
 source(here("plot_settings.R"))
@@ -283,6 +284,16 @@ task_time_table |>
 ```
 
 ## General task properties
+
+
+```{r}
+#| label: fig-tasks
+#| fig-cap: "Screenshots from each of the nine LEVANTE core tasks. Top row: Sentence Understanding, Vocabulary, Hearts and Flowers; middle row: Memory Game, Same and Different Selection, Math; bottom row: Pattern Matching, Mental Rotation; Stories." 
+
+task_fig <- png::readPNG(here("04_paper","display","tasks.png"))
+grid::grid.raster(task_fig)
+
+```
 
 The LEVANTE core tasks are short behavioral tasks that can be presented in a web browser on a tablet or laptop, with responses possible using a touchscreen, keyboard, or mouse. Because of this variability in format of administration, they focus on response correctness not reaction time and so they are mostly untimed. The tasks are designed for simplicity and clarity so as to be accessible to children across a wide age range, and so with only modest exceptions, nearly all are in the format of a multi-alternative forced choice with a maximum of four choices. This uniformity of format means that in most cases instructions can be short and easy to understand, minimizing delays when the tasks are given in sequence as a battery. @fig-tasks shows screenshots from each of the tasks. Below we briefly present each task.
 
