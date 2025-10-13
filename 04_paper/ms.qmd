@@ -296,6 +296,19 @@ task_time_table |>
   flextable::autofit(add_w = 0, add_h = 0)
 ```
 
+<<<<<<< HEAD
+## General task properties
+
+The LEVANTE core tasks are short behavioral tasks that can be presented in a web browser on a tablet or laptop, with responses possible using a touchscreen, keyboard, or mouse. Because of this variability in format of administration, they focus on response correctness not reaction time and so they are mostly untimed. The tasks are designed for simplicity and clarity so as to be accessible to children across a wide age range, and so with only modest exceptions, nearly all are in the format of a multi-alternative forced choice with a maximum of four choices. This uniformity of format means that in most cases instructions can be short and easy to understand, minimizing delays when the tasks are given in sequence as a battery. fig-tasks shows screenshots from each of the tasks. Below we briefly present each task.
+
+Tasks were implemented using jsPsych [@de-leeuw2015] in a common framework. Illustrations were produced by hand while auditory stimuli were generated using AI voice synthesis tools (currently, <https://elevenlabs.io>). The tasks generally share a set of usability features including simple instructions, a small number of practice trials, and buttons to replay audio.
+
+All tasks are available for demonstration purposes at <https://researcher.levante-network.org>. Source code for the tasks is available at <https://github.com/levante-framework/core-tasks>. Task code and assets are licensed CC-BY-NC 4.0 for non-commercial reuse (including educational use by not-for-profit and governmental entities) with appropriate attribution. Please see repository license for more details. We anticipate that once the LEVANTE researcher management dashboard is completed, interested researchers will be able to create accounts and use the tasks in their own research. 
+
+General task lengths are described below and average task durations are given in @tbl-durations. Because of our interest in testing children across a wide range of ages, we intentionally included trials that we anticipated would be both very easy and very hard for children with the aim of deploying these adaptively after we had gathered sufficient data. We wanted to avoid  frustration for children, however, so during pilot testing, we experimented with a number of different stopping rules. In early iterations of pilot testing in Bogota, Colombia, we ended tasks after three incorrect trials; we later modified this rule to end tasks after six incorrect trials. 
+
+=======
+>>>>>>> 57fe06130ab6ac3e8f33eb8796c1f2902b2463ea
 ## Language 
 
 ### Sentence Understanding
@@ -637,11 +650,79 @@ ggplot(coretask_scores, aes(age, metric_value)) +
   labs(x = "Age (years)", y = "Ability (IRT score)", colour = "Site") +
   theme(legend.position = "bottom")
 ```
+```{r}
+
+#| label: tbl-sanity
+#| tbl-cap: "Sanity table."
+knitr::kable(data.frame(X = 1:2, Y = c("a","b")), format = "pipe")
+```
 
 ```{r}
 #| label: tbl-slopes
-#| tbl-cap: "Per-task age correlations and per-site linear slopes (IRT units/year)."
+#| tbl-cap: "Site deviation from grand mean age slope (IRT units/year)."
+#| warning: false
+#| message: false
 
+<<<<<<< HEAD
+library(emmeans)
+coretask_scores$site <- as.factor(coretask_scores$site)
+coretask_scores$item_task <- as.factor(coretask_scores$item_task)
+task_list <- unique(coretask_scores$item_task)
+
+analyze_task_slopes <- function(task_name) {
+  task_data <- dplyr::filter(coretask_scores, item_task == task_name)
+  contrasts(task_data$site) <- contr.sum
+  fit <- lm(metric_value ~ age_c * site, data = task_data)
+
+  mean_slope_summary <- summary(fit)$coefficients["age_c", ]
+
+  site_slopes <- emtrends(fit, ~ site, var = "age_c") |>
+    summary(infer = c(TRUE, TRUE)) |>      # <- ensures t.ratio, df, p.value, CIs
+    as_tibble()
+
+  tibble(
+    task = task_name,
+    Mean_Slope    = mean_slope_summary["Estimate"],
+    Mean_Slope_SE = mean_slope_summary["Std. Error"],
+    Mean_Slope_p  = mean_slope_summary["Pr(>|t|)"],
+    site_slopes   = list(site_slopes)
+  )
+}
+
+all_tasks_results <- purrr::map_dfr(unique(coretask_scores$item_task), analyze_task_slopes)
+all_tasks_results
+
+final_slopes_data <- all_tasks_results |>
+  select(task, site_slopes) |>
+  unnest(site_slopes) |>
+  rename(Slope = age_c.trend) |>
+  (\(d) {
+    if ("p.value" %in% names(d)) {
+      rename(d, P_Value = p.value)
+    } else {
+      mutate(d, P_Value = 2 * pt(-abs(t.ratio), df))
+    }
+  })() |>
+  select(task, site, Slope, SE, P_Value)
+
+deviation_data <- final_slopes_data |>
+  left_join(select(all_tasks_results, task, Mean_Slope), by = "task") |>
+  mutate(Slope_Deviation = Slope - Mean_Slope) |>
+  arrange(task, site) |>
+  select(task, site, Mean_Slope, Slope_Deviation, SE, P_Value) |>
+  mutate(
+    across(c(Mean_Slope, Slope_Deviation, SE), ~ round(.x, 3)),
+    P_Value = format.pval(P_Value, digits = 3, eps = 0.001)
+  )
+  
+knitr::kable(
+  deviation_data,
+  format   = "pipe",                        
+  col.names = c("Task","Site","Grand Mean Slope (β)","Deviation from Mean","SE","p-value"),
+  align     = c("l","l","r","r","r","r")
+)
+
+=======
 coretask_scores <- coretask_scores |>
   mutate(age_c = age - mean(age, na.rm = TRUE))
 
@@ -687,6 +768,7 @@ final_tab |>
                     slope_per_year = "Slope / year", ci_low = "CI low",
                     ci_high = "CI high", p = "p-value", n = "N", p_fdr = "p (FDR)") |>
   autofit()
+>>>>>>> 57fe06130ab6ac3e8f33eb8796c1f2902b2463ea
 ```
 
 ## Developmental change
