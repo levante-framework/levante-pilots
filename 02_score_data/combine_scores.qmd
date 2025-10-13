@@ -40,6 +40,8 @@ task_metrics <- tribble(
   "mefs"     , "standard_score"
 )
 
+cat_tasks <- c("swr")
+
 run_info <- read_rds(here(glue("01_fetched_data/run_data.rds"))) |>
   select(site, dataset, language, task_id, variant_id, variant_name,
          user_id, run_id, adaptive, age, time_started)
@@ -66,7 +68,6 @@ task_scores <- scores_combined |>
   filter(!is.na(metric_value)) |>
   inner_join(task_metrics)
 
-# should be empty (i.e. each run has only one score)
 # cat_compare <- task_scores |>
 #   group_by(item_task, run_id) |>
 #   filter(task != "MEFS", n() > 1) |>
@@ -84,6 +85,13 @@ task_scores <- scores_combined |>
 #   labs(x = "CAT score", y = "Full model score")
 # ggsave("cat_compare.png", width = 12, height = 3.5)
 
-write_rds(task_scores, here("02_scoring_outputs/scores/scores_combined.rds"),
+# remove CAT scores for rescored tasks
+task_scores_uncat <- task_scores |>
+  filter(item_task %in% cat_tasks | is.na(model_class) | model_class != "CAT")
+
+# should be empty (i.e. each run has only one score)
+# task_scores_uncat |> group_by(item_task, run_id) |> filter(n() > 1)
+
+write_rds(task_scores_uncat, here("02_scoring_outputs/scores/scores_combined.rds"),
           compress = "gz")
 ```

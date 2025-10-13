@@ -158,9 +158,7 @@ library(lmerTest)
 library(png)
 library(emmeans)
 
-source(here("03_summaries","plotting_helper.R"))
 source(here("plot_settings.R"))
-source(here("03_summaries","scores_helper.R"))
 ```
 
 ```{r settings}
@@ -173,13 +171,14 @@ site_labels <- c("uniandes-co" = "pilot_uniandes_co",
 sites <- names(site_labels)
 site_pal <- solarized_pal()(length(sites)) |> rlang::set_names(sites)
 
+core_tasks <- c("hf", "sds", "mg", "math", "matrix", "mrot", "trog", "vocab", "tom")
+
 set_flextable_defaults(theme_fun = theme_apa, arraystretch = 1, padding = 1)
 
 # seed for random number generation
 set.seed(42)
 knitr::opts_chunk$set(cache.extra = knitr::rand_seed)
 ```
-
 
 # Introduction
 
@@ -251,7 +250,8 @@ included_scores <- all_scores |>
   filter(run_number == 1 | (run_number == 2 & age_gap > 1/6))
 
 coretask_scores <- included_scores |>
-  filter(item_task %in% core_tasks)
+  filter(item_task %in% core_tasks) |>
+  mutate(age_c = age - mean(age, na.rm = TRUE))
 
 coretask_firstrun_scores <- coretask_scores |>
   filter(run_number == 1)
@@ -296,7 +296,6 @@ task_time_table |>
   flextable::autofit(add_w = 0, add_h = 0)
 ```
 
-<<<<<<< HEAD
 ## General task properties
 
 The LEVANTE core tasks are short behavioral tasks that can be presented in a web browser on a tablet or laptop, with responses possible using a touchscreen, keyboard, or mouse. Because of this variability in format of administration, they focus on response correctness not reaction time and so they are mostly untimed. The tasks are designed for simplicity and clarity so as to be accessible to children across a wide age range, and so with only modest exceptions, nearly all are in the format of a multi-alternative forced choice with a maximum of four choices. This uniformity of format means that in most cases instructions can be short and easy to understand, minimizing delays when the tasks are given in sequence as a battery. fig-tasks shows screenshots from each of the tasks. Below we briefly present each task.
@@ -307,8 +306,6 @@ All tasks are available for demonstration purposes at <https://researcher.levant
 
 General task lengths are described below and average task durations are given in @tbl-durations. Because of our interest in testing children across a wide range of ages, we intentionally included trials that we anticipated would be both very easy and very hard for children with the aim of deploying these adaptively after we had gathered sufficient data. We wanted to avoid  frustration for children, however, so during pilot testing, we experimented with a number of different stopping rules. In early iterations of pilot testing in Bogota, Colombia, we ended tasks after three incorrect trials; we later modified this rule to end tasks after six incorrect trials. 
 
-=======
->>>>>>> 57fe06130ab6ac3e8f33eb8796c1f2902b2463ea
 ## Language 
 
 ### Sentence Understanding
@@ -459,29 +456,29 @@ inv_explainer |>
 ```
 
 ```{r}
-# #| label: tbl-model-invariance
-# #| tbl-cap: "Summary of multigroup invariance outcomes across LEVANTE tasks."
-# 
-# task_rxx <- read_rds(here("02_scoring_outputs/task_rxx.rds"))
-# 
-# invariances <- read_csv(here("04_paper/display/invariance.csv")) |>
-#   mutate(across(everything(), \(v) replace_na(v, "")))
-# 
-# invariance_summary <- task_rxx |>
-#   filter(task != "ha") |>
-#   distinct(task, invariance, itemtype) |>
-#   count(invariance, itemtype, name = "n_tasks") |>
-#   mutate(invariance = str_to_sentence(invariance),
-#          itemtype = itemtype |> fct_recode("Rasch" = "rasch", "2PL" = "2pl")) |>
-#   left_join(invariances |> select(invariance = Invariance, itemtype = Model, interpretation = Interpretation))
-# 
-# invariance_summary |>
-#   flextable() |>
-#   set_header_labels(invariance = "Invariance",
-#                     itemtype = "Model",
-#                     n_tasks = "N tasks",
-#                     interpretation = "Interpretation") |>
-#   flextable::autofit(add_w = 0, add_h = 0)
+#| label: tbl-model-invariance
+#| tbl-cap: "Summary of multigroup invariance outcomes across LEVANTE tasks."
+
+task_rxx <- read_rds(here("02_scoring_outputs/task_rxx.rds"))
+
+invariances <- read_csv(here("04_paper/display/invariance.csv")) |>
+  mutate(across(everything(), \(v) replace_na(v, "")))
+
+invariance_summary <- task_rxx |>
+  filter(task != "ha") |>
+  distinct(task, invariance, itemtype) |>
+  count(invariance, itemtype, name = "n_tasks") |>
+  mutate(invariance = str_to_sentence(invariance),
+         itemtype = itemtype |> fct_recode("Rasch" = "rasch", "2PL" = "2pl")) |>
+  left_join(invariances |> select(invariance = Invariance, itemtype = Model, interpretation = Interpretation))
+
+invariance_summary |>
+  flextable() |>
+  set_header_labels(invariance = "Invariance",
+                    itemtype = "Model",
+                    n_tasks = "N tasks",
+                    interpretation = "Interpretation") |>
+  flextable::autofit(add_w = 0, add_h = 0)
 ```
 
 ```{r model-invariance-chunk}
@@ -650,21 +647,11 @@ ggplot(coretask_scores, aes(age, metric_value)) +
   labs(x = "Age (years)", y = "Ability (IRT score)", colour = "Site") +
   theme(legend.position = "bottom")
 ```
-```{r}
-
-#| label: tbl-sanity
-#| tbl-cap: "Sanity table."
-knitr::kable(data.frame(X = 1:2, Y = c("a","b")), format = "pipe")
-```
 
 ```{r}
 #| label: tbl-slopes
 #| tbl-cap: "Site deviation from grand mean age slope (IRT units/year)."
-#| warning: false
-#| message: false
 
-<<<<<<< HEAD
-library(emmeans)
 coretask_scores$site <- as.factor(coretask_scores$site)
 coretask_scores$item_task <- as.factor(coretask_scores$item_task)
 task_list <- unique(coretask_scores$item_task)
@@ -690,7 +677,6 @@ analyze_task_slopes <- function(task_name) {
 }
 
 all_tasks_results <- purrr::map_dfr(unique(coretask_scores$item_task), analyze_task_slopes)
-all_tasks_results
 
 final_slopes_data <- all_tasks_results |>
   select(task, site_slopes) |>
@@ -721,10 +707,11 @@ knitr::kable(
   col.names = c("Task","Site","Grand Mean Slope (β)","Deviation from Mean","SE","p-value"),
   align     = c("l","l","r","r","r","r")
 )
+```
 
-=======
-coretask_scores <- coretask_scores |>
-  mutate(age_c = age - mean(age, na.rm = TRUE))
+```{r}
+#| label: tbl-slopes2
+#| tbl-cap: ""
 
 # per-task × site slopes
 slopes <- coretask_scores |>
@@ -768,7 +755,6 @@ final_tab |>
                     slope_per_year = "Slope / year", ci_low = "CI low",
                     ci_high = "CI high", p = "p-value", n = "N", p_fdr = "p (FDR)") |>
   autofit()
->>>>>>> 57fe06130ab6ac3e8f33eb8796c1f2902b2463ea
 ```
 
 ## Developmental change
@@ -823,7 +809,6 @@ prophecy <- function (n = 2, r) {
   (n * r) /  (1 + (n - 1) * r)
 }
 
-
 de_retest_scores <- coretask_scores |> 
   filter(site == "pilot_mpieva_de") |>
   group_by(user_id, task) |>
@@ -857,7 +842,7 @@ trt <- retest_wide |>
 
 ```{r}
 #| label: tbl-retest
-#| tbl-cap: "Task-wise test-retest correlations computed for Germany data, with projected reliability computed via the Spearman-Brown \"prophecy\" formula."
+#| tbl-cap: 'Task-wise test-retest correlations computed for Germany data, with projected reliability computed via the Spearman-Brown "prophecy" formula.'
 
 trt |>
   mutate(retest_cat = c("","x","","","x","","","","x"), 
@@ -905,8 +890,7 @@ Figure @fig-retest shows the relations between time 1 and time 2 scores. Uptake 
 
 ## Validity 
 
-```{r prep-sem, include=FALSE}
-
+```{r prep-sem}
 # one row per user (metadata + task scores from first run)
 meta <- coretask_firstrun_scores |>
   group_by(user_id) |>
@@ -965,7 +949,6 @@ mi_g <- lavaan::modindices(fit_g, sort. = TRUE, minimum.value = 10)
 ```
 
 ```{r sem-g-age}
-#| echo: false
 #| results: "hide" 
 
 stopifnot(all(vars_core_std$age > 0, na.rm = TRUE))
@@ -1001,6 +984,7 @@ summary(fit_g_age, fit.measures = TRUE, standardized = TRUE)
 fit_g_age_fit <- lavaan::fitMeasures(fit_g_age)
 
 ```
+
 ### Construct validity
 
 We assessed construct validity using a hierarchical CFA in which three first-order factors—Reasoning (matrix reasoning, mental rotation), Executive Function (Hearts & Flowers, Memory Game, Same–Different Selection), and Language (grammar, vocabulary)—loaded on a second-order general factor (G; @fig-semplot-g). Mathematics and Social Cognition (Theory of Mind; ToM) were treated as observed endogenous outcomes because each construct had a single task; introducing one-indicator latent variables would require strong, unverifiable assumptions about reliability/error variances. Age was specified to predict G (age → G). Model fit was poor -- CFI: `r round(lavaan::fitMeasures(fit_g_age)["cfi"], 3)`, RMSE: `r round(lavaan::fitMeasures(fit_g_age)["rmsea"], 3)` RMSE p-value: `r round(lavaan::fitMeasures(fit_g_age)["rmsea.pvalue"], 3)`. Overall, factor loadings supported the intended three-factor structure (convergent validity), and age related to each domain as expected. The high inter-factor correlations and strong second-order loadings indicate that much of the variance is shared across domains, consistent with a broad general ability underpinning performance on the nine core tasks.
@@ -1082,6 +1066,7 @@ p <- plot(g)
 p
 # plot_happy_arrows(g)
 ```
+
 ### External validity
 
 To assess external validity, we fitted a single-factor EF model with hearts and flowers (hf), memory game (mg), same-different-selection (sds), and the external measure, the Minnesota Executive Function Scale (MEFS) as indicators (@fig-semplot-ef). We modeled age as a predictor of the latent EF factor. Fit was generally good (CFI = .971, TLI = .943, SRMR = .034; RMSEA = .071, 90% CI .040–.106). Standardized loadings were moderate to strong (hf = .63, mg = .63, sds = .50, MEFS = .67), indicating that MEFS aligns closely with the latent EF construct. Age strongly predicted EF ($\beta = 0.79$; $R^2 = .62$), consistent with expected developmental gains.
@@ -1133,9 +1118,6 @@ ef_wide_std <- ef_wide_scores |>
 ```
 
 ```{r sem-ef}
-#| echo: false
-#| results: "hide" 
-
 cfa_ef <-  '
 EF =~ hf + mg + sds + mefs
 EF ~ age
@@ -1143,13 +1125,11 @@ EF ~ age
 
 fit_ef <- cfa(cfa_ef, data = ef_wide_std,
               estimator = "MLR", std.lv = TRUE, missing = "fiml")
-summary(fit_ef, fit.measures = TRUE, standardized = TRUE)
+# summary(fit_ef, fit.measures = TRUE, standardized = TRUE)
 #print(fitMeasures(fit_ef, c("cfi","tli","rmsea","srmr", "aic", "bic")))
 ```
 
-```{r}
-#| label: ef-stats
-#| include: false
+```{r ef-stats}
 pe_ef <- lavaan::parameterEstimates(fit_ef, standardized = TRUE)
 
 beta_age_EF <- pe_ef |>
@@ -1157,7 +1137,6 @@ beta_age_EF <- pe_ef |>
   dplyr::pull(std.all) |> as.numeric()
 
 r2_EF <- as.numeric(lavaan::lavInspect(fit_ef, "r2")["EF"])
-
 ```
 
 ```{r}
@@ -1269,9 +1248,6 @@ lang_wide_std <- lang_wide_scores |>
 ```
 
 ```{r sem-lang}
-#| echo: false
-#| results: "hide" 
-
 # model
 cfa_lang <-  '
 Language =~ swr + sre + pa + trog + vocab
@@ -1280,7 +1256,7 @@ Language ~ age
 
 fit_lang <- cfa(cfa_lang, data = lang_wide_std,
                 estimator = "MLR", std.lv = TRUE, missing = "fiml")
-summary(fit_lang, fit.measures = TRUE, standardized = TRUE)
+# summary(fit_lang, fit.measures = TRUE, standardized = TRUE)
 # print(fitMeasures(fit_lang, c("cfi","tli","rmsea","srmr", "aic", "bic")))
 ```
 
