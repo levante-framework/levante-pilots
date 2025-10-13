@@ -37,7 +37,7 @@ Thetas for tasks that have them, and score
 thetas <- runs_filtered |>
   filter(!is.na(test_comp_theta_estimate)) |>
   left_join(task_map) |>
-  mutate(metric_type = "ability", model_class = "CAT", model = "roar_irt") |>
+  mutate(metric_type = "ability", model_class = "CAT", model = "cat_irt") |>
   select(item_task, run_id, metric_type,
          metric_value = test_comp_theta_estimate, model_class, model)
 

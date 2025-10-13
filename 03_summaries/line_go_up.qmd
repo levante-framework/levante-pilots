@@ -11,58 +11,43 @@ source(here("03_summaries/plotting_helper.R"))
 source(here("03_summaries/scores_helper.R"))
 ```
 
-```{r}
-# sites <- c("ca_pilot", "co_pilot", "de_pilot", "us_pilot")
-# 
-# participants <- sites |>
-#   set_names() |>
-#   map(\(s) read_rds(here(glue("00_prepped_data/{s}/participants.rds")))) |>
-#   list_rbind(names_to = "site")
-# run_ages <- read_rds(here(glue("01_fetched_data/run_data.rds"))) |>
-#   select(site, task_id, user_id, run_id, age)
-```
-
 Combine all task scores into one plot!
 
 ```{r}
-scores <- combine_scores()
-# scores <- read_rds(here("02_scoring_outputs/scores/scores_combined.rds"))
+task_scores <- read_rds(here("02_scoring_outputs/scores/scores_combined.rds"))
+site_labels <- c("uniandes-co" = "pilot_uniandes_co",
+                 "mpieva-de" = "pilot_mpieva_de",
+                 "western-ca" = "pilot_western_ca")
+
+task_scores_labeled <- task_scores |>
+  mutate(task = task |> str_to_title() |> fct_inorder(),
+         task_category = task_category |> str_to_title() |> fct_inorder()) |>
+  group_by(site, task) |>
+  mutate(site_task_label = glue("{task}\n(n = {n_distinct(run_id)})")) |>
+  group_by(task) |>
+  mutate(task_label = glue("{task}\n(n = {n_distinct(run_id)})")) |>
+  ungroup() |>
+  mutate(site = site |> fct_recode(!!!site_labels)) |>
+  group_by(site) |>
+  mutate(site_label = glue("{site} (n = {n_distinct(run_id)})")) |>
+  ungroup()
 ```
-
-```{r}
-# threshold_n <- 10
-# threshold_n <- 10
-# threshold_scores <- scores |> filter(site_task_n >= threshold_n)
-
-# sumscores <- scores |> filter(metric_type == "prop_correct")
-
-# irt_scores <- scores |>
-#   filter(str_detect(metric_type, "ability"))
-
-task_scores <- scores |>
-  mutate(metric_type = if_else(str_detect(metric_type, "ability"), "ability", metric_type)) |>
-  filter(!is.na(metric_value)) |>
-  inner_join(task_metrics)
-```
-
 
 With just the LEVANTE original tasks. 
 
 ```{r}
 levante_tasks <- c("hearts-and-flowers", "memory-game", "same-different-selection", 
                    "egma-math", "mental-rotation", "matrix-reasoning", "trog", "vocab", "theory-of-mind")
-ref_sites <- c("pilot_western_ca", "pilot_uniandes_co", "pilot_leuphana_de")
-
-site_labels <- scores |>
+ 
+site_labels <- task_scores_labeled |>
   distinct(site, site_label) |>
   deframe() |>
   as.character()
 ```
 
 ```{r}
-task_scores |>
-  filter(task_id %in% levante_tasks,
-         site %in% ref_sites) |>
+task_scores_labeled |>
+  filter(task_id %in% levante_tasks) |>
   task_plot_comparative(ylab = "Score", nr = 2)
 ggsave(here("03_summaries/plots/levante_tasks.png"), width = 11, height = 6)
 ```
@@ -88,7 +73,7 @@ ggsave(here("03_summaries/plots/levante_tasks.png"), width = 11, height = 6)
 Everything on the plots.
 
 ```{r}
-task_scores |>
+task_scores_labeled |>
   task_plot_comparative(ylab = "Score", nr = 3)
 ggsave(here("03_summaries/plots/all_tasks.png"), width = 11, height = 8)
 ```

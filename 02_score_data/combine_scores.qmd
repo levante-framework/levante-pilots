@@ -45,7 +45,7 @@ run_info <- read_rds(here(glue("01_fetched_data/run_data.rds"))) |>
          user_id, run_id, adaptive, age, time_started)
 
 score_files <- c("sumscores.rds", "roar_thetas.rds", "scores_custom.rds", "registry_scores.rds")
-ref_sites <- c("pilot_uniandes_co", "pilot_leuphana_de", "pilot_western_ca")
+ref_sites <- c("pilot_uniandes_co", "pilot_mpieva_de", "pilot_western_ca")
 
 scores <- score_files |>
   map(\(f) read_rds(here("02_scoring_outputs", "scores", f))) |>
@@ -58,6 +58,7 @@ mefs <- read_rds(here("02_scoring_outputs", "scores", "scores_mefs.rds"))
 scores_combined <- scores |>
   bind_rows(mefs) |>
   filter(!is.na(age)) |>
+  filter(item_task != "ha") |>
   left_join(task_info)
 
 task_scores <- scores_combined |>
@@ -66,7 +67,22 @@ task_scores <- scores_combined |>
   inner_join(task_metrics)
 
 # should be empty (i.e. each run has only one score)
-# task_scores |> group_by(item_task, run_id) |> filter(n() > 1)
+# cat_compare <- task_scores |>
+#   group_by(item_task, run_id) |>
+#   filter(task != "MEFS", n() > 1) |>
+#   ungroup() |>
+#   mutate(model_source = if_else(model_class == "CAT", "cat", "non_cat")) |>
+#   select(site, task, run_id, model_source, metric_value) |>
+#   pivot_wider(names_from = model_source, values_from = metric_value) |>
+#   mutate(site_label = site |> fct_recode(!!!site_labels))
+# 
+# ggplot(cat_compare, aes(x = cat, y = non_cat, colour = site_label)) +
+#   facet_grid(vars(site_label), vars(task)) +
+#   geom_abline(color = "grey") +
+#   geom_point(alpha = 0.3, size = 1) +
+#   .scale_colour_site(guide = "none") +
+#   labs(x = "CAT score", y = "Full model score")
+# ggsave("cat_compare.png", width = 12, height = 3.5)
 
 write_rds(task_scores, here("02_scoring_outputs/scores/scores_combined.rds"),
           compress = "gz")

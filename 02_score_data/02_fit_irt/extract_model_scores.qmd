@@ -120,7 +120,6 @@ mods_best_configural <- mods_best_language |>
 mods_best <- bind_rows(mods_best_multigroup, mods_best_configural)
 ```
 
-
 ```{r}
 # extract scores from best models
 scores_best <- mods_best |>
@@ -171,12 +170,14 @@ mods_group <- mods_best_objs |>
 mods_group_rxx <- mods_group |>
   select(site, task, itemtype, nfact, invariance, group_models) |>
   unnest(cols = c("group_models", "site")) |>
+  # temporary recoding of DE site name
+  mutate(site = site |> fct_recode("pilot_mpieva_de" = "pilot_leuphana_de")) |>
   mutate(rxx = map_dbl(group_models, marginal_rxx)) |>
   select(site, task, itemtype, nfact, invariance, rxx)
 
 mods_lang_rxx <- mods_best_objs |>
   filter(model_set == "by_language") |>
-  mutate(site = subset |> fct_recode("pilot_leuphana_de" = "de",
+  mutate(site = subset |> fct_recode("pilot_mpieva_de" = "de",
                                      "pilot_uniandes_co" = "es",
                                      "pilot_western_ca" = "en")) |>
   mutate(rxx = map_dbl(mod, marginal_rxx)) |>

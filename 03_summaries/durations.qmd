@@ -51,11 +51,11 @@ time_summary <- task_data |>
   ungroup() |>
   mutate(diff = difftime(end, start, units = "mins")) |>
   left_join(runs |> select(run_id, is_cat = adaptive, completed)) |>
-  filter(trials > 2, completed)
+  filter(trials > 2, completed, diff < 120)
 
-# ggplot(time_summary, aes(x = diff)) +
-#   facet_wrap(vars(site, task_id)) +
-#   geom_histogram()
+ggplot(time_summary, aes(x = diff)) +
+  facet_wrap(vars(item_task)) +
+  geom_histogram()
 
 task_time_summary <- time_summary |>
   group_by(site, item_task, is_cat) |>
@@ -66,24 +66,23 @@ task_time_summary <- time_summary |>
   mutate(across(contains("diff"), \(d) round(d, 2))) |>
   mutate(combined_diff = glue("{median_diff} [{min_diff}, {max_diff}]"))
 
-write_csv(task_time_summary, here("03_summaries","tables","task_time_summary.csv"))
+write_rds(task_time_summary, here("03_summaries","tables","task_time_summary.rds"))
 ```
 
-
 ```{r}
-task_time_wide_nocat <- task_time_summary |>
-  filter(!is_cat) |>
-  select(item_task, site, median_diff) |>
-  pivot_wider(names_from = site, values_from = median_diff)
-
-write_csv(task_time_wide, here("03_summaries","tables","task_time_wide.csv"))
-
-task_time_wide_cat <- task_time_summary |>
-  filter(is_cat) |>
-  select(item_task, site, median_diff) |>
-  pivot_wider(names_from = site, values_from = median_diff)
-
-write_csv(task_time_wide_cat, here("03_summaries","tables","task_time_wide_cat.csv"))
+# task_time_wide_nocat <- task_time_summary |>
+#   filter(!is_cat) |>
+#   select(item_task, site, median_diff) |>
+#   pivot_wider(names_from = site, values_from = median_diff)
+# 
+# write_csv(task_time_wide, here("03_summaries","tables","task_time_wide.csv"))
+# 
+# task_time_wide_cat <- task_time_summary |>
+#   filter(is_cat) |>
+#   select(item_task, site, median_diff) |>
+#   pivot_wider(names_from = site, values_from = median_diff)
+# 
+# write_csv(task_time_wide_cat, here("03_summaries","tables","task_time_wide_cat.csv"))
 ```
 
 # Survey durations

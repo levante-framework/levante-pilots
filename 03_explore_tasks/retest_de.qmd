@@ -25,7 +25,7 @@ Examine test/retest reliability in German data.
 # independent_thetas <- read_rds(here("02_scoring_outputs/scores/independent_scores.rds"))
 
 de_retest_scores <- scores |> 
-  filter(site == "pilot_leuphana_de", !(item_task %in% c("ha", "swr"))) |>
+  filter(site == "pilot_mpieva_de", !(item_task %in% c("ha", "swr"))) |>
   group_by(user_id, item_task) |>
   arrange(user_id ,item_task, age) |>
   filter(n() > 1) |>

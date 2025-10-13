@@ -167,7 +167,7 @@ source(here("03_summaries","scores_helper.R"))
 #| cache: false
 
 site_labels <- c("uniandes-co" = "pilot_uniandes_co",
-                 "leuphana-de" = "pilot_leuphana_de",
+                 "mpieva-de" = "pilot_mpieva_de",
                  "western-ca" = "pilot_western_ca")
 
 sites <- names(site_labels)
@@ -219,7 +219,7 @@ In addition to the constructs described above, we were also interested in the as
 
 ## The current study
 
-Here we report on the development and validation of the LEVANTE core tasks. This is an iterative process in which data from 5--12 year old children has been collected across three sites: Bogota, Colombia; Leipzig, Germany; and Ottawa, Canada.^[In the remainder of the manuscript, we refer to these sites by their site designators, `uniandes-co`, `leuphana-de`, and `western-ca`. These designators mark the research group and country of data collection. We make this choice to avoid the inference that these data are particularly representative of, for example, German or Colombian children more broadly.] In some cases that we note below, we used these data during the data collection process to make minor changes to the tasks. We use data from these three pilot sites both to provide initial evidence on the reliability and validity of the measures and to develop efficient, computer adaptive (CAT) versions of nearly all of the tasks. 
+Here we report on the development and validation of the LEVANTE core tasks. This is an iterative process in which data from 5--12 year old children has been collected across three sites: Bogota, Colombia; Leipzig, Germany; and Ottawa, Canada.^[In the remainder of the manuscript, we refer to these sites by their site designators, `uniandes-co`, `mpieva-de`, and `western-ca`. These designators mark the research group and country of data collection. We make this choice to avoid the inference that these data are particularly representative of, for example, German or Colombian children more broadly.] In some cases that we note below, we used these data during the data collection process to make minor changes to the tasks. We use data from these three pilot sites both to provide initial evidence on the reliability and validity of the measures and to develop efficient, computer adaptive (CAT) versions of nearly all of the tasks. 
 
 A key component of this process is the use of psychometric models based on item-response theory (IRT) [@embretson2013]. IRT models provide a family of models that allow the joint estimation of the difficulty of individual task items (e.g., math questions) and the ability of individual children. A fitted IRT model provides task parameters that can be used to estimate the ability of a new test taker given their responses on some or all of the same items. In addition, IRT parameters are used in the construction of CATs, which choose the most relevant items to give to estimate the ability of a particular individual. Critically for our purposes, the use of IRT models means that we can provide comparable scores on the same scale to a younger child who saw mostly easier task items and an older child who saw harder items; these models thus allow us to address our first key challenge posed above.  
 
@@ -258,7 +258,7 @@ coretask_firstrun_scores <- coretask_scores |>
 ```
 
 ```{r time-summary}
-task_time_summary <- read_csv(here("03_summaries/tables/task_time_summary.csv"))
+task_time_summary <- read_rds(here("03_summaries/tables/task_time_summary.rds"))
 
 task_time_table <- task_time_summary |>
   filter(!is.na(is_cat)) |>
@@ -382,7 +382,7 @@ The Universidad de Los Andes conducted school-based data collection across four 
 
 ## Germany
 
-The Max Planck Institute for Evolutionary Anthropology and Leuphana University collected data using family-based remote data collection. Participants were recruited via an existing database of Leipzig families by first contacting families via telephone with an invitation to participate in the study. Upon agreement, families received an email with information to log into the LEVANTE system and complete the tasks assigned to them at home using their own computer or tablet. This site provided retest data with follow-up assignments sent to families 4--5 months after initial completion of the tasks. The leuphana-de site collected data from `r user_totals$n_users[user_totals$site == "Germany"]` children, ages 5--12 years. 
+The Max Planck Institute for Evolutionary Anthropology and Leuphana University collected data using family-based remote data collection. Participants were recruited via an existing database of Leipzig families by first contacting families via telephone with an invitation to participate in the study. Upon agreement, families received an email with information to log into the LEVANTE system and complete the tasks assigned to them at home using their own computer or tablet. This site provided retest data with follow-up assignments sent to families 4--5 months after initial completion of the tasks. The mpieva-de site collected data from `r user_totals$n_users[user_totals$site == "Germany"]` children, ages 5--12 years. 
 
 ## Canada
 
@@ -394,7 +394,7 @@ Our goal for each task was to extract administration-level scores with the highe
 
 ## Heuristic item pruning and data checking
 
-Prior to fitting psychometric models, we examined sumscore data for each task within each site and identified items that were functioning unusually poorly (e.g., showing sumscores close to or even below chance). In some cases this was due to potential translation issues; in a few others it was due to aspects of item design. We manually excluded these items from further processing (N=XYZ). In one case, this process helped us identify a bug in the scoring of data for three tasks; we excluded these observations, which were made during a two day period of testing for the leuphana-de site. 
+Prior to fitting psychometric models, we examined sumscore data for each task within each site and identified items that were functioning unusually poorly (e.g., showing sumscores close to or even below chance). In some cases this was due to potential translation issues; in a few others it was due to aspects of item design. We manually excluded these items from further processing (N=XYZ). In one case, this process helped us identify a bug in the scoring of data for three tasks; we excluded these observations, which were made during a two day period of testing for the mpieva-de site. 
 
 ## Multigroup IRT model selection
 
@@ -480,7 +480,7 @@ inv_explainer |>
 # if (!exists("site_labels")) {
 #   site_labels <- c("pilot_western_ca" = "Canada",
 #                    "pilot_uniandes_co" = "Colombia",
-#                    "pilot_leuphana_de" = "Germany")
+#                    "pilot_mpieva_de" = "Germany")
 # }
 # 
 # mutate(site_label = recode(site, !!!site_labels),
@@ -743,7 +743,7 @@ prophecy <- function (n = 2, r) {
 
 
 de_retest_scores <- coretask_scores |> 
-  filter(site == "pilot_leuphana_de") |>
+  filter(site == "pilot_mpieva_de") |>
   group_by(user_id, task) |>
   arrange(user_id, task, age) |>
   filter(n() > 1) 
@@ -817,7 +817,7 @@ ggplot(retest_wide, aes(x = run_1, y = run_2, color = age)) +
   theme(legend.position = "bottom")
 ```
 
-We were also interested in capturing the extent to which the LEVANTE tasks yield reliable signal across a delay. The leuphana-de pilot site was able to re-administer tasks to a subset of their original participant group with a retest interval of approximately 4--5 months. We used this re-administration as an opportunity to collect data with computer adaptive versions of many of the tasks (sentence understanding, pattern matching, shape rotation, math and vocabulary); see below for further details of computer adaptive versions. In addition, for several tasks (math, theory of mind, pattern matching), we used this opportunity to gather item data about new groups of retest items that were designed to match the content of the original items but vary in their surface forms. For the other tasks, we retested using the same items. 
+We were also interested in capturing the extent to which the LEVANTE tasks yield reliable signal across a delay. The mpieva-de pilot site was able to re-administer tasks to a subset of their original participant group with a retest interval of approximately 4--5 months. We used this re-administration as an opportunity to collect data with computer adaptive versions of many of the tasks (sentence understanding, pattern matching, shape rotation, math and vocabulary); see below for further details of computer adaptive versions. In addition, for several tasks (math, theory of mind, pattern matching), we used this opportunity to gather item data about new groups of retest items that were designed to match the content of the original items but vary in their surface forms. For the other tasks, we retested using the same items. 
 
 Figure @fig-retest shows the relations between time 1 and time 2 scores. Uptake for retest administrations varied between N=`r min(trt$n)` and N=`r max(trt$n)`; the low number of repeat administrations for Sentence Understanding reflects an error in which this task was not sent to younger children. Table @tbl-retest shows test-retest correlations as well as projected reliabilities for the measures based on the Spearman-Brown "prophecy" formula. These reliabilities were lower than the observed marginal reliabilities but generally acceptable, especially considering the substantial delay between administrations and -- in some cases -- the use of alternate items and CAT administration. Lowered reliability in the case of Sentence Understanding likely also reflects the restricted developmental range of the retest sample.
 
