@@ -272,6 +272,18 @@ task_time_table <- task_time_summary |>
   arrange(task)
 ```
 
+## General task properties
+
+![Screenshots from each of the nine LEVANTE core tasks. Top row: Sentence Understanding, Vocabulary, Hearts and Flowers; middle row: Memory Game, Same and Different Selection, Math; bottom row: Pattern Matching, Mental Rotation; Stories.](display/tasks.png){#fig-tasks}
+
+The LEVANTE core tasks are short behavioral tasks that can be presented in a web browser on a tablet or laptop, with responses possible using a touchscreen, keyboard, or mouse. Because of this variability in format of administration, they focus on response correctness not reaction time and so they are mostly untimed. The tasks are designed for simplicity and clarity so as to be accessible to children across a wide age range, and so with only modest exceptions, nearly all are in the format of a multi-alternative forced choice with a maximum of four choices. This uniformity of format means that in most cases instructions can be short and easy to understand, minimizing delays when the tasks are given in sequence as a battery. @fig-tasks shows screenshots from each of the tasks. Below we briefly present each task.
+
+Tasks were implemented using jsPsych [@de-leeuw2015] in a common framework. Illustrations were produced by hand while auditory stimuli were generated using AI voice synthesis tools (currently, <https://elevenlabs.io>). The tasks generally share a set of usability features including simple instructions, a small number of practice trials, and buttons to replay audio.
+
+All tasks are available for demonstration purposes at <https://researcher.levante-network.org>. Source code for the tasks is available at <https://github.com/levante-framework/core-tasks>. Task code and assets are licensed CC-BY-NC 4.0 for non-commercial reuse (including educational use by not-for-profit and governmental entities) with appropriate attribution. Please see repository license for more details. We anticipate that once the LEVANTE researcher management dashboard is completed, interested researchers will be able to create accounts and use the tasks in their own research. 
+
+General task lengths are described below and average task durations are given in @tbl-durations. Because of our interest in testing children across a wide range of ages, we intentionally included trials that we anticipated would be both very easy and very hard for children with the aim of deploying these adaptively after we had gathered sufficient data. We wanted to avoid  frustration for children, however, so during pilot testing, we experimented with a number of different stopping rules. In early iterations of pilot testing in Bogota, Colombia, we ended tasks after three incorrect trials; we later modified this rule to end tasks after six incorrect trials. 
+
 ```{r}
 #| label: tbl-durations
 #| tbl-cap: "Median task durations (minutes)."
@@ -283,26 +295,6 @@ task_time_table |>
   separate_header() |>
   flextable::autofit(add_w = 0, add_h = 0)
 ```
-
-## General task properties
-
-
-```{r}
-#| label: fig-tasks
-#| fig-cap: "Screenshots from each of the nine LEVANTE core tasks. Top row: Sentence Understanding, Vocabulary, Hearts and Flowers; middle row: Memory Game, Same and Different Selection, Math; bottom row: Pattern Matching, Mental Rotation; Stories." 
-
-task_fig <- png::readPNG(here("04_paper","display","tasks.png"))
-grid::grid.raster(task_fig)
-
-```
-
-The LEVANTE core tasks are short behavioral tasks that can be presented in a web browser on a tablet or laptop, with responses possible using a touchscreen, keyboard, or mouse. Because of this variability in format of administration, they focus on response correctness not reaction time and so they are mostly untimed. The tasks are designed for simplicity and clarity so as to be accessible to children across a wide age range, and so with only modest exceptions, nearly all are in the format of a multi-alternative forced choice with a maximum of four choices. This uniformity of format means that in most cases instructions can be short and easy to understand, minimizing delays when the tasks are given in sequence as a battery. @fig-tasks shows screenshots from each of the tasks. Below we briefly present each task.
-
-Tasks were implemented using jsPsych [@de-leeuw2015] in a common framework. Illustrations were produced by hand while auditory stimuli were generated using AI voice synthesis tools (currently, <https://elevenlabs.io>). The tasks generally share a set of usability features including simple instructions, a small number of practice trials, and buttons to replay audio.
-
-All tasks are available for demonstration purposes at <https://researcher.levante-network.org>. Source code for the tasks is available at <https://github.com/levante-framework/core-tasks>. Task code and assets are licensed CC-BY-NC 4.0 for non-commercial reuse (including educational use by not-for-profit and governmental entities) with appropriate attribution. Please see repository license for more details. We anticipate that once the LEVANTE researcher management dashboard is completed, interested researchers will be able to create accounts and use the tasks in their own research. 
-
-General task lengths are described below and average task durations are given in @tbl-durations. Because of our interest in testing children across a wide range of ages, we intentionally included trials that we anticipated would be both very easy and very hard for children with the aim of deploying these adaptively after we had gathered sufficient data. We wanted to avoid  frustration for children, however, so during pilot testing, we experimented with a number of different stopping rules. In early iterations of pilot testing in Bogota, Colombia, we ended tasks after three incorrect trials; we later modified this rule to end tasks after six incorrect trials. 
 
 ## Language 
 
@@ -406,11 +398,9 @@ Prior to fitting psychometric models, we examined sumscore data for each task wi
 
 ## Multigroup IRT model selection
 
-
 ```{r}
 #| label: tbl-invariance-explainer
 #| tbl-cap: "Measurement invariance across factor analysis and item response theory."
-
 
 # read and lightly normalize columns
 inv_explainer <- read_csv(here("04_paper", "display", "invariance.csv"), show_col_types = FALSE) |>
@@ -454,38 +444,34 @@ inv_explainer |>
   padding(padding.top = 2, padding.bottom = 2, part = "all") |>
   fontsize(size = 8.5, part = "all") 
 ```
+
 ```{r}
-#| label: tbl-model-invariance
-#| tbl-cap: "Summary of multigroup invariance outcomes across LEVANTE tasks."
-
-task_rxx <- read_rds(here("02_scoring_outputs/task_rxx.rds"))
-
-invariances <- read_csv(here("04_paper/display/invariance.csv")) |>
-  mutate(across(everything(), \(v) replace_na(v, "")))
-
-invariance_summary <- task_rxx |>
-  filter(task != "ha") |>
-  distinct(task, invariance, itemtype) |>
-  count(invariance, itemtype, name = "n_tasks") |>
-  mutate(invariance = str_to_sentence(invariance),
-         itemtype = itemtype |> fct_recode("Rasch" = "rasch", "2PL" = "2pl")) |>
-  left_join(invariances |> select(invariance = Invariance, itemtype = Model, interpretation = Interpretation))
-
-invariance_summary |>
-  flextable() |>
-  set_header_labels(invariance = "Invariance",
-                    itemtype = "Model",
-                    n_tasks = "N tasks",
-                    interpretation = "Interpretation") |>
-  flextable::autofit(add_w = 0, add_h = 0)
+# #| label: tbl-model-invariance
+# #| tbl-cap: "Summary of multigroup invariance outcomes across LEVANTE tasks."
+# 
+# task_rxx <- read_rds(here("02_scoring_outputs/task_rxx.rds"))
+# 
+# invariances <- read_csv(here("04_paper/display/invariance.csv")) |>
+#   mutate(across(everything(), \(v) replace_na(v, "")))
+# 
+# invariance_summary <- task_rxx |>
+#   filter(task != "ha") |>
+#   distinct(task, invariance, itemtype) |>
+#   count(invariance, itemtype, name = "n_tasks") |>
+#   mutate(invariance = str_to_sentence(invariance),
+#          itemtype = itemtype |> fct_recode("Rasch" = "rasch", "2PL" = "2pl")) |>
+#   left_join(invariances |> select(invariance = Invariance, itemtype = Model, interpretation = Interpretation))
+# 
+# invariance_summary |>
+#   flextable() |>
+#   set_header_labels(invariance = "Invariance",
+#                     itemtype = "Model",
+#                     n_tasks = "N tasks",
+#                     interpretation = "Interpretation") |>
+#   flextable::autofit(add_w = 0, add_h = 0)
 ```
 
-
-
-
-```{r model-invariance-chunk, echo=FALSE, results='asis', message=FALSE, warning=FALSE}
-
-# 
+```{r model-invariance-chunk}
 # # Load reliability summary
 # task_rxx_path <- here::here("02_scoring_outputs","task_rxx.rds")
 # task_rxx <- readRDS(task_rxx_path)
@@ -583,12 +569,11 @@ For scoring, all multigroup models were extended to the full item pool. Overlapp
 #          invariance = map_chr(invariance_terms, translate_invariance)) |>
 #   select(-filename, -path, -invariance_terms) |>
 #   mutate(mod = map(mod_rec, model_from_record))
-
 ```
 
 ```{r}
 # # --- Proportion-only summary table ---
-# task_summary_selected_report <- task_summary_selected %>%
+# task_summary_selected_report <- task_summary_selected |>
 #   mutate(
 #     # proportions
 #     prop_flag_p        = n_flag_p       / n_items,
@@ -603,7 +588,7 @@ For scoring, all multigroup models were extended to the full item pool. Overlapp
 #     Model      = dplyr::recode(itemtype, "rasch" = "Rasch", "2pl" = "2PL", .default = toupper(itemtype)),
 #     Invariance = stringr::str_to_title(invariance),
 #     Subset     = dplyr::recode(subset, "all_items" = "All items", "overlap_items" = "Overlap items", .default = subset)
-#   ) %>%
+#   ) |>
 #   select(
 #     Task, Subset, Items = n_items,
 #     `Prop flag p`          = prop_flag_p,
@@ -613,7 +598,7 @@ For scoring, all multigroup models were extended to the full item pool. Overlapp
 #     #`Prop flag S–X² p<.01` = prop_flag_SX2_01,
 #     `Prop flag S–X² p<.001`= prop_flag_SX2_001,
 #     `Prop poor RMSEA(S–X²)`= prop_flag_RMSEA
-#   ) %>%
+#   ) |>
 #   # APA-style rounding
 #   mutate(across(where(is.numeric), ~ round(.x, 2)))
 # 
@@ -636,7 +621,8 @@ For scoring, all multigroup models were extended to the full item pool. Overlapp
 ```{r}
 #| label: fig-age-trends
 #| fig-cap: "Age related trends by task."
-# fig.width = 8, fig.height = 8, echo=FALSE, message=FALSE, warning=FALSE
+#| fig-width: 8
+#| fig-height: 9
 
 ggplot(coretask_scores, aes(age, metric_value)) +
   ggh4x::facet_nested_wrap(vars(task_category, task),
@@ -644,7 +630,7 @@ ggplot(coretask_scores, aes(age, metric_value)) +
                            axes = "x", scales = "free_y") +
   geom_smooth(aes(colour = site_label, group = site_label),
               method = "gam", formula = y ~ s(x, bs = "re"), se = FALSE) +
-  geom_point(aes(colour = site_label), alpha = 0.5, show.legend = FALSE) +  # hide points from legend
+  geom_point(aes(colour = site_label), alpha = 0.3, size = 1) +
   scale_x_continuous(breaks = seq(6, 14, 2)) +
   .scale_colour_site() +
   guides(colour = guide_legend(override.aes = list(shape = NA, linetype = 1, linewidth = 2))) +
@@ -656,15 +642,12 @@ ggplot(coretask_scores, aes(age, metric_value)) +
 #| label: tbl-slopes
 #| tbl-cap: "Per-task age correlations and per-site linear slopes (IRT units/year)."
 
-coretask_scores <- coretask_scores %>%
-  mutate(
-    age_c = age - mean(age, na.rm = TRUE),
-    site  = factor(site)
-  )
+coretask_scores <- coretask_scores |>
+  mutate(age_c = age - mean(age, na.rm = TRUE))
 
 # per-task × site slopes
-slopes <- coretask_scores %>%
-  group_by(task) %>%
+slopes <- coretask_scores |>
+  group_by(task) |>
   group_modify(~{
     fit <- lm(metric_value ~ age_c * site, data = .x)
     emtrends(fit, ~ site, var = "age_c") |>
@@ -678,12 +661,12 @@ slopes <- coretask_scores %>%
         ci_high = upper.CL,
         p = p.value
       )
-  }) %>%
+  }) |>
   ungroup()
 
 # per-task × site correlations
-r_by_task_site <- coretask_scores %>%
-  group_by(task, site) %>%
+r_by_task_site <- coretask_scores |>
+  group_by(task, site) |>
   summarise(
     n     = sum(complete.cases(age, metric_value)),
     r_age = if (n >= 3) cor(age, metric_value, use = "pairwise.complete.obs") else NA_real_,
@@ -691,19 +674,21 @@ r_by_task_site <- coretask_scores %>%
   )
 
 # final table
-final_tab <- slopes %>%
-  left_join(r_by_task_site, by = c("task","site")) %>%
-  select(task, site, r_age, slope_per_year, ci_low, ci_high, p, n) %>%
-  arrange(task, site) %>%
+final_tab <- slopes |>
+  left_join(r_by_task_site, by = c("task", "site")) |>
+  select(task, site, r_age, slope_per_year, ci_low, ci_high, p, n) |>
+  mutate(site = site |> fct_recode(!!!site_labels)) |>
+  arrange(task, site) |>
   mutate(p_fdr = p.adjust(p, method = "fdr"))
 
-knitr::kable(
-  final_tab,
-  digits = 3,
-  col.names = c("Task","Site","r (age)","Slope / year","CI low","CI high","p-value","N","p (FDR)")
-)
-  
+final_tab |>
+  flextable() |>
+  set_header_labels(task = "Task", site = "Site", r_age = "r (age)",
+                    slope_per_year = "Slope / year", ci_low = "CI low",
+                    ci_high = "CI high", p = "p-value", n = "N", p_fdr = "p (FDR)") |>
+  autofit()
 ```
+
 ## Developmental change
 
 Across all nine tasks we observed positive age–ability trends. The smoothed lines in Figure @fig-age-trends are roughly parallel within each panel, indicating that sites differ mostly in overall level rather than in developmental rate. Growth appeared steepest for Math and Hearts & Flowers, moderate for Vocabulary, Memory, and Theory of Mind, and shallower for Shape Rotation and Sentence Understanding, which showed positive but weaker age effects.
