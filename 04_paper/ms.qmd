@@ -284,7 +284,7 @@ task_time_table |>
 
 ## General task properties
 
-The LEVANTE core tasks are short behavioral tasks that can be presented in a web browser on a tablet or laptop, with responses possible using a touchscreen, keyboard, or mouse. Because of this variability in format of administration, they focus on response correctness not reaction time and so they are mostly untimed. The tasks are designed for simplicity and clarity so as to be accessible to children across a wide age range, and so with only modest exceptions, nearly all are in the format of a multi-alternative forced choice with a maximum of four choices. This uniformity of format means that in most cases instructions can be short and easy to understand, minimizing delays when the tasks are given in sequence as a battery. @fig-tasks shows screenshots from each of the tasks. Below we briefly present each task.
+The LEVANTE core tasks are short behavioral tasks that can be presented in a web browser on a tablet or laptop, with responses possible using a touchscreen, keyboard, or mouse. Because of this variability in format of administration, they focus on response correctness not reaction time and so they are mostly untimed. The tasks are designed for simplicity and clarity so as to be accessible to children across a wide age range, and so with only modest exceptions, nearly all are in the format of a multi-alternative forced choice with a maximum of four choices. This uniformity of format means that in most cases instructions can be short and easy to understand, minimizing delays when the tasks are given in sequence as a battery. fig-tasks shows screenshots from each of the tasks. Below we briefly present each task.
 
 Tasks were implemented using jsPsych [@de-leeuw2015] in a common framework. Illustrations were produced by hand while auditory stimuli were generated using AI voice synthesis tools (currently, <https://elevenlabs.io>). The tasks generally share a set of usability features including simple instructions, a small number of practice trials, and buttons to replay audio.
 
@@ -639,59 +639,79 @@ ggplot(coretask_scores, aes(age, metric_value)) +
   labs(x = "Age (years)", y = "Ability (IRT score)", colour = "Site") +
   theme(legend.position = "bottom")
 ```
+```{r}
+
+#| label: tbl-sanity
+#| tbl-cap: "Sanity table."
+knitr::kable(data.frame(X = 1:2, Y = c("a","b")), format = "pipe")
+```
 
 ```{r}
 #| label: tbl-slopes
-#| tbl-cap: "Per-task age correlations and per-site linear slopes (IRT units/year)."
+#| tbl-cap: "Site deviation from grand mean age slope (IRT units/year)."
+#| warning: false
+#| message: false
 
-coretask_scores <- coretask_scores %>%
+library(emmeans)
+coretask_scores$site <- as.factor(coretask_scores$site)
+coretask_scores$item_task <- as.factor(coretask_scores$item_task)
+task_list <- unique(coretask_scores$item_task)
+
+analyze_task_slopes <- function(task_name) {
+  task_data <- dplyr::filter(coretask_scores, item_task == task_name)
+  contrasts(task_data$site) <- contr.sum
+  fit <- lm(metric_value ~ age_c * site, data = task_data)
+
+  mean_slope_summary <- summary(fit)$coefficients["age_c", ]
+
+  site_slopes <- emtrends(fit, ~ site, var = "age_c") |>
+    summary(infer = c(TRUE, TRUE)) |>      # <- ensures t.ratio, df, p.value, CIs
+    as_tibble()
+
+  tibble(
+    task = task_name,
+    Mean_Slope    = mean_slope_summary["Estimate"],
+    Mean_Slope_SE = mean_slope_summary["Std. Error"],
+    Mean_Slope_p  = mean_slope_summary["Pr(>|t|)"],
+    site_slopes   = list(site_slopes)
+  )
+}
+
+all_tasks_results <- purrr::map_dfr(unique(coretask_scores$item_task), analyze_task_slopes)
+all_tasks_results
+
+final_slopes_data <- all_tasks_results |>
+  select(task, site_slopes) |>
+  unnest(site_slopes) |>
+  rename(Slope = age_c.trend) |>
+  (\(d) {
+    if ("p.value" %in% names(d)) {
+      rename(d, P_Value = p.value)
+    } else {
+      mutate(d, P_Value = 2 * pt(-abs(t.ratio), df))
+    }
+  })() |>
+  select(task, site, Slope, SE, P_Value)
+
+deviation_data <- final_slopes_data |>
+  left_join(select(all_tasks_results, task, Mean_Slope), by = "task") |>
+  mutate(Slope_Deviation = Slope - Mean_Slope) |>
+  arrange(task, site) |>
+  select(task, site, Mean_Slope, Slope_Deviation, SE, P_Value) |>
   mutate(
-    age_c = age - mean(age, na.rm = TRUE),
-    site  = factor(site)
+    across(c(Mean_Slope, Slope_Deviation, SE), ~ round(.x, 3)),
+    P_Value = format.pval(P_Value, digits = 3, eps = 0.001)
   )
-
-# per-task × site slopes
-slopes <- coretask_scores %>%
-  group_by(task) %>%
-  group_modify(~{
-    fit <- lm(metric_value ~ age_c * site, data = .x)
-    emtrends(fit, ~ site, var = "age_c") |>
-      summary(infer = TRUE) |>
-      as_tibble() |>
-      transmute(
-        task = unique(.x$task),
-        site,
-        slope_per_year = age_c.trend,
-        ci_low  = lower.CL,
-        ci_high = upper.CL,
-        p = p.value
-      )
-  }) %>%
-  ungroup()
-
-# per-task × site correlations
-r_by_task_site <- coretask_scores %>%
-  group_by(task, site) %>%
-  summarise(
-    n     = sum(complete.cases(age, metric_value)),
-    r_age = if (n >= 3) cor(age, metric_value, use = "pairwise.complete.obs") else NA_real_,
-    .groups = "drop"
-  )
-
-# final table
-final_tab <- slopes %>%
-  left_join(r_by_task_site, by = c("task","site")) %>%
-  select(task, site, r_age, slope_per_year, ci_low, ci_high, p, n) %>%
-  arrange(task, site) %>%
-  mutate(p_fdr = p.adjust(p, method = "fdr"))
-
-knitr::kable(
-  final_tab,
-  digits = 3,
-  col.names = c("Task","Site","r (age)","Slope / year","CI low","CI high","p-value","N","p (FDR)")
-)
   
+knitr::kable(
+  deviation_data,
+  format   = "pipe",                        
+  col.names = c("Task","Site","Grand Mean Slope (β)","Deviation from Mean","SE","p-value"),
+  align     = c("l","l","r","r","r","r")
+)
+
 ```
+
 ## Developmental change
 Across all nine tasks we observed positive age–ability trends. The smoothed lines in Figure @fig-age-trends are roughly parallel within each panel, indicating that sites differ mostly in overall level rather than in developmental rate. Growth appeared steepest for Math and Hearts & Flowers, moderate for Vocabulary, Memory, and Theory of Mind, and shallower for Shape Rotation and Sentence Understanding, which showed positive but weaker age effects.
 
