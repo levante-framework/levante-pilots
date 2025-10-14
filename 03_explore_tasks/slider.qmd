@@ -1,0 +1,69 @@
+```{r}
+slider <- trial_data_coded |>
+  filter(item_task == "math", item_group == "slider") |>
+  select(site, run_id, item_uid, item, correct, response) |>
+  separate(item, into = c("target", "max_value")) |>
+  mutate(target = target |> str_replace("^0", "0.")) |>
+  mutate(across(c(target, max_value, response), as.numeric)) |>
+  # propagate this filter to recode_slider()
+  filter(response <= max_value) |>
+  mutate(width = max_value) |>
+  arrange(max_value, target) |>
+  mutate(across(c(max_value, target), \(x) x |> as_factor() |> fct_inorder())) |>
+  group_by(site, target) |>
+  mutate(n = n(), site_label = glue("{target} (n = {n()})")) |>
+  ungroup() |>
+  mutate(site = site |>
+           factor(levels = c("pilot_uniandes_co",
+                             "pilot_mpieva_de",
+                             "pilot_western_ca")))
+
+slider_items <- slider |>
+  distinct(site, site_label, target, max_value) |>
+  mutate(response = target |> as.character() |> as.numeric(),
+         max_val = max_value |> as.character() |> as.numeric(),
+         min_val = 0,
+         upper = response + max_val * slider_threshold,
+         lower = response - max_val * slider_threshold) |>
+  mutate(upper_bounded = map2_dbl(upper, max_val, min),
+         lower_bounded = map2_dbl(lower, min_val, max))
+
+ggplot(slider, aes(x = response, y = target)) +
+  # facet_wrap(vars(site, max_value), scales = "free") +
+  ggh4x::facet_grid2(vars(site), vars(max_value),
+                     labeller = labeller(max_value = \(s) glue("Slider: [0, {s}]")),
+                     scales = "free", independent = "all") +
+  geom_errorbar(aes(xmin = lower_bounded, xmax = upper_bounded),
+                orientation = "y", colour = "darkgrey", data = slider_items) +
+  geom_crossbar(aes(xmin = response, xmax = response),
+                orientation = "y", colour = "darkgrey", data = slider_items) +
+  # geom_crossbar(aes(xmin = lower_bounded, xmax = upper_bounded),
+  #               orientation = "y", colour = "darkgrey", data = slider_items) +
+  # ggforce::geom_sina() +
+  ggforce::geom_sina(aes(colour = correct), position = "identity", size = 0.6) +
+  scale_colour_ptol() +
+  labs(x = "Response", y = "Target") +
+  theme(panel.grid.major.y = element_line(colour = "lightgrey"))
+ggsave("slider.png", width = 12, height = 8)
+
+slider |> filter(site == "pilot_uniandes_co") |>
+ggplot(aes(x = response, y = target)) +
+  # facet_wrap(vars(site, max_value), scales = "free") +
+  facet_wrap(vars(max_value),
+             labeller = labeller(max_value = \(s) glue("Slider: [0, {s}]")),
+             scales = "free") +
+  geom_errorbar(aes(xmin = lower_bounded, xmax = upper_bounded),
+                orientation = "y", colour = "darkgrey",
+                data = slider_items |> filter(site == "pilot_uniandes_co")) +
+  geom_crossbar(aes(xmin = response, xmax = response),
+                orientation = "y", colour = "darkgrey",
+                data = slider_items |> filter(site == "pilot_uniandes_co")) +
+  # geom_crossbar(aes(xmin = lower_bounded, xmax = upper_bounded),
+  #               orientation = "y", colour = "darkgrey", data = slider_items) +
+  # ggforce::geom_sina() +
+  ggforce::geom_sina(aes(colour = correct), position = "identity", size = 0.5) +
+  scale_colour_ptol() +
+  labs(x = "Response", y = "Target") +
+  theme(panel.grid.major.y = element_line(colour = "lightgrey"))
+ggsave("slider_co.png", width = 10, height = 8)
+```

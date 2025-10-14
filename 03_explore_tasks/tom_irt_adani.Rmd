@@ -124,7 +124,7 @@ And then let's run simple item and subject statistics:
 
 ```{r}
 
-# first, filter out erroneous leuphana_DE runs
+# first, filter out erroneous mpieva_de runs
 unique(tom_data_long$response)
 
 tom_data_long =
