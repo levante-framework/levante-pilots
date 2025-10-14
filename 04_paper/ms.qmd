@@ -187,7 +187,7 @@ Developmental variability and change during childhood is a focus of intense theo
 
 Because children's overall capacities are so dependent on their age, it can be very challenging to use the same measure across children of different ages. Young children require simple tasks that are not verbally demanding, while older children can answer more complicated questions. In addition, younger children typically require shorter tasks, often reducing measurement reliability. Yet giving different tasks to different ages can mean that scores are not comparable to one another, making tracking developmental growth challenging in many domains.  
 
-A second set of challenges concern cross-context comparisons.  Ideal developmental measures should be validated in a global context and applicable to children across many cultures and languages. Child development is an issue of global importance [@grantham2007developmental;@masten2014global;@aboud2015global], yet the vast majority of developmental measures are developed in very specific (often English-speaking) contexts [@kidd2022diverse;@singh2023diversity;@richter2019early]. Providing cross-culturally validated measures allows for the collection of comparable data across contexts, opening up opportunities for theoretical synthesis.
+A second set of challenges concern cross-context comparisons.  Ideal developmental measures should be validated in a global context and applicable to children across many cultures and languages. Child development is an issue of global importance [@grantham2007developmental;@masten2014global;@aboud2015global], yet the vast majority of developmental measures are developed in very specific (often English-speaking) contexts [@kidd2022diverse;@singh2023diversity;@richter2019early]. 
 
 A final set of challenges has to do with accessibility. Many gold-standard measures are commercially distributed. They are costly for researchers to use, and in addition, publishers may place barriers on new translation and adaptation. Publishers also typically hold both item information and normative data closely, blocking many types of secondary investigation. 
 
@@ -282,7 +282,7 @@ Tasks were implemented using jsPsych [@de-leeuw2015] in a common framework. Illu
 
 All tasks are available for demonstration purposes at <https://researcher.levante-network.org>. Source code for the tasks is available at <https://github.com/levante-framework/core-tasks>. Task code and assets are licensed CC-BY-NC 4.0 for non-commercial reuse (including educational use by not-for-profit and governmental entities) with appropriate attribution. Please see repository license for more details. We anticipate that once the LEVANTE researcher management dashboard is completed, interested researchers will be able to create accounts and use the tasks in their own research. 
 
-General task lengths are described below and average task durations are given in @tbl-durations. Because of our interest in testing children across a wide range of ages, we intentionally included trials that we anticipated would be both very easy and very hard for children with the aim of deploying these adaptively after we had gathered sufficient data. We wanted to avoid  frustration for children, however, so during pilot testing, we experimented with a number of different stopping rules. In early iterations of pilot testing in Bogota, Colombia, we ended tasks after three incorrect trials; we later modified this rule to end tasks after six incorrect trials. 
+General task lengths are described below and average task duration is given in @tbl-durations. Because of our interest in testing children across a wide range of ages, we intentionally included trials that we anticipated would be both very easy and very hard for children with the aim of deploying these adaptively after we had gathered sufficient data. We wanted to avoid  frustration for children, however, so during pilot testing, we experimented with a number of different stopping rules. In early iterations of pilot testing in Bogota, Colombia, we ended tasks after three incorrect trials; we later modified this rule to end tasks after six incorrect trials. 
 
 ```{r}
 #| label: tbl-durations
@@ -295,8 +295,6 @@ task_time_table |>
   separate_header() |>
   flextable::autofit(add_w = 0, add_h = 0)
 ```
-
-<<<<<<< HEAD
 ## General task properties
 
 The LEVANTE core tasks are short behavioral tasks that can be presented in a web browser on a tablet or laptop, with responses possible using a touchscreen, keyboard, or mouse. Because of this variability in format of administration, they focus on response correctness not reaction time and so they are mostly untimed. The tasks are designed for simplicity and clarity so as to be accessible to children across a wide age range, and so with only modest exceptions, nearly all are in the format of a multi-alternative forced choice with a maximum of four choices. This uniformity of format means that in most cases instructions can be short and easy to understand, minimizing delays when the tasks are given in sequence as a battery. fig-tasks shows screenshots from each of the tasks. Below we briefly present each task.
@@ -305,10 +303,8 @@ Tasks were implemented using jsPsych [@de-leeuw2015] in a common framework. Illu
 
 All tasks are available for demonstration purposes at <https://researcher.levante-network.org>. Source code for the tasks is available at <https://github.com/levante-framework/core-tasks>. Task code and assets are licensed CC-BY-NC 4.0 for non-commercial reuse (including educational use by not-for-profit and governmental entities) with appropriate attribution. Please see repository license for more details. We anticipate that once the LEVANTE researcher management dashboard is completed, interested researchers will be able to create accounts and use the tasks in their own research. 
 
-General task lengths are described below and average task durations are given in @tbl-durations. Because of our interest in testing children across a wide range of ages, we intentionally included trials that we anticipated would be both very easy and very hard for children with the aim of deploying these adaptively after we had gathered sufficient data. We wanted to avoid  frustration for children, however, so during pilot testing, we experimented with a number of different stopping rules. In early iterations of pilot testing in Bogota, Colombia, we ended tasks after three incorrect trials; we later modified this rule to end tasks after six incorrect trials. 
+General task lengths are described below and average task duration is given in @tbl-durations. Because of our interest in testing children across a wide range of ages, we intentionally included trials that we anticipated would be both very easy and very hard for children with the aim of deploying these adaptively after we had gathered sufficient data. We wanted to avoid  frustration for children, however, so during pilot testing, we experimented with a number of different stopping rules. In early iterations of pilot testing in Bogota, Colombia, we ended tasks after three incorrect trials; we later modified this rule to end tasks after six incorrect trials. 
 
-=======
->>>>>>> 57fe06130ab6ac3e8f33eb8796c1f2902b2463ea
 ## Language 
 
 ### Sentence Understanding
@@ -321,7 +317,7 @@ The Vocabulary task was developed as a non-commercial, open alternative to tasks
 
 ## Math
 
-We developed the Math task based on the EGMA (Early Grade Mathematics Assessment) [@platas2014]. This short, paper-and-pencil assessment is widely administered in international contexts for children ages 5--8 and includes number identification, number comparison, missing number, addition, and subtraction sub-tests. In our adaptation, we increased the breadth of the initial item bank, added multiplication, division, and fractions items to extend the age range up. We also added number line identification problems in which children had to place a marker on a number line across a range of different scales (including simpler 0--10 trials and more challenging larger scales as well as a fraction scale). Number line problems of this are strongly related to math ability [@schneider2018]. The primary version of this task included 275 items (though no child saw all of these) and the secondary version for retest purposes included an additional 237. 
+We developed the Math task based on the EGMA (Early Grade Mathematics Assessment) [@platas2014]. This short, paper-and-pencil assessment is widely administered in international contexts for children ages 5--8 and includes number identification, number comparison, missing number, addition, and subtraction sub-tests. In our adaptation, we increased the breadth of the initial item bank, added multiplication, division, and fractions items to extend the age range up. We also added number line identification problems in which children had to place a marker on a number line across a range of different scales (including simpler 0--10 trials and more challenging larger scales as well as a fraction scale). Number line problems of this are strongly related to math ability [@schneider2018]. The primary version of this task included 275 items (though no child saw all of these) and the secondary version for retest purposes included an additional 237 (512 items in total). 
 
 ## Reasoning
 
@@ -400,7 +396,6 @@ The Max Planck Institute for Evolutionary Anthropology and Leuphana University c
 ## Canada
 
 Partners at Western University, led by Daniel Ansari, recruited participants from the local community and tested children individually in a clinic setting. The western-ca site collected data from `r user_totals$n_users[user_totals$site == "Canada"]` children, ages 5-12 years. 
-
 # Scoring
 
 Our goal for each task was to extract administration-level scores with the highest reliability and validity. Accordingly, we began by heuristically removing items that functioned poorly and then followed up by fitting a range of IRT models to compute ability scores using responses from the remaining items. 
@@ -557,12 +552,11 @@ Scalar invariance provides the strongest basis for direct cross-site comparabili
 
 These models were estimated on the overlapping items common to all sites. The best-fitting model for each task was selected by the Bayesian Information Criterion (BIC), considering both model family (Rasch vs. 2PL) and invariance level (configural, metric, scalar). 
 
-As summarized in @tbl-model-invariance, Rasch models provided the best fit for the majority of tasks, whereas 2PL models were favored for Same & Different and Shape Rotation. This pattern suggests that a simple Rasch parameterization was sufficient to capture response variation in most domains, whereas tasks involving more complex perceptual or reasoning demands benefitted from the additional flexibility of the 2PL specification. The use of a single overlap-based winner per task ensured that selection was driven by fit to the cross-site data rather than majority preference within individual sites.
+As summarized in tbl-model-invariance, Rasch models provided the best fit for the majority of tasks, whereas 2PL models were favored for Same & Different and Shape Rotation. This pattern suggests that a simple Rasch parameterization was sufficient to capture response variation in most domains, whereas tasks involving more complex perceptual or reasoning demands benefited from the additional flexibility of the 2PL specification. The use of a single overlap-based winner per task ensured that selection was driven by fit to the cross-site data rather than majority preference within individual sites.
 
 Scalar invariance held for most tasks, suggesting that both item difficulties and slopes generalized across sites. Two tasks supported only metric invariance, implying that discriminations were stable but intercepts varied across groups. Three tasks (Hearts & Flowers, Theory of Mind, Vocabulary) achieved only configural invariance, indicating consistent dimensional structure but insufficient parameter equivalence for strict comparability.
 
 For scoring, all multigroup models were extended to the full item pool. Overlapping items retained their parameter values from the overlap stage, while non-overlapping items were freely estimated. This ensured that scores were placed on a common cross-site scale for all tasks. The level of invariance (scalar, metric, configural) documents the strength of comparability, but scoring itself was always based on multigroup calibrations rather than site-level majority voting.
-
 
 ```{r }
 # regdir <- here::here("02_score_data/02_fit_irt/model_registry")
@@ -650,125 +644,107 @@ ggplot(coretask_scores, aes(age, metric_value)) +
   labs(x = "Age (years)", y = "Ability (IRT score)", colour = "Site") +
   theme(legend.position = "bottom")
 ```
-```{r}
-
-#| label: tbl-sanity
-#| tbl-cap: "Sanity table."
-knitr::kable(data.frame(X = 1:2, Y = c("a","b")), format = "pipe")
-```
 
 ```{r}
 #| label: tbl-slopes
-#| tbl-cap: "Site deviation from grand mean age slope (IRT units/year)."
-#| warning: false
-#| message: false
-
-<<<<<<< HEAD
-library(emmeans)
-coretask_scores$site <- as.factor(coretask_scores$site)
-coretask_scores$item_task <- as.factor(coretask_scores$item_task)
-task_list <- unique(coretask_scores$item_task)
+#| fig-cap: "Age-Related Change in Performance: Task Grand Means, Site Deviations, and Age–Ability Correlations"
 
 analyze_task_slopes <- function(task_name) {
-  task_data <- dplyr::filter(coretask_scores, item_task == task_name)
-  contrasts(task_data$site) <- contr.sum
-  fit <- lm(metric_value ~ age_c * site, data = task_data)
+  d <- coretask_scores %>% filter(item_task == task_name)
+  contrasts(d$site) <- contr.sum(nlevels(d$site))
 
-  mean_slope_summary <- summary(fit)$coefficients["age_c", ]
+  fit <- lm(metric_value ~ age_c * site, data = d)
 
-  site_slopes <- emtrends(fit, ~ site, var = "age_c") |>
-    summary(infer = c(TRUE, TRUE)) |>      # <- ensures t.ratio, df, p.value, CIs
-    as_tibble()
+  cs <- coef(summary(fit))
+  mean_slope <- unname(cs["age_c", "Estimate"])
 
-  tibble(
-    task = task_name,
-    Mean_Slope    = mean_slope_summary["Estimate"],
-    Mean_Slope_SE = mean_slope_summary["Std. Error"],
-    Mean_Slope_p  = mean_slope_summary["Pr(>|t|)"],
-    site_slopes   = list(site_slopes)
-  )
+  tr_site <- emtrends(fit, ~ site, var = "age_c")
+
+  dev_tab <- contrast(tr_site, "eff") %>%
+    summary(infer = c(TRUE, TRUE)) %>%
+    as_tibble() %>%
+    transmute(
+      site            = sub("\\s*effect$", "", contrast),
+      Slope_Deviation = estimate,
+      SE              = SE,
+      t               = t.ratio,
+      df              = df,
+      p_value         = p.value
+    )
+
+  # per-site zero-order correlation r(age, ability)
+  corr_tab <- d %>%
+    filter(!is.na(age_c), !is.na(metric_value)) %>%
+    mutate(site = as.character(site)) %>%
+    group_by(site) %>%
+    summarise(
+      N = n(),
+      r = if (n() >= 3 && sd(age_c) > 0 && sd(metric_value) > 0)
+            cor(age_c, metric_value) else NA_real_,
+      .groups = "drop"
+    ) %>%
+    mutate(
+      r_t  = ifelse(!is.na(r) & N >= 3 & abs(r) < 1, r * sqrt((N - 2)/(1 - r^2)), NA_real_),
+      r_df = ifelse(!is.na(r_t), N - 2, NA_real_),
+      r_p  = ifelse(!is.na(r_t), 2 * pt(-abs(r_t), df = r_df), NA_real_)
+    )
+
+  # combine: slopes + correlations
+  dev_tab %>%
+    mutate(task = task_name, Mean_Slope = mean_slope, .before = 1) %>%
+    left_join(corr_tab, by = "site")
 }
 
-all_tasks_results <- purrr::map_dfr(unique(coretask_scores$item_task), analyze_task_slopes)
-all_tasks_results
+# build table
+deviation_raw <- map_dfr(unique(coretask_scores$item_task), analyze_task_slopes) %>%
+  mutate(Task = dplyr::recode(as.character(task),
+    math   = "Math",
+    tom    = "Theory of Mind",
+    matrix = "Matrix Reasoning",
+    mrot   = "Mental Rotation",
+    hf     = "Hearts & Flowers",
+    mg     = "Memory",
+    sds    = "Same & Different",
+    trog   = "Sentence Understanding",
+    vocab  = "Vocabulary"
+  ))
 
-final_slopes_data <- all_tasks_results |>
-  select(task, site_slopes) |>
-  unnest(site_slopes) |>
-  rename(Slope = age_c.trend) |>
-  (\(d) {
-    if ("p.value" %in% names(d)) {
-      rename(d, P_Value = p.value)
-    } else {
-      mutate(d, P_Value = 2 * pt(-abs(t.ratio), df))
-    }
-  })() |>
-  select(task, site, Slope, SE, P_Value)
-
-deviation_data <- final_slopes_data |>
-  left_join(select(all_tasks_results, task, Mean_Slope), by = "task") |>
-  mutate(Slope_Deviation = Slope - Mean_Slope) |>
-  arrange(task, site) |>
-  select(task, site, Mean_Slope, Slope_Deviation, SE, P_Value) |>
+# get missing p-values
+deviation_print <- deviation_raw %>%
   mutate(
-    across(c(Mean_Slope, Slope_Deviation, SE), ~ round(.x, 3)),
-    P_Value = format.pval(P_Value, digits = 3, eps = 0.001)
+    p_num = if_else(is.na(p_value) & !is.na(t) & !is.na(df),
+                    2 * pt(-abs(t), df), p_value),
+    `p-value` = case_when(
+      is.na(p_num)      ~ NA_character_,
+      p_num < 0.001     ~ "<0.001",
+      TRUE              ~ sprintf("%.3f", p_num)
+    ),
+    `r p-value` = case_when(
+      is.na(r_p)        ~ NA_character_,
+      r_p < 0.001       ~ "<0.001",
+      TRUE              ~ sprintf("%.3f", r_p)
+    )
+  ) %>%
+  transmute(
+    Task,
+    Site = site,
+    `Grand Mean Slope (β)` = round(Mean_Slope, 3),
+    `Deviation from Mean`  = round(Slope_Deviation, 3),
+    SE                     = round(SE, 3),
+    `p-value`,
+    N,
+    `r (age, ability)`     = round(r, 3),
+    `r p-value`
   )
-  
+
 knitr::kable(
-  deviation_data,
-  format   = "pipe",                        
-  col.names = c("Task","Site","Grand Mean Slope (β)","Deviation from Mean","SE","p-value"),
-  align     = c("l","l","r","r","r","r")
+  deviation_print,
+  format   = "pipe",
+  col.names = c("Task","Site","Grand Mean Slope (β)","Deviation from Mean","SE",
+                "p-value","N","r (age, ability)","r p-value"),
+  align     = c("l","l","r","r","r","r","r","r","r")
 )
 
-=======
-coretask_scores <- coretask_scores |>
-  mutate(age_c = age - mean(age, na.rm = TRUE))
-
-# per-task × site slopes
-slopes <- coretask_scores |>
-  group_by(task) |>
-  group_modify(~{
-    fit <- lm(metric_value ~ age_c * site, data = .x)
-    emtrends(fit, ~ site, var = "age_c") |>
-      summary(infer = TRUE) |>
-      as_tibble() |>
-      transmute(
-        task = unique(.x$task),
-        site,
-        slope_per_year = age_c.trend,
-        ci_low  = lower.CL,
-        ci_high = upper.CL,
-        p = p.value
-      )
-  }) |>
-  ungroup()
-
-# per-task × site correlations
-r_by_task_site <- coretask_scores |>
-  group_by(task, site) |>
-  summarise(
-    n     = sum(complete.cases(age, metric_value)),
-    r_age = if (n >= 3) cor(age, metric_value, use = "pairwise.complete.obs") else NA_real_,
-    .groups = "drop"
-  )
-
-# final table
-final_tab <- slopes |>
-  left_join(r_by_task_site, by = c("task", "site")) |>
-  select(task, site, r_age, slope_per_year, ci_low, ci_high, p, n) |>
-  mutate(site = site |> fct_recode(!!!site_labels)) |>
-  arrange(task, site) |>
-  mutate(p_fdr = p.adjust(p, method = "fdr"))
-
-final_tab |>
-  flextable() |>
-  set_header_labels(task = "Task", site = "Site", r_age = "r (age)",
-                    slope_per_year = "Slope / year", ci_low = "CI low",
-                    ci_high = "CI high", p = "p-value", n = "N", p_fdr = "p (FDR)") |>
-  autofit()
->>>>>>> 57fe06130ab6ac3e8f33eb8796c1f2902b2463ea
 ```
 
 ## Developmental change
@@ -906,7 +882,6 @@ Figure @fig-retest shows the relations between time 1 and time 2 scores. Uptake 
 ## Validity 
 
 ```{r prep-sem, include=FALSE}
-
 # one row per user (metadata + task scores from first run)
 meta <- coretask_firstrun_scores |>
   group_by(user_id) |>
@@ -941,7 +916,7 @@ vars_core_std <- wide_scores |>
 # str(vars_core_std[vars_core])
 ```
 
-```{r sem-g}
+```{r sem-g, include=FALSE}
 model_g_no_age <- "
   # first-order factors
   reasoning =~ matrix + mrot
@@ -964,7 +939,7 @@ mi_g <- lavaan::modindices(fit_g, sort. = TRUE, minimum.value = 10)
 # summary(fit_g, fit.measures = TRUE, standardized = TRUE)
 ```
 
-```{r sem-g-age}
+```{r sem-g-age, include=FALSE}
 #| echo: false
 #| results: "hide" 
 
@@ -1003,33 +978,32 @@ fit_g_age_fit <- lavaan::fitMeasures(fit_g_age)
 ```
 ### Construct validity
 
-We assessed construct validity using a hierarchical CFA in which three first-order factors—Reasoning (matrix reasoning, mental rotation), Executive Function (Hearts & Flowers, Memory Game, Same–Different Selection), and Language (grammar, vocabulary)—loaded on a second-order general factor (G; @fig-semplot-g). Mathematics and Social Cognition (Theory of Mind; ToM) were treated as observed endogenous outcomes because each construct had a single task; introducing one-indicator latent variables would require strong, unverifiable assumptions about reliability/error variances. Age was specified to predict G (age → G). Model fit was poor -- CFI: `r round(lavaan::fitMeasures(fit_g_age)["cfi"], 3)`, RMSE: `r round(lavaan::fitMeasures(fit_g_age)["rmsea"], 3)` RMSE p-value: `r round(lavaan::fitMeasures(fit_g_age)["rmsea.pvalue"], 3)`. Overall, factor loadings supported the intended three-factor structure (convergent validity), and age related to each domain as expected. The high inter-factor correlations and strong second-order loadings indicate that much of the variance is shared across domains, consistent with a broad general ability underpinning performance on the nine core tasks.
+We assessed construct validity using a hierarchical CFA in which three first-order factors—Reasoning (matrix reasoning, mental rotation), Executive Function (Hearts & Flowers, Memory Game, Same–Different Selection), and Language (grammar, vocabulary)—loaded on a second-order general factor (G; @fig-semplot-g). Mathematics and Social Cognition (Theory of Mind; ToM) were treated as observed endogenous outcomes because each construct had a single task; introducing one-indicator latent variables would require strong, unverifiable assumptions about reliability/error variances. Age was specified to predict G (age → G). Model fit was poor -- CFI: `r round(lavaan::fitMeasures(fit_g_age)["cfi"], 3)`, RMSEA: `r round(lavaan::fitMeasures(fit_g_age)["rmsea"], 3)` RMSEA p-value: `r round(lavaan::fitMeasures(fit_g_age)["rmsea.pvalue"], 3)`. Overall, factor loadings supported the intended three-factor structure (convergent validity), and age related to each domain as expected. The high inter-factor correlations and strong second-order loadings indicate that much of the variance is shared across domains, consistent with a broad general ability underpinning performance on the nine core tasks.
 
 ```{r}
 #| label: fig-semplot-g
 #| fig-cap: "SEM for core tasks with general factor."
 
-source(here("03_summaries/modified_sem_plot.R"))
+source(here::here("03_summaries/modified_sem_plot.R"))
 
-library(tidySEM)
-
-# update names 
-nodes <- get_nodes(fit_g_age, columns = c("name","shape")) |>
-  left_join(tibble(
-    name = c("log_age_c","g","math","tom","reasoning","ef","language",
+# map names 
+name_map <- tibble(
+  name   = c("log_age_c","g","math","tom","reasoning","ef","language",
              "matrix","mrot","hf","mg","sds","trog","vocab"),
-    pretty = c("Age (log years)","G","Math","Theory of Mind","Reasoning",
-               "Exec Function","Language","Matrix Reasoning","Mental Rotation",
-               "Hearts & Flowers","Memory","Same & Different",
-               "Sentence Understanding","Vocabulary")
-  ), by = "name") |>
+  pretty = c("Age (log years)","G","Math","Theory of Mind","Reasoning","Executive Function","Language",
+             "Matrix Reasoning","Mental Rotation","Hearts & Flowers","Memory Game","Same–Different Selection","Sentence Understanding","Vocabulary")
+)
+
+# nodes
+nodes <- get_nodes(fit_g_age, columns = c("name","shape")) %>%
+  left_join(name_map, by = "name") %>%
   mutate(label = pretty)
 
-# use standardised labels
+# edges (std estimates + stars)
 pe <- lavaan::parameterEstimates(fit_g_age, standardized = TRUE)
 
-edges <- pe |>
-  filter(op %in% c("~","=~","~~")) |>
+edges <- pe %>%
+  filter(op %in% c("~","=~","~~")) %>%
   transmute(
     from = if_else(op == "~", rhs, lhs),
     to   = if_else(op == "~", lhs, rhs),
@@ -1038,16 +1012,15 @@ edges <- pe |>
                       op == "~~"              ~ "none",
                       TRUE                    ~ "last"),
     curvature = if_else(op == "~~" & lhs != rhs, 60, NA_real_),
-    linetype  = if_else(op == "~~" & lhs != rhs, 2, 1)
-  ) |>
-  # standardised labels with stars
+    linetype  = if_else(op == "~~" & lhs != rhs, 2L, 1L)
+  ) %>%
   mutate(stars = case_when(pvalue < .001 ~ "***",
                            pvalue < .01  ~ "**",
                            pvalue < .05  ~ "*",
                            TRUE ~ ""),
-         label = sprintf("%.2f%s", std.all, stars)) |>
+         label = sprintf("%.2f%s", std.all, stars)) %>%
   # drop marker loading g =~ 1*reasoning
-  filter(!(op == "=~" & from == "g" & to == "reasoning" & abs(est - 1) < 1e-8)) |>
+  filter(!(op == "=~" & from == "g" & to == "reasoning" & abs(est - 1) < 1e-8)) %>%
   # hide variance loop for exogenous age
   filter(!(from == to & from == "log_age_c"))
 
@@ -1073,14 +1046,12 @@ g <- tidySEM::prepare_graph(
   fix_coord=FALSE
 )
 
-# make label boxes white
 g$edges$label_fill   <- "white"
-g$edges$label_colour <- "black"   
+g$edges$label_colour <- "black"
 g$edges$label_alpha  <- 1
 
-p <- plot(g)
-p
-# plot_happy_arrows(g)
+plot(g)
+
 ```
 ### External validity
 
@@ -1164,7 +1135,6 @@ r2_EF <- as.numeric(lavaan::lavInspect(fit_ef, "r2")["EF"])
 #| label: fig-semplot-ef
 #| fig-cap: "SEM for executive function model."
 
-# update names 
 nodes <- get_nodes(fit_ef, columns = c("name","shape")) |>
   dplyr::left_join(tibble::tibble(
     name   = c("age","EF","hf","mg","sds","mefs"),
@@ -1173,7 +1143,7 @@ nodes <- get_nodes(fit_ef, columns = c("name","shape")) |>
   ), by = "name") |>
   dplyr::mutate(label = dplyr::coalesce(pretty, name))
 
-# use standardised labels
+# edges from standardized parameter estimates ---
 pe_ef <- lavaan::parameterEstimates(fit_ef, standardized = TRUE)
 
 edges <- pe_ef |>
@@ -1183,45 +1153,51 @@ edges <- pe_ef |>
     from = dplyr::if_else(op == "~", rhs, lhs),
     to   = dplyr::if_else(op == "~", lhs, rhs),
     std.all, pvalue,
-    # draw rules
     arrow = dplyr::case_when(
-      op == "~~" & lhs == rhs ~ "both",   # variance/residual loop
-      op == "~~" & lhs != rhs ~ "none",   # covariance (double-headed line)
-      TRUE ~ "last"                        # regressions/loadings
+      op == "~~" & lhs == rhs ~ "both",  # variance loop
+      op == "~~" & lhs != rhs ~ "none",  # covariance
+      TRUE ~ "last"                       # regressions/loadings
     ),
     curvature = dplyr::if_else(op == "~~" & lhs != rhs, 50, NA_real_),
-    linetype  = dplyr::if_else(op == "~~", 2, 1),       # dashed for ~~ edges
-    # labels: stars only for paths/loadings (optional)
+    linetype  = dplyr::if_else(op == "~~" & lhs != rhs, 2, 1),
     label = dplyr::case_when(
       op %in% c("~","=~") ~ sprintf("%.2f%s", std.all,
-         dplyr::case_when(pvalue < .001 ~ "***", pvalue < .01 ~ "**",
-                          pvalue < .05  ~ "*", TRUE ~ "")),
-      TRUE ~ sprintf("%.2f", std.all)  # variances/covariances
+        dplyr::case_when(pvalue < .001 ~ "***",
+                         pvalue < .01  ~ "**",
+                         pvalue < .05  ~ "*", TRUE ~ "")),
+      TRUE ~ sprintf("%.2f", std.all)
     )
-  ) |>
-  # hide variance loop for EF (often 1.00 when std.lv=TRUE) or age
-  dplyr::filter(!(op == "~~" & lhs == rhs & lhs %in% c("EF"))) 
+  ) 
 
+# top-down layout
 layout_ef <- matrix(
   c(
-    NA,  "age",  NA,     NA,    NA,    NA,
-    NA,   "EF",  NA,     NA,    NA,    NA,
-    "hf", "mg", "sds",    NA,   "mefs", NA  # extra column pushes MEFS right
+    NA, NA, "age", NA, NA,
+    NA, NA, "EF",  NA, NA,
+    "hf","mg", NA, "sds","mefs" 
   ),
   nrow = 3, byrow = TRUE
 )
 
 g_ef <- tidySEM::prepare_graph(
-  edges = edges, nodes = nodes, layout = t(layout_ef),
-  text_size = 3, rect_width = 3, rect_height = 2,
-  ellipses_width = 2.4, ellipses_height = 2.4,
-  spacing_x = 5, spacing_y = 4.5,
-  variance_height = 1.6, variance_width = 1.0,  # controls loop size
-  arrow_angle = 15, arrow_length = .12, fix_coord = FALSE
+  edges = edges,
+  nodes = nodes,
+  layout = layout_ef,        
+  text_size = 2.8,
+  rect_width = 3.4, rect_height = 1.5,
+  ellipses_width = 5, ellipses_height = 2,
+  variance_height = 3, variance_width = 1.5,
+  arrow_angle = 15, arrow_length = .10,
+  var_arrow_angle = 15, var_arrow_length = .10,
+  spacing_y = 6, spacing_x = 5,
+  fix_coord = TRUE
 )
-g_ef$edges$label_fill <- "white"; g_ef$edges$label_colour <- "black"; g_ef$edges$label_size <- 3.2
-plot(g_ef)
 
+g_ef$edges$label_fill   <- "white"
+g_ef$edges$label_colour <- "black"
+g_ef$edges$label_size   <- 2.8
+
+plot(g_ef)
 
 ```
 
@@ -1288,67 +1264,75 @@ We ran a similar model to determine the external validity of the language and li
 
 ```{r}
 #| label: fig-semplot-lang
-#| fig-cap: "SEM for language model."
+#| fig-cap: "SEM for language model. Abbreviations: Sent.Und.:Sentence Understanding; Vocab: Vocabulary; Single.Wrd.Read: Single Word Reading; Sent.Read.Eff: Sentence Reading Efficiency; Phon.Aware.: Phonological Awareness"
 
-# node labels
 nodes_lang <- get_nodes(fit_lang, columns = c("name","shape")) |>
-  left_join(tibble(
-    name   = c("age","Language","trog","vocab", "swr","sre","pa"),
+  dplyr::left_join(tibble::tibble(
+    name   = c("age","Language","trog","vocab","swr","sre","pa"),
     pretty = c("Age (years)","Language",
-               "Sentence Understanding", "Vocabulary", "Single Word Reading","Sentence Reading Efficiency", "Phonological Awareness")
+               "Sent.Under","Vocab",
+               "Single.Wrd.Read.","Sent.Read.Eff.",
+               "Phon.Aware.")
   ), by = "name") |>
-  mutate(label = coalesce(pretty, name))
+  dplyr::mutate(label = dplyr::coalesce(pretty, name))
 
-# edges (paths, loadings, residuals, covariances)
+# edges (standardized, with stars on loadings/paths)
 pe_lang <- lavaan::parameterEstimates(fit_lang, standardized = TRUE)
 
 edges_lang <- pe_lang |>
-  filter(op %in% c("~","=~","~~")) |>
-  transmute(
+  dplyr::filter(op %in% c("~","=~","~~")) |>
+  dplyr::transmute(
     lhs, rhs, op,
-    from = if_else(op == "~", rhs, lhs),
-    to   = if_else(op == "~", lhs, rhs),
+    from = dplyr::if_else(op == "~", rhs, lhs),
+    to   = dplyr::if_else(op == "~", lhs, rhs),
     std.all, pvalue,
-    arrow = case_when(
-      op == "~~" & lhs == rhs ~ "both",   # residual/variance loop
-      op == "~~" & lhs != rhs ~ "none",   # covariance (double-headed)
-      TRUE ~ "last"                        # regressions + loadings
+    arrow = dplyr::case_when(
+      op == "~~" & lhs == rhs ~ "both",     
+      op == "~~" & lhs != rhs ~ "none",     
+      TRUE ~ "last"                         
     ),
-    curvature = if_else(op == "~~" & lhs != rhs, 50, NA_real_),
-    linetype  = if_else(op == "~~", 2, 1),
-    label = case_when(
+    curvature = dplyr::if_else(op == "~~" & lhs != rhs, 50, NA_real_),
+    linetype  = dplyr::if_else(op == "~~" & lhs != rhs, 2L, 1L),
+    label = dplyr::case_when(
       op %in% c("~","=~") ~ sprintf("%.2f%s", std.all,
-        case_when(pvalue < .001 ~ "***", pvalue < .01 ~ "**",
-                  pvalue < .05  ~ "*",   TRUE ~ "")),
-      TRUE ~ sprintf("%.2f", std.all)  
+        dplyr::case_when(pvalue < .001 ~ "***",
+                         pvalue < .01  ~ "**",
+                         pvalue < .05  ~ "*", TRUE ~ "")),
+      TRUE ~ sprintf("%.2f", std.all)
     )
-  ) |>
-  # hide factor variance loop (1.00 when std.lv=TRUE)
-  filter(!(op == "~~" & lhs == rhs & lhs == "Language"))
+  ) 
 
-# layout
+# top-down layout
 layout_lang <- matrix(
   c(
-    NA,       "age",      NA,    NA,    NA,     NA, NA,
-    NA,     "Language",   NA,    NA,    NA,     NA, NA,
-    "trog",  "vocab",    NA, "swr", "sre", "pa",    NA
+    NA, NA, "age", NA, NA, NA,
+    NA, NA, NA, NA, NA, NA,
+    NA, NA, "Language", NA, NA, NA, 
+    NA, NA, NA, NA, NA, NA,
+    "trog","vocab", NA, NA, NA,
+    NA, NA, NA, "swr","sre","pa"         
   ),
-  nrow = 3, byrow = TRUE
+  nrow = 6, byrow = TRUE
 )
 
 g_lang <- tidySEM::prepare_graph(
-  edges = edges_lang, nodes = nodes_lang, layout = t(layout_lang),
-  text_size = 3.0,
-  rect_width = 4.2,   
-  rect_height = 2.0,
-  ellipses_width = 2.4, ellipses_height = 2.4,
-  spacing_x = 5.5,   
-  spacing_y = 4.5,
-  variance_height = 1.6, variance_width = 1.0,
-  arrow_angle = 15, arrow_length = .12, fix_coord = FALSE
+  edges = edges_lang,
+  nodes = nodes_lang,
+  layout = layout_lang,        
+  text_size = 2.8,
+  rect_width = 3.6, rect_height = 3,
+  ellipses_width = 5, ellipses_height = 4,
+  spacing_x = 5,
+  spacing_y = 6,
+  variance_height = 3, variance_width = 2,
+  arrow_angle = 15, arrow_length = .10,
+  fix_coord = FALSE
 )
 
-g_lang$edges$label_fill <- "white"; g_lang$edges$label_colour <- "black"; g_lang$edges$label_size <- 3.2
+g_lang$edges$label_fill   <- "white"
+g_lang$edges$label_colour <- "black"
+g_lang$edges$label_size   <- 3
+
 plot(g_lang)
 
 ```
