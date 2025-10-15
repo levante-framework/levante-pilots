@@ -137,7 +137,7 @@ execute:
   message: false
   warning: false
   error: true
-  cache: true
+  cache: false
 ---
 
 ```{r setup}
@@ -160,15 +160,16 @@ library(emmeans)
 
 source(here("03_summaries","plotting_helper.R"))
 source(here("plot_settings.R"))
-source(here("03_summaries","scores_helper.R"))
 ```
 
 ```{r settings}
 #| cache: false
 
 site_labels <- c("uniandes-co" = "pilot_uniandes_co",
-                 "leuphana-de" = "pilot_leuphana_de",
+                 "mpieva-de" = "pilot_mpieva_de",
                  "western-ca" = "pilot_western_ca")
+core_tasks   <- c("matrix","mrot","math","hf","mg","sds",
+                  "trog","vocab","tom")
 
 sites <- names(site_labels)
 site_pal <- solarized_pal()(length(sites)) |> rlang::set_names(sites)
@@ -258,7 +259,9 @@ coretask_firstrun_scores <- coretask_scores |>
 ```
 
 ```{r time-summary}
-task_time_summary <- read_csv(here("03_summaries/tables/task_time_summary.csv"))
+# task_time_summary <- read_csv(here("03_summaries/tables/task_time_summary.csv"))
+task_time_summary <- read_rds(here("03_summaries","tables",
+                                   "task_time_summary.rds"))
 
 task_time_table <- task_time_summary |>
   filter(!is.na(is_cat)) |>
@@ -355,6 +358,157 @@ Initially designed in English, core tasks were subsequently adapted for Spanish 
 
 # Pilot Data Collection
 
+```{r compute_counts}
+percentify <- \(s) as.character(glue("{sprintf('%.1f', s)}%"))
+
+run_data <- read_rds(here("01_fetched_data/run_data.rds"))
+runs_filtered <- read_rds(here("01_fetched_data/runs_filtered.rds"))
+
+# all runs
+run_counts <- run_data |> count(site, task_id, name = "n_total_runs")
+
+# runs filtered to completed, no straightlining, first in admin
+run_filtered_counts <- runs_filtered |> count(site, task_id, name = "n_filtered_runs")
+
+# runs in trial data (must have item info)
+# trial_data <- read_rds(here(glue("01_fetched_data/trial_data.rds")))
+# trial_run_counts <- trial_data |> distinct(site, task_id, run_id) |> count(site, task_id, name = "n_trials_runs")
+
+# runs in filtered trial data (both above filters + not all invalid trials)
+task_data <- read_rds(here(glue("01_fetched_data/task_data_nested.rds"))) |> unnest(data)
+trial_filtered_run_counts <- task_data |> distinct(site, task_id, run_id) |> count(site, task_id, name = "n_trials_filtered_runs")
+
+# scores (above runs + non-missing age)
+score_counts <- all_scores |> filter(item_task != "ha") |> count(site, task_id, name = "n_scores")
+
+# included scores (above scores + age in range + first run or large enough age gap)
+included_score_counts <- included_scores |> filter(item_task != "ha") |> count(site, task_id, name = "n_included_scores")
+
+# combined_counts <- list(run_counts, trial_run_counts, run_filtered_counts, trial_filtered_run_counts, score_counts, included_score_counts) |>
+counts <- list(run_counts, run_filtered_counts, trial_filtered_run_counts, score_counts, included_score_counts) |>
+  reduce(left_join) |>
+  left_join(all_scores |> distinct(task_id, item_task, task) |> filter(item_task != "ha")) |>
+  filter(item_task %in% core_tasks) |>
+  select(-task_id, -item_task) |>
+  relocate(task, .before = everything()) |>
+  arrange(task) |>
+  mutate(site = site |> fct_recode(!!!site_labels))
+
+# write_csv(counts, here("04_paper/display/counts.csv"))
+
+# counts_long <- combined_counts |>
+#   pivot_longer(starts_with("n_"), names_to = "count", names_prefix = "n_", values_to = "n") |>
+#   mutate(count = count |> fct_inorder())
+
+# anti_join(
+# all_scores |> filter(item_task != "ha") |> select(site, task_id, run_id),
+# task_data |> distinct(site, task_id, run_id)
+# )
+# 
+# lost_runs <- anti_join(
+#   task_data |> filter(item_task %in% irt_tasks, item_task != "ha") |> distinct(site, task_id, run_id),
+#   all_scores |> select(site, task_id, run_id)
+# ) 
+  
+  # filter(site == "pilot_western_ca") |>
+  # filter(timestamp == min(timestamp))
+# run_data |>
+#   semi_join(lost_runs) |>
+#   filter(!is.na(age)) |>
+#   filter(time_started == min(time_started)) |> pull(time_started)
+#   pull(run_id) |> pluck(1)
+
+site_counts <- counts |>
+  group_by(site) |>
+  summarise(across(starts_with("n_"), sum)) |>
+  pivot_longer(cols = -site,
+               names_to = "count", values_to = "n", names_prefix = "n_")
+
+site_diffs <- site_counts |>
+  group_by(site) |>
+  mutate(diff = lag(n) - n,
+         pct_diff = diff / max(n) * 100,
+         excluded = glue("{diff} [{percentify(pct_diff)}]"),
+         comparison = paste(lag(count), "-", count)) |>
+  ungroup() |>
+  filter(count != "total_runs") |>
+  select(site, count = comparison, n = excluded)
+
+site_endpoints <- site_counts |>
+  group_by(site) |>
+  slice(1, n()) |>
+  ungroup() |>
+  mutate(n = as.character(n))
+
+site_table <- bind_rows(site_endpoints, site_diffs) |>
+  pivot_wider(names_from = site, values_from = n) |>
+  mutate(count = count |> fct_inorder() |> fct_relevel("included_scores", after = Inf)) |>
+  arrange(count) |>
+  mutate(count = count |> fct_recode(
+    "Total number of runs" = "total_runs",
+    "Excluded for being incomplete, invalid, or duplicate" = "total_runs - filtered_runs",
+    "Excluded for missing item metadata" = "filtered_runs - trials_filtered_runs",
+    "Excluded for missing age" = "trials_filtered_runs - scores",
+    "Excluded for age out of range or too short retest gap" = "scores - included_scores",
+    "Final number of scored runs" = "included_scores"
+  )) |>
+  rename(Count = count)
+
+# apa_table(site_table, align = "lrrr")
+
+site_totals <- site_counts |> filter(count == "total_runs") |> select(site, n) |> deframe()
+
+user_totals <- run_data |>
+  group_by(site) |>
+  summarise(n_users = n_distinct(user_id)) |>
+  mutate(site = site |> fct_recode(!!!site_labels))
+
+user_score_counts <- coretask_scores |>
+  group_by(site) |>
+  summarise(n_users = n_distinct(user_id),
+            n_runs = n_distinct(run_id)) |>
+  mutate(site = site |> fct_recode(!!!site_labels))
+
+collapse_value_list <- \(l) l |> imap(\(v, n) paste(n, v, sep = ": ")) |> paste(collapse = ", ")
+
+get_count_row <- \(i) {
+  site_table |> slice(i) |> select(-Count) |> collapse_value_list()
+  # imap(\(v, n) paste(n, v, sep = ": ")) |> paste(collapse = ", ")
+}
+
+trial_data_subset <- read_rds(here(glue("01_fetched_data/trial_data_subset.rds")))
+
+trial_counts <- left_join(
+  trial_data_subset |> count(site, item_task, name = "n_trials"),
+  task_data |> count(site, item_task, name = "n_included_trials")
+) |>
+  filter(item_task %in% core_tasks) |>
+  mutate(site = site |> fct_recode(!!!site_labels),
+         n_excluded_trials = n_trials - n_included_trials,
+         pct_excluded = n_excluded_trials / n_trials * 100) |>
+  mutate(excluded = glue("{n_excluded_trials} [{percentify(pct_excluded)}]"))
+
+task_trial_counts <- trial_counts |>
+  group_by(item_task) |>
+  summarise(across(where(is.integer), sum)) |>
+  mutate(pct_excluded = (n_trials - n_included_trials) / n_trials * 100) |>
+  mutate(excluded = glue("{n_excluded_trials} [{percentify(pct_excluded)}]"))
+
+site_trial_counts <- trial_counts |>
+  group_by(site) |>
+  summarise(across(where(is.integer), sum)) |>
+  mutate(pct_excluded = (n_trials - n_included_trials) / n_trials * 100) |>
+  mutate(excluded = glue("{n_excluded_trials} [{percentify(pct_excluded)}]"))
+
+total_trial_counts <- trial_counts |>
+  group_by() |>
+  summarise(across(where(is.numeric), sum)) |>
+  mutate(pct_excluded = (n_trials - n_included_trials) / n_trials * 100) |>
+  mutate(excluded = glue("{n_excluded_trials} [{percentify(pct_excluded)}]"))
+
+```
+
+
 The pilot site partnership was an integral component of the core task development. Across three countries and languages, pilot sites provided collaboration on task adaptation and functionality, iterative task testing, and diverse settings for infrastructure deployment. Data collected from pilot sites allowed analyses of construct validity, measurement invariance, test-retest reliability, parameters for computer adaptive testing, and a demonstration of developmental growth measured by the tasks across constructs. Because we continued developing tasks continuously during the ~18 month pilot process, we anticipate that our reported reliability and validity estimates are likely an underestimate of the current task performance. Our analyses average over early versions of the tasks that in some cases had instructions or items that were later revised for clarity. 
 
 One key feature of the LEVANTE framework is that all data are completely de-identified, reducing legal and ethical obstacles to data sharing. No demographic information or other identifiers are entered into the LEVANTE dashboard by the sites, and ages are only given to a one month precision [@frank2025]. We anticipate that sites will add sociodemographic information into the dataset at a later time via an app that is currently under development that ensures that there is no statistical reidentification risk for  individuals (e.g., due to rare combinations of traits in a community). For this reason, here we provide only minimal demographic characterization and analysis of the children from our pilot sites.  
@@ -377,25 +531,21 @@ ggplot(ages, aes(x = age, fill = site)) +
   labs(x = "Age (years)", y = "Number of children")
 ```
 
-```{r compute-counts}
-source("compute_counts.R")
-```
-
 Across all tasks, the sites collected a total of `{r} sum(site_totals)` runs (`{r} get_count_row(1)`) from `{r} sum(user_totals$n_users)` unique children (`{r} user_totals |> deframe() |> collapse_value_list()`), of which some were excluded for being incomplete, invalid, or duplicate (`{r} get_count_row(2)`), for missing item metadata (`{r} get_count_row(3)`), for missing age (`{r} get_count_row(4)`), or for age being out of range or having too short of a retest gap (`{r} get_count_row(5)`), resulting in a total of `{r} sum(user_score_counts$n_runs)` scored runs (`{r} user_score_counts |> select(site, n_runs) |> deframe() |> collapse_value_list()`) from `{r} sum(user_score_counts$n_users)` unique children (`{r} user_score_counts |> select(site, n_users) |> deframe() |> collapse_value_list()`).
 
 Within the included runs, there were a total of `{r} total_trial_counts$n_trials` trials (`{r} site_trial_counts |> select(site, n_trials) |> deframe() |> collapse_value_list()`), of which `{r} total_trial_counts$excluded` were excluded (`{r} site_trial_counts |> select(site, excluded) |> deframe() |> collapse_value_list()`) due to too fast or too slow reaction times. For reasons of space we do not disaggregate these exclusions by task, but note that the task with the highest exclusion rate was Pattern Matching (`{r} percentify(max(task_trial_counts$pct_excluded))` trials excluded), while all the other tasks ranged between `{r} percentify(min(task_trial_counts$pct_excluded))` and `{r} percentify(sort(task_trial_counts$pct_excluded, decreasing = TRUE)[2])` trials excluded.
 
 ## Colombia
 
-The Universidad de Los Andes conducted school-based data collection across four schools in Bogotá and three schools in the rural areas of Caquetá and Boyacá, Colombia. By partnering with schools, the research team oversaw task data collection with children using a group testing format on tablets provided by the team. Children were tested in groups, with larger groups for older children and smaller groups for younger children. The losandes-co site collected data from `{r} user_totals$n_users[user_totals$site == "Colombia"]` children ages 5--12 years. Due to time constraints for school-based administration, children typically completed a subset of the tasks. 
+The Universidad de Los Andes conducted school-based data collection across four schools in Bogotá and three schools in the rural areas of Caquetá and Boyacá, Colombia. By partnering with schools, the research team oversaw task data collection with children using a group testing format on tablets provided by the team. Children were tested in groups, with larger groups for older children and smaller groups for younger children. The losandes-co site collected data from `{r} user_totals$n_users[user_totals$site == "uniandes-co"]` children ages 5--12 years. Due to time constraints for school-based administration, children typically completed a subset of the tasks. 
 
 ## Germany
 
-The Max Planck Institute for Evolutionary Anthropology and Leuphana University collected data using family-based remote data collection. Participants were recruited via an existing database of Leipzig families by first contacting families via telephone with an invitation to participate in the study. Upon agreement, families received an email with information to log into the LEVANTE system and complete the tasks assigned to them at home using their own computer or tablet. This site provided retest data with follow-up assignments sent to families 4--5 months after initial completion of the tasks. The leuphana-de site collected data from `r user_totals$n_users[user_totals$site == "Germany"]` children, ages 5--12 years. 
+The Max Planck Institute for Evolutionary Anthropology and Leuphana University collected data using family-based remote data collection. Participants were recruited via an existing database of Leipzig families by first contacting families via telephone with an invitation to participate in the study. Upon agreement, families received an email with information to log into the LEVANTE system and complete the tasks assigned to them at home using their own computer or tablet. This site provided retest data with follow-up assignments sent to families 4--5 months after initial completion of the tasks. The leuphana-de site collected data from `r user_totals$n_users[user_totals$site == "mpieva-de"]` children, ages 5--12 years. 
 
 ## Canada
 
-Partners at Western University, led by Daniel Ansari, recruited participants from the local community and tested children individually in a clinic setting. The western-ca site collected data from `r user_totals$n_users[user_totals$site == "Canada"]` children, ages 5-12 years. 
+Partners at Western University, led by Daniel Ansari, recruited participants from the local community and tested children individually in a clinic setting. The western-ca site collected data from `r user_totals$n_users[user_totals$site == "western-ca"]` children, ages 5-12 years. 
 # Scoring
 
 Our goal for each task was to extract administration-level scores with the highest reliability and validity. Accordingly, we began by heuristically removing items that functioned poorly and then followed up by fitting a range of IRT models to compute ability scores using responses from the remaining items. 
@@ -651,6 +801,8 @@ ggplot(coretask_scores, aes(age, metric_value)) +
 
 analyze_task_slopes <- function(task_name) {
   d <- coretask_scores %>% filter(item_task == task_name)
+  d$site <- as.factor(d$site)
+  d$age_c <- scale(d$age, scale=FALSE)[,1]
   contrasts(d$site) <- contr.sum(nlevels(d$site))
 
   fit <- lm(metric_value ~ age_c * site, data = d)
@@ -801,7 +953,7 @@ prophecy <- function (n = 2, r) {
 
 
 de_retest_scores <- coretask_scores |> 
-  filter(site == "pilot_leuphana_de") |>
+  filter(site == "pilot_mpieva_de") |>
   group_by(user_id, task) |>
   arrange(user_id, task, age) |>
   filter(n() > 1) 
@@ -824,7 +976,7 @@ retest_wide <- de_retest_scores |>
 trt <- retest_wide |>
   group_by(task) |>
   summarise(test_retest_r = cor(run_1, run_2, use = "complete.obs"), 
-            prophecy_r = prophecy(n = 2, r = test_retest_r),
+            # prophecy_r = prophecy(n = 2, r = test_retest_r),
             n = n(), 
             age_gap = mean(age_gap) * 12) |>
   ungroup() |>
