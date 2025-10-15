@@ -947,9 +947,9 @@ IRT models allow the computation of marginal reliability, which captures the int
 ### Test-retest reliability
 
 ```{r}
-prophecy <- function (n = 2, r) {
-  (n * r) /  (1 + (n - 1) * r)
-}
+# prophecy <- function (n = 2, r) {
+#   (n * r) /  (1 + (n - 1) * r)
+# }
 
 
 de_retest_scores <- coretask_scores |> 
@@ -985,7 +985,9 @@ trt <- retest_wide |>
 
 ```{r}
 #| label: tbl-retest
-#| tbl-cap: "Task-wise test-retest correlations computed for Germany data, with projected reliability computed via the Spearman-Brown \"prophecy\" formula."
+#| tbl-cap: "Task-wise test-retest correlations computed for Germany data."
+
+ # with projected reliability computed via the Spearman-Brown \"prophecy\" formula.
 
 trt |>
   mutate(retest_cat = c("","x","","","x","","","","x"), 
@@ -1029,7 +1031,9 @@ ggplot(retest_wide, aes(x = run_1, y = run_2, color = age)) +
 
 We were also interested in capturing the extent to which the LEVANTE tasks yield reliable signal across a delay. The leuphana-de pilot site was able to re-administer tasks to a subset of their original participant group with a retest interval of approximately 4--5 months. We used this re-administration as an opportunity to collect data with computer adaptive versions of many of the tasks (sentence understanding, pattern matching, shape rotation, math and vocabulary); see below for further details of computer adaptive versions. In addition, for several tasks (math, theory of mind, pattern matching), we used this opportunity to gather item data about new groups of retest items that were designed to match the content of the original items but vary in their surface forms. For the other tasks, we retested using the same items. 
 
-Figure @fig-retest shows the relations between time 1 and time 2 scores. Uptake for retest administrations varied between N=`r min(trt$n)` and N=`r max(trt$n)`; the low number of repeat administrations for Sentence Understanding reflects an error in which this task was not sent to younger children. Table @tbl-retest shows test-retest correlations as well as projected reliabilities for the measures based on the Spearman-Brown "prophecy" formula. These reliabilities were lower than the observed marginal reliabilities but generally acceptable, especially considering the substantial delay between administrations and -- in some cases -- the use of alternate items and CAT administration. Lowered reliability in the case of Sentence Understanding likely also reflects the restricted developmental range of the retest sample.
+Figure @fig-retest shows the relations between time 1 and time 2 scores. Uptake for retest administrations varied between N=`r min(trt$n)` and N=`r max(trt$n)`; the low number of repeat administrations for Sentence Understanding reflects an error in which this task was not sent to younger children. Table @tbl-retest shows test-retest correlations.
+<!-- as well as projected reliabilities for the measures based on the Spearman-Brown "prophecy" formula.  -->
+These reliabilities were lower than the observed marginal reliabilities but generally acceptable, especially considering the substantial delay between administrations and -- in some cases -- the use of alternate items and CAT administration. Lowered reliability in the case of Sentence Understanding likely also reflects the restricted developmental range of the retest sample.
 
 ## Validity 
 
