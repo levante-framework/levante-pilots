@@ -688,21 +688,25 @@ ggplot(coretask_scores, aes(age, metric_value)) +
   labs(x = "Age (years)", y = "Ability (IRT score)", colour = "Site") +
   theme(legend.position = "bottom")
 ```
-
+::: {.landscape}
 ```{r}
 #| label: tbl-slopes
 #| fig-cap: "Age-Related Change in Performance: Task Grand Means, Site Deviations, and Age–Ability Correlations"
 
 analyze_task_slopes <- function(task_name) {
   d <- coretask_scores %>% filter(item_task == task_name)
-  d$site <- as.factor(d$site)
-  d$age_c <- scale(d$age, scale=FALSE)[,1]
+  d$site  <- as.factor(d$site)
+  d$age_c <- scale(d$age, scale = FALSE)[, 1]
   contrasts(d$site) <- contr.sum(nlevels(d$site))
 
   fit <- lm(metric_value ~ age_c * site, data = d)
 
   cs <- coef(summary(fit))
   mean_slope <- unname(cs["age_c", "Estimate"])
+  mean_se    <- unname(cs["age_c", "Std. Error"])
+  mean_t     <- unname(cs["age_c", "t value"])
+  mean_p     <- unname(cs["age_c", "Pr(>|t|)"])
+  mean_df    <- df.residual(fit)                      # optional, if you want df
 
   tr_site <- emtrends(fit, ~ site, var = "age_c")
 
@@ -735,13 +739,21 @@ analyze_task_slopes <- function(task_name) {
       r_p  = ifelse(!is.na(r_t), 2 * pt(-abs(r_t), df = r_df), NA_real_)
     )
 
-  # combine: slopes + correlations
+  # combine: add grand mean stats to every row for that task
   dev_tab %>%
-    mutate(task = task_name, Mean_Slope = mean_slope, .before = 1) %>%
+    mutate(
+      task = task_name,
+      Mean_Slope = mean_slope,
+      Mean_SE    = mean_se,
+      Mean_t     = mean_t,
+      Mean_df    = mean_df,
+      Mean_p     = mean_p,
+      .before = 1
+    ) %>%
     left_join(corr_tab, by = "site")
 }
 
-# build table
+# build table (unchanged mapping)
 deviation_raw <- map_dfr(unique(coretask_scores$item_task), analyze_task_slopes) %>%
   mutate(Task = dplyr::recode(as.character(task),
     math   = "Math",
@@ -755,29 +767,37 @@ deviation_raw <- map_dfr(unique(coretask_scores$item_task), analyze_task_slopes)
     vocab  = "Vocabulary"
   ))
 
-# get missing p-values
+# format p-values (dev p and grand mean p) and print
 deviation_print <- deviation_raw %>%
   mutate(
+    # fill any missing deviation p from t, df
     p_num = if_else(is.na(p_value) & !is.na(t) & !is.na(df),
                     2 * pt(-abs(t), df), p_value),
-    `p-value` = case_when(
-      is.na(p_num)      ~ NA_character_,
-      p_num < 0.001     ~ "<0.001",
-      TRUE              ~ sprintf("%.3f", p_num)
+    `Deviation p-value` = case_when(
+      is.na(p_num)  ~ NA_character_,
+      p_num < .001  ~ "<0.001",
+      TRUE          ~ sprintf("%.3f", p_num)
+    ),
+    `Grand Mean p-value` = case_when(
+      is.na(Mean_p)    ~ NA_character_,
+      Mean_p < .001    ~ "<0.001",
+      TRUE             ~ sprintf("%.3f", Mean_p)
     ),
     `r p-value` = case_when(
-      is.na(r_p)        ~ NA_character_,
-      r_p < 0.001       ~ "<0.001",
-      TRUE              ~ sprintf("%.3f", r_p)
+      is.na(r_p)     ~ NA_character_,
+      r_p < .001     ~ "<0.001",
+      TRUE           ~ sprintf("%.3f", r_p)
     )
   ) %>%
   transmute(
     Task,
     Site = site,
     `Grand Mean Slope (β)` = round(Mean_Slope, 3),
+    `Grand Mean SE`        = round(Mean_SE, 3),
+    `Grand Mean p-value`,
     `Deviation from Mean`  = round(Slope_Deviation, 3),
-    SE                     = round(SE, 3),
-    `p-value`,
+    `Deviation SE`         = round(SE, 3),
+    `Deviation p-value`,
     N,
     `r (age, ability)`     = round(r, 3),
     `r p-value`
@@ -785,11 +805,11 @@ deviation_print <- deviation_raw %>%
 
 knitr::kable(
   deviation_print,
-  format   = "pipe",
-  col.names = c("Task","Site","Grand Mean Slope (β)","Deviation from Mean","SE",
-                "p-value","N","r (age, ability)","r p-value"),
-  align     = c("l","l","r","r","r","r","r","r","r")
-)
+  format    = "pipe",
+  col.names = c("Task","Site","Grand Mean Slope (β)","Grand Mean SE","Grand Mean p-value",
+                "Deviation from Mean","Deviation SE","Deviation p-value",
+                "N","r (age, ability)","r p-value"),
+  align     = c("l","l","r","r","r","r","r","r","r","r","r"))
 
 ```
 
@@ -827,12 +847,19 @@ trx <- task_rxx |>
   pivot_wider(names_from = site, values_from = c(Model, Invariance, Reliability),
               names_glue = "{site}_{.value}")
 
-trx |>
-  select(sort(colnames(trx))) |>
-  relocate(Task, .before = everything()) |>
-  flextable() |>
-  separate_header() |>
-  flextable::autofit(add_w = 0, add_h = 0)
+knitr::kable(
+  trx %>% dplyr::select(sort(names(.))) %>% dplyr::relocate(Task),
+  format = "pipe", digits = 3, align = "c"
+)
+
+# flextable not working.
+#trx |>
+#  select(sort(colnames(trx))) |>
+#  relocate(Task, .before = everything()) |>
+#  flextable() |>
+#  separate_header() |>
+#  flextable::autofit(add_w = 0, add_h = 0)
+
 ```
 :::
   
@@ -844,7 +871,6 @@ IRT models allow the computation of marginal reliability, which captures the int
 # prophecy <- function (n = 2, r) {
 #   (n * r) /  (1 + (n - 1) * r)
 # }
-
 
 de_retest_scores <- coretask_scores |> 
   filter(site == "pilot_mpieva_de") |>
@@ -881,20 +907,14 @@ trt <- retest_wide |>
 #| label: tbl-retest
 #| tbl-cap: "Task-wise test-retest correlations computed for Germany data."
 
- # with projected reliability computed via the Spearman-Brown \"prophecy\" formula.
-
 trt |>
-  mutate(retest_cat = c("","x","","","x","","","","x"), 
-         retest_corpus = c("","","","x","","x","x","","")) |>
-  flextable() |>
-  set_header_labels(task = "Task",
-                    retest_cat = "CAT retest",
-                    retest_cat = "new items",
-                    test_retest_r = "Test-retest r",
-                    prophecy_r = "Projected r",
-                    n = "N runs",
-                    age_gap = "Retest interval (mo)") |>
-  flextable::autofit(add_w = 0, add_h = 0)
+  transmute(
+    Task = task,
+    `Test–retest r` = round(test_retest_r, 3)
+  ) |>
+  arrange(Task) |>
+  knitr::kable(format = "pipe", align = "lr")
+
 ```
 
 ```{r}
@@ -926,8 +946,6 @@ ggplot(retest_wide, aes(x = run_1, y = run_2, color = age)) +
 We were also interested in capturing the extent to which the LEVANTE tasks yield reliable signal across a delay. The leuphana-de pilot site was able to re-administer tasks to a subset of their original participant group with a retest interval of approximately 4--5 months. We used this re-administration as an opportunity to collect data with computer adaptive versions of many of the tasks (sentence understanding, pattern matching, shape rotation, math and vocabulary); see below for further details of computer adaptive versions. In addition, for several tasks (math, theory of mind, pattern matching), we used this opportunity to gather item data about new groups of retest items that were designed to match the content of the original items but vary in their surface forms. For the other tasks, we retested using the same items. 
 
 Figure @fig-retest shows the relations between time 1 and time 2 scores. Uptake for retest administrations varied between N=`r min(trt$n)` and N=`r max(trt$n)`; the low number of repeat administrations for Sentence Understanding reflects an error in which this task was not sent to younger children. Table @tbl-retest shows test-retest correlations.
-<!-- as well as projected reliabilities for the measures based on the Spearman-Brown "prophecy" formula.  -->
-These reliabilities were lower than the observed marginal reliabilities but generally acceptable, especially considering the substantial delay between administrations and -- in some cases -- the use of alternate items and CAT administration. Lowered reliability in the case of Sentence Understanding likely also reflects the restricted developmental range of the retest sample.
 
 ## Validity 
 
@@ -1397,15 +1415,19 @@ The LEVANTE CATs are configurable with respect to the initial value of theta and
 
 # General Discussion
 
-In this paper we presented the LEVANTE core tasks, a group of nine tasks for children ages 5--12 that use psychometric principles for efficient, reliable, and valid assessment across a range of constructs including language, mathematics, reasoning, executive function, and social cognition. Using pilot data from three different countries, collected via three different administration methods (in-school, in-lab, and at-home administration), we provided preliminary evidence of reliability and validity. Further, using computer adaptive testing algorithms, we are able to deploy efficient versions of these tasks that produce scores for children across a wide range of abilities in just a few minutes.  
+In this paper, we presented the LEVANTE core tasks -- nine psychometrically grounded tasks for children aged 5–12 that provide efficient, reliable, and valid assessment across language, mathematics, reasoning, executive function, and social cognition. LEVANTE is designed to tackle three core challenges: to span development and enable valid comparisons between younger and older children; to ensure cross-cultural comparability so that measures function equivalently across diverse contexts; and to make the tasks openly available (non-commercial) to maximise access, transparency, and reproducibility.
 
-We hope that these tasks will become the backbone of the LEVANTE framework, in which sites around the world collaborate to collect longitudinal data measuring children's learning and development as well as the overlapping contexts in which they develop. De-identified data collected using the tasks presented here flow into a shared repository, becoming part of a large-scale dataset that we hope will enable a wide variety of downstream investigations. The power of these data is that -- especially when combined with contextual data about children's caregivers, home environment, school, and built environment -- they afford one analyses of the sources of developmental and contextual variability at global scale.
+Using pilot data from three different countries, collected via three different administration methods (in-school, in-lab, and at-home administration), we provided preliminary evidence of reliability and validity. Further, using computer adaptive testing algorithms, we are able to deploy efficient versions of these tasks that produce scores for children across a wide range of abilities in just a few minutes.  
+
+We hope that these tasks will become the backbone of the LEVANTE framework, in which sites around the world collaborate to collect longitudinal data measuring children's learning and development as well as the overlapping contexts in which they develop. De-identified data collected using the tasks presented here flow into a shared repository, becoming part of a large-scale dataset that we hope will enable a wide variety of downstream investigations. The power of these data is that -- especially when combined with contextual data about children’s caregivers, home environment, school, and built environment -- they afford one analysis of the sources of developmental and contextual variability at global scale.
 
 Towards this goal, one strength of our approach here is that it easily accommodates future internationalization and adaptation. In fact, at the time of writing we are working on adaptations for two more languages (French and Dutch) and intend to further broaden the set of languages for which the tasks are available. As part of this process, we have created an site using the CrowdIn for generating and reviewing translation materials. The LEVANTE researcher website documents the use of this platform and our ongoing language adaptation efforts: <https://researcher.levante-network.org>.
 
 Our current task set is designed for children ages 5--12, but we are currently pursuing downward extension of many of these tasks for children ages 2--5. By design, the forced choice, tablet-based format of our tasks makes them highly amenable to use with younger children [@frank2016]. In our downward extension work, we are adding easier items to each task, increasing the number of practice trials, and increasing the amount of instructions. We anticipate that not all tasks will be usable for all ages, but for at least the executive function and language tasks there is strong evidence of usability with children under age 5 [@davidson2006;@bishop1982]. 
 
-In sum, we have taken steps here towards a core set of tasks for measuring children's learning and development. We hope that this work is the beginning, rather than the end, of a process of iterative refinement and growth that results in a common, open measurement toolkit for developmental science.
+Several of the nine tasks remain under construction, and we expect gains in reliability and validity as items are refined, distractors improved, and instructions localised. We are actively monitoring task performance and iteratively refining items as new data accrue across sites. This includes updating IRT calibrations, conducting routine checks for differential item functioning, and making revisions guided by fit diagnostics and error patterns. We are attempting to strike a balance between minimising bias and ensuring that observed differences reflect genuine developmental variation rather than artefacts of the measurement process.
+
+In sum, we have taken steps here towards a core set of tasks for measuring children’s learning and development. We hope that this work is the beginning, rather than the end, of a process of iterative refinement and growth that results in a common, open measurement toolkit for developmental science.
 
 \newpage
 
