@@ -124,13 +124,12 @@ mask: false
 # footnotelist: no
 
 format:
-  # apaquarto-docx: default
-  # apaquarto-html: default
   apaquarto-pdf:
     documentmode: man
     keep-tex: true
     include-in-header: preamble.tex
-    # mainfont: "Avenir"
+    fig-pos: H        
+    tbl-pos: H  
 
 execute: 
   echo: false
@@ -545,8 +544,7 @@ The Max Planck Institute for Evolutionary Anthropology and Leuphana University c
 
 ## Canada
 
-Partners at Western University, led by Daniel Ansari, recruited participants from the local community and tested children individually in a clinic setting. The western-ca site collected data from `r user_totals$n_users[user_totals$site == "western-ca"]` children, ages 5-12 years. 
-
+Partners at Western University (Ontario) recruited participants from the local community, primarily through online outreach (Facebook advertisements and community group posts), supplemented by posters on neighborhood mailboxes and notices shared via local school newsletters. Children were tested individually by a researcher in a dedicated testing space on campus. The western-ca site collected data from `r user_totals$n_users[user_totals$site == "western-ca"]` children, ages 5-12 years. 
 
 # Scoring
 
@@ -667,7 +665,17 @@ task_model_inv |>
 
 ```
 
+
+
 # Psychometric properties of tasks
+
+## Developmental change
+
+Across all nine tasks we observed positive age–ability trends. The smoothed lines in Figure @fig-age-trends are roughly parallel within each panel, indicating that sites differ mostly in overall level rather than in developmental rate. Growth appeared steepest for Math and Hearts & Flowers, moderate for Vocabulary, Memory, and Theory of Mind, and shallower for Shape Rotation and Sentence Understanding, which showed positive but weaker age effects.
+
+To quantify developmental change, we fitted separate ordinary least-squares models predicting ability scores (IRT units) from centered age with site fixed effects and an age × site interaction, allowing slopes to vary by site. As summarized in Table @tbl-slopes, age-related slopes were positive for all tasks and sites, indicating that older children performed better on every measure. 
+
+In addition, we calculated per-site zero-order correlations between age and IRT ability scores. These correlations were uniformly positive (r ≈ .40–.70) and of moderate magnitude across tasks, consistent with the regression estimates. The close correspondence between the linear slopes and the smooth trends suggests that, within the studied age range, developmental gains are approximately linear and broadly comparable across cultural contexts.
 
 ```{r}
 #| label: fig-age-trends
@@ -691,7 +699,7 @@ ggplot(coretask_scores, aes(age, metric_value)) +
 ::: {.landscape}
 ```{r}
 #| label: tbl-slopes
-#| fig-cap: "Age-Related Change in Performance: Task Grand Means, Site Deviations, and Age–Ability Correlations"
+#| tbl-cap: "Age-Related Change in Performance: Task Grand Means, Site Deviations, and Age–Ability Correlations"
 
 analyze_task_slopes <- function(task_name) {
   d <- coretask_scores %>% filter(item_task == task_name)
@@ -706,7 +714,7 @@ analyze_task_slopes <- function(task_name) {
   mean_se    <- unname(cs["age_c", "Std. Error"])
   mean_t     <- unname(cs["age_c", "t value"])
   mean_p     <- unname(cs["age_c", "Pr(>|t|)"])
-  mean_df    <- df.residual(fit)                      # optional, if you want df
+  mean_df    <- df.residual(fit)                    
 
   tr_site <- emtrends(fit, ~ site, var = "age_c")
 
@@ -757,14 +765,14 @@ analyze_task_slopes <- function(task_name) {
 deviation_raw <- map_dfr(unique(coretask_scores$item_task), analyze_task_slopes) %>%
   mutate(Task = dplyr::recode(as.character(task),
     math   = "Math",
-    tom    = "Theory of Mind",
-    matrix = "Matrix Reasoning",
-    mrot   = "Mental Rotation",
-    hf     = "Hearts & Flowers",
-    mg     = "Memory",
-    sds    = "Same & Different",
-    trog   = "Sentence Understanding",
-    vocab  = "Vocabulary"
+    tom    = "ToM",
+    matrix = "Mat.Reason.",
+    mrot   = "Ment.Rotat.",
+    hf     = "H&F",
+    mg     = "Mem",
+    sds    = "Same&Diff.",
+    trog   = "Sent.Under.",
+    vocab  = "Vocab."
   ))
 
 # format p-values (dev p and grand mean p) and print
@@ -792,41 +800,58 @@ deviation_print <- deviation_raw %>%
   transmute(
     Task,
     Site = site,
-    `Grand Mean Slope (β)` = round(Mean_Slope, 3),
-    `Grand Mean SE`        = round(Mean_SE, 3),
+    `Grand Mean Slope (β)` = round(Mean_Slope, 2),
+    `Grand Mean SE`        = round(Mean_SE, 2),
     `Grand Mean p-value`,
-    `Deviation from Mean`  = round(Slope_Deviation, 3),
-    `Deviation SE`         = round(SE, 3),
+    `Deviation from Mean`  = round(Slope_Deviation, 2),
+    `Deviation SE`         = round(SE, 2),
     `Deviation p-value`,
     N,
-    `r (age, ability)`     = round(r, 3),
+    `r (age, ability)`     = round(r, 2),
     `r p-value`
   )
 
-knitr::kable(
-  deviation_print,
-  format    = "pipe",
-  col.names = c("Task","Site","Grand Mean Slope (β)","Grand Mean SE","Grand Mean p-value",
-                "Deviation from Mean","Deviation SE","Deviation p-value",
-                "N","r (age, ability)","r p-value"),
-  align     = c("l","l","r","r","r","r","r","r","r","r","r"))
-
+ft <- flextable(deviation_print) |>
+  set_header_labels(
+    `Grand Mean Slope (β)` = "GM β",
+    `Grand Mean SE`        = "GM SE",
+    `Grand Mean p-value`   = "GM p",
+    `Deviation from Mean`  = "Δ from GM",
+    `Deviation SE`         = "Δ SE",
+    `Deviation p-value`    = "Δ p",
+    `r (age, ability)`     = "r(age,ability)",
+    `r p-value`            = "r p"
+  ) |>
+  colformat_num(
+    j = c("Grand Mean Slope (β)", "Grand Mean SE",
+          "Deviation from Mean", "Deviation SE",
+          "N", "r (age, ability)"),
+    digits = 2
+  ) |>
+  set_caption("Age-Related Change in Performance: Task Grand Means, Site Deviations, and Age–Ability Correlations") |>
+  fontsize(size = 9, part = "all") |>
+  line_spacing(space = 0.7, part = "all") |>
+  padding(padding.top = 1, padding.bottom = 1,
+          padding.left = 1, padding.right = 1, part = "all") |>
+  autofit() |>
+  width(j = "Task", width = 0.7) |>
+  width(j = "Site", width = 1.2) |>
+  width(j = c("Grand Mean Slope (β)", "Grand Mean SE", "Grand Mean p-value",
+              "Deviation from Mean", "Deviation SE", "Deviation p-value",
+              "N", "r (age, ability)", "r p-value"),
+        width = 0.55) |>
+  height_all(height = 0.15, part = "body") |>
+  height(height = 0.15, part = "header") |>
+  align(align = "center", part = "all")
+ft
 ```
-
-## Developmental change
-
-Across all nine tasks we observed positive age–ability trends. The smoothed lines in Figure @fig-age-trends are roughly parallel within each panel, indicating that sites differ mostly in overall level rather than in developmental rate. Growth appeared steepest for Math and Hearts & Flowers, moderate for Vocabulary, Memory, and Theory of Mind, and shallower for Shape Rotation and Sentence Understanding, which showed positive but weaker age effects.
-
-To quantify developmental change, we fitted separate ordinary least-squares models predicting ability scores (IRT units) from centered age with site fixed effects and an age × site interaction, allowing slopes to vary by site. As summarized in Table @tbl-slopes, age-related slopes were positive for all tasks and sites, indicating that older children performed better on every measure. 
-
-In addition, we calculated per-site zero-order correlations between age and IRT ability scores. These correlations were uniformly positive (r ≈ .40–.70) and of moderate magnitude across tasks, consistent with the regression estimates. The close correspondence between the linear slopes and the smooth trends suggests that, within the studied age range, developmental gains are approximately linear and broadly comparable across cultural contexts.
+:::
 
 ## Reliability 
 
 One goal for the LEVANTE core tasks is strong reliability both within an individual administration (across test items) and across multiple administrations separated in time. We report on each of these. 
 
 ### Marginal reliability
-
 ::: {.landscape}
 ```{r}
 #| label: tbl-task-rxx
@@ -847,25 +872,17 @@ trx <- task_rxx |>
   pivot_wider(names_from = site, values_from = c(Model, Invariance, Reliability),
               names_glue = "{site}_{.value}")
 
-knitr::kable(
-  trx %>% dplyr::select(sort(names(.))) %>% dplyr::relocate(Task),
-  format = "pipe", digits = 3, align = "c"
-)
-
-# flextable not working.
-#trx |>
-#  select(sort(colnames(trx))) |>
-#  relocate(Task, .before = everything()) |>
-#  flextable() |>
-#  separate_header() |>
-#  flextable::autofit(add_w = 0, add_h = 0)
+trx |>
+  select(sort(colnames(trx))) |>
+  relocate(Task, .before = everything()) |>
+  flextable() |>
+  separate_header() |>
+  flextable::autofit(add_w = 0, add_h = 0)
 
 ```
 :::
   
 IRT models allow the computation of marginal reliability, which captures the inter-relatedness of items in an assessment and hence the proportion of variation attributed to shared variance. In multi-group IRT models, marginal reliabilities can be computed only for individual sub-models.  @tbl-task-rxx shows marginal reliabilities for each task, reporting reliability for each sub-model for the best fitting model. 
-
-### Test-retest reliability
 
 ```{r}
 # prophecy <- function (n = 2, r) {
@@ -902,7 +919,11 @@ trt <- retest_wide |>
   ungroup() |>
   arrange(task)
 ```
+### Test-retest reliability
 
+We were also interested in capturing the extent to which the LEVANTE tasks yield reliable signal across a delay. The leuphana-de pilot site was able to re-administer tasks to a subset of their original participant group with a retest interval of approximately 4--5 months. We used this re-administration as an opportunity to collect data with computer adaptive versions of many of the tasks (sentence understanding, pattern matching, shape rotation, math and vocabulary); see below for further details of computer adaptive versions. In addition, for several tasks (math, theory of mind, pattern matching), we used this opportunity to gather item data about new groups of retest items that were designed to match the content of the original items but vary in their surface forms. For the other tasks, we retested using the same items. 
+
+Figure @fig-retest shows the relations between time 1 and time 2 scores. Uptake for retest administrations varied between N=`r min(trt$n)` and N=`r max(trt$n)`; the low number of repeat administrations for Sentence Understanding reflects an error in which this task was not sent to younger children. Table @tbl-retest shows test-retest correlations.
 ```{r}
 #| label: tbl-retest
 #| tbl-cap: "Task-wise test-retest correlations computed for Germany data."
@@ -942,11 +963,6 @@ ggplot(retest_wide, aes(x = run_1, y = run_2, color = age)) +
   labs(x = "Score 1", y = "Score 2", color = "Age (years)") +
   theme(legend.position = "bottom")
 ```
-
-We were also interested in capturing the extent to which the LEVANTE tasks yield reliable signal across a delay. The leuphana-de pilot site was able to re-administer tasks to a subset of their original participant group with a retest interval of approximately 4--5 months. We used this re-administration as an opportunity to collect data with computer adaptive versions of many of the tasks (sentence understanding, pattern matching, shape rotation, math and vocabulary); see below for further details of computer adaptive versions. In addition, for several tasks (math, theory of mind, pattern matching), we used this opportunity to gather item data about new groups of retest items that were designed to match the content of the original items but vary in their surface forms. For the other tasks, we retested using the same items. 
-
-Figure @fig-retest shows the relations between time 1 and time 2 scores. Uptake for retest administrations varied between N=`r min(trt$n)` and N=`r max(trt$n)`; the low number of repeat administrations for Sentence Understanding reflects an error in which this task was not sent to younger children. Table @tbl-retest shows test-retest correlations.
-
 ## Validity 
 
 ```{r prep-sem, include=FALSE}
@@ -1076,31 +1092,29 @@ edges <- pe %>%
     from = if_else(op == "~", rhs, lhs),
     to   = if_else(op == "~", lhs, rhs),
     op, est, std.all, pvalue,
-    arrow = case_when(op == "~~" & lhs == rhs ~ "both",
-                      op == "~~"              ~ "none",
-                      TRUE                    ~ "last"),
-    curvature = if_else(op == "~~" & lhs != rhs, 60, NA_real_),
+    arrow     = if_else(op == "~~", "both", "last"),   # <-- fix here
+    curved    = op == "~~" & lhs != rhs,               # curve only covariances
+    curvature = if_else(op == "~~" & lhs != rhs, 0.35, NA_real_),
     linetype  = if_else(op == "~~" & lhs != rhs, 2L, 1L)
   ) %>%
-  mutate(stars = case_when(pvalue < .001 ~ "***",
-                           pvalue < .01  ~ "**",
-                           pvalue < .05  ~ "*",
-                           TRUE ~ ""),
-         label = sprintf("%.2f%s", std.all, stars)) %>%
-  # drop marker loading g =~ 1*reasoning
-  filter(!(op == "=~" & from == "g" & to == "reasoning" & abs(est - 1) < 1e-8)) %>%
-  # hide variance loop for exogenous age
-  filter(!(from == to & from == "log_age_c"))
+  mutate(
+    stars = case_when(pvalue < .001 ~ "***",
+                      pvalue < .01  ~ "**",
+                      pvalue < .05  ~ "*",
+                      TRUE ~ ""),
+    label = sprintf("%.2f%s", std.all, stars)
+  )
 
 layout_g_age <- matrix(
   c(
-    NA,       NA,        "log_age_c", NA,     NA,     NA,     NA,
-    NA,       NA,        NA,          "g",    NA,     NA,     NA,
-    "math",   "tom",     "reasoning", NA,     "ef",   NA,     "language",
-    NA,       NA,        NA,          NA,     NA,     NA,     NA,
-    "matrix", "mrot",    "hf",        "mg",   "sds",  "trog", "vocab"
+    NA,       NA,        "log_age_c", NA,     NA,     NA,     NA, NA, NA,
+    NA,       NA,        NA,          "g",    NA,     NA,     NA, NA, NA,
+    NA,       NA,        NA,          NA,    NA,     NA,     NA, NA, NA,
+    "math",   NA, "tom",  NA,  "reasoning", NA,     "ef",   NA,     "language",
+    NA,       NA,        NA,          NA,     NA,     NA,     NA, NA, NA,
+    NA, NA, "matrix", "mrot",    "hf",        "mg",   "sds",  "trog", "vocab"
   ),
-  nrow = 5, byrow = TRUE
+  nrow = 6, byrow = TRUE
 )
 
 g <- tidySEM::prepare_graph(
@@ -1119,12 +1133,7 @@ g$edges$label_colour <- "black"
 g$edges$label_alpha  <- 1
 
 plot(g)
-
 ```
-### External validity
-
-To assess external validity, we fitted a single-factor EF model with hearts and flowers (hf), memory game (mg), same-different-selection (sds), and the external measure, the Minnesota Executive Function Scale (MEFS) as indicators (@fig-semplot-ef). We modeled age as a predictor of the latent EF factor. Fit was generally good (CFI = .971, TLI = .943, SRMR = .034; RMSEA = .071, 90% CI .040–.106). Standardized loadings were moderate to strong (hf = .63, mg = .63, sds = .50, MEFS = .67), indicating that MEFS aligns closely with the latent EF construct. Age strongly predicted EF ($\beta = 0.79$; $R^2 = .62$), consistent with expected developmental gains.
-
 ```{r prep-sem-ef}
 ef_tasks <- c("hf","mg","sds","mefs")
 
@@ -1197,8 +1206,17 @@ beta_age_EF <- pe_ef |>
 
 r2_EF <- as.numeric(lavaan::lavInspect(fit_ef, "r2")["EF"])
 
-```
+fmt <- function(x, d = 2) formatC(x, digits = d, format = "f")
+# standardised loadings (λ) for EF =~ hf + mg + sds + mefs
+load_tab <- pe_ef |>
+  dplyr::filter(op == "=~", lhs == "EF", rhs %in% c("hf","mg","sds","mefs")) |>
+  dplyr::select(rhs, std.all) |>
+  tibble::deframe()  # named vector: c(hf = ., mg = ., sds = ., mefs = .)
 
+```
+### External validity
+
+To assess external validity, we fitted a single-factor EF model with hearts and flowers (hf), memory game (mg), same-different-selection (sds), and the external measure, the Minnesota Executive Function Scale (MEFS) as indicators (@fig-semplot-ef). We modeled age as a predictor of the latent EF factor. Fit was generally good `r round(lavaan::fitMeasures(fit_ef)["cfi"], 3)`, RMSEA: `r round(lavaan::fitMeasures(fit_ef)["rmsea"], 3)` RMSEA p-value: `r round(lavaan::fitMeasures(fit_ef)["rmsea.pvalue"], 3)`. Standardized loadings were: hf = `r fmt(load_tab["hf"])`, mg = `r fmt(load_tab["mg"])`, sds = `r fmt(load_tab["sds"])`, MEFS = `r fmt(load_tab["mefs"])`, indicating that MEFS aligns closely with the latent EF construct. Age strongly predicted EF ($\beta$ = `r round(beta_age_EF, 2)`; $R^2$ = `r round(r2_EF, 2)`), consistent with expected developmental gains.
 ```{r}
 #| label: fig-semplot-ef
 #| fig-cap: "SEM for executive function model."
@@ -1325,10 +1343,26 @@ Language ~ age
 fit_lang <- cfa(cfa_lang, data = lang_wide_std,
                 estimator = "MLR", std.lv = TRUE, missing = "fiml")
 summary(fit_lang, fit.measures = TRUE, standardized = TRUE)
-# print(fitMeasures(fit_lang, c("cfi","tli","rmsea","srmr", "aic", "bic")))
+pe_lang <- lavaan::parameterEstimates(fit_lang, standardized = TRUE)
+fm_lang <- lavaan::fitMeasures(fit_lang)
+
+# standardised beta and R^2
+beta_age_Lang <- pe_lang |>
+dplyr::filter(lhs == "Language", op == "~", rhs == "age") |>
+dplyr::pull(std.all) |> as.numeric()
+r2_Lang <- as.numeric(lavaan::lavInspect(fit_lang, "r2")["Language"])
+
+# standarised loadings
+load_tab_lang <- pe_lang |>
+dplyr::filter(op == "=~", lhs == "Language",
+rhs %in% c("swr","sre","pa","trog","vocab")) |>
+dplyr::select(rhs, std.all) |>
+tibble::deframe()
+
 ```
 
-We ran a similar model to determine the external validity of the language and literacy measures (grammar and vocab) against ROAR tasks including measures of Phonological Awareness (pa), Single Word Reading (swr) and Sentence Reading Efficiency (sre). We fitted a single latent Language factor with ROAR tasks plus grammar (trog) and vocabulary as indicators, and modeled age as a predictor of the latent factor (@fig-semplot-lang). Fit was borderline acceptable: CFI: `r round(lavaan::fitMeasures(fit_ef)["cfi"], 3)`, RMSE: `r round(lavaan::fitMeasures(fit_ef)["rmsea"], 3)` RMSE p-value: `r round(lavaan::fitMeasures(fit_ef)["rmsea.pvalue"], 3)`. Standardized loadings were all statistically significant, indicating that the ROAR tasks align with grammar and vocabulary on a common language/literacy factor, with vocabulary the strongest indicator. Age positively predicted the latent factor ($\beta = `r sprintf('%.2f', beta_age_EF)`$; $R^2 = `r sprintf('%.2f', r2_EF)`$), consistent with expected developmental gains.
+We ran a similar model to determine the external validity of the language and literacy measures (grammar and vocab) against ROAR tasks including measures of Phonological Awareness (pa), Single Word Reading (swr) and Sentence Reading Efficiency (sre). We fitted a single latent Language factor with ROAR tasks plus grammar (trog) and vocabulary as indicators, and modeled age as a predictor of the latent factor (@fig-semplot-lang). 
+Fit was generally good `r round(fm_lang["cfi"], 3)`, RMSEA: `r round(fm_lang["rmsea"], 3)` RMSEA p-value: `r round(fm_lang["rmsea.pvalue"], 3)`. Standardized loadings were: SWR = `r round(load_tab_lang["swr"], 2)`, SRE = `r round(load_tab_lang["sre"], 2)`, PA = `r round(load_tab_lang["pa"], 2)`, TROG = `r round(load_tab_lang["trog"], 2)`, Vocabulary = `r round(load_tab_lang["vocab"], 2)`. Age predicted Language ($\beta$ = `r round(beta_age_Lang, 2)`; $R^2$ = `r round(r2_Lang, 2)`) consistent with expected developmental gains. 
 
 ```{r}
 #| label: fig-semplot-lang
