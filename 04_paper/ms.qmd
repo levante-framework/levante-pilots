@@ -546,36 +546,50 @@ The Max Planck Institute for Evolutionary Anthropology and Leuphana University c
 ## Canada
 
 Partners at Western University, led by Daniel Ansari, recruited participants from the local community and tested children individually in a clinic setting. The western-ca site collected data from `r user_totals$n_users[user_totals$site == "western-ca"]` children, ages 5-12 years. 
+
+
 # Scoring
 
-Our goal for each task was to extract administration-level scores with the highest reliability and validity. Accordingly, we began by heuristically removing items that functioned poorly and then followed up by fitting a range of IRT models to compute ability scores using responses from the remaining items. 
+Our goal for each task was to extract administration-level ability scores with the highest possible reliability and validity. To do so, we first conducted heuristic item screening to remove poorly functioning items, then fit a sequence of multigroup IRT models to the retained items to estimate latent ability scores. These analyses provided the foundation for the reliability, developmental, and validity results described in subsequent sections.
 
 ## Heuristic item pruning and data checking
 
-Prior to fitting psychometric models, we examined sumscore data for each task within each site and identified items that were functioning unusually poorly (e.g., showing sumscores close to or even below chance). In some cases this was due to potential translation issues; in a few others it was due to aspects of item design. We manually excluded these items from further processing (N=XYZ). In one case, this process helped us identify a bug in the scoring of data for three tasks; we excluded these observations, which were made during a two day period of testing for the leuphana-de site. 
+Prior to fitting psychometric models, we examined item-level performance summaries for each task within each site to identify items that were functioning unusually poorly (e.g., showing average accuracy close to or even below chance). We also reviewed classical diagnostics such as proportion correct, item–total correlations, and missingness rates to flag items that showed little discrimination or appeared anomalous. In some cases this was due to potential translation issues; in others it reflected aspects of item design. We manually excluded these items from further processing (N = 10). In one case, this process helped us identify a bug in the scoring of data for three tasks; we excluded these observations, which were made during a two day period of testing for the mpieva-de site. The resulting cleaned calibration dataset formed the basis for all subsequent IRT estimation and invariance analyses.
 
 ## Multigroup IRT model selection
 
+Following item screening, we evaluated measurement invariance across sites using nested multigroup IRT models to assess the comparability of latent ability estimates. The conventional hierarchy of factor-analytic invariance—configural → metric → scalar—was implemented in the IRT framework as successive equality constraints on item parameters (see @tbl-invariance-explainer) for correspondence and interpretation). Configural invariance reflects a shared latent structure, metric invariance constrains item discriminations, and scalar invariance constrains both discriminations and difficulties across sites.
+
+For each task, we compared unidimensional Rasch and 2PL models under these nested invariance constraints. All models were estimated in `mirt` [@mirt]  via marginal maximum likelihood using 500 quadrature points, with expected a posteriori (EAP) scoring. Overlapping items across sites served as anchors to establish a common scale; non-overlapping items were freely estimated within the same multigroup calibration. Model convergence and identification were verified by ensuring stable log-likelihoods and condition numbers below \(10^3\).
+
+Model selection was guided by the Bayesian Information Criterion (BIC). The selected model for each task (see @tbl-model-invariance) represents the most parsimonious combination of model family and invariance level that adequately reproduced cross-site response patterns. Across tasks, Rasch models provided the best fit for most domains, while 2PL models were favored for *Same & Different* and *Shape Rotation*, tasks showing greater variability in item discrimination.  
+
+Most tasks achieved **scalar invariance**, suggesting that both difficulty and discrimination parameters generalized across sites; two tasks achieved only metric invariance, and three (*Hearts & Flowers*, *Theory of Mind*, *Vocabulary*) achieved only configural invariance, indicating consistent dimensional structure but limited parameter equivalence. For interpretive clarity, subsequent cross-site comparisons are restricted to tasks demonstrating at least metric invariance.
+
+## Score computation
+
+Individual ability scores were then computed as expected a posteriori (EAP) estimates based on the final multigroup calibrations. Resulting scores are expressed on a common cross-site scale, enabling the developmental, reliability, and validity analyses described in the following section.
+
+::: {.landscape}
 ```{r}
 #| label: tbl-invariance-explainer
 #| tbl-cap: "Measurement invariance across factor analysis and item response theory."
 
 # read and lightly normalize columns
 inv_explainer <- read_csv(here("04_paper", "display", "invariance.csv"), show_col_types = FALSE) |>
-  mutate(across(everything(), \(v) replace_na(v, ""))) |>
+  mutate(across(everything(), \(v) replace_na(v, "–"))) |>
   transmute(
     Invariance = str_to_title(Invariance),
     Model = case_when(
       str_detect(Model, regex("2\\s*pl|^2pl$", ignore_case = TRUE)) ~ "2PL",
       str_detect(Model, regex("rasch", ignore_case = TRUE)) ~ "Rasch",
-      TRUE ~ Model
+      TRUE ~ ifelse(Model == "" | Model == "–", "–", Model)
     ),
-    `mirt code` = `mirt code`,
-    `Factor-analytic analogue` = `Factor analysis name`,
-    `IRT explanation` = `IRT explanation`,
-    `Practical interpretation` = Interpretation
+    `mirt code`                = ifelse(`mirt code` == "", "–", `mirt code`),
+    `Factor-analytic analogue` = ifelse(`Factor analysis name` == "", "–", `Factor analysis name`),
+    `IRT explanation`          = ifelse(`IRT explanation` == "", "–", `IRT explanation`),
+    `Practical interpretation` = ifelse(Interpretation == "", "–", Interpretation)
   ) |>
-  # ensure desired column order
   select(Invariance, Model, `mirt code`, `Factor-analytic analogue`, `IRT explanation`, `Practical interpretation`)
 
 # build table (mirrors tbl-task-rxx style)
@@ -592,185 +606,65 @@ inv_explainer |>
   separate_header() |>
   width(j = "Invariance", width = 0.6) |>
   width(j = "Model", width = 0.6) |>
-  width(j = "mirt code", width = 0.9) |>
-  width(j = "Factor-analytic analogue", width = 1.2) |>
-  width(j = "IRT explanation", width = 1.5) |>
-  width(j = "Practical interpretation", width = 1.5) |>
+  width(j = "mirt code", width = 1.8) |>
+  width(j = "Factor-analytic analogue", width = 2) |>
+  width(j = "IRT explanation", width = 2) |>
+  width(j = "Practical interpretation", width = 2) |>
   align(align = "left", part = "all") |>
   valign(val = "top", part = "all") |>
   line_spacing(space = 1.1, part = "all") |>
   padding(padding.top = 2, padding.bottom = 2, part = "all") |>
-  fontsize(size = 8.5, part = "all") 
+  fontsize(size = 10, part = "all") 
 ```
+::: 
+
 
 ```{r}
-# #| label: tbl-model-invariance
-# #| tbl-cap: "Summary of multigroup invariance outcomes across LEVANTE tasks."
-# 
-# task_rxx <- read_rds(here("02_scoring_outputs/task_rxx.rds"))
-# 
-# invariances <- read_csv(here("04_paper/display/invariance.csv")) |>
-#   mutate(across(everything(), \(v) replace_na(v, "")))
-# 
-# invariance_summary <- task_rxx |>
-#   filter(task != "ha") |>
-#   distinct(task, invariance, itemtype) |>
-#   count(invariance, itemtype, name = "n_tasks") |>
-#   mutate(invariance = str_to_sentence(invariance),
-#          itemtype = itemtype |> fct_recode("Rasch" = "rasch", "2PL" = "2pl")) |>
-#   left_join(invariances |> select(invariance = Invariance, itemtype = Model, interpretation = Interpretation))
-# 
-# invariance_summary |>
-#   flextable() |>
-#   set_header_labels(invariance = "Invariance",
-#                     itemtype = "Model",
-#                     n_tasks = "N tasks",
-#                     interpretation = "Interpretation") |>
-#   flextable::autofit(add_w = 0, add_h = 0)
-```
+#| label: tbl-model-invariance
+#| tbl-cap: "Measurement invariance across factor analysis and item response theory."
 
-```{r model-invariance-chunk}
-# # Load reliability summary
-# task_rxx_path <- here::here("02_scoring_outputs","task_rxx.rds")
-# task_rxx <- readRDS(task_rxx_path)
-# 
-# # Site labels
-# if (!exists("site_labels")) {
-#   site_labels <- c("pilot_western_ca" = "Canada",
-#                    "pilot_uniandes_co" = "Colombia",
-#                    "pilot_leuphana_de" = "Germany")
-# }
-# 
-# mutate(site_label = recode(site, !!!site_labels),
-#            Model = case_match(itemtype,
-#                               "rasch" ~ "Rasch",
-#                               "2pl"   ~ "2PL",
-#                               .default = toupper(itemtype))) |>
-#     group_by(task, site_label) |>
-#     slice_max(order_by = rxx, n = 1, with_ties = FALSE) |>
-#     ungroup()
-# 
-# # Pick a column to read the invariance level from, if available
-# lvl_candidates <- intersect(c("Level", "Invariance"), names(inv))
-# 
-# if (length(lvl_candidates) > 0) {
-#   # Use the first matching column for level extraction
-#   lvl_col <- lvl_candidates[1]
-#   inv_levels <- inv |>
-#     mutate(Level_norm_raw = tolower(.data[[lvl_col]]))
-# } else if ("Interpretation" %in% names(inv)) {
-#   # Fall back to Interpretation text
-#   inv_levels <- inv |>
-#     mutate(Level_norm_raw = tolower(.data[["Interpretation"]]))
-# } else {
-#   # If neither exists, mark as unspecified
-#   inv_levels <- inv |>
-#     mutate(Level_norm_raw = "unspecified")
-# }
-# 
-# inv_levels <- inv_levels |>
-#   mutate(Level_norm = case_when(
-#     str_detect(Level_norm_raw, "scalar")    ~ "Scalar",
-#     str_detect(Level_norm_raw, "metric")    ~ "Metric",
-#     str_detect(Level_norm_raw, "configur")  ~ "Configural",
-#     TRUE                                    ~ "Unspecified"
-#   ))
-# 
-# # Summary counts by invariance level
-# sum_counts <- inv_levels |>
-#   count(Level_norm, name = "Number of tasks") |>
-#   mutate(Level_norm = factor(Level_norm, levels = c("Scalar","Metric","Configural","Unspecified"))) |>
-#   arrange(Level_norm)
-# 
-# papaja::apa_table(
-#   sum_counts |>
-#     rename(`Invariance level` = Level_norm),
-#   caption = "Summary of multigroup invariance outcomes across LEVANTE tasks.",
-#   label = "model-invariance"
-# )
-# 
+# Load reliability / model summary
+task_rxx_path <- here::here("02_scoring_outputs","task_rxx.rds")
+task_rxx <- readRDS(task_rxx_path)
 
-```
+# Task display labels
+task_labels <- c(
+  ha     = "Social Attribution",
+  hf     = "Hearts & Flowers",
+  math   = "Math",
+  matrix = "Pattern Matching",
+  mg     = "Memory",
+  mrot   = "Shape Rotation",
+  sds    = "Same & Different",
+  tom    = "Theory Of Mind",
+  trog   = "Sentence Understanding",
+  vocab  = "Vocabulary"
+)
 
-For each task, we fit alternative unidimensional IRT specifications (Rasch vs. 2PL) under a sequence of increasingly restrictive invariance constraints. Following the conventional factor-analytic hierarchy, translated into IRT terms, we tested:
+# Collapse to one row per task (most common model × invariance)
+task_model_inv <- task_rxx |>
+  filter(task != "ha") |>  # optional, drop task if needed
+  count(task, itemtype, invariance, sort = TRUE) |>
+  group_by(task) |>
+  slice_max(n, n = 1, with_ties = FALSE) |>
+  ungroup() |>
+  transmute(
+    Task       = recode(task, !!!task_labels),
+    Model      = recode(itemtype, "rasch" = "Rasch", "2pl" = "2PL", .default = toupper(itemtype)),
+    Invariance = stringr::str_to_title(invariance)
+  ) |>
+  arrange(factor(Task, levels = c(
+    "Hearts & Flowers","Math","Pattern Matching","Memory",
+    "Shape Rotation","Same & Different","Theory Of Mind",
+    "Sentence Understanding","Vocabulary"
+  )))
 
-- Configural invariance: common factor structure, item parameters free across sites
-- Metric invariance: item discriminations constrained equal across sites
-- Scalar invariance: item discriminations and intercepts constrained equal (and guessing parameters, where applicable)
+# Display nicely formatted table
+task_model_inv |>
+  flextable::flextable() |>
+  flextable::set_header_labels(Task = "Task", Model = "Model", Invariance = "Invariance") |>
+  flextable::autofit(add_w = 0, add_h = 0)
 
-Scalar invariance provides the strongest basis for direct cross-site comparability of latent ability estimates, whereas metric and configural levels reflect progressively weaker comparability.
-
-These models were estimated on the overlapping items common to all sites. The best-fitting model for each task was selected by the Bayesian Information Criterion (BIC), considering both model family (Rasch vs. 2PL) and invariance level (configural, metric, scalar). 
-
-As summarized in tbl-model-invariance, Rasch models provided the best fit for the majority of tasks, whereas 2PL models were favored for Same & Different and Shape Rotation. This pattern suggests that a simple Rasch parameterization was sufficient to capture response variation in most domains, whereas tasks involving more complex perceptual or reasoning demands benefited from the additional flexibility of the 2PL specification. The use of a single overlap-based winner per task ensured that selection was driven by fit to the cross-site data rather than majority preference within individual sites.
-
-Scalar invariance held for most tasks, suggesting that both item difficulties and slopes generalized across sites. Two tasks supported only metric invariance, implying that discriminations were stable but intercepts varied across groups. Three tasks (Hearts & Flowers, Theory of Mind, Vocabulary) achieved only configural invariance, indicating consistent dimensional structure but insufficient parameter equivalence for strict comparability.
-
-For scoring, all multigroup models were extended to the full item pool. Overlapping items retained their parameter values from the overlap stage, while non-overlapping items were freely estimated. This ensured that scores were placed on a common cross-site scale for all tasks. The level of invariance (scalar, metric, configural) documents the strength of comparability, but scoring itself was always based on multigroup calibrations rather than site-level majority voting.
-
-```{r }
-# regdir <- here::here("02_score_data/02_fit_irt/model_registry")
-# # Load helpers
-# source(here::here("02_score_data/02_fit_irt/irt_modular.R"), chdir = TRUE)
-# source(here::here("02_score_data/02_fit_irt/registry_helper.R"), chdir = TRUE)
-# source(here::here("04_paper/item-diagnostic_helper.R"), chdir = TRUE)
-# # Sanity check: does the registry have files?
-# list.files(regdir, recursive = TRUE)
-# # read in all models in registry
-# mods <- list_models() |> load_models()
-# # extract model specifications from model records
-# mods_coded <- mods |>
-#   mutate(nfact = map_int(mod_rec, \(mr) mr@nfact),
-#          itemtype = map_chr(mod_rec, \(mr) mr@itemtype),
-#          invariance_terms = map(mod_rec, \(mr) mr@invariance),
-#          invariance = map_chr(invariance_terms, translate_invariance)) |>
-#   select(-filename, -path, -invariance_terms) |>
-#   mutate(mod = map(mod_rec, model_from_record))
-```
-
-```{r}
-# # --- Proportion-only summary table ---
-# task_summary_selected_report <- task_summary_selected |>
-#   mutate(
-#     # proportions
-#     prop_flag_p        = n_flag_p       / n_items,
-#     prop_flag_pb       = n_flag_pb      / n_items,
-#     prop_flag_infit    = n_flag_infit   / n_items,
-#     prop_flag_zinfit   = n_flag_zinfit  / n_items,
-#     prop_flag_SX2_01   = n_flag_SX2_p01 / n_items,
-#     prop_flag_SX2_001  = n_flag_SX2_p001/ n_items,
-#     prop_flag_RMSEA    = n_flag_RMSEA_SX2_poor / n_items,
-#     # label cleanup
-#     Task       = if (exists("task_labels")) recode(task, !!!task_labels) else task,
-#     Model      = dplyr::recode(itemtype, "rasch" = "Rasch", "2pl" = "2PL", .default = toupper(itemtype)),
-#     Invariance = stringr::str_to_title(invariance),
-#     Subset     = dplyr::recode(subset, "all_items" = "All items", "overlap_items" = "Overlap items", .default = subset)
-#   ) |>
-#   select(
-#     Task, Subset, Items = n_items,
-#     `Prop flag p`          = prop_flag_p,
-#     `Prop flag pb`         = prop_flag_pb,
-#     `Prop flag infit`      = prop_flag_infit,
-#     `Prop flag z.infit`    = prop_flag_zinfit,
-#     #`Prop flag S–X² p<.01` = prop_flag_SX2_01,
-#     `Prop flag S–X² p<.001`= prop_flag_SX2_001,
-#     `Prop poor RMSEA(S–X²)`= prop_flag_RMSEA
-#   ) |>
-#   # APA-style rounding
-#   mutate(across(where(is.numeric), ~ round(.x, 2)))
-# 
-# # --- APA Table ---
-# options(papaja.na_string = "–")
-# papaja::apa_table(
-#   task_summary_selected_report,  # your tibble with proportions only
-#   caption = NULL,                # omit caption for slide
-#   note    = NULL,                # omit long notes
-#   col_spanners = list("Proportion of flagged items" = 3:9),
-#   landscape = TRUE,             
-#   fontsize = "scriptsize"        # shrink if needed for slide fit
-# )
-# 
-# options(papaja.na_string = "NA")
 ```
 
 # Psychometric properties of tasks
