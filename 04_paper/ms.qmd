@@ -158,20 +158,20 @@ library(lmerTest)
 library(png)
 library(emmeans)
 
+source(here("03_summaries","plotting_helper.R"))
 source(here("plot_settings.R"))
+source(here("03_summaries","scores_helper.R"))
 ```
 
 ```{r settings}
 #| cache: false
 
 site_labels <- c("uniandes-co" = "pilot_uniandes_co",
-                 "mpieva-de" = "pilot_mpieva_de",
+                 "leuphana-de" = "pilot_leuphana_de",
                  "western-ca" = "pilot_western_ca")
 
 sites <- names(site_labels)
 site_pal <- solarized_pal()(length(sites)) |> rlang::set_names(sites)
-
-core_tasks <- c("hf", "sds", "mg", "math", "matrix", "mrot", "trog", "vocab", "tom")
 
 set_flextable_defaults(theme_fun = theme_apa, arraystretch = 1, padding = 1)
 
@@ -179,6 +179,7 @@ set_flextable_defaults(theme_fun = theme_apa, arraystretch = 1, padding = 1)
 set.seed(42)
 knitr::opts_chunk$set(cache.extra = knitr::rand_seed)
 ```
+
 
 # Introduction
 
@@ -218,7 +219,7 @@ In addition to the constructs described above, we were also interested in the as
 
 ## The current study
 
-Here we report on the development and validation of the LEVANTE core tasks. This is an iterative process in which data from 5--12 year old children has been collected across three sites: Bogota, Colombia; Leipzig, Germany; and Ottawa, Canada.^[In the remainder of the manuscript, we refer to these sites by their site designators, `uniandes-co`, `mpieva-de`, and `western-ca`. These designators mark the research group and country of data collection. We make this choice to avoid the inference that these data are particularly representative of, for example, German or Colombian children more broadly.] In some cases that we note below, we used these data during the data collection process to make minor changes to the tasks. We use data from these three pilot sites both to provide initial evidence on the reliability and validity of the measures and to develop efficient, computer adaptive (CAT) versions of nearly all of the tasks. 
+Here we report on the development and validation of the LEVANTE core tasks. This is an iterative process in which data from 5--12 year old children has been collected across three sites: Bogota, Colombia; Leipzig, Germany; and Ottawa, Canada.^[In the remainder of the manuscript, we refer to these sites by their site designators, `uniandes-co`, `leuphana-de`, and `western-ca`. These designators mark the research group and country of data collection. We make this choice to avoid the inference that these data are particularly representative of, for example, German or Colombian children more broadly.] In some cases that we note below, we used these data during the data collection process to make minor changes to the tasks. We use data from these three pilot sites both to provide initial evidence on the reliability and validity of the measures and to develop efficient, computer adaptive (CAT) versions of nearly all of the tasks. 
 
 A key component of this process is the use of psychometric models based on item-response theory (IRT) [@embretson2013]. IRT models provide a family of models that allow the joint estimation of the difficulty of individual task items (e.g., math questions) and the ability of individual children. A fitted IRT model provides task parameters that can be used to estimate the ability of a new test taker given their responses on some or all of the same items. In addition, IRT parameters are used in the construction of CATs, which choose the most relevant items to give to estimate the ability of a particular individual. Critically for our purposes, the use of IRT models means that we can provide comparable scores on the same scale to a younger child who saw mostly easier task items and an older child who saw harder items; these models thus allow us to address our first key challenge posed above.  
 
@@ -250,15 +251,14 @@ included_scores <- all_scores |>
   filter(run_number == 1 | (run_number == 2 & age_gap > 1/6))
 
 coretask_scores <- included_scores |>
-  filter(item_task %in% core_tasks) |>
-  mutate(age_c = age - mean(age, na.rm = TRUE))
+  filter(item_task %in% core_tasks)
 
 coretask_firstrun_scores <- coretask_scores |>
   filter(run_number == 1)
 ```
 
 ```{r time-summary}
-task_time_summary <- read_rds(here("03_summaries/tables/task_time_summary.rds"))
+task_time_summary <- read_csv(here("03_summaries/tables/task_time_summary.csv"))
 
 task_time_table <- task_time_summary |>
   filter(!is.na(is_cat)) |>
@@ -295,10 +295,6 @@ task_time_table |>
   separate_header() |>
   flextable::autofit(add_w = 0, add_h = 0)
 ```
-<<<<<<< HEAD
-=======
-
->>>>>>> 5d2d64c0ab0b3953ec247f9ebd2e941d35c4ca4e
 ## General task properties
 
 The LEVANTE core tasks are short behavioral tasks that can be presented in a web browser on a tablet or laptop, with responses possible using a touchscreen, keyboard, or mouse. Because of this variability in format of administration, they focus on response correctness not reaction time and so they are mostly untimed. The tasks are designed for simplicity and clarity so as to be accessible to children across a wide age range, and so with only modest exceptions, nearly all are in the format of a multi-alternative forced choice with a maximum of four choices. This uniformity of format means that in most cases instructions can be short and easy to understand, minimizing delays when the tasks are given in sequence as a battery. fig-tasks shows screenshots from each of the tasks. Below we briefly present each task.
@@ -395,7 +391,7 @@ The Universidad de Los Andes conducted school-based data collection across four 
 
 ## Germany
 
-The Max Planck Institute for Evolutionary Anthropology and Leuphana University collected data using family-based remote data collection. Participants were recruited via an existing database of Leipzig families by first contacting families via telephone with an invitation to participate in the study. Upon agreement, families received an email with information to log into the LEVANTE system and complete the tasks assigned to them at home using their own computer or tablet. This site provided retest data with follow-up assignments sent to families 4--5 months after initial completion of the tasks. The mpieva-de site collected data from `r user_totals$n_users[user_totals$site == "Germany"]` children, ages 5--12 years. 
+The Max Planck Institute for Evolutionary Anthropology and Leuphana University collected data using family-based remote data collection. Participants were recruited via an existing database of Leipzig families by first contacting families via telephone with an invitation to participate in the study. Upon agreement, families received an email with information to log into the LEVANTE system and complete the tasks assigned to them at home using their own computer or tablet. This site provided retest data with follow-up assignments sent to families 4--5 months after initial completion of the tasks. The leuphana-de site collected data from `r user_totals$n_users[user_totals$site == "Germany"]` children, ages 5--12 years. 
 
 ## Canada
 
@@ -406,7 +402,7 @@ Our goal for each task was to extract administration-level scores with the highe
 
 ## Heuristic item pruning and data checking
 
-Prior to fitting psychometric models, we examined sumscore data for each task within each site and identified items that were functioning unusually poorly (e.g., showing sumscores close to or even below chance). In some cases this was due to potential translation issues; in a few others it was due to aspects of item design. We manually excluded these items from further processing (N=XYZ). In one case, this process helped us identify a bug in the scoring of data for three tasks; we excluded these observations, which were made during a two day period of testing for the mpieva-de site. 
+Prior to fitting psychometric models, we examined sumscore data for each task within each site and identified items that were functioning unusually poorly (e.g., showing sumscores close to or even below chance). In some cases this was due to potential translation issues; in a few others it was due to aspects of item design. We manually excluded these items from further processing (N=XYZ). In one case, this process helped us identify a bug in the scoring of data for three tasks; we excluded these observations, which were made during a two day period of testing for the leuphana-de site. 
 
 ## Multigroup IRT model selection
 
@@ -458,29 +454,29 @@ inv_explainer |>
 ```
 
 ```{r}
-#| label: tbl-model-invariance
-#| tbl-cap: "Summary of multigroup invariance outcomes across LEVANTE tasks."
-
-task_rxx <- read_rds(here("02_scoring_outputs/task_rxx.rds"))
-
-invariances <- read_csv(here("04_paper/display/invariance.csv")) |>
-  mutate(across(everything(), \(v) replace_na(v, "")))
-
-invariance_summary <- task_rxx |>
-  filter(task != "ha") |>
-  distinct(task, invariance, itemtype) |>
-  count(invariance, itemtype, name = "n_tasks") |>
-  mutate(invariance = str_to_sentence(invariance),
-         itemtype = itemtype |> fct_recode("Rasch" = "rasch", "2PL" = "2pl")) |>
-  left_join(invariances |> select(invariance = Invariance, itemtype = Model, interpretation = Interpretation))
-
-invariance_summary |>
-  flextable() |>
-  set_header_labels(invariance = "Invariance",
-                    itemtype = "Model",
-                    n_tasks = "N tasks",
-                    interpretation = "Interpretation") |>
-  flextable::autofit(add_w = 0, add_h = 0)
+# #| label: tbl-model-invariance
+# #| tbl-cap: "Summary of multigroup invariance outcomes across LEVANTE tasks."
+# 
+# task_rxx <- read_rds(here("02_scoring_outputs/task_rxx.rds"))
+# 
+# invariances <- read_csv(here("04_paper/display/invariance.csv")) |>
+#   mutate(across(everything(), \(v) replace_na(v, "")))
+# 
+# invariance_summary <- task_rxx |>
+#   filter(task != "ha") |>
+#   distinct(task, invariance, itemtype) |>
+#   count(invariance, itemtype, name = "n_tasks") |>
+#   mutate(invariance = str_to_sentence(invariance),
+#          itemtype = itemtype |> fct_recode("Rasch" = "rasch", "2PL" = "2pl")) |>
+#   left_join(invariances |> select(invariance = Invariance, itemtype = Model, interpretation = Interpretation))
+# 
+# invariance_summary |>
+#   flextable() |>
+#   set_header_labels(invariance = "Invariance",
+#                     itemtype = "Model",
+#                     n_tasks = "N tasks",
+#                     interpretation = "Interpretation") |>
+#   flextable::autofit(add_w = 0, add_h = 0)
 ```
 
 ```{r model-invariance-chunk}
@@ -492,7 +488,7 @@ invariance_summary |>
 # if (!exists("site_labels")) {
 #   site_labels <- c("pilot_western_ca" = "Canada",
 #                    "pilot_uniandes_co" = "Colombia",
-#                    "pilot_mpieva_de" = "Germany")
+#                    "pilot_leuphana_de" = "Germany")
 # }
 # 
 # mutate(site_label = recode(site, !!!site_labels),
@@ -651,15 +647,7 @@ ggplot(coretask_scores, aes(age, metric_value)) +
 
 ```{r}
 #| label: tbl-slopes
-<<<<<<< HEAD
 #| fig-cap: "Age-Related Change in Performance: Task Grand Means, Site Deviations, and Age–Ability Correlations"
-=======
-#| tbl-cap: "Site deviation from grand mean age slope (IRT units/year)."
-
-coretask_scores$site <- as.factor(coretask_scores$site)
-coretask_scores$item_task <- as.factor(coretask_scores$item_task)
-task_list <- unique(coretask_scores$item_task)
->>>>>>> 5d2d64c0ab0b3953ec247f9ebd2e941d35c4ca4e
 
 analyze_task_slopes <- function(task_name) {
   d <- coretask_scores %>% filter(item_task == task_name)
@@ -707,7 +695,6 @@ analyze_task_slopes <- function(task_name) {
     left_join(corr_tab, by = "site")
 }
 
-<<<<<<< HEAD
 # build table
 deviation_raw <- map_dfr(unique(coretask_scores$item_task), analyze_task_slopes) %>%
   mutate(Task = dplyr::recode(as.character(task),
@@ -721,9 +708,6 @@ deviation_raw <- map_dfr(unique(coretask_scores$item_task), analyze_task_slopes)
     trog   = "Sentence Understanding",
     vocab  = "Vocabulary"
   ))
-=======
-all_tasks_results <- purrr::map_dfr(unique(coretask_scores$item_task), analyze_task_slopes)
->>>>>>> 5d2d64c0ab0b3953ec247f9ebd2e941d35c4ca4e
 
 # get missing p-values
 deviation_print <- deviation_raw %>%
@@ -760,57 +744,7 @@ knitr::kable(
                 "p-value","N","r (age, ability)","r p-value"),
   align     = c("l","l","r","r","r","r","r","r","r")
 )
-```
 
-<<<<<<< HEAD
-=======
-```{r}
-#| label: tbl-slopes2
-#| tbl-cap: ""
-
-# per-task × site slopes
-slopes <- coretask_scores |>
-  group_by(task) |>
-  group_modify(~{
-    fit <- lm(metric_value ~ age_c * site, data = .x)
-    emtrends(fit, ~ site, var = "age_c") |>
-      summary(infer = TRUE) |>
-      as_tibble() |>
-      transmute(
-        task = unique(.x$task),
-        site,
-        slope_per_year = age_c.trend,
-        ci_low  = lower.CL,
-        ci_high = upper.CL,
-        p = p.value
-      )
-  }) |>
-  ungroup()
-
-# per-task × site correlations
-r_by_task_site <- coretask_scores |>
-  group_by(task, site) |>
-  summarise(
-    n     = sum(complete.cases(age, metric_value)),
-    r_age = if (n >= 3) cor(age, metric_value, use = "pairwise.complete.obs") else NA_real_,
-    .groups = "drop"
-  )
-
-# final table
-final_tab <- slopes |>
-  left_join(r_by_task_site, by = c("task", "site")) |>
-  select(task, site, r_age, slope_per_year, ci_low, ci_high, p, n) |>
-  mutate(site = site |> fct_recode(!!!site_labels)) |>
-  arrange(task, site) |>
-  mutate(p_fdr = p.adjust(p, method = "fdr"))
-
-final_tab |>
-  flextable() |>
-  set_header_labels(task = "Task", site = "Site", r_age = "r (age)",
-                    slope_per_year = "Slope / year", ci_low = "CI low",
-                    ci_high = "CI high", p = "p-value", n = "N", p_fdr = "p (FDR)") |>
-  autofit()
->>>>>>> 5d2d64c0ab0b3953ec247f9ebd2e941d35c4ca4e
 ```
 
 ## Developmental change
@@ -865,8 +799,9 @@ prophecy <- function (n = 2, r) {
   (n * r) /  (1 + (n - 1) * r)
 }
 
+
 de_retest_scores <- coretask_scores |> 
-  filter(site == "pilot_mpieva_de") |>
+  filter(site == "pilot_leuphana_de") |>
   group_by(user_id, task) |>
   arrange(user_id, task, age) |>
   filter(n() > 1) 
@@ -898,7 +833,7 @@ trt <- retest_wide |>
 
 ```{r}
 #| label: tbl-retest
-#| tbl-cap: 'Task-wise test-retest correlations computed for Germany data, with projected reliability computed via the Spearman-Brown "prophecy" formula.'
+#| tbl-cap: "Task-wise test-retest correlations computed for Germany data, with projected reliability computed via the Spearman-Brown \"prophecy\" formula."
 
 trt |>
   mutate(retest_cat = c("","x","","","x","","","","x"), 
@@ -940,17 +875,13 @@ ggplot(retest_wide, aes(x = run_1, y = run_2, color = age)) +
   theme(legend.position = "bottom")
 ```
 
-We were also interested in capturing the extent to which the LEVANTE tasks yield reliable signal across a delay. The mpieva-de pilot site was able to re-administer tasks to a subset of their original participant group with a retest interval of approximately 4--5 months. We used this re-administration as an opportunity to collect data with computer adaptive versions of many of the tasks (sentence understanding, pattern matching, shape rotation, math and vocabulary); see below for further details of computer adaptive versions. In addition, for several tasks (math, theory of mind, pattern matching), we used this opportunity to gather item data about new groups of retest items that were designed to match the content of the original items but vary in their surface forms. For the other tasks, we retested using the same items. 
+We were also interested in capturing the extent to which the LEVANTE tasks yield reliable signal across a delay. The leuphana-de pilot site was able to re-administer tasks to a subset of their original participant group with a retest interval of approximately 4--5 months. We used this re-administration as an opportunity to collect data with computer adaptive versions of many of the tasks (sentence understanding, pattern matching, shape rotation, math and vocabulary); see below for further details of computer adaptive versions. In addition, for several tasks (math, theory of mind, pattern matching), we used this opportunity to gather item data about new groups of retest items that were designed to match the content of the original items but vary in their surface forms. For the other tasks, we retested using the same items. 
 
 Figure @fig-retest shows the relations between time 1 and time 2 scores. Uptake for retest administrations varied between N=`r min(trt$n)` and N=`r max(trt$n)`; the low number of repeat administrations for Sentence Understanding reflects an error in which this task was not sent to younger children. Table @tbl-retest shows test-retest correlations as well as projected reliabilities for the measures based on the Spearman-Brown "prophecy" formula. These reliabilities were lower than the observed marginal reliabilities but generally acceptable, especially considering the substantial delay between administrations and -- in some cases -- the use of alternate items and CAT administration. Lowered reliability in the case of Sentence Understanding likely also reflects the restricted developmental range of the retest sample.
 
 ## Validity 
 
-<<<<<<< HEAD
 ```{r prep-sem, include=FALSE}
-=======
-```{r prep-sem}
->>>>>>> 5d2d64c0ab0b3953ec247f9ebd2e941d35c4ca4e
 # one row per user (metadata + task scores from first run)
 meta <- coretask_firstrun_scores |>
   group_by(user_id) |>
@@ -1008,12 +939,8 @@ mi_g <- lavaan::modindices(fit_g, sort. = TRUE, minimum.value = 10)
 # summary(fit_g, fit.measures = TRUE, standardized = TRUE)
 ```
 
-<<<<<<< HEAD
 ```{r sem-g-age, include=FALSE}
 #| echo: false
-=======
-```{r sem-g-age}
->>>>>>> 5d2d64c0ab0b3953ec247f9ebd2e941d35c4ca4e
 #| results: "hide" 
 
 stopifnot(all(vars_core_std$age > 0, na.rm = TRUE))
@@ -1049,7 +976,6 @@ summary(fit_g_age, fit.measures = TRUE, standardized = TRUE)
 fit_g_age_fit <- lavaan::fitMeasures(fit_g_age)
 
 ```
-
 ### Construct validity
 
 We assessed construct validity using a hierarchical CFA in which three first-order factors—Reasoning (matrix reasoning, mental rotation), Executive Function (Hearts & Flowers, Memory Game, Same–Different Selection), and Language (grammar, vocabulary)—loaded on a second-order general factor (G; @fig-semplot-g). Mathematics and Social Cognition (Theory of Mind; ToM) were treated as observed endogenous outcomes because each construct had a single task; introducing one-indicator latent variables would require strong, unverifiable assumptions about reliability/error variances. Age was specified to predict G (age → G). Model fit was poor -- CFI: `r round(lavaan::fitMeasures(fit_g_age)["cfi"], 3)`, RMSEA: `r round(lavaan::fitMeasures(fit_g_age)["rmsea"], 3)` RMSEA p-value: `r round(lavaan::fitMeasures(fit_g_age)["rmsea.pvalue"], 3)`. Overall, factor loadings supported the intended three-factor structure (convergent validity), and age related to each domain as expected. The high inter-factor correlations and strong second-order loadings indicate that much of the variance is shared across domains, consistent with a broad general ability underpinning performance on the nine core tasks.
@@ -1127,7 +1053,6 @@ g$edges$label_alpha  <- 1
 plot(g)
 
 ```
-
 ### External validity
 
 To assess external validity, we fitted a single-factor EF model with hearts and flowers (hf), memory game (mg), same-different-selection (sds), and the external measure, the Minnesota Executive Function Scale (MEFS) as indicators (@fig-semplot-ef). We modeled age as a predictor of the latent EF factor. Fit was generally good (CFI = .971, TLI = .943, SRMR = .034; RMSEA = .071, 90% CI .040–.106). Standardized loadings were moderate to strong (hf = .63, mg = .63, sds = .50, MEFS = .67), indicating that MEFS aligns closely with the latent EF construct. Age strongly predicted EF ($\beta = 0.79$; $R^2 = .62$), consistent with expected developmental gains.
@@ -1179,6 +1104,9 @@ ef_wide_std <- ef_wide_scores |>
 ```
 
 ```{r sem-ef}
+#| echo: false
+#| results: "hide" 
+
 cfa_ef <-  '
 EF =~ hf + mg + sds + mefs
 EF ~ age
@@ -1186,11 +1114,13 @@ EF ~ age
 
 fit_ef <- cfa(cfa_ef, data = ef_wide_std,
               estimator = "MLR", std.lv = TRUE, missing = "fiml")
-# summary(fit_ef, fit.measures = TRUE, standardized = TRUE)
+summary(fit_ef, fit.measures = TRUE, standardized = TRUE)
 #print(fitMeasures(fit_ef, c("cfi","tli","rmsea","srmr", "aic", "bic")))
 ```
 
-```{r ef-stats}
+```{r}
+#| label: ef-stats
+#| include: false
 pe_ef <- lavaan::parameterEstimates(fit_ef, standardized = TRUE)
 
 beta_age_EF <- pe_ef |>
@@ -1198,6 +1128,7 @@ beta_age_EF <- pe_ef |>
   dplyr::pull(std.all) |> as.numeric()
 
 r2_EF <- as.numeric(lavaan::lavInspect(fit_ef, "r2")["EF"])
+
 ```
 
 ```{r}
@@ -1314,6 +1245,9 @@ lang_wide_std <- lang_wide_scores |>
 ```
 
 ```{r sem-lang}
+#| echo: false
+#| results: "hide" 
+
 # model
 cfa_lang <-  '
 Language =~ swr + sre + pa + trog + vocab
@@ -1322,7 +1256,7 @@ Language ~ age
 
 fit_lang <- cfa(cfa_lang, data = lang_wide_std,
                 estimator = "MLR", std.lv = TRUE, missing = "fiml")
-# summary(fit_lang, fit.measures = TRUE, standardized = TRUE)
+summary(fit_lang, fit.measures = TRUE, standardized = TRUE)
 # print(fitMeasures(fit_lang, c("cfi","tli","rmsea","srmr", "aic", "bic")))
 ```
 
