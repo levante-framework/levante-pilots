@@ -1076,6 +1076,8 @@ pe <- lavaan::parameterEstimates(fit_g_age, standardized = TRUE)
 
 edges <- pe %>%
   filter(op %in% c("~","=~","~~")) %>%
+  dplyr::filter(!(op == "~~" & ((lhs == "math" & rhs == "tom") |
+                                (lhs == "tom"  & rhs == "math")))) %>% # filter out covariance between Math and ToM
   transmute(
     from = if_else(op == "~", rhs, lhs),
     to   = if_else(op == "~", lhs, rhs),
