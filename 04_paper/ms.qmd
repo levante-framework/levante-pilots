@@ -563,7 +563,6 @@ The Max Planck Institute for Evolutionary Anthropology and Leuphana University c
 SITE-DESCRIPTION PLACEHOLDER: INSERT 2-3 SENTENCES CHARACTERIZING SITE POPULATION AND HOW THE SAMPLE WAS SELECTED.
 
 ## western-ca
->>>>>>> a73d52a34a686b9b09a2c61c8bada0686fa25b4f
 
 Partners at Western University (Ontario) recruited participants from the local community, primarily through online outreach (Facebook advertisements and community group posts), supplemented by posters on neighborhood mailboxes and notices shared via local school newsletters. Children were tested individually by a researcher in a dedicated testing space on campus. The western-ca site collected data from `r user_totals$n_users[user_totals$site == "western-ca"]` children, ages 5-12 years. 
 
