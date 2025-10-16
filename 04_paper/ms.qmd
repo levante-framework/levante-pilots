@@ -563,9 +563,9 @@ Following item screening, we evaluated measurement invariance across sites using
 
 For each task, we compared unidimensional Rasch and 2PL models under these nested invariance constraints. All models were estimated in `mirt` [@mirt]  via marginal maximum likelihood using 500 quadrature points, with expected a posteriori (EAP) scoring. Overlapping items across sites served as anchors to establish a common scale; non-overlapping items were freely estimated within the same multigroup calibration. Model convergence and identification were verified by ensuring stable log-likelihoods and condition numbers below \(10^3\).
 
-Model selection was guided by the Bayesian Information Criterion (BIC). The selected model for each task (see @tbl-model-invariance) represents the most parsimonious combination of model family and invariance level that adequately reproduced cross-site response patterns. Across tasks, Rasch models provided the best fit for most domains, while 2PL models were favored for *Same & Different* and *Shape Rotation*, tasks showing greater variability in item discrimination.  
+Model selection was guided by the Bayesian Information Criterion (BIC). The selected model for each task (see @tbl-task-rxx) represents the most parsimonious combination of model family and invariance level that adequately reproduced cross-site response patterns. Across tasks, Rasch models provided the best fit for most domains, while 2PL models were favored for Same & Different and Shape Rotation, tasks showing greater variability in item discrimination.  
 
-Most tasks achieved **scalar invariance**, suggesting that both difficulty and discrimination parameters generalized across sites; two tasks achieved only metric invariance, and three (*Hearts & Flowers*, *Theory of Mind*, *Vocabulary*) achieved only configural invariance, indicating consistent dimensional structure but limited parameter equivalence. For interpretive clarity, subsequent cross-site comparisons are restricted to tasks demonstrating at least metric invariance.
+Most tasks achieved scalar invariance, suggesting that both difficulty and discrimination parameters generalized across sites; one task achieved only metric invariance (Same & Different), and two (Theory of Mind and Vocabulary) achieved only configural invariance, indicating consistent dimensional structure but limited parameter equivalence. For interpretive clarity, subsequent cross-site comparisons are restricted to tasks demonstrating at least metric invariance.
 
 ## Score computation
 
@@ -617,57 +617,7 @@ inv_explainer |>
   padding(padding.top = 2, padding.bottom = 2, part = "all") |>
   fontsize(size = 10, part = "all") 
 ```
-::: 
-
-
-```{r}
-#| label: tbl-model-invariance
-#| tbl-cap: "Measurement invariance across factor analysis and item response theory."
-
-# Load reliability / model summary
-task_rxx_path <- here::here("02_scoring_outputs","task_rxx.rds")
-task_rxx <- readRDS(task_rxx_path)
-
-# Task display labels
-task_labels <- c(
-  ha     = "Social Attribution",
-  hf     = "Hearts & Flowers",
-  math   = "Math",
-  matrix = "Pattern Matching",
-  mg     = "Memory",
-  mrot   = "Shape Rotation",
-  sds    = "Same & Different",
-  tom    = "Theory Of Mind",
-  trog   = "Sentence Understanding",
-  vocab  = "Vocabulary"
-)
-
-# Collapse to one row per task (most common model × invariance)
-task_model_inv <- task_rxx |>
-  filter(task != "ha") |>  # optional, drop task if needed
-  count(task, itemtype, invariance, sort = TRUE) |>
-  group_by(task) |>
-  slice_max(n, n = 1, with_ties = FALSE) |>
-  ungroup() |>
-  transmute(
-    Task       = recode(task, !!!task_labels),
-    Model      = recode(itemtype, "rasch" = "Rasch", "2pl" = "2PL", .default = toupper(itemtype)),
-    Invariance = stringr::str_to_title(invariance)
-  ) |>
-  arrange(factor(Task, levels = c(
-    "Hearts & Flowers","Math","Pattern Matching","Memory",
-    "Shape Rotation","Same & Different","Theory Of Mind",
-    "Sentence Understanding","Vocabulary"
-  )))
-
-# Display nicely formatted table
-task_model_inv |>
-  flextable::flextable() |>
-  flextable::set_header_labels(Task = "Task", Model = "Model", Invariance = "Invariance") |>
-  flextable::autofit(add_w = 0, add_h = 0)
-
-```
-
+:::
 
 
 # Psychometric properties of tasks
