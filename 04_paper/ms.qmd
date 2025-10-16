@@ -854,7 +854,7 @@ ft
 One goal for the LEVANTE core tasks is strong reliability both within an individual administration (across test items) and across multiple administrations separated in time. We report on each of these. 
 
 ### Marginal reliability
-Marginal reliability, an IRT-based analogue to Cronbach’s α, quantifies the proportion of true-score variance captured by the test based on the item information function (ADD REF: Thissen & Wainer, 2001).
+Marginal reliability, an IRT-based analogue to Cronbach’s α, quantifies the proportion of true-score variance captured by the test based on the item information function [@thissen2001test].
 ```{r}
 #| label: tbl-task-rxx
 #| tbl-cap: "Marginal reliabilities for each task and site."
