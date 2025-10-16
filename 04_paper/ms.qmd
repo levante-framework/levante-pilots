@@ -128,15 +128,20 @@ format:
     documentmode: man
     keep-tex: true
     include-in-header: preamble.tex
-    fig-pos: H        
-    tbl-pos: H  
+    fig-format: png
+    # fig-pos: H        
+    # tbl-pos: H  
+
+knitr:
+  opts_chunk:
+    ft.arraystretch: 1.25
 
 execute: 
   echo: false
   message: false
   warning: false
   error: true
-  cache: false
+  cache: true
 ---
 
 ```{r setup}
@@ -199,27 +204,32 @@ The current manuscript introduces the LEVANTE core tasks, a suite of behavioral 
 
 To create our core tasks, we selected pre-existing measures from the literature that tapped each of these constructs. When possible, we prioritized measures with strong psychometric properties, previous use across a broad range of cultures, applicability across a broad range of ages, and lack of commercial or licensing constraints. This process yielded a series of candidate tasks, which we adapted and re-implemented in an open source web platform. @tbl-tasks shows these tasks, organized by construct. Some of these implementations remained quite close to prior versions, while others by necessity required the creation of additional test items or changes to specifics of their procedure. 
 
-In addition to the constructs described above, we were also interested in the assessment of literacy. The LEVANTE core tasks battery makes use of a number of previously-validated literacy tasks from the Rapid Online Assessment of Reading [@yeatman2021], including single word reading, sentence reading efficiency, and phonological awareness. We do not report on these tasks extensively here, though we make use of literacy data for validation of language measures. Similarly, we included a commercially-available broad measure of executive function, the Minnesota Executive Function Scale (MEFS) [@carlson2021], for validation purposes. 
- 
-::: {.landscape}
-| Construct          | LEVANTE task name      | Prior/Source task name               | Adaptive? | Reference |
-|:-------------------|:-----------------------|:-------------------------------------|:----------|:----------|
-| Executive Function | Hearts and Flowers     | Hearts and Flowers                   | no        | XYZ       |
-|                    | Memory                 | Corsi Block Task                     | yes       |           |
-|                    | Same and Different     | Same Different Selection Task        | yes       |           |
-| Language           | Vocabulary             | Picture Vocabulary                   | yes       |           |
-|                    | Sentence Understanding | Test for Reception of Grammar (TROG) | yes       |           |
-| Math               | Math                   | Early Grades Math Assessment (EGMA)  | yes       |           |
-| Reasoning          | Pattern Matching       | Matrix Reasoning                     | yes       |           |
-|                    | Shape Rotation         | Mental Rotation                      | yes       |           |
-| Social Cognition   | Stories                | Theory of Mind                       | yes       |           |
+In addition to the constructs described above, we were also interested in the assessment of literacy. The LEVANTE core tasks battery makes use of a number of previously-validated literacy tasks from the Rapid Online Assessment of Reading [@yeatman2021], including Single Word Reading (ROAR-Word), Sentence Reading Efficiency (ROAR-Sentence), and Phonological Awareness (ROAR-Phoneme). We do not report on these tasks extensively here, though we make use of literacy data for validation of language measures. Similarly, we included a commercially-available broad measure of executive function, the Minnesota Executive Function Scale (MEFS) [@carlson2021], for validation purposes. 
 
-: The LEVANTE core tasks, presented with their internal label as well as prior labels used in the literature. {#tbl-tasks}
-:::
+```{r}
+#| label: tbl-tasks
+#| tbl-cap: The LEVANTE core tasks, presented with their internal label as well as prior labels used in the literature.
+
+tribble(
+  ~"Construct"         , ~"LEVANTE task name"     , ~"Prior/Source task name"              ,
+   "Executive Function",  "Hearts & Flowers"      ,  "Hearts and Flowers"                  ,
+   ""                  ,  "Memory"                ,  "Corsi Block Task"                    ,
+   ""                  ,  "Same & Different"      ,  "Same Different Selection Task"       ,
+   "Language"          ,  "Vocabulary"            ,  "Picture Vocabulary"                  ,
+   ""                  ,  "Sentence Understanding",  "Test for Reception of Grammar (TROG)",
+   "Math"              ,  "Math"                  ,  "Early Grades Math Assessment (EGMA)" ,
+   "Reasoning"         ,  "Pattern Matching"      ,  "Matrix Reasoning"                    ,
+   ""                  ,  "Shape Rotation"        ,  "Mental Rotation"                     ,
+   "Social Cognition"  ,  "Stories"               ,  "Theory of Mind"
+) |>
+  flextable() |>
+  align_text_col() |>
+  autofit()
+```
 
 ## The current study
 
-Here we report on the development and validation of the LEVANTE core tasks. This is an iterative process in which data from 5--12 year old children has been collected across three sites: Bogota, Colombia; Leipzig, Germany; and Ottawa, Canada.^[In the remainder of the manuscript, we refer to these sites by their site designators, `uniandes-co`, `mpieva-de`, and `western-ca`. These designators mark the research group and country of data collection. We make this choice to avoid the inference that these data are particularly representative of, for example, German or Colombian children more broadly.] In some cases that we note below, we used these data during the data collection process to make minor changes to the tasks. We use data from these three pilot sites both to provide initial evidence on the reliability and validity of the measures and to develop efficient, computer adaptive (CAT) versions of nearly all of the tasks. 
+Here we report on the development and validation of the LEVANTE core tasks. This is an iterative process in which data from 5--12 year old children has been collected across three sites: Bogota, Colombia (uniandes-co); Leipzig, Germany (mpieva-de); and Ottawa, Canada (western-ca).^[In the remainder of the manuscript, we refer to these sites by their site designators, uniandes-co, mpieva-de, and western-ca. These designators mark the research group and country of data collection. We make this choice to avoid the inference that these data are particularly representative of, for example, German or Colombian children more broadly.] In some cases that we note below, we used these data during the data collection process to make minor changes to the tasks. We use data from these three pilot sites both to provide initial evidence on the reliability and validity of the measures and to develop efficient, computer adaptive (CAT) versions of nearly all of the tasks. 
 
 A key component of this process is the use of psychometric models based on item-response theory (IRT) [@embretson2013]. IRT models provide a family of models that allow the joint estimation of the difficulty of individual task items (e.g., math questions) and the ability of individual children. A fitted IRT model provides task parameters that can be used to estimate the ability of a new test taker given their responses on some or all of the same items. In addition, IRT parameters are used in the construction of CATs, which choose the most relevant items to give to estimate the ability of a particular individual. Critically for our purposes, the use of IRT models means that we can provide comparable scores on the same scale to a younger child who saw mostly easier task items and an older child who saw harder items; these models thus allow us to address our first key challenge posed above.  
 
@@ -276,16 +286,15 @@ task_time_table <- task_time_summary |>
 
 ## General task properties
 
-![Screenshots from each of the nine LEVANTE core tasks. Top row: Sentence Understanding, Vocabulary, Hearts and Flowers; middle row: Memory Game, Same and Different Selection, Math; bottom row: Pattern Matching, Mental Rotation; Stories.](display/tasks.png){#fig-tasks}
-
 The LEVANTE core tasks are short behavioral tasks that can be presented in a web browser on a tablet or laptop, with responses possible using a touchscreen, keyboard, or mouse. Because of this variability in format of administration, they focus on response correctness not reaction time and so they are mostly untimed. The tasks are designed for simplicity and clarity so as to be accessible to children across a wide age range, and so with only modest exceptions, nearly all are in the format of a multi-alternative forced choice with a maximum of four choices. This uniformity of format means that in most cases instructions can be short and easy to understand, minimizing delays when the tasks are given in sequence as a battery. @fig-tasks shows screenshots from each of the tasks. Below we briefly present each task.
 
-Tasks were implemented using jsPsych [@de-leeuw2015] in a common framework. Illustrations were produced by hand while auditory stimuli were generated using AI voice synthesis tools (currently, <https://elevenlabs.io>). The tasks generally share a set of usability features including simple instructions, a small number of practice trials, and buttons to replay audio.
+![Screenshots from each of the nine LEVANTE core tasks. Top row: Sentence Understanding, Vocabulary, Hearts & Flowers; middle row: Memory, Same & Different, Math; bottom row: Pattern Matching, Mental Rotation; Stories.](display/tasks.png){#fig-tasks}
+
+Tasks were implemented using jsPsych [@de-leeuw2015] in a common framework. Illustrations were produced by hand while auditory stimuli were generated using AI voice synthesis tools (<https://elevenlabs.io>). The tasks generally share a set of usability features including simple instructions, a small number of practice trials, and buttons to replay audio.
 
 All tasks are available for demonstration purposes at <https://researcher.levante-network.org>. Source code for the tasks is available at <https://github.com/levante-framework/core-tasks>. Task code and assets are licensed CC-BY-NC 4.0 for non-commercial reuse (including educational use by not-for-profit and governmental entities) with appropriate attribution. Please see repository license for more details. We anticipate that once the LEVANTE researcher management dashboard is completed, interested researchers will be able to create accounts and use the tasks in their own research. 
 
-General task lengths are described below and average task duration is given in @tbl-durations. Because of our interest in testing children across a wide range of ages, we intentionally included trials that we anticipated would be both very easy and very hard for children with the aim of deploying these adaptively after we had gathered sufficient data. We wanted to avoid  frustration for children, however, so during pilot testing, we experimented with a number of different stopping rules. In early iterations of pilot testing in Bogota, Colombia, we ended tasks after three incorrect trials; we later modified this rule to end tasks after six incorrect trials. 
-
+\clearpage
 ```{r}
 #| label: tbl-durations
 #| tbl-cap: "Median task durations (minutes)."
@@ -295,13 +304,17 @@ task_time_table |>
   rename(Task = task) |>
   flextable() |>
   separate_header() |>
-  flextable::autofit(add_w = 0, add_h = 0)
+  align_text_col() |>
+  flextable::autofit(add_w = 0)
 ```
+
+General task lengths are described below and average task duration is given in @tbl-durations. Because of our interest in testing children across a wide range of ages, we intentionally included trials that we anticipated would be both very easy and very hard for children with the aim of deploying these adaptively after we had gathered sufficient data. We wanted to avoid  frustration for children, however, so during pilot testing, we experimented with a number of different stopping rules. In early iterations of pilot testing in Bogota, Colombia, we ended tasks after three consecutive incorrect trials; we later modified this rule to end tasks after six consecutive incorrect trials. 
+
+Tasks were implemented using jsPsych [@de-leeuw2015] in a common framework. Illustrations were produced by hand while auditory stimuli were generated using AI voice synthesis tools (currently, <https://elevenlabs.io>). The tasks generally share a set of usability features including simple instructions, a small number of practice trials, and buttons to replay audio.
+
 ## General task properties
 
 The LEVANTE core tasks are short behavioral tasks that can be presented in a web browser on a tablet or laptop, with responses possible using a touchscreen, keyboard, or mouse. Because of this variability in format of administration, they focus on response correctness not reaction time and so they are mostly untimed. The tasks are designed for simplicity and clarity so as to be accessible to children across a wide age range, and so with only modest exceptions, nearly all are in the format of a multi-alternative forced choice with a maximum of four choices. This uniformity of format means that in most cases instructions can be short and easy to understand, minimizing delays when the tasks are given in sequence as a battery. fig-tasks shows screenshots from each of the tasks. Below we briefly present each task.
-
-Tasks were implemented using jsPsych [@de-leeuw2015] in a common framework. Illustrations were produced by hand while auditory stimuli were generated using AI voice synthesis tools (currently, <https://elevenlabs.io>). The tasks generally share a set of usability features including simple instructions, a small number of practice trials, and buttons to replay audio.
 
 All tasks are available for demonstration purposes at <https://researcher.levante-network.org>. Source code for the tasks is available at <https://github.com/levante-framework/core-tasks>. Task code and assets are licensed CC-BY-NC 4.0 for non-commercial reuse (including educational use by not-for-profit and governmental entities) with appropriate attribution. Please see repository license for more details. We anticipate that once the LEVANTE researcher management dashboard is completed, interested researchers will be able to create accounts and use the tasks in their own research. 
 
@@ -323,7 +336,7 @@ We developed the Math task based on the EGMA (Early Grade Mathematics Assessment
 
 ## Reasoning
 
-### Matrix Reasoning
+### Pattern Matching
 
 In classic matrix reasoning tasks, participants see a set of abstract figures in a grid format with a missing cell and must choose the most appropriate figure to complete the grid. Matrix reasoning scores are highly correlated with general cognitive ability and educational attainment [e.g., @roth2015]. Here we make use of the Mars-IB matrix reasoning stimuli, an open-source, permissively-licensed set of 80 matrix reasoning problems with retest variants that have been normed with a large sample of adolescents and adults [@chierchia2019].
  
@@ -333,21 +346,21 @@ Mental rotation refers to the ability to imagine the rotation of objects in spac
 
 ## Executive Function
 
-### Same and Different Selection
+### Same & Different
 
-The Same and Different Selection task is designed to assess cognitive flexibility in children. It draws upon elements from the "Something's the Same" task [@willoughby2011] but is closest to the "Flexible Item Selection Task" [@jacques2001]. In this task, children are presented with sets of items that vary along multiple dimensions, such as shape, color, size, and number. They are required to identify similarities and differences between items based on these dimensions, engaging their ability to shift attention and adapt to changing rules or criteria. The version of the task we developed included successively more difficult blocks of trials in which children were asked to identify two, three, or four pairs of items that were the same in different ways (e.g., matching on different figures).
+The Same & Different task is designed to assess cognitive flexibility in children. It draws upon elements from the "Something's the Same" task [@willoughby2011] but is closest to the "Flexible Item Selection Task" [@jacques2001]. In this task, children are presented with sets of items that vary along multiple dimensions, such as shape, color, size, and number. They are required to identify similarities and differences between items based on these dimensions, engaging their ability to shift attention and adapt to changing rules or criteria. The version of the task we developed included successively more difficult blocks of trials in which children were asked to identify two, three, or four pairs of items that were the same in different ways (e.g., matching on different figures).
 
-### Hearts and Flowers
+### Hearts & Flowers
 
-The Hearts and Flowers task assesses inhibitory control and cognitive flexibility [@davidson2006]. Participants respond according to stimulus type: pressing a key on the same side as a heart (congruent rule), and on the opposite side for a flower (incongruent rule). The task includes three blocks: congruent (hearts only), incongruent (flowers only), and mixed (hearts and flowers). The congruent block serves as a baseline with minimal executive demands. Participants in our version of the task are encouraged to respond as quickly as possible but -- due to variation in administration platform and in contrast to some versions of the task -- we did not provide a hard time limit on each trial, though we scored responses slower than 3000 ms as incorrect. 
+The Hearts & Flowers task assesses inhibitory control and cognitive flexibility [@davidson2006]. Participants respond according to stimulus type: pressing a key on the same side as a heart (congruent rule), and on the opposite side for a flower (incongruent rule). The task includes three blocks: congruent (hearts only), incongruent (flowers only), and mixed (hearts and flowers). The congruent block serves as a baseline with minimal executive demands. Participants in our version of the task are encouraged to respond as quickly as possible but -- due to variation in administration platform and in contrast to some versions of the task -- we did not provide a hard time limit on each trial, though we scored responses slower than 3000 ms as incorrect. 
 
-### Memory Game
+### Memory
 
 The Corsi Block task is a widely-used measure of visuospatial short-term and working memory [@corsi1972]. In our version of the task, the child sees a grid of squares; during each trial, a subset of squares lights up one at a time in a specific sequence. The child is required to reproduce the sequence by touching the squares: in the first block, the sequence is reproduced in the same order and in the second block, it is reproduced backwards. The task begins with short sequences (e.g., two items) and gradually increases in difficulty (up to seven items) until the child fails two sequences of the same length. We used both 2x2 or 3x3 grids in our pilot testing, with relatively similar results.
 
 ## Social Cognition
 
-### Stories task
+### Stories
 
 Assessing social cognition across a wide range of ages is a challenge, and relatively few instruments show good reliability and validity across not just early childhood but older children as well [cf. @heise2025]. For this purpose, we adapted and re-illustrated a storybook task developed by @sotomayor-enriquez2024 in which children hear stories with multiple social reasoning questions embedded, including questions about true and false beliefs, deception, and moral reasoning. Using the published data from this task, we selected a set of items that showed good psychometric properties and that we believed would be most likely to be valid cross-culturally and then supplemented these with additional trials tapping emotional reasoning. The result was a set of six stories, each with approximately five forced-choice social reasoning questions embedded within it. We then developed two sets of alternative re-test stories, in each case using the same structure as an existing story but substituting new details and characters. 
 
@@ -537,15 +550,15 @@ Across all tasks, the sites collected a total of `{r} sum(site_totals)` runs (`{
 
 Within the included runs, there were a total of `{r} total_trial_counts$n_trials` trials (`{r} site_trial_counts |> select(site, n_trials) |> deframe() |> collapse_value_list()`), of which `{r} total_trial_counts$excluded` were excluded (`{r} site_trial_counts |> select(site, excluded) |> deframe() |> collapse_value_list()`) due to too fast or too slow reaction times. For reasons of space we do not disaggregate these exclusions by task, but note that the task with the highest exclusion rate was Pattern Matching (`{r} percentify(max(task_trial_counts$pct_excluded))` trials excluded), while all the other tasks ranged between `{r} percentify(min(task_trial_counts$pct_excluded))` and `{r} percentify(sort(task_trial_counts$pct_excluded, decreasing = TRUE)[2])` trials excluded.
 
-## Colombia
+## uniandes-co
 
 The Universidad de Los Andes conducted school-based data collection across four schools in Bogotá and three schools in the rural areas of Caquetá and Boyacá, Colombia. By partnering with schools, the research team oversaw task data collection with children using a group testing format on tablets provided by the team. Children were tested in groups, with larger groups for older children and smaller groups for younger children. The losandes-co site collected data from `{r} user_totals$n_users[user_totals$site == "uniandes-co"]` children ages 5--12 years. Due to time constraints for school-based administration, children typically completed a subset of the tasks. 
 
-## Germany
+## mpieva-de
 
 The Max Planck Institute for Evolutionary Anthropology and Leuphana University collected data using family-based remote data collection. Participants were recruited via an existing database of Leipzig families by first contacting families via telephone with an invitation to participate in the study. Upon agreement, families received an email with information to log into the LEVANTE system and complete the tasks assigned to them at home using their own computer or tablet. This site provided retest data with follow-up assignments sent to families 4--5 months after initial completion of the tasks. The mpieva-de site collected data from `r user_totals$n_users[user_totals$site == "mpieva-de"]` children, ages 5--12 years. 
 
-## Canada
+## western-ca
 
 Partners at Western University (Ontario) recruited participants from the local community, primarily through online outreach (Facebook advertisements and community group posts), supplemented by posters on neighborhood mailboxes and notices shared via local school newsletters. Children were tested individually by a researcher in a dedicated testing space on campus. The western-ca site collected data from `r user_totals$n_users[user_totals$site == "western-ca"]` children, ages 5-12 years. 
 
@@ -561,15 +574,25 @@ Prior to fitting psychometric models, we examined item-level performance summari
 
 Following item screening, we evaluated measurement invariance across sites using nested multigroup IRT models to assess the comparability of latent ability estimates. The conventional hierarchy of factor-analytic invariance—configural → metric → scalar—was implemented in the IRT framework as successive equality constraints on item parameters (see @tbl-invariance-explainer) for correspondence and interpretation). Configural invariance reflects a shared latent structure, metric invariance constrains item discriminations, and scalar invariance constrains both discriminations and difficulties across sites.
 
-For each task, we compared unidimensional Rasch and 2PL models under these nested invariance constraints. All models were estimated in `mirt` [@mirt]  via marginal maximum likelihood using 500 quadrature points, with expected a posteriori (EAP) scoring. Overlapping items across sites served as anchors to establish a common scale; non-overlapping items were freely estimated within the same multigroup calibration. Model convergence and identification were verified by ensuring stable log-likelihoods and condition numbers below \(10^3\).
+For each task, we compared unidimensional Rasch and 2PL models under these nested invariance constraints. All models were estimated using the `mirt` R package [@mirt] via marginal maximum likelihood using 500 quadrature points, with expected a posteriori (EAP) scoring. Overlapping items across sites served as anchors to establish a common scale; non-overlapping items were freely estimated within the same multigroup calibration. Model convergence and identification were verified by ensuring stable log-likelihoods and condition numbers below $10^3$.
 
 Model selection was guided by the Bayesian Information Criterion (BIC). The selected model for each task (see @tbl-task-rxx) represents the most parsimonious combination of model family and invariance level that adequately reproduced cross-site response patterns. Across tasks, Rasch models provided the best fit for most domains, while 2PL models were favored for Same & Different and Shape Rotation, tasks showing greater variability in item discrimination.  
 
-Most tasks achieved scalar invariance, suggesting that both difficulty and discrimination parameters generalized across sites; one task achieved only metric invariance (Same & Different), and two (Theory of Mind and Vocabulary) achieved only configural invariance, indicating consistent dimensional structure but limited parameter equivalence. For interpretive clarity, subsequent cross-site comparisons are restricted to tasks demonstrating at least metric invariance.
+Most tasks achieved scalar invariance, suggesting that both difficulty and discrimination parameters generalized across sites; one task achieved only metric invariance (Same & Different), and two (Stories and Vocabulary) achieved only configural invariance, indicating consistent dimensional structure but limited parameter equivalence. For interpretive clarity, subsequent cross-site comparisons are restricted to tasks demonstrating at least metric invariance.
 
 ## Score computation
 
 Individual ability scores were then computed as expected a posteriori (EAP) estimates based on the final multigroup calibrations. Resulting scores are expressed on a common cross-site scale, enabling the developmental, reliability, and validity analyses described in the following section.
+
+# Psychometric properties of tasks
+
+## Developmental change
+
+Across all nine tasks we observed positive age–ability trends. The smoothed lines in Figure @fig-age-trends are roughly parallel within each panel, indicating that sites differ mostly in overall level rather than in developmental rate. Growth appeared steepest for Math and Hearts & Flowers, moderate for Vocabulary, Memory, and Stories, and shallower for Shape Rotation and Sentence Understanding.
+
+To quantify developmental change, we fitted separate ordinary least-squares models predicting ability scores (IRT units) from centered age with site fixed effects and an age × site interaction, allowing slopes to vary by site. As summarized in @tbl-slopes, age-related slopes were positive for all tasks and sites, indicating that older children performed better on every measure. 
+
+In addition, we calculated per-site zero-order correlations between age and IRT ability scores. These correlations were uniformly positive (r ≈ .40–.70) and of moderate magnitude across tasks, consistent with the regression estimates. The close correspondence between the linear slopes and the smooth trends suggests that, within the studied age range, developmental gains are approximately linear and broadly comparable across cultural contexts.
 
 ::: {.landscape}
 ```{r}
@@ -619,17 +642,6 @@ inv_explainer |>
 ```
 :::
 
-
-# Psychometric properties of tasks
-
-## Developmental change
-
-Across all nine tasks we observed positive age–ability trends. The smoothed lines in Figure @fig-age-trends are roughly parallel within each panel, indicating that sites differ mostly in overall level rather than in developmental rate. Growth appeared steepest for Math and Hearts & Flowers, moderate for Vocabulary, Memory, and Theory of Mind, and shallower for Shape Rotation and Sentence Understanding.
-
-To quantify developmental change, we fitted separate ordinary least-squares models predicting ability scores (IRT units) from centered age with site fixed effects and an age × site interaction, allowing slopes to vary by site. As summarized in @tbl-slopes, age-related slopes were positive for all tasks and sites, indicating that older children performed better on every measure. 
-
-In addition, we calculated per-site zero-order correlations between age and IRT ability scores. These correlations were uniformly positive (r ≈ .40–.70) and of moderate magnitude across tasks, consistent with the regression estimates. The close correspondence between the linear slopes and the smooth trends suggests that, within the studied age range, developmental gains are approximately linear and broadly comparable across cultural contexts.
-
 ```{r}
 #| label: fig-age-trends
 #| fig-cap: "Age related trends by task."
@@ -649,10 +661,12 @@ ggplot(coretask_scores, aes(age, metric_value)) +
   labs(x = "Age (years)", y = "Ability (IRT score)", colour = "Site") +
   theme(legend.position = "bottom")
 ```
+
 ::: {.landscape}
 ```{r}
 #| label: tbl-slopes
-#| tbl-cap: "Age-Related Change in Performance: Task Grand Means, Site Deviations, and Age–Ability Correlations"
+#| tbl-cap: "Age-Related Change in Performance: Task Grand Means (GM), Site Deviations (Δ), and Age–Ability Correlations (r)."
+#| ft.arraystretch: 1
 
 analyze_task_slopes <- function(task_name) {
   d <- coretask_scores %>% filter(item_task == task_name)
@@ -716,17 +730,19 @@ analyze_task_slopes <- function(task_name) {
 
 # build table (unchanged mapping)
 deviation_raw <- map_dfr(unique(coretask_scores$item_task), analyze_task_slopes) %>%
-  mutate(Task = dplyr::recode(as.character(task),
-    math   = "Math",
-    tom    = "ToM",
-    matrix = "Mat.Reason.",
-    mrot   = "Ment.Rotat.",
-    hf     = "H&F",
-    mg     = "Mem",
-    sds    = "Same&Diff.",
-    trog   = "Sent.Under.",
-    vocab  = "Vocab."
-  ))
+  rename(item_task = task) %>%  
+  left_join(task_map)
+  # mutate(Task = dplyr::recode(as.character(task),
+  #   math   = "Math",
+  #   tom    = "ToM",
+  #   matrix = "Mat.Reason.",
+  #   mrot   = "Ment.Rotat.",
+  #   hf     = "H&F",
+  #   mg     = "Mem",
+  #   sds    = "Same&Diff.",
+  #   trog   = "Sent.Under.",
+  #   vocab  = "Vocab."
+  # ))
 
 # format p-values (dev p and grand mean p) and print
 deviation_print <- deviation_raw %>%
@@ -751,8 +767,8 @@ deviation_print <- deviation_raw %>%
     )
   ) %>%
   transmute(
-    Task,
-    Site = site,
+    Task = task,
+    Site = site |> fct_recode(!!!site_labels),
     `Grand Mean Slope (β)` = round(Mean_Slope, 2),
     `Grand Mean SE`        = round(Mean_SE, 2),
     `Grand Mean p-value`,
@@ -764,7 +780,7 @@ deviation_print <- deviation_raw %>%
     `r p-value`
   )
 
-ft <- flextable(deviation_print) |>
+flextable(deviation_print) |>
   set_header_labels(
     `Grand Mean Slope (β)` = "GM β",
     `Grand Mean SE`        = "GM SE",
@@ -781,22 +797,8 @@ ft <- flextable(deviation_print) |>
           "N", "r (age, ability)"),
     digits = 2
   ) |>
-  set_caption("Age-Related Change in Performance: Task Grand Means, Site Deviations, and Age–Ability Correlations") |>
-  fontsize(size = 9, part = "all") |>
-  line_spacing(space = 0.7, part = "all") |>
-  padding(padding.top = 1, padding.bottom = 1,
-          padding.left = 1, padding.right = 1, part = "all") |>
-  autofit() |>
-  width(j = "Task", width = 0.7) |>
-  width(j = "Site", width = 1.2) |>
-  width(j = c("Grand Mean Slope (β)", "Grand Mean SE", "Grand Mean p-value",
-              "Deviation from Mean", "Deviation SE", "Deviation p-value",
-              "N", "r (age, ability)", "r p-value"),
-        width = 0.55) |>
-  height_all(height = 0.15, part = "body") |>
-  height(height = 0.15, part = "header") |>
-  align(align = "center", part = "all")
-ft
+  align_text_col() |>
+  autofit()
 ```
 :::
 
@@ -805,6 +807,8 @@ ft
 One goal for the LEVANTE core tasks is strong reliability both within an individual administration (across test items) and across multiple administrations separated in time. We report on each of these. 
 
 ### Marginal reliability
+
+IRT models allow the computation of marginal reliability, which captures the inter-relatedness of items in an assessment and hence the proportion of variation attributed to shared variance. In multi-group IRT models, marginal reliabilities can be computed only for individual sub-models. @tbl-task-rxx shows marginal reliabilities for each task, reporting reliability for each sub-model for the best fitting model. 
 
 ```{r}
 #| label: tbl-task-rxx
@@ -827,10 +831,9 @@ trx <- task_rxx |>
 trx |>
   flextable() |>
   separate_header() |>
+  align_text_col() |>
   flextable::autofit(add_w = 0, add_h = 0)
 ```
-  
-IRT models allow the computation of marginal reliability, which captures the inter-relatedness of items in an assessment and hence the proportion of variation attributed to shared variance. In multi-group IRT models, marginal reliabilities can be computed only for individual sub-models.  @tbl-task-rxx shows marginal reliabilities for each task, reporting reliability for each sub-model for the best fitting model. 
 
 ```{r}
 # prophecy <- function (n = 2, r) {
@@ -870,30 +873,15 @@ trt <- retest_wide |>
 
 ### Test-retest reliability
 
-<<<<<<< HEAD
-We were also interested in capturing the extent to which the LEVANTE tasks yield reliable signal across a delay. The leuphana-de pilot site was able to re-administer tasks to a subset of their original participant group with a retest interval of approximately 4--5 months. We used this re-administration as an opportunity to collect data with computer adaptive versions of many of the tasks (Sentence Understanding, Pattern Matching, Shape Rotation, Math and Vocabulary); see below for further details of computer adaptive versions. In addition, for several tasks (Math, Theory of Mind, Pattern Matching), we used this opportunity to gather item data about new groups of retest items that were designed to match the content of the original items but vary in their surface forms. For the other tasks, we retested using the same items. 
-=======
-We were also interested in capturing the extent to which the LEVANTE tasks yield reliable signal across a delay. The mpieva-de pilot site was able to re-administer tasks to a subset of their original participant group with a retest interval of approximately 4--5 months. We used this re-administration as an opportunity to collect data with computer adaptive versions of many of the tasks (Sentence Understanding, Pattern Matching, Shape Rotation, Math and Vocabulary); see below for further details of computer adaptive versions. In addition, for several tasks (Math, Theory of Mind, Pattern Matching), we used this opportunity to gather item data about new groups of retest items that were designed to match the content of the original items but vary in their surface forms. For the other tasks, we retested using the same items. 
->>>>>>> 1ac10aa46a2063aad77c56195e2fc1c531626de3
+We were also interested in capturing the extent to which the LEVANTE tasks yield reliable signal across a delay. The mpieva-de pilot site was able to re-administer tasks to a subset of their original participant group with a retest interval of approximately 4--5 months. We used this re-administration as an opportunity to collect data with computer adaptive versions of many of the tasks (Sentence Understanding, Pattern Matching, Shape Rotation, Math, and Vocabulary); see below for further details of computer adaptive versions. In addition, for several tasks (Math, Stories, Pattern Matching), we used this opportunity to gather item data about new groups of retest items that were designed to match the content of the original items but vary in their surface forms. For the other tasks, we retested using the same items. 
 
 Figure @fig-retest shows the relations between time 1 and time 2 scores. Uptake for retest administrations varied between N=`r min(trt$n)` and N=`r max(trt$n)`; the low number of repeat administrations for Sentence Understanding reflects an error in which this task was not sent to younger children. Each figure panel also shows the test-retest correlation and sample size for the corresponding task.
 
 ```{r}
 #| label: fig-retest
-<<<<<<< HEAD
-#| fig-cap: "Test-retest correlations per task (in Germany data)."
-#| fig-width: 8
-#| fig-height: 8
-
-# [bd edit: can we put correlations in each panel?  ]
-
-# trt_for_plot <- trt |>
-#   rename(task = Task)
-=======
 #| fig-cap: "Test-retest correlations per task (in mpieva-de data)."
 #| fig-width: 8
 #| fig-height: 9
->>>>>>> 1ac10aa46a2063aad77c56195e2fc1c531626de3
 
 ggplot(retest_wide, aes(x = run_1, y = run_2, color = age)) +
   ggh4x::facet_nested_wrap(vars(task_category, task),
@@ -914,6 +902,8 @@ ggplot(retest_wide, aes(x = run_1, y = run_2, color = age)) +
   labs(x = "Score 1", y = "Score 2", color = "Age (years)") +
   theme(legend.position = "bottom")
 ```
+
+\clearpage
 
 ## Validity
 
@@ -1010,11 +1000,12 @@ fit_g_age <- sem(
 summary(fit_g_age, fit.measures = TRUE, standardized = TRUE)
 
 fit_g_age_fit <- lavaan::fitMeasures(fit_g_age)
-
 ```
+
 ### Construct validity
 
-We assessed construct validity using a hierarchical Confirmatory Factor Analysis (CFA) in which three first-order factors—Reasoning (matrix reasoning, mental rotation), Executive Function (Hearts & Flowers, Memory Game, Same–Different Selection), and Language (grammar, vocabulary)—loaded on a second-order general factor (G; @fig-semplot-g). Math and Theory of Mindwere treated as observed endogenous outcomes because each construct had a single task; introducing one-indicator latent variables would require strong, unverifiable assumptions about reliability/error variances. Age was specified to predict G (age → G). We found that model fit was relatively poor -- CFI: `r round(lavaan::fitMeasures(fit_g_age)["cfi"], 3)`, RMSEA: `r round(lavaan::fitMeasures(fit_g_age)["rmsea"], 3)` RMSEA p-value: `r round(lavaan::fitMeasures(fit_g_age)["rmsea.pvalue"], 3)`. Overall, factor loadings supported the intended three-factor structure (convergent validity), and age related to each domain as expected. The high inter-factor correlations and strong second-order loadings indicate that much of the variance is shared across domains, consistent with a broad general ability underpinning performance on the nine core tasks.
+We assessed construct validity using a hierarchical Confirmatory Factor Analysis (CFA) in which three first-order factors—Reasoning (Pattern Matching, Shape Rotation), Executive Function (Hearts & Flowers, Memory, Same & Different), and Language (Sentence Understanding, Vocabulary)—loaded on a second-order general factor (G; @fig-semplot-g). Math and Stories were treated as observed endogenous outcomes because each construct had a single task; introducing one-indicator latent variables would require strong, unverifiable assumptions about reliability/error variances. Age was specified to predict G (age → G). We found that model fit was relatively poor -- CFI: `r round(lavaan::fitMeasures(fit_g_age)["cfi"], 3)`, RMSEA: `r round(lavaan::fitMeasures(fit_g_age)["rmsea"], 3)` RMSEA p-value: `r round(lavaan::fitMeasures(fit_g_age)["rmsea.pvalue"], 3)`. Overall, factor loadings supported the intended three-factor structure (convergent validity), and age related to each domain as expected. The high inter-factor correlations and strong second-order loadings indicate that much of the variance is shared across domains, consistent with a broad general ability underpinning performance on the nine core tasks.
+
 ```{r}
 #| label: fig-semplot-g
 #| fig-cap: "SEM for core tasks with general factor."
@@ -1025,8 +1016,8 @@ source(here::here("03_summaries/modified_sem_plot.R"))
 name_map <- tibble(
   name   = c("log_age_c","g","math","tom","reasoning","ef","language",
              "matrix","mrot","hf","mg","sds","trog","vocab"),
-  pretty = c("Age (log years)","G","Math","Theory of Mind","Reasoning","Executive Function","Language",
-             "Matrix Reasoning","Mental Rotation","Hearts & Flowers","Memory Game","Same–Different Selection","Sentence Understanding","Vocabulary")
+  pretty = c("Age (log years)","G","Math","Stories","Reasoning","Executive Function","Language",
+             "Pattern Matching","Shape Rotation","Hearts & Flowers","Memory","Same & Different","Sentence Understanding","Vocabulary")
 )
 
 # nodes
@@ -1085,6 +1076,7 @@ g$edges$label_alpha  <- 1
 
 plot(g)
 ```
+
 ```{r prep-sem-ef}
 ef_tasks <- c("hf","mg","sds","mefs")
 
@@ -1165,12 +1157,17 @@ load_tab <- pe_ef |>
   tibble::deframe()  # named vector: c(hf = ., mg = ., sds = ., mefs = .)
 
 ```
+
+\clearpage
+
 ### External validity
 
-To assess external validity, we fitted a single-factor Executive Function (EF) model with Hearts & Flowers (hf), Memory Game (mg), Same & Different (sds), and the external measure, the Minnesota Executive Function Scale (MEFS) as indicators (@fig-semplot-ef). We modeled age as a predictor of the latent EF factor. Fit was generally good `r round(lavaan::fitMeasures(fit_ef)["cfi"], 3)`, RMSEA: `r round(lavaan::fitMeasures(fit_ef)["rmsea"], 3)` RMSEA p-value: `r round(lavaan::fitMeasures(fit_ef)["rmsea.pvalue"], 3)`. Standardized loadings were: hf = `r fmt(load_tab["hf"])`, mg = `r fmt(load_tab["mg"])`, sds = `r fmt(load_tab["sds"])`, MEFS = `r fmt(load_tab["mefs"])`, indicating that MEFS aligns closely with the latent EF construct. Age strongly predicted EF ($\beta$ = `r round(beta_age_EF, 2)`; $R^2$ = `r round(r2_EF, 2)`), consistent with expected developmental gains.
+To assess external validity, we fitted a single-factor Executive Function (EF) model with Hearts & Flowers, Memory, Same & Different, and the external measure, the Minnesota Executive Function Scale (MEFS) as indicators (@fig-semplot-ef). We modeled age as a predictor of the latent EF factor. Fit was generally good `r round(lavaan::fitMeasures(fit_ef)["cfi"], 3)`, RMSEA: `r round(lavaan::fitMeasures(fit_ef)["rmsea"], 3)` RMSEA p-value: `r round(lavaan::fitMeasures(fit_ef)["rmsea.pvalue"], 3)`. Standardized loadings were: Hearts & Flowers = `r fmt(load_tab["hf"])`, Memory = `r fmt(load_tab["mg"])`, Same & Different = `r fmt(load_tab["sds"])`, MEFS = `r fmt(load_tab["mefs"])`, indicating that MEFS aligns closely with the latent EF construct. Age strongly predicted EF ($\beta$ = `r round(beta_age_EF, 2)`; $R^2$ = `r round(r2_EF, 2)`), consistent with expected developmental gains.
+
 ```{r}
 #| label: fig-semplot-ef
-#| fig-cap: "SEM for executive function model."
+#| fig-cap: "SEM for Executive Function model."
+#| fig-height: 4
 
 nodes <- get_nodes(fit_ef, columns = c("name","shape")) |>
   dplyr::left_join(tibble::tibble(
@@ -1235,7 +1232,6 @@ g_ef$edges$label_colour <- "black"
 g_ef$edges$label_size   <- 2.8
 
 plot(g_ef)
-
 ```
 
 ```{r prep-sem-lang}
@@ -1311,18 +1307,23 @@ dplyr::select(rhs, std.all) |>
 tibble::deframe()
 
 ```
-We ran a similar model to determine the external validity of the language and literacy measures (grammar and vocabulary) against ROAR tasks including measures of Phonological Awareness (pa), Single Word Reading (swr) and Sentence Reading Efficiency (sre). We fitted a single latent Language factor with ROAR tasks plus grammar (Trog) and vocabulary as indicators, and modeled age as a predictor of the latent factor (@fig-semplot-lang). Fit was generally good `r round(fm_lang["cfi"], 3)`, RMSEA: `r round(fm_lang["rmsea"], 3)` RMSEA p-value: `r round(fm_lang["rmsea.pvalue"], 3)`. Standardized loadings were: SWR = `r round(load_tab_lang["swr"], 2)`, SRE = `r round(load_tab_lang["sre"], 2)`, PA = `r round(load_tab_lang["pa"], 2)`, TROG = `r round(load_tab_lang["trog"], 2)`, Vocabulary = `r round(load_tab_lang["vocab"], 2)`. Age predicted Language ($\beta$ = `r round(beta_age_Lang, 2)`; $R^2$ = `r round(r2_Lang, 2)`) consistent with expected developmental gains. 
+
+\clearpage
+
+We ran a similar model to determine the external validity of the language and literacy measures (Sentence Understanding and Vocabulary) against ROAR tasks including measures of Phonological Awareness (ROAR-Phoneme), Single Word Reading (ROAR-Word) and Sentence Reading Efficiency (ROAR-Sentence). We fitted a single latent Language factor with ROAR tasks plus Sentence Understanding and Vocabulary as indicators, and modeled age as a predictor of the latent factor (@fig-semplot-lang). Fit was generally good `r round(fm_lang["cfi"], 3)`, RMSEA: `r round(fm_lang["rmsea"], 3)` RMSEA p-value: `r round(fm_lang["rmsea.pvalue"], 3)`. Standardized loadings were: ROAR-Word = `r round(load_tab_lang["swr"], 2)`, ROAR-Sentence = `r round(load_tab_lang["sre"], 2)`, ROAR-Phoneme = `r round(load_tab_lang["pa"], 2)`, Sentence Understanding = `r round(load_tab_lang["trog"], 2)`, Vocabulary = `r round(load_tab_lang["vocab"], 2)`. Age predicted Language ($\beta$ = `r round(beta_age_Lang, 2)`; $R^2$ = `r round(r2_Lang, 2)`) consistent with expected developmental gains. 
+
 ```{r}
 #| label: fig-semplot-lang
-#| fig-cap: "SEM for language model. Abbreviations: Sent.Und.:Sentence Understanding; Vocab: Vocabulary; Single.Wrd.Read: Single Word Reading; Sent.Read.Eff: Sentence Reading Efficiency; Phon.Aware.: Phonological Awareness"
+#| fig-cap: "SEM for Language model."
+#| fig-height: 4
 
 nodes_lang <- get_nodes(fit_lang, columns = c("name","shape")) |>
   dplyr::left_join(tibble::tibble(
     name   = c("age","Language","trog","vocab","swr","sre","pa"),
     pretty = c("Age (years)","Language",
-               "Sent.Under","Vocab",
-               "Single.Wrd.Read.","Sent.Read.Eff.",
-               "Phon.Aware.")
+               "Sentence Understanding","Vocabulary",
+               "ROAR-Word","ROAR-Sentence",
+               "ROAR-Phoneme")
   ), by = "name") |>
   dplyr::mutate(label = dplyr::coalesce(pretty, name))
 
@@ -1384,20 +1385,21 @@ g_lang$edges$label_colour <- "black"
 g_lang$edges$label_size   <- 3
 
 plot(g_lang)
-
 ```
+
+\clearpage
 
 # Adaptive Task Construction
 
-Many of the LEVANTE tasks have been adapted and piloted as CATs (Computerized Adaptive Tests). To date, these include the Test For Reception of Grammar (TROG), Vocabulary, Shape Rotation, Matrix Reasoning, Same Difference Selection, and Math. These tasks maintain an ability score, theta, as an estimate of the participant’s skill level that is updated at the end of each trial. They then present participants with the item best suited to their estimated ability, which both improves test-taker experience and yields more information on participant skill per item, allowing for a shorter task with fewer items. 
+Many of the LEVANTE tasks have been adapted and piloted as CATs (Computerized Adaptive Tests). To date, these include Sentence Understanding, Vocabulary, Shape Rotation, Pattern Matching, Same & Difference, and Math. These tasks maintain an ability score, theta, as an estimate of the participant’s skill level that is updated at the end of each trial. They then present participants with the item best suited to their estimated ability, which both improves test-taker experience and yields more information on participant skill per item, allowing for a shorter task with fewer items. 
 
 The CAT tasks use an adaptive algorithm made available by the jsCat JavaScript library [@ma2025]. The present LEVANTE CAT implementation varies difficulty and guessing for each item while holding both discrimination and upper asymptote constant at 1. Items are selected based on Maximum Fisher Information, and theta is updated according to a maximum likelihood estimator, with limits of -6 and 6. 
 
-The LEVANTE CATs are configurable with respect to the initial value of theta and the conditions for ending the task. The starting theta is set at 0 for all CAT tasks currently in use, but can be lowered or raised according to the researcher’s prior expectation of participant ability, for example according to age. Current CAT implementations use stopping rules based on either time or number of items. TROG, Shape Rotation, and Vocabulary each have time limits currently set to 4 minutes, with Matrix Reasoning set to 6 minutes to allow for the increased time typically required to complete items in this task. Items in these tasks are presented together in a single block. Same Different Selection and Math are each divided into three blocks presented sequentially, with per-block stopping based on number of items. These CATs select from the list of items specific to their current block and proceed to the next block once the target number of items is reached, maintaining one overarching ability estimate for the entire task. Same Difference Selection and Math have time limits of 6 minutes and 8 minutes, respectively. 
+The LEVANTE CATs are configurable with respect to the initial value of theta and the conditions for ending the task. The starting theta is set at 0 for all CAT tasks currently in use, but can be lowered or raised according to the researcher’s prior expectation of participant ability, for example according to age. Current CAT implementations use stopping rules based on either time or number of items. Sentence Understanding, Shape Rotation, and Vocabulary each have time limits currently set to 4 minutes, with Pattern Matching set to 6 minutes to allow for the increased time typically required to complete items in this task. Items in these tasks are presented together in a single block. Same & Different and Math are each divided into three blocks presented sequentially, with per-block stopping based on number of items. These CATs select from the list of items specific to their current block and proceed to the next block once the target number of items is reached, maintaining one overarching ability estimate for the entire task. Same & Difference and Math have time limits of 6 minutes and 8 minutes, respectively. 
 
 # General Discussion
 
-In this paper, we presented the LEVANTE core tasks -- nine psychometrically grounded tasks for children aged 5–12 that provide efficient, reliable, and valid assessment across language, mathematics, reasoning, executive function, and social cognition. LEVANTE is designed to tackle three core challenges: to span development and enable valid comparisons between younger and older children; to ensure cross-cultural comparability so that measures function equivalently across diverse contexts; and to make the tasks openly available (non-commercial) to maximise access, transparency, and reproducibility.
+In this paper, we presented the LEVANTE core tasks -- nine psychometrically grounded tasks for children aged 5–12 that provide efficient, reliable, and valid assessment across language, mathematics, reasoning, executive function, and social cognition. LEVANTE is designed to tackle three core challenges: to span development and enable valid comparisons between younger and older children; to ensure cross-cultural comparability so that measures function equivalently across diverse contexts; and to make the tasks openly available (non-commercial) to maximize access, transparency, and reproducibility.
 
 Using pilot data from three different countries, collected via three different administration methods (in-school, in-lab, and at-home administration), we provided preliminary evidence of reliability and validity. Further, using computer adaptive testing algorithms, we are able to deploy efficient versions of these tasks that produce scores for children across a wide range of abilities in just a few minutes.  
 
@@ -1407,7 +1409,7 @@ Towards this goal, one strength of our approach here is that it easily accommoda
 
 Our current task set is designed for children ages 5--12, but we are currently pursuing downward extension of many of these tasks for children ages 2--5. By design, the forced choice, tablet-based format of our tasks makes them highly amenable to use with younger children [@frank2016]. In our downward extension work, we are adding easier items to each task, increasing the number of practice trials, and increasing the amount of instructions. We anticipate that not all tasks will be usable for all ages, but for at least the executive function and language tasks there is strong evidence of usability with children under age 5 [@davidson2006;@bishop1982]. 
 
-Several of the nine tasks remain under construction, and we expect gains in reliability and validity as items are refined, distractors improved, and instructions localised. We are actively monitoring task performance and iteratively refining items as new data accrue across sites. This includes updating IRT calibrations, conducting routine checks for differential item functioning, and making revisions guided by fit diagnostics and error patterns. We are attempting to strike a balance between minimising bias and ensuring that observed differences reflect genuine developmental variation rather than artefacts of the measurement process.
+Several of the nine tasks remain under construction, and we expect gains in reliability and validity as items are refined, distractors improved, and instructions localized. We are actively monitoring task performance and iteratively refining items as new data accrue across sites. This includes updating IRT calibrations, conducting routine checks for differential item functioning, and making revisions guided by fit diagnostics and error patterns. We are attempting to strike a balance between minimizing bias and ensuring that observed differences reflect genuine developmental variation rather than artefacts of the measurement process.
 
 In sum, we have taken steps here towards a core set of tasks for measuring children’s learning and development. We hope that this work is the beginning, rather than the end, of a process of iterative refinement and growth that results in a common, open measurement toolkit for developmental science.
 

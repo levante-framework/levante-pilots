@@ -9,7 +9,7 @@ task_info <- tribble(
   "mrot"     , "shape rotation"         , "spatial cognition",
   "trog"     , "sentence understanding" , "language",
   "vocab"    , "vocabulary"             , "language",
-  "tom"      , "theory of mind"         , "social cognition",
+  "tom"      , "stories"                , "social cognition",
   "ha"       , "social attribution"     , "social cognition",
   "pa"       , "language sounds"        , "reading",
   "sre"      , "sentence reading"       , "reading",
