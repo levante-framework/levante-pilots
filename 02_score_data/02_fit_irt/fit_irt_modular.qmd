@@ -27,7 +27,12 @@ ref_sites <- c("pilot_uniandes_co", "pilot_mpieva_de", "pilot_western_ca")
 task_data_nested <- read_rds(here("01_fetched_data/task_data_nested.rds")) |>
   filter(site %in% ref_sites)
 
-task_data_irt <- task_data_nested |> filter(item_task %in% irt_tasks)
+# task_data_mrot <- task_data_nested |> filter(item_task == "mrot") |> unnest(data) |>
+#   filter(item_group == "2d") |> nest(data = -c(item_task, site, language)) |>
+#   mutate(item_task = "mrot2d")
+
+task_data_irt <- task_data_nested |> filter(item_task %in% irt_tasks) #|>
+  # bind_rows(task_data_mrot)
 ```
 
 ```{r}

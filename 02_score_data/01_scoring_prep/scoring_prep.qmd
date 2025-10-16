@@ -39,11 +39,13 @@ trial_data_included <- trial_data_coded |> anti_join(exclusions)
 runs_filtered <- run_data |>
   mutate(validation_msg_run = validation_msg_run |> replace_na(""),
          straightlining = str_detect(validation_msg_run, "straightlining")) |>
-  # filter to runs completed and no straightlining (except for us_pilot)
-  filter(site == "us_pilot" | (completed & !straightlining)) |>
+  # filter to runs completed and no straightlining
+  filter(completed & !straightlining) |>
   # filter out task version with known bug
   filter(!(task_version == "1.0.0-beta.19" &
              task_id %in% c("matrix-reasoning", "mental-rotation", "theory-of-mind"))) |>
+  # filter out CO data post-pilot sample
+  filter(!(site == "pilot_uniandes_co" & time_started > ymd_hms("2025-07-01 00:00:00"))) |>
   # take each user's first run of each task in each administration
   group_by(user_id, task_id, variant_id, administration_id) |>
   arrange(time_started) |>
