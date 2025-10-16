@@ -510,7 +510,7 @@ total_trial_counts <- trial_counts |>
 
 The pilot site partnership was an integral component of the core task development. Across three countries and languages, pilot sites provided collaboration on task adaptation and functionality, iterative task testing, and diverse settings for infrastructure deployment. Data collected from pilot sites allowed analyses of construct validity, measurement invariance, test-retest reliability, parameters for computer adaptive testing, and a demonstration of developmental growth measured by the tasks across constructs. Because we continued developing tasks continuously during the ~18 month pilot process, we anticipate that our reported reliability and validity estimates are likely an underestimate of the current task performance. Our analyses average over early versions of the tasks that in some cases had instructions or items that were later revised for clarity. 
 
-One key feature of the LEVANTE framework is that all data are completely de-identified, reducing legal and ethical obstacles to data sharing. No demographic information or other identifiers are entered into the LEVANTE dashboard by the sites, and ages are only given to a one month precision [@frank2025]. We anticipate that sites will add sociodemographic information into the dataset at a later time via an app that is currently under development that ensures that there is no statistical reidentification risk for  individuals (e.g., due to rare combinations of traits in a community). For this reason, here we provide only minimal demographic characterization and analysis of the children from our pilot sites.  
+One key feature of the LEVANTE framework is that all data are completely de-identified, reducing legal and ethical obstacles to data sharing. No demographic information or other identifiers are entered into the LEVANTE dashboard by the sites, and ages are only given to a one month precision [@frank2025]. We anticipate that sites will add sociodemographic information into the dataset at a later time via an app that is currently under development that ensures that there is no statistical reidentification risk for  individuals (e.g., due to rare combinations of traits in a community). For this reason, here we provide only minimal demographic characterization and analysis of the children from our pilot sites. @fig-age-hist provides the distribution of ages for each site. 
 
 ```{r}
 #| label: fig-age-hist
@@ -530,7 +530,7 @@ ggplot(ages, aes(x = age, fill = site)) +
   labs(x = "Age (years)", y = "Number of children")
 ```
 
-Across all tasks, the sites collected a total of `{r} sum(site_totals)` runs (`{r} get_count_row(1)`) from `{r} sum(user_totals$n_users)` unique children (`{r} user_totals |> deframe() |> collapse_value_list()`), of which some were excluded for being incomplete, invalid, or duplicate (`{r} get_count_row(2)`), for missing item metadata (`{r} get_count_row(3)`), for missing age (`{r} get_count_row(4)`), or for age being out of range or having too short of a retest gap (`{r} get_count_row(5)`), resulting in a total of `{r} sum(user_score_counts$n_runs)` scored runs (`{r} user_score_counts |> select(site, n_runs) |> deframe() |> collapse_value_list()`) from `{r} sum(user_score_counts$n_users)` unique children (`{r} user_score_counts |> select(site, n_users) |> deframe() |> collapse_value_list()`).
+Across all tasks, the sites collected a total of `{r} sum(site_totals)` runs (`{r} get_count_row(1)`) from `{r} sum(user_totals$n_users)` unique children (`{r} user_totals |> deframe() |> collapse_value_list()`), of which some were excluded for being incomplete, invalid, or duplicate (`{r} get_count_row(2)`), for missing item metadata (`{r} get_count_row(3)`), for missing age (`{r} get_count_row(4)`), or for age being out of range or having too short of a retest gap (`{r} get_count_row(5)`), resulting in a total of `{r} sum(user_score_counts$n_runs)` scored runs (`{r} user_score_counts |> select(site, n_runs) |> deframe() |> collapse_value_list()`) from `{r} sum(user_score_counts$n_users)` unique children (`{r} user_score_counts |> select(site, n_users) |> deframe() |> collapse_value_list()`). 
 
 Within the included runs, there were a total of `{r} total_trial_counts$n_trials` trials (`{r} site_trial_counts |> select(site, n_trials) |> deframe() |> collapse_value_list()`), of which `{r} total_trial_counts$excluded` were excluded (`{r} site_trial_counts |> select(site, excluded) |> deframe() |> collapse_value_list()`) due to too fast or too slow reaction times. For reasons of space we do not disaggregate these exclusions by task, but note that the task with the highest exclusion rate was Pattern Matching (`{r} percentify(max(task_trial_counts$pct_excluded))` trials excluded), while all the other tasks ranged between `{r} percentify(min(task_trial_counts$pct_excluded))` and `{r} percentify(sort(task_trial_counts$pct_excluded, decreasing = TRUE)[2])` trials excluded.
 
@@ -941,8 +941,8 @@ trt |>
 ```{r}
 #| label: fig-retest
 #| fig-cap: "Test-retest correlations per task (in Germany data)."
-#| fig-width: 8
-#| fig-height: 8
+#| fig-width: 6
+#| fig-height: 6
 
 # [bd edit: can we put correlations in each panel?  ]
 
