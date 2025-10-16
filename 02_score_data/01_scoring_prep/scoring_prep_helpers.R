@@ -16,6 +16,7 @@ recode_hf <- function(df) {
     ungroup() |>
     mutate(item = paste(item, hf_type, sep = "_"),
            item_uid = paste(item_group, item, sep = "_")) |>
+    # filter(hf_type != "start") |>
     select(-hf_type)
 
   df |>
