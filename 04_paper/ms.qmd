@@ -107,7 +107,7 @@ author-note:
     financial-support: "This work was supported by the Jacobs Foundation."
     # conflict-of-interest: The author has no conflict of interest to declare.
 
-abstract: We present the Learning Variability Network Exchange (LEVANTE) core tasks, a set of nine short and engaging computer adaptive tasks designed to assess learning and development in children ages 5--12 years across a wide range of languages and cultures. Using a simple and uniform multi-alternative forced choice format, these tasks measure constructs including math, execxutive function, reasoning, and social cognition and can be administered on a tablet or computer both in person or remotely. We describe the design and selection of these tasks, and then report on their reliability and validity in a sample of 1034 children recruited from sites in Colombia, Germany, and Canada. Tasks are scored using multi-group item response theory models, allowing testing for measurement invariance. The parameters of these models can then be used to create computer adaptive versions of the tasks, allowing the entire battery to be given in around an hour. We discuss the use,  ongoing refinement, and extension of these tasks in the service of creating an open dataset to describe variability in children's development and learning across contexts.
+abstract: We present the Learning Variability Network Exchange (LEVANTE) core tasks, a set of nine short and engaging computer adaptive tasks designed to assess learning and development in children ages 5--12 years across a wide range of languages and cultures. Using a simple and uniform multi-alternative forced choice format, these tasks measure constructs including math, executive function, reasoning, and social cognition and can be administered on a tablet or computer both in person or remotely. We describe the design and selection of these tasks, and then report on their reliability and validity in a sample of 1034 children recruited from sites in Colombia, Germany, and Canada. Tasks are scored using multi-group item response theory models, allowing testing for measurement invariance. The parameters of these models can then be used to create computer adaptive versions of the tasks, allowing the entire battery to be given in around an hour. We discuss the use,  ongoing refinement, and extension of these tasks in the service of creating an open dataset to describe variability in children's development and learning across contexts.
 
 keywords: ["cognitive development"]
 word-count: true
@@ -579,19 +579,21 @@ Individual ability scores were then computed as expected a posteriori (EAP) esti
 # read and lightly normalize columns
 inv_explainer <- read_csv(here("04_paper", "display", "invariance.csv"), show_col_types = FALSE) |>
   mutate(across(everything(), \(v) replace_na(v, "–"))) |>
-  transmute(
-    Invariance = str_to_title(Invariance),
-    Model = case_when(
-      str_detect(Model, regex("2\\s*pl|^2pl$", ignore_case = TRUE)) ~ "2PL",
-      str_detect(Model, regex("rasch", ignore_case = TRUE)) ~ "Rasch",
-      TRUE ~ ifelse(Model == "" | Model == "–", "–", Model)
-    ),
-    `mirt code`                = ifelse(`mirt code` == "", "–", `mirt code`),
-    `Factor-analytic analogue` = ifelse(`Factor analysis name` == "", "–", `Factor analysis name`),
-    `IRT explanation`          = ifelse(`IRT explanation` == "", "–", `IRT explanation`),
-    `Practical interpretation` = ifelse(Interpretation == "", "–", Interpretation)
-  ) |>
-  select(Invariance, Model, `mirt code`, `Factor-analytic analogue`, `IRT explanation`, `Practical interpretation`)
+ transmute(
+  Invariance = str_to_title(Invariance),
+  Model = case_when(
+    str_detect(Model, regex("2\\s*pl|^2pl$", ignore_case = TRUE)) ~ "2PL",
+    str_detect(Model, regex("rasch", ignore_case = TRUE)) ~ "Rasch",
+    TRUE ~ ifelse(Model == "" | Model == "–", "–", Model)
+  ),
+  `mirt code` = ifelse(
+    is.na(`mirt code`) | `mirt code` == "", "–",
+    sub("(?i)^\\s*invariance\\s*=\\s*", "", `mirt code`, perl = TRUE)
+  ),
+  `Factor-analytic analogue` = ifelse(`Factor analysis name` == "", "–", `Factor analysis name`),
+  `IRT explanation`          = ifelse(`IRT explanation` == "", "–", `IRT explanation`),
+  `Practical interpretation` = ifelse(Interpretation == "", "–", Interpretation)
+)
 
 # build table (mirrors tbl-task-rxx style)
 inv_explainer |>
@@ -667,9 +669,6 @@ task_model_inv |>
   flextable::autofit(add_w = 0, add_h = 0)
 
 ```
-
-
-
 # Psychometric properties of tasks
 
 ## Developmental change
@@ -855,7 +854,7 @@ ft
 One goal for the LEVANTE core tasks is strong reliability both within an individual administration (across test items) and across multiple administrations separated in time. We report on each of these. 
 
 ### Marginal reliability
-
+Marginal reliability, an IRT-based analogue to Cronbach’s α, quantifies the proportion of true-score variance captured by the test based on the item information function (ADD REF: Thissen & Wainer, 2001).
 ```{r}
 #| label: tbl-task-rxx
 #| tbl-cap: "Marginal reliabilities for each task and site."
@@ -881,7 +880,6 @@ trx |>
 ```
   
 IRT models allow the computation of marginal reliability, which captures the inter-relatedness of items in an assessment and hence the proportion of variation attributed to shared variance. In multi-group IRT models, marginal reliabilities can be computed only for individual sub-models.  @tbl-task-rxx shows marginal reliabilities for each task, reporting reliability for each sub-model for the best fitting model. 
-
 ```{r}
 # prophecy <- function (n = 2, r) {
 #   (n * r) /  (1 + (n - 1) * r)
@@ -919,31 +917,20 @@ trt <- retest_wide |>
 ```
 
 ### Test-retest reliability
-
-<<<<<<< HEAD
-We were also interested in capturing the extent to which the LEVANTE tasks yield reliable signal across a delay. The leuphana-de pilot site was able to re-administer tasks to a subset of their original participant group with a retest interval of approximately 4--5 months. We used this re-administration as an opportunity to collect data with computer adaptive versions of many of the tasks (Sentence Understanding, Pattern Matching, Shape Rotation, Math and Vocabulary); see below for further details of computer adaptive versions. In addition, for several tasks (Math, Theory of Mind, Pattern Matching), we used this opportunity to gather item data about new groups of retest items that were designed to match the content of the original items but vary in their surface forms. For the other tasks, we retested using the same items. 
-=======
 We were also interested in capturing the extent to which the LEVANTE tasks yield reliable signal across a delay. The mpieva-de pilot site was able to re-administer tasks to a subset of their original participant group with a retest interval of approximately 4--5 months. We used this re-administration as an opportunity to collect data with computer adaptive versions of many of the tasks (Sentence Understanding, Pattern Matching, Shape Rotation, Math and Vocabulary); see below for further details of computer adaptive versions. In addition, for several tasks (Math, Theory of Mind, Pattern Matching), we used this opportunity to gather item data about new groups of retest items that were designed to match the content of the original items but vary in their surface forms. For the other tasks, we retested using the same items. 
->>>>>>> 1ac10aa46a2063aad77c56195e2fc1c531626de3
 
 Figure @fig-retest shows the relations between time 1 and time 2 scores. Uptake for retest administrations varied between N=`r min(trt$n)` and N=`r max(trt$n)`; the low number of repeat administrations for Sentence Understanding reflects an error in which this task was not sent to younger children. Each figure panel also shows the test-retest correlation and sample size for the corresponding task.
 
 ```{r}
 #| label: fig-retest
-<<<<<<< HEAD
-#| fig-cap: "Test-retest correlations per task (in Germany data)."
+#| fig-cap: "Test-retest correlations per task (in mpieva-de data)."
 #| fig-width: 8
-#| fig-height: 8
+#| fig-height: 9
 
 # [bd edit: can we put correlations in each panel?  ]
 
 # trt_for_plot <- trt |>
 #   rename(task = Task)
-=======
-#| fig-cap: "Test-retest correlations per task (in mpieva-de data)."
-#| fig-width: 8
-#| fig-height: 9
->>>>>>> 1ac10aa46a2063aad77c56195e2fc1c531626de3
 
 ggplot(retest_wide, aes(x = run_1, y = run_2, color = age)) +
   ggh4x::facet_nested_wrap(vars(task_category, task),
@@ -1093,8 +1080,8 @@ edges <- pe %>%
     from = if_else(op == "~", rhs, lhs),
     to   = if_else(op == "~", lhs, rhs),
     op, est, std.all, pvalue,
-    arrow     = if_else(op == "~~", "both", "last"),   # <-- fix here
-    curved    = op == "~~" & lhs != rhs,               # curve only covariances
+    arrow     = if_else(op == "~~", "both", "last"),
+    curved    = op == "~~" & lhs != rhs,            
     curvature = if_else(op == "~~" & lhs != rhs, 0.35, NA_real_),
     linetype  = if_else(op == "~~" & lhs != rhs, 2L, 1L)
   ) %>%
@@ -1135,6 +1122,7 @@ g$edges$label_alpha  <- 1
 
 plot(g)
 ```
+
 ```{r prep-sem-ef}
 ef_tasks <- c("hf","mg","sds","mefs")
 
@@ -1217,7 +1205,7 @@ load_tab <- pe_ef |>
 ```
 ### External validity
 
-To assess external validity, we fitted a single-factor Executive Function (EF) model with Hearts & Flowers (hf), Memory Game (mg), Same & Different (sds), and the external measure, the Minnesota Executive Function Scale (MEFS) as indicators (@fig-semplot-ef). We modeled age as a predictor of the latent EF factor. Fit was generally good `r round(lavaan::fitMeasures(fit_ef)["cfi"], 3)`, RMSEA: `r round(lavaan::fitMeasures(fit_ef)["rmsea"], 3)` RMSEA p-value: `r round(lavaan::fitMeasures(fit_ef)["rmsea.pvalue"], 3)`. Standardized loadings were: hf = `r fmt(load_tab["hf"])`, mg = `r fmt(load_tab["mg"])`, sds = `r fmt(load_tab["sds"])`, MEFS = `r fmt(load_tab["mefs"])`, indicating that MEFS aligns closely with the latent EF construct. Age strongly predicted EF ($\beta$ = `r round(beta_age_EF, 2)`; $R^2$ = `r round(r2_EF, 2)`), consistent with expected developmental gains.
+To assess external validity, we fitted a single-factor Executive Function (EF) model with Hearts & Flowers (hf), Memory Game (mg), Same & Different (sds), and the external measure, the Minnesota Executive Function Scale (MEFS) as indicators (@fig-semplot-ef). We modeled age as a predictor of the latent EF factor. Model fit was good `r round(lavaan::fitMeasures(fit_ef)["cfi"], 3)`, RMSEA: `r round(lavaan::fitMeasures(fit_ef)["rmsea"], 3)` RMSEA p-value: `r round(lavaan::fitMeasures(fit_ef)["rmsea.pvalue"], 3)`. Standardized loadings were: hf = `r fmt(load_tab["hf"])`, mg = `r fmt(load_tab["mg"])`, sds = `r fmt(load_tab["sds"])`, MEFS = `r fmt(load_tab["mefs"])`, indicating that MEFS aligns closely with the latent EF construct. Age strongly predicted EF ($\beta$ = `r round(beta_age_EF, 2)`; $R^2$ = `r round(r2_EF, 2)`), consistent with expected developmental gains.
 ```{r}
 #| label: fig-semplot-ef
 #| fig-cap: "SEM for executive function model."
@@ -1361,7 +1349,7 @@ dplyr::select(rhs, std.all) |>
 tibble::deframe()
 
 ```
-We ran a similar model to determine the external validity of the language and literacy measures (grammar and vocabulary) against ROAR tasks including measures of Phonological Awareness (pa), Single Word Reading (swr) and Sentence Reading Efficiency (sre). We fitted a single latent Language factor with ROAR tasks plus grammar (Trog) and vocabulary as indicators, and modeled age as a predictor of the latent factor (@fig-semplot-lang). Fit was generally good `r round(fm_lang["cfi"], 3)`, RMSEA: `r round(fm_lang["rmsea"], 3)` RMSEA p-value: `r round(fm_lang["rmsea.pvalue"], 3)`. Standardized loadings were: SWR = `r round(load_tab_lang["swr"], 2)`, SRE = `r round(load_tab_lang["sre"], 2)`, PA = `r round(load_tab_lang["pa"], 2)`, TROG = `r round(load_tab_lang["trog"], 2)`, Vocabulary = `r round(load_tab_lang["vocab"], 2)`. Age predicted Language ($\beta$ = `r round(beta_age_Lang, 2)`; $R^2$ = `r round(r2_Lang, 2)`) consistent with expected developmental gains. 
+We ran a similar model to determine the external validity of the language and literacy measures (grammar and vocabulary) against ROAR tasks including measures of Phonological Awareness (pa), Single Word Reading (swr) and Sentence Reading Efficiency (sre). We fitted a single latent Language factor with ROAR tasks plus grammar (Trog) and vocabulary as indicators, and modeled age as a predictor of the latent factor (@fig-semplot-lang). Model fit was good `r round(fm_lang["cfi"], 3)`, RMSEA: `r round(fm_lang["rmsea"], 3)` RMSEA p-value: `r round(fm_lang["rmsea.pvalue"], 3)`. Standardized loadings were: SWR = `r round(load_tab_lang["swr"], 2)`, SRE = `r round(load_tab_lang["sre"], 2)`, PA = `r round(load_tab_lang["pa"], 2)`, TROG = `r round(load_tab_lang["trog"], 2)`, Vocabulary = `r round(load_tab_lang["vocab"], 2)`. Age predicted Language ($\beta$ = `r round(beta_age_Lang, 2)`; $R^2$ = `r round(r2_Lang, 2)`) consistent with expected developmental gains. 
 ```{r}
 #| label: fig-semplot-lang
 #| fig-cap: "SEM for language model. Abbreviations: Sent.Und.:Sentence Understanding; Vocab: Vocabulary; Single.Wrd.Read: Single Word Reading; Sent.Read.Eff: Sentence Reading Efficiency; Phon.Aware.: Phonological Awareness"
@@ -1453,7 +1441,7 @@ Using pilot data from three different countries, collected via three different a
 
 We hope that these tasks will become the backbone of the LEVANTE framework, in which sites around the world collaborate to collect longitudinal data measuring children's learning and development as well as the overlapping contexts in which they develop. De-identified data collected using the tasks presented here flow into a shared repository, becoming part of a large-scale dataset that we hope will enable a wide variety of downstream investigations. The power of these data is that -- especially when combined with contextual data about children’s caregivers, home environment, school, and built environment -- they afford one analysis of the sources of developmental and contextual variability at global scale.
 
-Towards this goal, one strength of our approach here is that it easily accommodates future internationalization and adaptation. In fact, at the time of writing we are working on adaptations for two more languages (French and Dutch) and intend to further broaden the set of languages for which the tasks are available. As part of this process, we have created an site using the CrowdIn for generating and reviewing translation materials. The LEVANTE researcher website documents the use of this platform and our ongoing language adaptation efforts: <https://researcher.levante-network.org>.
+Towards this goal, one strength of our approach here is that it easily accommodates future internationalization and adaptation. In fact, at the time of writing we are working on adaptations for two more languages (French and Dutch) and intend to further broaden the set of languages for which the tasks are available. As part of this process, we have created a site using the CrowdIn for generating and reviewing translation materials. The LEVANTE researcher website documents the use of this platform and our ongoing language adaptation efforts: <https://researcher.levante-network.org>.
 
 Our current task set is designed for children ages 5--12, but we are currently pursuing downward extension of many of these tasks for children ages 2--5. By design, the forced choice, tablet-based format of our tasks makes them highly amenable to use with younger children [@frank2016]. In our downward extension work, we are adding easier items to each task, increasing the number of practice trials, and increasing the amount of instructions. We anticipate that not all tasks will be usable for all ages, but for at least the executive function and language tasks there is strong evidence of usability with children under age 5 [@davidson2006;@bishop1982]. 
 
