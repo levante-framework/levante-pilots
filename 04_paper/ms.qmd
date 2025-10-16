@@ -530,7 +530,7 @@ ggplot(ages, aes(x = age, fill = site)) +
   labs(x = "Age (years)", y = "Number of children")
 ```
 
-Across all tasks, the sites collected a total of `{r} sum(site_totals)` runs (`{r} get_count_row(1)`) from `{r} sum(user_totals$n_users)` unique children (`{r} user_totals |> deframe() |> collapse_value_list()`), of which some were excluded for being incomplete, invalid, or duplicate (`{r} get_count_row(2)`), for missing item metadata (`{r} get_count_row(3)`), for missing age (`{r} get_count_row(4)`), or for age being out of range or having too short of a retest gap (`{r} get_count_row(5)`), resulting in a total of `{r} sum(user_score_counts$n_runs)` scored runs (`{r} user_score_counts |> select(site, n_runs) |> deframe() |> collapse_value_list()`) from `{r} sum(user_score_counts$n_users)` unique children (`{r} user_score_counts |> select(site, n_users) |> deframe() |> collapse_value_list()`). 
+Across all tasks, the sites collected a total of `{r} sum(site_totals)` runs (`{r} get_count_row(1)`) from `{r} sum(user_totals$n_users)` unique children (`{r} user_totals |> deframe() |> collapse_value_list()`), of which some were excluded for being incomplete, invalid, or duplicate (`{r} get_count_row(2)`), for missing item metadata (`{r} get_count_row(3)`), for missing age, or age being out of range (`{r} get_count_row(4)`), or for having too short of a retest gap (`{r} get_count_row(5)`), resulting in a total of `{r} sum(user_score_counts$n_runs)` scored runs (`{r} user_score_counts |> select(site, n_runs) |> deframe() |> collapse_value_list()`) from `{r} sum(user_score_counts$n_users)` unique children (`{r} user_score_counts |> select(site, n_users) |> deframe() |> collapse_value_list()`). 
 
 Within the included runs, there were a total of `{r} total_trial_counts$n_trials` trials (`{r} site_trial_counts |> select(site, n_trials) |> deframe() |> collapse_value_list()`), of which `{r} total_trial_counts$excluded` were excluded (`{r} site_trial_counts |> select(site, excluded) |> deframe() |> collapse_value_list()`) due to too fast or too slow reaction times. For reasons of space we do not disaggregate these exclusions by task, but note that the task with the highest exclusion rate was Pattern Matching (`{r} percentify(max(task_trial_counts$pct_excluded))` trials excluded), while all the other tasks ranged between `{r} percentify(min(task_trial_counts$pct_excluded))` and `{r} percentify(sort(task_trial_counts$pct_excluded, decreasing = TRUE)[2])` trials excluded.
 
@@ -671,9 +671,9 @@ task_model_inv |>
 
 ## Developmental change
 
-Across all nine tasks we observed positive age–ability trends. The smoothed lines in Figure @fig-age-trends are roughly parallel within each panel, indicating that sites differ mostly in overall level rather than in developmental rate. Growth appeared steepest for Math and Hearts & Flowers, moderate for Vocabulary, Memory, and Theory of Mind, and shallower for Shape Rotation and Sentence Understanding, which showed positive but weaker age effects.
+Across all nine tasks we observed positive age–ability trends. The smoothed lines in Figure @fig-age-trends are roughly parallel within each panel, indicating that sites differ mostly in overall level rather than in developmental rate. Growth appeared steepest for Math and Hearts & Flowers, moderate for Vocabulary, Memory, and Theory of Mind, and shallower for Shape Rotation and Sentence Understanding.
 
-To quantify developmental change, we fitted separate ordinary least-squares models predicting ability scores (IRT units) from centered age with site fixed effects and an age × site interaction, allowing slopes to vary by site. As summarized in Table @tbl-slopes, age-related slopes were positive for all tasks and sites, indicating that older children performed better on every measure. 
+To quantify developmental change, we fitted separate ordinary least-squares models predicting ability scores (IRT units) from centered age with site fixed effects and an age × site interaction, allowing slopes to vary by site. As summarized in @tbl-slopes, age-related slopes were positive for all tasks and sites, indicating that older children performed better on every measure. 
 
 In addition, we calculated per-site zero-order correlations between age and IRT ability scores. These correlations were uniformly positive (r ≈ .40–.70) and of moderate magnitude across tasks, consistent with the regression estimates. The close correspondence between the linear slopes and the smooth trends suggests that, within the studied age range, developmental gains are approximately linear and broadly comparable across cultural contexts.
 
@@ -921,7 +921,7 @@ trt <- retest_wide |>
 ```
 ### Test-retest reliability
 
-We were also interested in capturing the extent to which the LEVANTE tasks yield reliable signal across a delay. The leuphana-de pilot site was able to re-administer tasks to a subset of their original participant group with a retest interval of approximately 4--5 months. We used this re-administration as an opportunity to collect data with computer adaptive versions of many of the tasks (sentence understanding, pattern matching, shape rotation, math and vocabulary); see below for further details of computer adaptive versions. In addition, for several tasks (math, theory of mind, pattern matching), we used this opportunity to gather item data about new groups of retest items that were designed to match the content of the original items but vary in their surface forms. For the other tasks, we retested using the same items. 
+We were also interested in capturing the extent to which the LEVANTE tasks yield reliable signal across a delay. The leuphana-de pilot site was able to re-administer tasks to a subset of their original participant group with a retest interval of approximately 4--5 months. We used this re-administration as an opportunity to collect data with computer adaptive versions of many of the tasks (Sentence Understanding, Pattern Matching, Shape Rotation, Math and Vocabulary); see below for further details of computer adaptive versions. In addition, for several tasks (Math, Theory of Mind, Pattern Matching), we used this opportunity to gather item data about new groups of retest items that were designed to match the content of the original items but vary in their surface forms. For the other tasks, we retested using the same items. 
 
 Figure @fig-retest shows the relations between time 1 and time 2 scores. Uptake for retest administrations varied between N=`r min(trt$n)` and N=`r max(trt$n)`; the low number of repeat administrations for Sentence Understanding reflects an error in which this task was not sent to younger children. Table @tbl-retest shows test-retest correlations.
 ```{r}
@@ -941,8 +941,8 @@ trt |>
 ```{r}
 #| label: fig-retest
 #| fig-cap: "Test-retest correlations per task (in Germany data)."
-#| fig-width: 6
-#| fig-height: 6
+#| fig-width: 8
+#| fig-height: 8
 
 # [bd edit: can we put correlations in each panel?  ]
 
@@ -1062,8 +1062,7 @@ fit_g_age_fit <- lavaan::fitMeasures(fit_g_age)
 ```
 ### Construct validity
 
-We assessed construct validity using a hierarchical CFA in which three first-order factors—Reasoning (matrix reasoning, mental rotation), Executive Function (Hearts & Flowers, Memory Game, Same–Different Selection), and Language (grammar, vocabulary)—loaded on a second-order general factor (G; @fig-semplot-g). Mathematics and Social Cognition (Theory of Mind; ToM) were treated as observed endogenous outcomes because each construct had a single task; introducing one-indicator latent variables would require strong, unverifiable assumptions about reliability/error variances. Age was specified to predict G (age → G). Model fit was poor -- CFI: `r round(lavaan::fitMeasures(fit_g_age)["cfi"], 3)`, RMSEA: `r round(lavaan::fitMeasures(fit_g_age)["rmsea"], 3)` RMSEA p-value: `r round(lavaan::fitMeasures(fit_g_age)["rmsea.pvalue"], 3)`. Overall, factor loadings supported the intended three-factor structure (convergent validity), and age related to each domain as expected. The high inter-factor correlations and strong second-order loadings indicate that much of the variance is shared across domains, consistent with a broad general ability underpinning performance on the nine core tasks.
-
+We assessed construct validity using a hierarchical Confirmatory Factor Analysis (CFA) in which three first-order factors—Reasoning (matrix reasoning, mental rotation), Executive Function (Hearts & Flowers, Memory Game, Same–Different Selection), and Language (grammar, vocabulary)—loaded on a second-order general factor (G; @fig-semplot-g). Math and Theory of Mindwere treated as observed endogenous outcomes because each construct had a single task; introducing one-indicator latent variables would require strong, unverifiable assumptions about reliability/error variances. Age was specified to predict G (age → G). We found that model fit was relatively poor -- CFI: `r round(lavaan::fitMeasures(fit_g_age)["cfi"], 3)`, RMSEA: `r round(lavaan::fitMeasures(fit_g_age)["rmsea"], 3)` RMSEA p-value: `r round(lavaan::fitMeasures(fit_g_age)["rmsea.pvalue"], 3)`. Overall, factor loadings supported the intended three-factor structure (convergent validity), and age related to each domain as expected. The high inter-factor correlations and strong second-order loadings indicate that much of the variance is shared across domains, consistent with a broad general ability underpinning performance on the nine core tasks.
 ```{r}
 #| label: fig-semplot-g
 #| fig-cap: "SEM for core tasks with general factor."
@@ -1216,7 +1215,7 @@ load_tab <- pe_ef |>
 ```
 ### External validity
 
-To assess external validity, we fitted a single-factor EF model with hearts and flowers (hf), memory game (mg), same-different-selection (sds), and the external measure, the Minnesota Executive Function Scale (MEFS) as indicators (@fig-semplot-ef). We modeled age as a predictor of the latent EF factor. Fit was generally good `r round(lavaan::fitMeasures(fit_ef)["cfi"], 3)`, RMSEA: `r round(lavaan::fitMeasures(fit_ef)["rmsea"], 3)` RMSEA p-value: `r round(lavaan::fitMeasures(fit_ef)["rmsea.pvalue"], 3)`. Standardized loadings were: hf = `r fmt(load_tab["hf"])`, mg = `r fmt(load_tab["mg"])`, sds = `r fmt(load_tab["sds"])`, MEFS = `r fmt(load_tab["mefs"])`, indicating that MEFS aligns closely with the latent EF construct. Age strongly predicted EF ($\beta$ = `r round(beta_age_EF, 2)`; $R^2$ = `r round(r2_EF, 2)`), consistent with expected developmental gains.
+To assess external validity, we fitted a single-factor Executive Function (EF) model with Hearts & Flowers (hf), Memory Game (mg), Same & Different (sds), and the external measure, the Minnesota Executive Function Scale (MEFS) as indicators (@fig-semplot-ef). We modeled age as a predictor of the latent EF factor. Fit was generally good `r round(lavaan::fitMeasures(fit_ef)["cfi"], 3)`, RMSEA: `r round(lavaan::fitMeasures(fit_ef)["rmsea"], 3)` RMSEA p-value: `r round(lavaan::fitMeasures(fit_ef)["rmsea.pvalue"], 3)`. Standardized loadings were: hf = `r fmt(load_tab["hf"])`, mg = `r fmt(load_tab["mg"])`, sds = `r fmt(load_tab["sds"])`, MEFS = `r fmt(load_tab["mefs"])`, indicating that MEFS aligns closely with the latent EF construct. Age strongly predicted EF ($\beta$ = `r round(beta_age_EF, 2)`; $R^2$ = `r round(r2_EF, 2)`), consistent with expected developmental gains.
 ```{r}
 #| label: fig-semplot-ef
 #| fig-cap: "SEM for executive function model."
@@ -1360,10 +1359,7 @@ dplyr::select(rhs, std.all) |>
 tibble::deframe()
 
 ```
-
-We ran a similar model to determine the external validity of the language and literacy measures (grammar and vocab) against ROAR tasks including measures of Phonological Awareness (pa), Single Word Reading (swr) and Sentence Reading Efficiency (sre). We fitted a single latent Language factor with ROAR tasks plus grammar (trog) and vocabulary as indicators, and modeled age as a predictor of the latent factor (@fig-semplot-lang). 
-Fit was generally good `r round(fm_lang["cfi"], 3)`, RMSEA: `r round(fm_lang["rmsea"], 3)` RMSEA p-value: `r round(fm_lang["rmsea.pvalue"], 3)`. Standardized loadings were: SWR = `r round(load_tab_lang["swr"], 2)`, SRE = `r round(load_tab_lang["sre"], 2)`, PA = `r round(load_tab_lang["pa"], 2)`, TROG = `r round(load_tab_lang["trog"], 2)`, Vocabulary = `r round(load_tab_lang["vocab"], 2)`. Age predicted Language ($\beta$ = `r round(beta_age_Lang, 2)`; $R^2$ = `r round(r2_Lang, 2)`) consistent with expected developmental gains. 
-
+We ran a similar model to determine the external validity of the language and literacy measures (grammar and vocabulary) against ROAR tasks including measures of Phonological Awareness (pa), Single Word Reading (swr) and Sentence Reading Efficiency (sre). We fitted a single latent Language factor with ROAR tasks plus grammar (Trog) and vocabulary as indicators, and modeled age as a predictor of the latent factor (@fig-semplot-lang). Fit was generally good `r round(fm_lang["cfi"], 3)`, RMSEA: `r round(fm_lang["rmsea"], 3)` RMSEA p-value: `r round(fm_lang["rmsea.pvalue"], 3)`. Standardized loadings were: SWR = `r round(load_tab_lang["swr"], 2)`, SRE = `r round(load_tab_lang["sre"], 2)`, PA = `r round(load_tab_lang["pa"], 2)`, TROG = `r round(load_tab_lang["trog"], 2)`, Vocabulary = `r round(load_tab_lang["vocab"], 2)`. Age predicted Language ($\beta$ = `r round(beta_age_Lang, 2)`; $R^2$ = `r round(r2_Lang, 2)`) consistent with expected developmental gains. 
 ```{r}
 #| label: fig-semplot-lang
 #| fig-cap: "SEM for language model. Abbreviations: Sent.Und.:Sentence Understanding; Vocab: Vocabulary; Single.Wrd.Read: Single Word Reading; Sent.Read.Eff: Sentence Reading Efficiency; Phon.Aware.: Phonological Awareness"
