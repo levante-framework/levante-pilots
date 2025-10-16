@@ -207,7 +207,7 @@ fit_task_models_multigroup <- \(task_data, models, task, group = site,
 
 # fit one task + all languages
 # fit_bylanguage_task(task_data = task_data_irt, models = models_pooled,
-#                 task = "hf", registry_dir = regdir)
+#                 task = "mrot2d", registry_dir = regdir)
 
 # fit all tasks + one language
 # fit_bylanguage_lang(task_data = task_data_irt, models = models_pooled,
@@ -225,7 +225,7 @@ fit_task_models_multigroup <- \(task_data, models, task, group = site,
 
 # fit one task, grouped by site
 # fit_task_models_multigroup(task_data = task_data_irt, models = models_multigroup,
-#                            task = "matrix", group = site, registry_dir = regdir)
+#                            task = "mrot2d", group = site, registry_dir = regdir)
 
 # fit all irt tasks, grouped by site
 # irt_tasks |>
