@@ -219,7 +219,7 @@ In addition to the constructs described above, we were also interested in the as
 
 ## The current study
 
-Here we report on the development and validation of the LEVANTE core tasks. This is an iterative process in which data from 5--12 year old children has been collected across three sites: Bogota, Colombia; Leipzig, Germany; and Ottawa, Canada.^[In the remainder of the manuscript, we refer to these sites by their site designators, `uniandes-co`, `leuphana-de`, and `western-ca`. These designators mark the research group and country of data collection. We make this choice to avoid the inference that these data are particularly representative of, for example, German or Colombian children more broadly.] In some cases that we note below, we used these data during the data collection process to make minor changes to the tasks. We use data from these three pilot sites both to provide initial evidence on the reliability and validity of the measures and to develop efficient, computer adaptive (CAT) versions of nearly all of the tasks. 
+Here we report on the development and validation of the LEVANTE core tasks. This is an iterative process in which data from 5--12 year old children has been collected across three sites: Bogota, Colombia; Leipzig, Germany; and Ottawa, Canada.^[In the remainder of the manuscript, we refer to these sites by their site designators, `uniandes-co`, `mpieva-de`, and `western-ca`. These designators mark the research group and country of data collection. We make this choice to avoid the inference that these data are particularly representative of, for example, German or Colombian children more broadly.] In some cases that we note below, we used these data during the data collection process to make minor changes to the tasks. We use data from these three pilot sites both to provide initial evidence on the reliability and validity of the measures and to develop efficient, computer adaptive (CAT) versions of nearly all of the tasks. 
 
 A key component of this process is the use of psychometric models based on item-response theory (IRT) [@embretson2013]. IRT models provide a family of models that allow the joint estimation of the difficulty of individual task items (e.g., math questions) and the ability of individual children. A fitted IRT model provides task parameters that can be used to estimate the ability of a new test taker given their responses on some or all of the same items. In addition, IRT parameters are used in the construction of CATs, which choose the most relevant items to give to estimate the ability of a particular individual. Critically for our purposes, the use of IRT models means that we can provide comparable scores on the same scale to a younger child who saw mostly easier task items and an older child who saw harder items; these models thus allow us to address our first key challenge posed above.  
 
@@ -360,7 +360,10 @@ Initially designed in English, core tasks were subsequently adapted for Spanish 
 ```{r compute_counts}
 percentify <- \(s) as.character(glue("{sprintf('%.1f', s)}%"))
 
-run_data <- read_rds(here("01_fetched_data/run_data.rds"))
+run_data <- read_rds(here("01_fetched_data/run_data.rds")) |>
+  # filter out CO data post-pilot sample
+  filter(!(site == "pilot_uniandes_co" & time_started > ymd_hms("2025-07-01 00:00:00")))
+
 runs_filtered <- read_rds(here("01_fetched_data/runs_filtered.rds"))
 
 # all runs
@@ -540,7 +543,7 @@ The Universidad de Los Andes conducted school-based data collection across four 
 
 ## Germany
 
-The Max Planck Institute for Evolutionary Anthropology and Leuphana University collected data using family-based remote data collection. Participants were recruited via an existing database of Leipzig families by first contacting families via telephone with an invitation to participate in the study. Upon agreement, families received an email with information to log into the LEVANTE system and complete the tasks assigned to them at home using their own computer or tablet. This site provided retest data with follow-up assignments sent to families 4--5 months after initial completion of the tasks. The leuphana-de site collected data from `r user_totals$n_users[user_totals$site == "mpieva-de"]` children, ages 5--12 years. 
+The Max Planck Institute for Evolutionary Anthropology and Leuphana University collected data using family-based remote data collection. Participants were recruited via an existing database of Leipzig families by first contacting families via telephone with an invitation to participate in the study. Upon agreement, families received an email with information to log into the LEVANTE system and complete the tasks assigned to them at home using their own computer or tablet. This site provided retest data with follow-up assignments sent to families 4--5 months after initial completion of the tasks. The mpieva-de site collected data from `r user_totals$n_users[user_totals$site == "mpieva-de"]` children, ages 5--12 years. 
 
 ## Canada
 
@@ -852,7 +855,7 @@ ft
 One goal for the LEVANTE core tasks is strong reliability both within an individual administration (across test items) and across multiple administrations separated in time. We report on each of these. 
 
 ### Marginal reliability
-::: {.landscape}
+
 ```{r}
 #| label: tbl-task-rxx
 #| tbl-cap: "Marginal reliabilities for each task and site."
@@ -860,7 +863,6 @@ One goal for the LEVANTE core tasks is strong reliability both within an individ
 task_rxx <- read_rds(here("02_scoring_outputs/task_rxx.rds"))
 
 trx <- task_rxx |>
-  filter(task != "ha") |>
   rename(item_task = task) |>
   left_join(task_map) |>
   select(task, site, itemtype, invariance, rxx) |>
@@ -868,19 +870,15 @@ trx <- task_rxx |>
          itemtype = itemtype |> fct_recode("Rasch" = "rasch", "2PL" = "2pl"),
          invariance = invariance |> str_to_sentence()) |>
   arrange(task) |>
-  rename(Task = task, Model = itemtype, Invariance = invariance, Reliability = rxx) |>
-  pivot_wider(names_from = site, values_from = c(Model, Invariance, Reliability),
-              names_glue = "{site}_{.value}")
+  pivot_wider(names_from = site, values_from = rxx,
+              names_prefix = "Reliability_") |>
+  rename(Task = task, Model = itemtype, Invariance = invariance)
 
 trx |>
-  select(sort(colnames(trx))) |>
-  relocate(Task, .before = everything()) |>
   flextable() |>
   separate_header() |>
   flextable::autofit(add_w = 0, add_h = 0)
-
 ```
-:::
   
 IRT models allow the computation of marginal reliability, which captures the inter-relatedness of items in an assessment and hence the proportion of variation attributed to shared variance. In multi-group IRT models, marginal reliabilities can be computed only for individual sub-models.  @tbl-task-rxx shows marginal reliabilities for each task, reporting reliability for each sub-model for the best fitting model. 
 
@@ -911,7 +909,7 @@ retest_wide <- de_retest_scores |>
   select(user_id, task_category, task, age = mean_age, age_gap, run_1, run_2)
 
 trt <- retest_wide |>
-  group_by(task) |>
+  group_by(task_category, task) |>
   summarise(test_retest_r = cor(run_1, run_2, use = "complete.obs"), 
             # prophecy_r = prophecy(n = 2, r = test_retest_r),
             n = n(), 
@@ -919,27 +917,20 @@ trt <- retest_wide |>
   ungroup() |>
   arrange(task)
 ```
+
 ### Test-retest reliability
 
+<<<<<<< HEAD
 We were also interested in capturing the extent to which the LEVANTE tasks yield reliable signal across a delay. The leuphana-de pilot site was able to re-administer tasks to a subset of their original participant group with a retest interval of approximately 4--5 months. We used this re-administration as an opportunity to collect data with computer adaptive versions of many of the tasks (Sentence Understanding, Pattern Matching, Shape Rotation, Math and Vocabulary); see below for further details of computer adaptive versions. In addition, for several tasks (Math, Theory of Mind, Pattern Matching), we used this opportunity to gather item data about new groups of retest items that were designed to match the content of the original items but vary in their surface forms. For the other tasks, we retested using the same items. 
+=======
+We were also interested in capturing the extent to which the LEVANTE tasks yield reliable signal across a delay. The mpieva-de pilot site was able to re-administer tasks to a subset of their original participant group with a retest interval of approximately 4--5 months. We used this re-administration as an opportunity to collect data with computer adaptive versions of many of the tasks (Sentence Understanding, Pattern Matching, Shape Rotation, Math and Vocabulary); see below for further details of computer adaptive versions. In addition, for several tasks (Math, Theory of Mind, Pattern Matching), we used this opportunity to gather item data about new groups of retest items that were designed to match the content of the original items but vary in their surface forms. For the other tasks, we retested using the same items. 
+>>>>>>> 1ac10aa46a2063aad77c56195e2fc1c531626de3
 
-Figure @fig-retest shows the relations between time 1 and time 2 scores. Uptake for retest administrations varied between N=`r min(trt$n)` and N=`r max(trt$n)`; the low number of repeat administrations for Sentence Understanding reflects an error in which this task was not sent to younger children. Table @tbl-retest shows test-retest correlations.
-```{r}
-#| label: tbl-retest
-#| tbl-cap: "Task-wise test-retest correlations computed for Germany data."
-
-trt |>
-  transmute(
-    Task = task,
-    `Test–retest r` = round(test_retest_r, 3)
-  ) |>
-  arrange(Task) |>
-  knitr::kable(format = "pipe", align = "lr")
-
-```
+Figure @fig-retest shows the relations between time 1 and time 2 scores. Uptake for retest administrations varied between N=`r min(trt$n)` and N=`r max(trt$n)`; the low number of repeat administrations for Sentence Understanding reflects an error in which this task was not sent to younger children. Each figure panel also shows the test-retest correlation and sample size for the corresponding task.
 
 ```{r}
 #| label: fig-retest
+<<<<<<< HEAD
 #| fig-cap: "Test-retest correlations per task (in Germany data)."
 #| fig-width: 8
 #| fig-height: 8
@@ -948,22 +939,33 @@ trt |>
 
 # trt_for_plot <- trt |>
 #   rename(task = Task)
+=======
+#| fig-cap: "Test-retest correlations per task (in mpieva-de data)."
+#| fig-width: 8
+#| fig-height: 9
+>>>>>>> 1ac10aa46a2063aad77c56195e2fc1c531626de3
 
 ggplot(retest_wide, aes(x = run_1, y = run_2, color = age)) +
   ggh4x::facet_nested_wrap(vars(task_category, task),
                            nest_line = element_line(), solo_line = TRUE,
                            axes = "x",
                            scales = "free_y") +
-  # facet_wrap(vars(task)) +
-  geom_point() +
-  # geom_text(data = rename(trt, task = Task), aes(label = r), group = 1, color = "black",  
-  #           x = -4.5, y = 2.5) +
+  coord_cartesian(clip = "off") +
+  geom_abline(color = "grey", linetype = "dotted") +
+  geom_point(alpha = 0.8, size = 1.5) +
+  geom_label(data = trt, aes(label = sprintf("r = %.2f", test_retest_r)),
+            size = 4, color = "darkgrey", linewidth = 0, x = -Inf, y = Inf,
+            vjust = "inward", hjust = "inward") +
+  geom_label(data = trt, aes(label = sprintf("N = %s", n)),
+            size = 4, color = "darkgrey", linewidth = 0, x = Inf, y = -Inf,
+            vjust = "inward", hjust = "inward") +
   geom_smooth(aes(group = 1), color = "darkgrey", method = "lm") +
   scale_color_viridis(limits = c(5, 12)) +
   labs(x = "Score 1", y = "Score 2", color = "Age (years)") +
   theme(legend.position = "bottom")
 ```
-## Validity 
+
+## Validity
 
 ```{r prep-sem, include=FALSE}
 # one row per user (metadata + task scores from first run)
