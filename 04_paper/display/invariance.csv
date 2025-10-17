@@ -1,8 +1,8 @@
-Invariance,Model,Factor analysis name,mirt code,IRT explanation,Interpretation
+invariance,model,fa,mirt,irt,interpretation
 None,,Exploratory factor analysis,,Not possible because IRT assumes unidimensionality,Groups differ in meaning of construct
-Configural,Rasch,,"invariance = c("""")",Non-uniform DIF: Groups differ in all item characteristics,Groups express construct in different ways
-Configural,2PL,"Configural: Same # of factors, loadings = 0 for same items","invariance = c("""")",Non-uniform DIF: Groups differ in all item characteristics,Groups express construct in different ways
-Metric,2PL,Metric (weak): Equal item factor loadings,"invariance = c(""slopes"")",Uniform DIF: Equal item discriminations (a = a_g),Groups express construct in similar ways
-Scalar,Rasch,,"invariance = c(""intercepts"", ""free_means"", ""free_vars"")",No DIF: Equal item difficulties (d = d_g),Factor scores are on same scale and can be compared across groups
-Scalar,2PL,Scalar (strong): Equal item factor loadings & item intercepts,"invariance = c(""slopes"", ""intercepts"", ""free_means"", ""free_vars"")","No DIF: Equal item discriminations & item difficulties (a = a_g, d = d_g)",Factor scores are on same scale and can be compared across groups
+Configural,Rasch,,"``''",Non-uniform DIF: Groups differ in all item characteristics,Groups express construct in different ways
+Configural,2PL,"Configural: Same # of factors, loadings = 0 for same items","``''",Non-uniform DIF: Groups differ in all item characteristics,Groups express construct in different ways
+Metric,2PL,Metric (weak): Equal item factor loadings,"c(``slopes'')",Uniform DIF: Equal item discriminations (a = a_g),Groups express construct in similar ways
+Scalar,Rasch,,"c(``intercepts'',  ``free_means'',  ``free_vars'')",No DIF: Equal item difficulties (d = d_g),Factor scores are on same scale and can be compared across groups
+Scalar,2PL,Scalar (strong): Equal item factor loadings & item intercepts,"c(``slopes'',  ``intercepts'',  ``free_means'',  ``free_vars'')","No DIF: Equal item discriminations & item difficulties (a = a_g, d = d_g)",Factor scores are on same scale and can be compared across groups
 Full,,"Full (strict): Equal item factor loadings, intercepts, residual variances",,Not possible because there are no residual variances with binary items in IRT,Factor scores are on same scale and can be compared across groups; Reliabilities also equivalent

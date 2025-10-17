@@ -599,49 +599,36 @@ In addition, we calculated per-site zero-order correlations between age and IRT 
 ```{r}
 #| label: tbl-invariance-explainer
 #| tbl-cap: "Measurement invariance across factor analysis and item response theory."
+#| ft.arraystretch: 1.2
 
 # read and lightly normalize columns
-inv_explainer <- read_csv(here("04_paper", "display", "invariance.csv"), show_col_types = FALSE) |>
+inv_explainer <- read_csv(here("04_paper", "display", "invariance.csv")) |>
   mutate(across(everything(), \(v) replace_na(v, "–"))) |>
- transmute(
-  Invariance = str_to_title(Invariance),
-  Model = case_when(
-    str_detect(Model, regex("2\\s*pl|^2pl$", ignore_case = TRUE)) ~ "2PL",
-    str_detect(Model, regex("rasch", ignore_case = TRUE)) ~ "Rasch",
-    TRUE ~ ifelse(Model == "" | Model == "–", "–", Model)
-  ),
-  `mirt code` = ifelse(
-    is.na(`mirt code`) | `mirt code` == "", "–",
-    sub("(?i)^\\s*invariance\\s*=\\s*", "", `mirt code`, perl = TRUE)
-  ),
-  `Factor-analytic analogue` = ifelse(`Factor analysis name` == "", "–", `Factor analysis name`),
-  `IRT explanation`          = ifelse(`IRT explanation` == "", "–", `IRT explanation`),
-  `Practical interpretation` = ifelse(Interpretation == "", "–", Interpretation)
-)
+  relocate(mirt, .after = model) #|>
+  # mutate(test = "``bem''")
 
 # build table (mirrors tbl-task-rxx style)
 inv_explainer |>
   flextable() |>
   set_header_labels(
-    Invariance = "Invariance",
-    Model = "Model",
-    `mirt code` = "mirt code",
-    `Factor-analytic analogue` = "Factor-analytic analogue",
-    `IRT explanation` = "IRT explanation",
-    `Practical interpretation` = "Practical interpretation"
+    invariance = "Invariance",
+    model = "Model",
+    mirt = "mirt invariance param",
+    fa = "Factor-analytic analog",
+    irt = "IRT explanation",
+    interpretation = "Practical interpretation"
   ) |>
-  separate_header() |>
-  width(j = "Invariance", width = 0.6) |>
-  width(j = "Model", width = 0.6) |>
-  width(j = "mirt code", width = 1.8) |>
-  width(j = "Factor-analytic analogue", width = 2) |>
-  width(j = "IRT explanation", width = 2) |>
-  width(j = "Practical interpretation", width = 2) |>
+  width(j = "invariance", width = 0.65) |>
+  width(j = "model", width = 0.45) |>
+  width(j = "mirt", width = 1.3) |>
+  width(j = "fa", width = 1.8) |>
+  width(j = "irt", width = 2.3) |>
+  width(j = "interpretation", width = 2) |>
   align(align = "left", part = "all") |>
   valign(val = "top", part = "all") |>
-  line_spacing(space = 1.1, part = "all") |>
-  padding(padding.top = 2, padding.bottom = 2, part = "all") |>
-  fontsize(size = 10, part = "all") 
+  fontsize(size = 10, part = "all") |>
+  font(j = "mirt", fontname = "Monaco") |>
+  fontsize(j = "mirt", size = 8)
 ```
 :::
 
