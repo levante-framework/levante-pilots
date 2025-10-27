@@ -474,6 +474,6 @@ mrot_rt_angle <- ggplot(
     colour = "Stimulus",
     linetype = "Item Type"
   )
-
+get
 mrot_rt_angle
 ```
