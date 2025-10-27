@@ -35,10 +35,14 @@ Load IRT data
 site_labels <- c("uniandes-co" = "pilot_uniandes_co",
                  "mpieva-de" = "pilot_mpieva_de",
                  "western-ca" = "pilot_western_ca")
+
+site_map <- tibble::tibble(
+  site       = names(site_labels),
+  site_label = unname(site_labels)
+)
+
 core_tasks   <- c("matrix","mrot","math","hf","mg","sds",
                   "trog","vocab","tom")
-
-sites <- names(site_labels)
 
 # Run data
 run_data <- readr::read_rds(here::here("01_fetched_data/run_data.rds"))
@@ -48,7 +52,7 @@ colnames(run_data)
 all_scores <- readr::read_rds(here::here("02_scoring_outputs","scores","scores_combined.rds"))
 colnames(all_scores)
 table(all_scores$item_task)
-
+table(all_scores$metric_type)
 ```
 
 Load Raw data
@@ -187,11 +191,12 @@ mrot_angle
 mrot_df <- all_scores %>%
   filter(item_task == "mrot", metric_type == "ability") %>%
   mutate(
-    age = as.numeric(age),
+    age          = as.numeric(age),
     metric_value = as.numeric(metric_value),
-    site_label = dplyr::coalesce(site_label, site)
+    site_label   = dplyr::recode(site, !!!site_labels, .default = site)
   ) %>%
   filter(is.finite(age), is.finite(metric_value))
+
 
 mrot_irt <- ggplot(mrot_df, aes(x = age, y = metric_value, colour = site_label)) +
   geom_point(alpha = 0.35, size = 1.1) +
@@ -217,30 +222,58 @@ mrot_irt
 
 ```
 
-Look at coefficients. 
+IRT params 
 
-Difficulty (note 10/24/2025 - no difficulty data available in scores_combined)
+Difficulty 
 
 ```{r}
-mrot_coefs <- mrot_df |>
-  filter(task_id == "mental-rotation", term == "difficulty") |>
-  separate(item, into = c("prefix", "item_group", "stimulus", "angle", "version"), sep = "_") |>
-  mutate(angle = as.integer(angle)) |>
-  filter(stimulus %in% c("duck", "rabbit", "shape")) |>
+coefs <- readr::read_rds(here::here("02_scoring_outputs","all_coefs.rds"))
+colnames(coefs)
+table(coefs$task)
+
+mrot_diff <- coefs %>%
+  filter(task == "mrot", !is.na(d), group != "all") %>%
+  transmute(
+    site  = dplyr::recode(group, !!!site_labels, .default = group),
+    item,
+    value = d
+  ) %>%
+  tidyr::separate(
+    item,
+    into  = c("prefix", "item_group", "stimulus", "angle", "version"),
+    sep   = "_",
+    remove = FALSE
+  ) %>%
+  mutate(angle = as.integer(angle)) %>%
+  filter(stimulus %in% c("duck", "rabbit", "shape")) %>%
   distinct(site, stimulus, item_group, angle, value)
 
-mrot_irt_difficulty <- ggplot(mrot_coefs, aes(x = angle, y = -value, col = stimulus)) + 
+
+plot_mrot_diff <- ggplot(mrot_diff, aes(x = angle, y = value, col = stimulus)) + 
   geom_point() +
   geom_line(aes(group = stimulus)) + 
   coord_flip() + 
   xlab("Rotation angle (°)") + 
-  ylab("IRT difficulty (reversed)") + 
+  ylab("IRT difficulty") + 
   facet_wrap(~site) +
   labs(
     title = "Item difficulty by rotation angle and stimulus type",
-    subtitle = "IRT difficulty estimates (higher = easier)",
+    subtitle = "IRT difficulty estimates (higher = more difficult)",
     colour = "Stimulus"
   ) 
+plot_mrot_diff
+
+# check estimates
+mrot_summary <- mrot_coefs %>%
+  mutate(diff_rev = value) %>%         
+  group_by(site, stimulus) %>%
+  summarise(mean_ease = mean(diff_rev, na.rm = TRUE),
+            median_ease = median(diff_rev, na.rm = TRUE),
+            n = dplyr::n(),
+            .groups = "drop") %>%
+  arrange(site, desc(mean_ease))         # higher = easier
+
+mrot_summary
 
 #ggsave(
 #  filename = here::here("03_explore_tasks", "Graphs", "mrot_irt_difficulty.png"),
@@ -252,17 +285,28 @@ mrot_irt_difficulty <- ggplot(mrot_coefs, aes(x = angle, y = -value, col = stimu
 
 ```
 
-Discrimination - note:10/24/2025: no difficulty data available in scores_combined
+Discrimination
 
 ```{r}
-mrot_discrimination <- best_multigroup |>
-  filter(task_id == "mental-rotation", term == "discrimination") |>
-  separate(item, into = c("prefix", "item_group", "stimulus", "angle", "version"), sep = "_") |>
-  mutate(angle = as.integer(angle)) |>
-  filter(stimulus %in% c("duck", "rabbit", "shape")) |>
+
+mrot_discrim <- coefs %>%
+  filter(task == "mrot", !is.na(a1), group != "all") %>%
+  transmute(
+    site  = dplyr::recode(group, !!!site_labels, .default = group),
+    item,
+    value = a1
+  ) %>%
+  tidyr::separate(
+    item,
+    into  = c("prefix", "item_group", "stimulus", "angle", "version"),
+    sep   = "_",
+    remove = FALSE
+  ) %>%
+  mutate(angle = as.integer(angle)) %>%
+  filter(stimulus %in% c("duck", "rabbit", "shape")) %>%
   distinct(site, stimulus, item_group, angle, value)
 
-ggplot(mrot_discrimination, aes(x = value, y = angle, col = stimulus, lty = item_group)) +
+mrot_discrim_plot <- ggplot(mrot_discrim, aes(x = value, y = angle, col = stimulus, lty = item_group)) +
   geom_point() +
   geom_line(aes(group = interaction(stimulus, item_group))) +
   facet_wrap(~site) +
@@ -275,6 +319,7 @@ ggplot(mrot_discrimination, aes(x = value, y = angle, col = stimulus, lty = item
     colour = "Stimulus",
     lty = "Item Type (2D vs 3D)"
   ) 
+mrot_discrim_plot
 
 ```
 
@@ -327,6 +372,7 @@ mrot_rt_plot <- ggplot(mrot_rt_runs, aes(x = age, y = rt_median)) +
   ) 
 mrot_rt_plot
 ```
+
 ```{r Proportion correct v RT}
 mrot_compare <- mrot_runs %>%
   select(site, user_id, run_id, correct, age) %>%
@@ -389,7 +435,8 @@ mrot_rt <- mrot %>%
     rt_s    = as.numeric(rt_numeric) / 1000,   # drop "/1000" if already seconds
     correct = as.numeric(correct)
   ) %>%
-  filter(rt_s >= 0.2, rt_s <= 10)       
+  filter(rt_s >= 0.2, rt_s <= 10)
+summary(mrot_rt)
 
 # parse trial type and summarise RT by site × stimulus × item_group × angle
 mrot_items_rt <- mrot_rt %>%
@@ -428,8 +475,8 @@ p_rt_by_trialtype <- ggplot(
   geom_point(alpha = 0.6, size = 1) +
   facet_wrap(~ site) +
   labs(
-    title = "Mental Rotation: reaction time by trial type (per item_group)",
-    subtitle = "Median RT on correct trials; lines = item groups",
+    title = "Mental Rotation: reaction time by trial type",
+    subtitle = "Median RT on correct trials",
     x = "Rotation angle (°)",
     y = "Reaction time (s)",
     colour = "Stimulus"
@@ -437,6 +484,7 @@ p_rt_by_trialtype <- ggplot(
 
 p_rt_by_trialtype
 ```
+
 ```{r}
 # site × stimulus × item_group × angle
 mrot_items_rt <- mrot_rt %>%
@@ -470,12 +518,68 @@ mrot_rt_angle <- ggplot(
   geom_line(aes(group = interaction(stimulus, item_group, is_reflected))) +
   facet_grid(stimulus ~ site) +
   labs(
-    title  = "Reaction time by reflected rotation angle, stimulus, and dimensionality",
+    title  = "Reaction time by rotation angle, stimulus, and dimensionality",
     x      = "Reflected rotation angle (°)",
     y      = "Reaction time (s)",
     colour = "Stimulus",
     linetype = "Item Type"
   )
-get
 mrot_rt_angle
+```
+
+RT by Difficulty
+
+```{r}
+mrot_rt_item <- mrot %>%
+  filter(!is.na(rt_numeric), is.finite(rt_numeric), correct == 1) %>%
+  mutate(
+    site = dplyr::recode(site, !!!site_labels, .default = site),
+    rt_s = as.numeric(rt_numeric) / 1000
+  ) %>%
+  group_by(site, item) %>%
+  summarise(rt_median = median(rt_s, na.rm = TRUE),
+            n_trials = n(), .groups = "drop")
+
+mrot_diff <- coefs %>%
+  filter(task == "mrot", !is.na(d), group != "all") %>%
+  transmute(
+    site = dplyr::recode(group, !!!site_labels, .default = group),
+    item,
+    difficulty = d
+  )
+
+# join RTs and difficulty
+mrot_rt_diff <- inner_join(mrot_rt_item, mrot_diff, by = c("site","item")) %>%
+  mutate(
+    stimulus = str_extract(item, "(duck|rabbit|shape)"),
+    angle    = readr::parse_integer(str_extract(item, "(?<=_)\\d{1,3}(?=_)")),
+    dim      = str_extract(item, "(?<=_)2d|3d")
+  )
+
+#check
+nrow(mrot_rt_item); nrow(mrot_diff); nrow(mrot_rt_diff)
+anti_join(mrot_rt_item, mrot_diff, by = c("site","item")) %>% count(site)
+nrow(mrot_rt_diff)
+anti_join(mrot_rt_item, mrot_diff, by = c("site","item")) %>% distinct(site) %>% print(n=Inf)
+anti_join(mrot_diff, mrot_rt_item, by = c("site","item")) %>% distinct(site) %>% print(n=Inf)
+
+
+
+
+# plot
+ggplot(mrot_rt_diff,
+       aes(x = difficulty, y = rt_median, colour = stimulus, linetype = dim)) +
+  geom_point(alpha = 0.85) +
+  geom_smooth(method = "lm", se = FALSE) +
+  facet_wrap(~ site) +
+  scale_y_continuous("Median reaction time (s, correct trials)", trans = "log10") +
+  labs(
+    x = "IRT difficulty (d; higher = harder)",
+    title = "Mental Rotation: Reaction time vs item difficulty",
+    subtitle = "Each point = item-level median RT joined to IRT difficulty",
+    colour = "Stimulus", linetype = "Dimensionality"
+  )
+
+
+
 ```
