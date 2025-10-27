@@ -347,6 +347,7 @@ ggplot(mrot_compare, aes(x = rt_median, y = correct)) +
   ) 
 
 ```
+
 ```{r Ability (thetas) v RT}
 
 ability_runs <- all_scores %>%
@@ -378,6 +379,7 @@ p1 <- ggplot(mrot_speed_ability, aes(x = rt_median, y = ability)) +
 
 p1
 ```
+
 ```{r Trial type by reaction time}
 
 # trial-level RTs (trim + seconds)
