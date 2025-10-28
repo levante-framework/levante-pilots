@@ -193,10 +193,9 @@ mrot_irt <- ggplot(mrot_df, aes(x = age, y = metric_value, colour = site_label))
     title = "Developmental trends in Mental Rotation ability by site",
     subtitle = "Ability estimates smoothed with GAM",
     x = "Age (years)",
-    y = "Ability (theta-like score)",
+    y = "Ability (theta)",
     colour = "Site"
-  ) +
-  theme_minimal(base_size = 12)
+  )
 mrot_irt
 
 #ggsave(
