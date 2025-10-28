@@ -1,0 +1,42 @@
+```{r}
+library(tidyverse)
+library(here)
+library(glue)
+library(rlang)
+library(mirt)
+
+source(here("02_score_data/02_fit_irt/irt_modular.R"), chdir = TRUE)
+source(here("02_score_data/02_fit_irt/registry_helper.R"))
+source(here("02_score_data/02_fit_irt/irt_helpers.R"))
+```
+
+```{r}
+# read in all models in registry
+mods <- list_models() |> load_models()
+
+# extract model specifications from filenames
+mods_coded <- mods |>
+  mutate(file = str_remove(filename, "\\.rds$")) |>
+  separate_wider_delim(file, names = c("task_dup", "itemtype", "nfact", "invariance"),
+                       delim = "_", cols_remove = FALSE, too_few = "align_start") |>
+  select(-task_dup) |>
+  mutate(invariance = invariance |> replace_na(""))
+
+mod_coefs <- \(mod_rec) {
+  model_vals(mod_rec) |>
+    as_tibble() |>
+    filter(group != "GROUP", item != "GROUP") |>
+    select(group, item, name, value) |>
+    pivot_wider(names_from = name, values_from = value) |>
+    mutate(item = str_remove(item, glue("{item_sep}[0-9]+$"))) |>
+    distinct()
+}
+
+all_coefs <- mods_coded |>
+  mutate(coefs = map(mod_rec, mod_coefs)) |>
+  select(-mod_rec, -filename, -path) |>
+  unnest(coefs) #|>
+  # mutate(group = fct_recode(group, "pilot_mpieva_de" = "pilot_leuphana_de"))
+
+write_rds(all_coefs, here("02_scoring_outputs/all_coefs.rds"), compress = "gz")
+```
