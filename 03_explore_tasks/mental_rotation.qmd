@@ -47,10 +47,9 @@ all_scores <- readr::read_rds(here::here("02_scoring_outputs","scores","scores_c
 # table(all_scores$metric_type)
 ```
 
-## Raw data
-### (1) Ability - proportion correct
+## Sample size by site
 
-```{r sum score data}
+```{r mrot counts}
 all_sum_scores <- readr::read_rds(here::here("01_fetched_data","task_data_nested.rds"))
 # colnames(all_sum_scores)
 # glimpse(all_sum_scores$data[[1]])
@@ -63,6 +62,26 @@ mrot <- all_sum_scores %>%
   filter(!is.na(correct)) %>%
   mutate(correct = as.numeric(correct))  
 
+counts_site <- mrot %>%
+  summarise(
+    n_trials = dplyr::n(),
+    n_users  = dplyr::n_distinct(user_id),
+    n_runs   = dplyr::n_distinct(paste(user_id, run_id)),
+    .by = site
+  ) %>%
+  arrange(site)
+
+knitr::kable(
+  counts_site,
+  format  = "html",
+  caption = "Mental Rotation: Counts by Site"
+)
+```
+
+## Raw data
+### (1) Ability - proportion correct
+
+```{r proportion correct by age}
 run_ages <- all_scores %>%
   filter(item_task == "mrot") %>%
   transmute(user_id, run_id, age = as.numeric(age)) %>%
@@ -442,6 +461,7 @@ p_irt_age_color <- ggplot(mrot_speed_ability,
   )
 p_irt_age_color
 ```
+
 ### (12) Trial type by RT
 
 ```{r Trial type by RT}
@@ -559,7 +579,6 @@ ggplot(mrot_items_rt_agebin,
     colour = "Stimulus", linetype = "Item Type"
   )
 ```
-
 
 ### (15) Histogram - Reaction Time
 
