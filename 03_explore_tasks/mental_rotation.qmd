@@ -385,22 +385,6 @@ mrot_prop_correct <- mrot_runs %>%
   )
 
 # plot: accuracy vs log RT
-ggplot(mrot_prop_correct, aes(x = logrt_mean, y = correct)) +
-  geom_point(alpha = 0.5, size = 1) +
-  geom_smooth(method = "lm", se = TRUE) +
-  facet_wrap(~ site) +
-  labs(
-    title = "Accuracy vs log Reaction Time, by site",
-    subtitle = "Each point = participant run (mean RT vs mean accuracy)",
-    x = "log RT (seconds)",
-    y = "Proportion correct",
-    caption = "Linear fit per site"
-  )
-```
-
-### (9) Accuracy by RT (raw scores) and age
-
-```{r}
 ggplot(mrot_prop_correct, aes(x = logrt_mean, y = correct, colour = age)) +
   geom_point(alpha = 0.5, size = 1.5) +
   geom_smooth(method = "lm", se = TRUE, colour = "grey") +
@@ -413,6 +397,34 @@ ggplot(mrot_prop_correct, aes(x = logrt_mean, y = correct, colour = age)) +
   )
 
 ```
+
+### (9) Accuracy by RT (raw scores) broken down by age group
+
+```{r}
+age_levels <- c("4–5","6–7","8–9","10–11","12–13")
+
+mrot_binned <- mrot_prop_correct %>%
+  tidyr::drop_na(age) %>%
+  mutate(age_floor = floor(age/2)*2) %>%
+  filter(age_floor >= 4, age_floor <= 12) %>%        # keep 4–13 only (drops 14–15)
+  mutate(
+    age_group = factor(paste0(age_floor, "–", age_floor + 1),
+                       levels = age_levels)           # enforce order
+  ) %>%
+  droplevels()
+
+ggplot(mrot_binned, aes(x = logrt_mean, y = correct)) +
+  geom_point(alpha = 0.45, size = 1.1) +
+  geom_smooth(method = "lm", se = FALSE, linewidth = 0.9) +
+  facet_grid(age_group ~ site, drop = TRUE) +
+  labs(
+    title = "Accuracy vs Mean log RT by 2-year age bins",
+    subtitle = "Each panel shows a linear fit within an age bin",
+    x = "log RT (seconds)", y = "Proportion correct"
+  )
+
+```
+
 ### (10) Accuracy by RT (IRT scores)
 
 ```{r Ability (thetas) by RT}
@@ -432,22 +444,6 @@ mrot_speed_ability <- ability_runs %>%
   )
 
 # plot
-p_irt_accuracy <- ggplot(mrot_speed_ability, aes(x = logrt_mean, y = ability)) +
-  geom_point(alpha = 0.6, size = 1) +
-  geom_smooth(method = "lm", se = TRUE) +
-  facet_wrap(~ site) +
-  labs(
-    title = "IRT Ability (Thetas) vs log RT, by site",
-    subtitle = "Each point = participant run",
-    x = "log RT (seconds)",
-    y = "Ability (IRT theta)"
-  ) 
-p_irt_accuracy
-```
-
-### (11) Accuracy by RT (IRT scores) and age
-
-```{r}
 p_irt_age_color <- ggplot(mrot_speed_ability,
                           aes(x = logrt_mean, y = ability, colour = age)) +
   geom_point(alpha = 0.55, size = 1) +
@@ -460,6 +456,71 @@ p_irt_age_color <- ggplot(mrot_speed_ability,
     x = "log RT (s)", y = "IRT Ability (Thetas)", color = "Age (y)"
   )
 p_irt_age_color
+
+
+
+```
+
+```{r Ability (thetas) by RT 2}
+ability_runs <- all_scores %>% 
+  filter(item_task == "mrot", metric_type == "ability") %>%
+  select(site, user_id, run_id, ability = metric_value, age) %>%
+  group_by(site, user_id, run_id) %>%               
+  summarise(ability = mean(ability, na.rm = TRUE),
+            age = first(age),
+            .groups = "drop")
+
+# join with your RT summary 
+mrot_speed_ability <- ability_runs %>%
+  inner_join(
+    mrot_rt_runs %>% select(site, user_id, run_id, logrt_mean),
+    by = c("site", "user_id", "run_id")
+  )
+
+# plot
+mrot_speed_ability |>
+  mutate(age_binned = as_factor(floor(age))) |>
+  ggplot(aes(x = logrt_mean, y = ability, colour = age_binned)) +
+  geom_point(alpha = 0.55, size = 1) +
+  geom_smooth(method = "lm", se = FALSE) +
+  facet_wrap(~ site) +
+  # scale_colour_viridis_c() +
+  labs(
+    title = "IRT Ability (Thetas) vs log RT, by site, colored by age",
+    subtitle = "Each point = participant run; line = linear fit per site",
+    x = "log RT (s)", y = "IRT Ability (Thetas)", color = "Age (y)"
+  )
+# p_irt_age_color
+
+
+
+```
+
+### (11) Accuracy by RT (IRT scores) broken down by age group
+
+```{r}
+mrot_speed_ability_binned <- mrot_speed_ability %>%
+  tidyr::drop_na(age) %>%
+  mutate(age_group = cut(
+    age,
+    breaks = c(4,6,8,10,12,14),  # [4,14)
+    right = FALSE, include.lowest = TRUE,
+    labels = age_levels
+  )) %>%
+  dplyr::filter(!is.na(age_group)) %>%        # <-- remove the NA bin
+  mutate(age_group = forcats::fct_drop(age_group),
+         age_group = factor(age_group, levels = age_levels))
+
+ggplot(mrot_speed_ability_binned, aes(x = logrt_mean, y = ability)) +
+  geom_point(alpha = 0.45, size = 1.1) +
+  geom_smooth(method = "lm", se = FALSE, linewidth = 0.9) +
+  facet_grid(age_group ~ site, drop = TRUE) +
+  labs(
+    title = "IRT Ability (Thetas) vs Mean log RT by 2-year age bins",
+    subtitle = "Each panel shows a linear fit within an age bin",
+    x = "log RT (seconds)", y = "IRT Ability (Thetas)"
+  )
+
 ```
 
 ### (12) Trial type by RT
