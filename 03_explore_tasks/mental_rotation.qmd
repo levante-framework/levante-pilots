@@ -15,6 +15,7 @@ execute:
 library("tidyverse")
 library("glue")
 library("here")
+
 ```
 
 ```{r helper functions}
@@ -277,7 +278,6 @@ plot_mrot_diff_2pl <- ggplot(mrot_diff_2pl, aes(x = angle, y = value, col = stim
     colour = "Stimulus"
   ) 
 plot_mrot_diff_2pl
-
 ```
 
 ### (5) Discrimination by rotation angle (2PL scalar)
