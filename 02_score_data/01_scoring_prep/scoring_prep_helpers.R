@@ -72,7 +72,7 @@ recode_sds <- function(df) {
   
   # Order by user, run, and timestamp (or trial_number)
   sds_trials <- sds_parsed |>
-    group_by(run_id, trial_type) |>
+    group_by(run_id, item_group) |>
     arrange(timestamp, .by_group = TRUE) |>
     mutate(trial_index = NA_integer_) |>
     mutate(trial_index = if_else(item == "choice1", 1L, NA_integer_)) |>
@@ -132,4 +132,14 @@ recode_sds <- function(df) {
   df |>
     filter(item_task != "sds") |>
     bind_rows(sds_trials)
+}
+
+recode_tom <- \(df) {
+  tom <- df |> filter(item_task == "tom")
+  tom_disagg <- tom |>
+    mutate(story = str_extract(item_original, "^[0-9]+"),
+           item_uid = glue("{item_task}_story{story}_{item_group}_{item}"))
+  df |>
+    filter(item_task != "tom") |>
+    bind_rows(tom_disagg)
 }

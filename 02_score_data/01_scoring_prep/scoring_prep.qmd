@@ -26,6 +26,7 @@ trial_data_coded <- trial_data |>
   recode_sds() |>
   recode_wrong_items(wrong_items = item_fixes) |>
   recode_slider(threshold = slider_threshold) |>
+  recode_tom() |>
   # set chance values for slider items accordingly
   mutate(chance = if_else(item_group == "slider", 1 / slider_threshold / 100, chance),
          chance = chance |> replace_na(0))
