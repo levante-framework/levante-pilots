@@ -935,140 +935,209 @@ vars_core_std <- wide_scores |>
 ```
 
 ```{r sem-g, include=FALSE}
-model_g_no_age <- "
+model_cov_no_age <- "
   # first-order factors
   reasoning =~ matrix + mrot
-  ef        =~ hf + mg + sds        
+  ef        =~ hf + mg + sds
   language  =~ trog + vocab
 
-  # second-order g
-  g =~ reasoning + ef + language
+  # covariances of factors with observed outcomes
+  reasoning ~~ math + tom
+  ef        ~~ math + tom
+  language  ~~ math + tom
 
-  # observed outcomes of g
-  math ~ g
-  tom  ~ g
+  # allow math and tom to covary
+  math ~~ tom
 "
 
-fit_g <- lavaan::sem(model_g_no_age, data = vars_core_std,
-                     estimator = "MLR", std.lv = TRUE, missing = "fiml")
+fit_cov_no_age <- lavaan::sem(
+  model_cov_no_age, data = vars_core_std,
+  estimator = 'MLR', std.lv = TRUE, missing = 'fiml'
+)
+summary(fit_cov_no_age, fit.measures = TRUE, standardized = TRUE)
 
-# store modification indices 
-mi_g <- lavaan::modindices(fit_g, sort. = TRUE, minimum.value = 10)
-# summary(fit_g, fit.measures = TRUE, standardized = TRUE)
 ```
 
 ```{r sem-g-age, include=FALSE}
 #| echo: false
 #| results: "hide" 
-
-stopifnot(all(vars_core_std$age > 0, na.rm = TRUE))
-
-# use log age, centered
+# ensure log-age (centred) exists
 vars_core_std$log_age_c <- scale(log(vars_core_std$age))[,1]
 
-model_g_age <- "
+model_cov_age <- "
+  # first-order factors (fix first loading to 1 for each factor)
   reasoning =~ 1*matrix + mrot
   ef        =~ 1*hf     + mg + sds
   language  =~ 1*trog   + vocab
 
-  g =~ 1*reasoning + ef + language
+  # age predicts factors
+  reasoning ~ log_age_c
+  ef        ~ log_age_c
+  language  ~ log_age_c
 
-  g ~ log_age_c
+  # age predicts outcomes
+  math ~ log_age_c
+  tom  ~ log_age_c
 
-  math ~ g
-  tom  ~ g
+  # covariances of factors with observed outcomes
+  reasoning ~~ math + tom
+  ef        ~~ math + tom
+  language  ~~ math + tom
 
-  # resolve Heywood
-  ef ~~ 0*ef
+  # (recommended) residual covariance between outcomes
+  math ~~ tom
 "
 
-fit_g_age <- sem(
-  model_g_age, data = vars_core_std,
-  estimator = "MLR", missing = "fiml",
-  std.lv = FALSE, optim.method = "nlminb",
+fit_cov_age <- lavaan::sem(
+  model_cov_age, data = vars_core_std,
+  estimator = 'MLR', missing = 'fiml',
+  std.lv = FALSE, optim.method = 'nlminb',
   control = list(iter.max = 50000, rel.tol = 1e-6)
 )
-
-summary(fit_g_age, fit.measures = TRUE, standardized = TRUE)
-
-fit_g_age_fit <- lavaan::fitMeasures(fit_g_age)
+summary(fit_cov_age, fit.measures = TRUE, standardized = TRUE)
 ```
 
 ### Construct validity
 
-We assessed construct validity using a hierarchical Confirmatory Factor Analysis (CFA) in which three first-order factors—Reasoning (Pattern Matching, Shape Rotation), Executive Function (Hearts & Flowers, Memory, Same & Different), and Language (Sentence Understanding, Vocabulary)—loaded on a second-order general factor (G; @fig-semplot-g). Math and Stories were treated as observed endogenous outcomes because each construct had a single task; introducing one-indicator latent variables would require strong, unverifiable assumptions about reliability/error variances. Age was specified to predict G (age → G). We found that model fit was imperfect -- CFI: `r round(lavaan::fitMeasures(fit_g_age)["cfi"], 3)`, RMSEA: `r round(lavaan::fitMeasures(fit_g_age)["rmsea"], 3)` RMSEA p-value: `r round(lavaan::fitMeasures(fit_g_age)["rmsea.pvalue"], 3)`. In part we expect that lower model fit may be due to a combination of missing data and site-related differences, which are not accounted for in this specificatin; future work should pursue more complete models of the full structure of the data.
+We assessed construct validity using a CFA specifying three first‐order latent factors—Reasoning, Executive Function, and Language—with each factor measured by its respective tasks and allowed to directly relate to Math and Stories (see @fig-semplot-core-tasks). Math and Stories were treated as observed endogenous outcomes because each construct had a single task; introducing one-indicator latent variables would require strong, unverifiable assumptions about reliability/error variances. Age was specified to predict each of the latent factors as well as the observed variables Math and Stories. 
 
-Overall, factor loadings supported the intended three-factor structure (convergent validity), and age related to each domain as expected. The high inter-factor correlations and strong second-order loadings indicate that much of the variance is shared across domains, consistent with a broad general ability underpinning performance on the nine core tasks. We expect that exploring this general model within and across sites, ages, and demographic groups will be an exciting locus for future research using the core tasks.
+We found that model fit was imperfect -- CFI: `r round(lavaan::fitMeasures(fit_cov_age)["cfi"], 3)`, RMSEA: `r round(lavaan::fitMeasures(fit_cov_age)["rmsea"], 3)` RMSEA p-value: `r round(lavaan::fitMeasures(fit_cov_age)["rmsea.pvalue"], 3)`. In part we expect that lower model fit may be due to a combination of missing data and site-related differences, which are not accounted for in this specification; future work should pursue more complete models of the full structure of the data.
+
+Overall, factor loadings supported the intended three-factor structure (convergent validity), and age related to each domain as expected. The high inter-factor correlations indicate that much of the variance is shared across domains. We expect that exploring this model within and across sites, ages, and demographic groups will be an exciting locus for future research using the core tasks.
 
 ```{r}
-#| label: fig-semplot-g
-#| fig-cap: "SEM for core tasks with general factor."
+#| label: fig-semplot-core-tasks
+#| fig-cap: SEM for core tasks
+#| fig-width: 8
+#| fig-height: 6
 
 source(here::here("03_summaries/modified_sem_plot.R"))
 
-# map names 
-name_map <- tibble(
-  name   = c("log_age_c","g","math","tom","reasoning","ef","language",
+# Pretty labels
+name_map <- tibble::tibble(
+  name   = c("log_age_c","math","tom","reasoning","ef","language",
              "matrix","mrot","hf","mg","sds","trog","vocab"),
-  pretty = c("Age (log years)","G","Math","Stories","Reasoning","Executive Function","Language",
-             "Pattern Matching","Shape Rotation","Hearts & Flowers","Memory","Same & Different","Sentence Understanding","Vocabulary")
+  pretty = c("Age (log years)","Math","Stories","Reasoning","Executive Function","Language",
+             "Pattern Matching","Shape Rotation","Hearts & Flowers","Memory","Same & Different",
+             "Sentence Understanding","Vocabulary")
 )
 
-# nodes
-nodes <- get_nodes(fit_g_age, columns = c("name","shape")) %>%
-  left_join(name_map, by = "name") %>%
-  mutate(label = pretty)
+pe <- lavaan::parameterEstimates(fit_cov_age, standardized = TRUE)
 
-# edges (std estimates + stars)
-pe <- lavaan::parameterEstimates(fit_g_age, standardized = TRUE)
+latents  <- sort(unique(pe$lhs[pe$op == "=~"]))                  
+indics   <- sort(unique(pe$rhs[pe$op == "=~"]))                  
+extras   <- c("log_age_c","math","tom")                          
+observed <- sort(union(indics, extras))
+
+nodes <- tibble::tibble(
+  name  = c(observed, latents),
+  shape = c(rep("rect", length(observed)), rep("oval", length(latents)))  
+) %>%
+  dplyr::left_join(name_map, by = "name") %>%
+  dplyr::mutate(label = dplyr::coalesce(pretty, name)) %>%
+  dplyr::distinct(name, .keep_all = TRUE)
+
+# edges = loadings, regressions, variances, factor↔outcome & factor↔factor covs
+factor_names  <- c("reasoning","ef","language")
+outcome_names <- c("math","tom")
 
 edges <- pe %>%
-  filter(op %in% c("~","=~","~~")) %>%
+  dplyr::filter(op %in% c("~","=~","~~")) %>%
+  # hide Math↔Stories residual covariance on plot
   dplyr::filter(!(op == "~~" & ((lhs == "math" & rhs == "tom") |
-                                (lhs == "tom"  & rhs == "math")))) %>% # filter out covariance between Math and ToM
-  transmute(
-    from = if_else(op == "~", rhs, lhs),
-    to   = if_else(op == "~", lhs, rhs),
+                                (lhs == "tom"  & rhs == "math")))) %>%
+  dplyr::mutate(keep = dplyr::case_when(
+    op %in% c("~","=~") ~ TRUE,
+    # factor ↔ outcome covariances
+    op == "~~" & lhs %in% factor_names & rhs %in% outcome_names ~ TRUE,
+    op == "~~" & rhs %in% factor_names & lhs %in% outcome_names ~ TRUE,
+    # factor ↔ factor covariances
+    op == "~~" & lhs %in% factor_names & rhs %in% factor_names & lhs != rhs ~ TRUE,
+    # variances (loops)
+    op == "~~" & lhs == rhs ~ TRUE,
+    TRUE ~ FALSE
+  )) %>%
+  dplyr::filter(keep) %>%
+  dplyr::transmute(
+    from = dplyr::if_else(op == "~", rhs, lhs),
+    to   = dplyr::if_else(op == "~", lhs, rhs),
     op, est, std.all, pvalue,
-    arrow     = if_else(op == "~~", "both", "last"),
-    curved    = op == "~~" & lhs != rhs,            
-    curvature = if_else(op == "~~" & lhs != rhs, 0.35, NA_real_),
-    linetype  = if_else(op == "~~" & lhs != rhs, 2L, 1L)
+    arrow     = dplyr::if_else(op == "~~", "both", "last"),
+    curved    = op == "~~" & lhs != rhs,
+    curvature = dplyr::case_when(
+      op == "~~" & lhs != rhs & lhs %in% factor_names & rhs %in% factor_names ~ 0.20,
+      op == "~~" & lhs != rhs ~ 0.35,
+      TRUE ~ as.numeric(NA)
+    ),
+    linetype  = dplyr::if_else(op == "~~" & lhs != rhs, 2L, 1L)
   ) %>%
-  mutate(
-    stars = case_when(pvalue < .001 ~ "***",
-                      pvalue < .01  ~ "**",
-                      pvalue < .05  ~ "*",
-                      TRUE ~ ""),
+  dplyr::mutate(
+    stars = dplyr::case_when(pvalue < .001 ~ "***",
+                             pvalue < .01  ~ "**",
+                             pvalue < .05  ~ "*",
+                             TRUE ~ ""),
     label = sprintf("%.2f%s", std.all, stars)
   )
 
-layout_g_age <- matrix(
+layout_cov_age <- matrix(
   c(
-    NA,       NA,        "log_age_c", NA,     NA,     NA,     NA, NA, NA,
-    NA,       NA,        NA,          "g",    NA,     NA,     NA, NA, NA,
-    NA,       NA,        NA,          NA,    NA,     NA,     NA, NA, NA,
-    "math",   NA, "tom",  NA,  "reasoning", NA,     "ef",   NA,     "language",
-    NA,       NA,        NA,          NA,     NA,     NA,     NA, NA, NA,
-    NA, NA, "matrix", "mrot",    "hf",        "mg",   "sds",  "trog", "vocab"
+    # Row 1 (top): age driver
+    "log_age_c", NA, NA, NA, NA, NA, NA, NA, NA,
+    NA, NA, NA, NA, NA, NA, NA, NA, NA,
+    "math", "tom", NA, "reasoning", NA, "ef", NA, "language", NA,
+    NA, NA, NA, NA, NA, NA, NA, NA, NA,
+    NA, "matrix", "mrot", NA, NA, NA, NA, NA, NA,
+    NA, NA, NA, NA, "hf", "mg", "sds", NA, NA,
+    NA, NA, NA, NA, NA, NA, NA, "trog", "vocab"
   ),
-  nrow = 6, byrow = TRUE
+  nrow = 7, byrow = TRUE
 )
 
 g <- tidySEM::prepare_graph(
-  edges = edges, nodes = nodes, text_size = 2.5, layout = t(layout_g_age),
-  rect_width=4.2, rect_height=3,
-  ellipses_width=3, ellipses_height=3,
-  variance_height=2, variance_width=1.5,
-  arrow_angle=15, arrow_length=.1,
-  var_arrow_angle=15, var_arrow_length=.1,
-  spacing_y=4, spacing_x=4,
-  fix_coord=FALSE
+  edges = edges, nodes = nodes, layout = t(layout_cov_age),
+  text_size = 2.5,
+  rect_width = 5.2, rect_height = 2.5,
+  ellipses_width = 4.0, ellipses_height = 3.0,
+  variance_height = 2.0, variance_width = 1.5,
+  arrow_angle = 15, arrow_length = .1,
+  var_arrow_angle = 15, var_arrow_length = .1,
+  spacing_y = 5, spacing_x = 4,
+  fix_coord = FALSE
 )
 
-g$edges$label_fill   <- "white"
-g$edges$label_colour <- "black"
-g$edges$label_alpha  <- 1
+# colours
+g$nodes$fill <- dplyr::case_when(
+  g$nodes$shape == "oval"            ~ "#E8F2FF",  # latent
+  g$nodes$name  == "log_age_c"       ~ "#FFF2E0",  # age
+  TRUE                               ~ "#F5F5F5"   # observed
+)
+g$nodes$colour <- "#1F1F1F"   # border
+g$nodes$font   <- "#1F1F1F"   # text
+
+# line types
+g$edges$colour <- dplyr::case_when(
+  g$edges$op == "=~" ~ "#1B9E77",  # factor loadings
+  g$edges$op == "~"  ~ "#386CB0",  # regressions
+  g$edges$op == "~~" ~ "#6B6B6B",  # (co)variances
+  TRUE               ~ "#000000"
+)
+
+# covariances dashed; others solid
+g$edges$linetype[g$edges$op == "~~"] <- 2L
+g$edges$linetype[g$edges$op != "~~"] <- 1L
+
+g$edges$size <- dplyr::if_else(g$edges$op == "~", 0.6, 0.6)
+
+# labels inside shapes: transparent
+g$nodes$geom_text <- TRUE    
+# (optional) tweak node text colour/size
+g$nodes$colour[g$nodes$shape=="oval"] <- "#1F1F1F"
+g$nodes$font   <- "#1F1F1F"
+
+# labels on arrows: white
+g$edges$label_fill   <- "white"  
+g$edges$label_colour <- "#1F1F1F"
+g$edges$label_alpha  <- 1        
 
 plot(g)
 ```
