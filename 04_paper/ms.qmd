@@ -69,7 +69,7 @@ author:
       - ref: mpieva
   - name: "Manuel Bohn"
     affiliations:
-      - ref: mpieva, 
+      - ref: mpieva 
       - ref: leuphana
   - name: "Daniel Haun"
     affiliations:
@@ -187,6 +187,9 @@ set_flextable_defaults(theme_fun = theme_apa, arraystretch = 1, padding = 1)
 # seed for random number generation
 set.seed(42)
 knitr::opts_chunk$set(cache.extra = knitr::rand_seed)
+
+# helper for formatting p-values
+pval_fmt <- function(x) ifelse(x < .001, "<.001", sub("^0\\.", ".", sprintf("%.3f", x)))
 ```
 
 
@@ -1129,7 +1132,7 @@ summary(fit_cov_age, fit.measures = TRUE, standardized = TRUE)
 
 We assessed construct validity using a CFA specifying three first‐order latent factors—Reasoning, Executive Function, and Language—with each factor measured by its respective tasks and allowed to directly relate to Math and Stories (see @fig-semplot-core-tasks). Math and Stories were treated as observed endogenous outcomes because each construct had a single task; introducing one-indicator latent variables would require strong, unverifiable assumptions about reliability/error variances. Age was specified to predict each of the latent factors as well as the observed variables Math and Stories. 
 
-We found that model fit was imperfect -- CFI: `r round(lavaan::fitMeasures(fit_cov_age)["cfi"], 3)`, RMSEA: `r round(lavaan::fitMeasures(fit_cov_age)["rmsea"], 3)` RMSEA p-value: `r round(lavaan::fitMeasures(fit_cov_age)["rmsea.pvalue"], 3)`. In part we expect that lower model fit may be due to a combination of missing data and site-related differences, which are not accounted for in this specification; future work should pursue more complete models of the full structure of the data.
+We found that model fit was imperfect -- CFI: `r round(lavaan::fitMeasures(fit_cov_age)["cfi"], 3)`, RMSEA: `r round(lavaan::fitMeasures(fit_cov_age)["rmsea"], 3)` RMSEA p-value: `r pval_fmt(lavaan::fitMeasures(fit_cov_age)["rmsea.pvalue"])`. In part we expect that lower model fit may be due to a combination of missing data and site-related differences, which are not accounted for in this specification; future work should pursue more complete models of the full structure of the data.
 
 Overall, factor loadings supported the intended three-factor structure (convergent validity), and age related to each domain as expected. The high inter-factor correlations indicate that much of the variance is shared across domains. We expect that exploring this model within and across sites, ages, and demographic groups will be an exciting locus for future research using the core tasks.
 
@@ -1355,7 +1358,7 @@ load_tab <- pe_ef |>
 
 ### External validity
 
-To assess external validity for the executive function and language tasks, we fitted a single-factor Executive Function model with Hearts & Flowers, Memory, Same & Different, and the external measure, the Minnesota Executive Function Scale (MEFS) as indicators (@fig-semplot-ef). We modeled age as a predictor of the latent Executive Function factor. Model fit was good: CFI: `r round(lavaan::fitMeasures(fit_ef)["cfi"], 3)`, RMSEA: `r round(lavaan::fitMeasures(fit_ef)["rmsea"], 3)`, RMSEA p-value: `r round(lavaan::fitMeasures(fit_ef)["rmsea.pvalue"], 3)`. Standardized loadings were: Hearts & Flowers = `r fmt(load_tab["hf"])`, Memory = `r fmt(load_tab["mg"])`, Same & Different = `r fmt(load_tab["sds"])`, MEFS = `r fmt(load_tab["mefs"])`, indicating that MEFS aligns closely with the latent Executive Function construct and providing good evidence for external validity. Age strongly predicted Executive Function ($\beta$ = `r round(beta_age_EF, 2)`; $R^2$ = `r round(r2_EF, 2)`), consistent with expected developmental gains.
+To assess external validity for the executive function and language tasks, we fitted a single-factor Executive Function model with Hearts & Flowers, Memory, Same & Different, and the external measure, the Minnesota Executive Function Scale (MEFS) as indicators (@fig-semplot-ef). We modeled age as a predictor of the latent Executive Function factor. Model fit was good: CFI: `r round(lavaan::fitMeasures(fit_ef)["cfi"], 3)`, RMSEA: `r round(lavaan::fitMeasures(fit_ef)["rmsea"], 3)`, RMSEA p-value: `r pval_fmt(lavaan::fitMeasures(fit_ef)["rmsea.pvalue"])`. Standardized loadings were: Hearts & Flowers = `r fmt(load_tab["hf"])`, Memory = `r fmt(load_tab["mg"])`, Same & Different = `r fmt(load_tab["sds"])`, MEFS = `r fmt(load_tab["mefs"])`, indicating that MEFS aligns closely with the latent Executive Function construct and providing good evidence for external validity. Age strongly predicted Executive Function ($\beta$ = `r round(beta_age_EF, 2)`; $R^2$ = `r round(r2_EF, 2)`), consistent with expected developmental gains.
 
 ```{r}
 #| label: fig-semplot-ef
@@ -1503,7 +1506,8 @@ tibble::deframe()
 
 \clearpage
 
-We ran a similar model to determine the external validity of the language and literacy measures (Sentence Understanding and Vocabulary) against ROAR tasks, including measures of Phonological Awareness (ROAR-Phoneme), Single Word Reading (ROAR-Word) and Sentence Reading Efficiency (ROAR-Sentence). We fitted a single latent Language factor with ROAR tasks plus Sentence Understanding and Vocabulary as indicators, and modeled age as a predictor of the latent factor (@fig-semplot-lang). Model fit was again good, CFI: `r round(fm_lang["cfi"], 3)`, RMSEA: `r round(fm_lang["rmsea"], 3)`, RMSEA p-value: `r round(fm_lang["rmsea.pvalue"], 3)`. Standardized loadings were: ROAR-Word = `r round(load_tab_lang["swr"], 2)`, ROAR-Sentence = `r round(load_tab_lang["sre"], 2)`, ROAR-Phoneme = `r round(load_tab_lang["pa"], 2)`, Sentence Understanding = `r round(load_tab_lang["trog"], 2)`, Vocabulary = `r round(load_tab_lang["vocab"], 2)`. Age predicted Language ($\beta$ = `r round(beta_age_Lang, 2)`; $R^2$ = `r round(r2_Lang, 2)`) consistent with expected developmental gains. 
+We ran a similar model to determine the external validity of the language and literacy measures (Sentence Understanding and Vocabulary) against ROAR tasks, including measures of Phonological Awareness (ROAR-Phoneme), Single Word Reading (ROAR-Word) and Sentence Reading Efficiency (ROAR-Sentence). We fitted a single latent Language factor with ROAR tasks plus Sentence Understanding and Vocabulary as indicators, and modeled age as a predictor of the latent factor (@fig-semplot-lang). Model fit was again good, CFI: `r round(fm_lang["cfi"], 3)`, RMSEA: `r round(fm_lang["rmsea"], 3)`, RMSEA p-value: 
+`r pval_fmt(lavaan::fitMeasures(fit_lang)["rmsea.pvalue"])`. Standardized loadings were: ROAR-Word = `r round(load_tab_lang["swr"], 2)`, ROAR-Sentence = `r round(load_tab_lang["sre"], 2)`, ROAR-Phoneme = `r round(load_tab_lang["pa"], 2)`, Sentence Understanding = `r round(load_tab_lang["trog"], 2)`, Vocabulary = `r round(load_tab_lang["vocab"], 2)`. Age predicted Language ($\beta$ = `r round(beta_age_Lang, 2)`; $R^2$ = `r round(r2_Lang, 2)`) consistent with expected developmental gains. 
 
 ```{r}
 #| label: fig-semplot-lang
