@@ -631,6 +631,27 @@ inv_explainer |>
   fontsize(j = "mirt", size = 8)
 ```
 :::
+```{r}
+task_lab_map <- c(
+  hf="Hearts & Flowers", mg="Memory", sds="Same & Different",
+  matrix="Pattern Matching", mrot="Shape Rotation",
+  trog="Sentence Understanding", vocab="Vocabulary",
+  math="Math", tom="Stories"
+)
+
+task_meta <- coretask_scores %>% distinct(item_task, task, task_category)
+task_ids  <- unique(coretask_scores$item_task)
+
+prep_task <- function(df) df %>%
+  mutate(site = factor(site),
+         age_c = as.numeric(scale(age, scale = FALSE)))
+
+fmt_p <- function(p) case_when(
+  is.na(p) ~ NA_character_,
+  p < .001 ~ "<0.001",
+  TRUE     ~ sprintf("%.3f", p)
+)
+```
 
 ```{r}
 #| label: fig-age-trends
@@ -638,7 +659,10 @@ inv_explainer |>
 #| fig-width: 8
 #| fig-height: 9
 
-ggplot(coretask_scores, aes(age, metric_value)) +
+# remove CAT data
+fixed_only <- coretask_scores %>% filter(adaptive == FALSE)
+
+ggplot(fixed_only, aes(age, metric_value)) +
   ggh4x::facet_nested_wrap(vars(task_category, task),
                            nest_line = element_line(), solo_line = TRUE,
                            axes = "x", scales = "free_y") +
@@ -666,15 +690,16 @@ analyze_task_slopes <- function(task_name) {
 
   fit <- lm(metric_value ~ age_c * site, data = d)
 
+  # grand-mean slope (main effect of age_c under sum-to-zero contrasts)
   cs <- coef(summary(fit))
   mean_slope <- unname(cs["age_c", "Estimate"])
   mean_se    <- unname(cs["age_c", "Std. Error"])
   mean_t     <- unname(cs["age_c", "t value"])
   mean_p     <- unname(cs["age_c", "Pr(>|t|)"])
-  mean_df    <- df.residual(fit)                    
+  mean_df    <- df.residual(fit)
 
+  # site deviations from the grand-mean slope
   tr_site <- emtrends(fit, ~ site, var = "age_c")
-
   dev_tab <- contrast(tr_site, "eff") %>%
     summary(infer = c(TRUE, TRUE)) %>%
     as_tibble() %>%
@@ -687,7 +712,7 @@ analyze_task_slopes <- function(task_name) {
       p_value         = p.value
     )
 
-  # per-site zero-order correlation r(age, ability)
+  # site-wise r(age, ability)
   corr_tab <- d %>%
     filter(!is.na(age_c), !is.na(metric_value)) %>%
     mutate(site = as.character(site)) %>%
@@ -704,61 +729,35 @@ analyze_task_slopes <- function(task_name) {
       r_p  = ifelse(!is.na(r_t), 2 * pt(-abs(r_t), df = r_df), NA_real_)
     )
 
-  # combine: add grand mean stats to every row for that task
   dev_tab %>%
     mutate(
-      task = task_name,
+      task      = task_name,
       Mean_Slope = mean_slope,
       Mean_SE    = mean_se,
       Mean_t     = mean_t,
       Mean_df    = mean_df,
-      Mean_p     = mean_p,
-      .before = 1
+      Mean_p     = mean_p
     ) %>%
     left_join(corr_tab, by = "site")
 }
 
-# build table (unchanged mapping)
-deviation_raw <- map_dfr(unique(coretask_scores$item_task), analyze_task_slopes) %>%
-  rename(item_task = task) %>%  
-  left_join(task_map)
-  # mutate(Task = dplyr::recode(as.character(task),
-  #   math   = "Math",
-  #   tom    = "ToM",
-  #   matrix = "Mat.Reason.",
-  #   mrot   = "Ment.Rotat.",
-  #   hf     = "H&F",
-  #   mg     = "Mem",
-  #   sds    = "Same&Diff.",
-  #   trog   = "Sent.Under.",
-  #   vocab  = "Vocab."
-  # ))
+deviation_raw <- purrr::map_dfr(task_ids, analyze_task_slopes) %>%
+  rename(item_task = task) %>%
+  left_join(task_meta, by = "item_task") %>%
+  mutate(Task = coalesce(task, recode(item_task, !!!task_lab_map)))
 
-# format p-values (dev p and grand mean p) and print
 deviation_print <- deviation_raw %>%
   mutate(
     # fill any missing deviation p from t, df
     p_num = if_else(is.na(p_value) & !is.na(t) & !is.na(df),
                     2 * pt(-abs(t), df), p_value),
-    `Deviation p-value` = case_when(
-      is.na(p_num)  ~ NA_character_,
-      p_num < .001  ~ "<0.001",
-      TRUE          ~ sprintf("%.3f", p_num)
-    ),
-    `Grand Mean p-value` = case_when(
-      is.na(Mean_p)    ~ NA_character_,
-      Mean_p < .001    ~ "<0.001",
-      TRUE             ~ sprintf("%.3f", Mean_p)
-    ),
-    `r p-value` = case_when(
-      is.na(r_p)     ~ NA_character_,
-      r_p < .001     ~ "<0.001",
-      TRUE           ~ sprintf("%.3f", r_p)
-    )
+    `Deviation p-value`  = fmt_p(p_num),
+    `Grand Mean p-value` = fmt_p(Mean_p),
+    `r p-value`          = fmt_p(r_p)
   ) %>%
   transmute(
-    Task = task,
-    Site = site |> fct_recode(!!!site_labels),
+    Task,
+    Site = forcats::fct_recode(site, !!!site_labels),
     `Grand Mean Slope (β)` = round(Mean_Slope, 2),
     `Grand Mean SE`        = round(Mean_SE, 2),
     `Grand Mean p-value`,
@@ -770,8 +769,8 @@ deviation_print <- deviation_raw %>%
     `r p-value`
   )
 
-flextable(deviation_print) |>
-  set_header_labels(
+flextable::flextable(deviation_print) |>
+  flextable::set_header_labels(
     `Grand Mean Slope (β)` = "GM β",
     `Grand Mean SE`        = "GM SE",
     `Grand Mean p-value`   = "GM p",
@@ -781,16 +780,132 @@ flextable(deviation_print) |>
     `r (age, ability)`     = "r(age,ability)",
     `r p-value`            = "r p"
   ) |>
-  colformat_num(
+  flextable::colformat_num(
     j = c("Grand Mean Slope (β)", "Grand Mean SE",
           "Deviation from Mean", "Deviation SE",
           "N", "r (age, ability)"),
     digits = 2
   ) |>
-  align_text_col() |>
-  autofit()
+  flextable::align_text_col() |>
+  flextable::autofit()
 ```
 :::
+
+```{r EM trends}
+#| label: em-trends
+#| fig-cap: "Age Slopes by Task"
+#| fig-width: 8
+#| fig-height: 9
+
+slopes_by_task <- function(task_name) {
+  d <- coretask_scores %>% filter(item_task == task_name)
+  d$site  <- factor(d$site)
+  d$age_c <- scale(d$age, scale = FALSE)[, 1]
+  contrasts(d$site) <- contr.sum(nlevels(d$site))
+
+  fit <- lm(metric_value ~ age_c * site, data = d)
+
+  gm <- coef(summary(fit))["age_c", "Estimate"]
+
+  tr_sum <- emtrends(fit, ~ site, var = "age_c") |>
+    summary(infer = c(TRUE, TRUE)) |>
+    as_tibble()
+
+  slope_col <- intersect(names(tr_sum), c("estimate","trend","emmean","age_c.trend"))[1]
+  if (is.na(slope_col)) stop("Could not find slope column in emtrends() summary")
+
+  tr_sum |>
+    transmute(
+      item_task = task_name,
+      site      = .data$site,
+      slope     = .data[[slope_col]],
+      SE        = .data$SE,
+      df        = .data$df,
+      t         = .data$t.ratio,
+      p         = .data$p.value,
+      lower     = .data$lower.CL,
+      upper     = .data$upper.CL,
+      gm_slope  = gm
+    )
+}
+
+slopes_df <- purrr::map_dfr(task_ids, slopes_by_task) %>%                   
+  dplyr::left_join(task_meta, by = "item_task") %>%
+  dplyr::mutate(
+    Site    = forcats::fct_recode(site, !!!site_labels),
+    TaskLab = dplyr::coalesce(task, dplyr::recode(item_task, !!!task_lab_map)),
+    TaskLab = factor(TaskLab, levels = unique(task_meta$task))               
+  )
+
+ggplot(slopes_df, aes(x = slope, y = forcats::fct_rev(Site), colour = Site)) +
+  geom_vline(xintercept = 0, linetype = 3) +
+  geom_vline(data = dplyr::distinct(slopes_df, TaskLab, gm_slope),
+             aes(xintercept = gm_slope),
+             linetype = 2, linewidth = 0.6, colour = "grey40") +
+  geom_errorbarh(aes(xmin = lower, xmax = upper), width = 0) +
+   geom_point(size = 2) +
+  facet_wrap(~ TaskLab, scales = "free_x") +
+  .scale_colour_site() +                                                     
+  labs(x = "Age slope (β per year, estimated marginal trend)",
+       y = NULL, colour = "Site",
+       title = "Site-specific age slopes by task (EMTrends with 95% CI)",
+       subtitle = "Dashed line: task grand-mean slope; dotted line: zero") +
+  theme(legend.position = "bottom")
+```
+
+```{r}
+#| label: predicted-age-slopes
+#| fig-cap: "Predicted Ability v Age"
+#| fig-width: 8
+#| fig-height: 9
+
+pred_curves_augment <- function(task_name) {
+  d <- coretask_scores %>% filter(item_task == task_name)
+  d$site  <- factor(d$site)
+  d$age_c <- scale(d$age, scale = FALSE)[,1]
+  mu_age  <- mean(d$age, na.rm = TRUE)
+
+  fit <- lm(metric_value ~ age_c * site, data = d)
+
+  grid <- expand.grid(
+    age_c = seq(min(d$age_c, na.rm = TRUE),
+                max(d$age_c, na.rm = TRUE),
+                length.out = 100),
+    site  = levels(d$site)
+  )
+
+  broom::augment(fit, newdata = grid, se_fit = TRUE) %>%
+    transmute(
+      item_task = task_name,
+      site      = as.character(site),
+      age       = age_c + mu_age,
+      fit       = .fitted,
+      lower     = .fitted - 1.96*.se.fit,
+      upper     = .fitted + 1.96*.se.fit
+    )
+}
+
+pred_all <- purrr::map_dfr(task_ids, pred_curves_augment) %>%
+  dplyr::left_join(task_meta, by = "item_task") %>%
+  dplyr::mutate(
+    Site    = forcats::fct_recode(site, !!!site_labels),
+    TaskLab = dplyr::coalesce(task, dplyr::recode(item_task, !!!task_lab_map)),
+    TaskLab = factor(TaskLab, levels = unique(task_meta$task))   
+  )
+
+stopifnot(all(c("task_category","TaskLab") %in% names(pred_all)))
+
+ggplot(pred_all, aes(age, fit, colour = Site)) +
+  geom_ribbon(aes(ymin = lower, ymax = upper, fill = Site),
+              alpha = 0.12, colour = NA, show.legend = FALSE) +
+  geom_line(linewidth = 1) +
+  ggh4x::facet_nested_wrap(vars(task_category, TaskLab), scales = "free_y", axes = "x") +
+  .scale_colour_site() +
+  labs(x = "Age (years)", y = "Predicted ability (IRT)",
+       title = "Model-predicted ability vs age by site and task",
+       subtitle = "Lines are marginal predictions from lm(metric_value ~ age_c * site); ribbons = 95% CI") +
+  theme(legend.position = "bottom")
+```
 
 ## Reliability 
 
@@ -1450,6 +1565,31 @@ g_lang$edges$label_colour <- "black"
 g_lang$edges$label_size   <- 3
 
 plot(g_lang)
+```
+
+```{r}
+#| label: fig-age-trends-cat
+#| fig-cap: "Age related trends by task for CAT only children."
+#| fig-width: 8
+#| fig-height: 8
+
+cat_only   <- coretask_scores %>% filter(adaptive == TRUE)
+cat_only %>% count(adaptive)         
+cat_only %>% count(site_label, task) 
+
+ggplot(cat_only, aes(age, metric_value)) +
+  ggh4x::facet_nested_wrap(vars(task_category, task),
+                           nest_line = element_line(), solo_line = TRUE,
+                           axes = "x", scales = "free_y") +
+  geom_smooth(aes(colour = site_label, group = site_label),
+              method = "gam", formula = y ~ s(x, bs = "re"), se = FALSE) +
+  geom_point(aes(colour = site_label), alpha = 0.3, size = 1) +
+  scale_x_continuous(breaks = seq(6, 14, 2)) +
+  .scale_colour_site() +
+  guides(colour = guide_legend(override.aes = list(shape = NA, linetype = 1, linewidth = 2))) +
+  labs(x = "Age (years)", y = "Ability (IRT score)", colour = "Site",
+       title = "Ability vs Age (CAT only)") +
+  theme(legend.position = "bottom")
 ```
 
 \clearpage
