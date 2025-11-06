@@ -988,23 +988,35 @@ We were also interested in capturing the extent to which the LEVANTE tasks yield
 #| fig-width: 8
 #| fig-height: 9
 
-ggplot(retest_wide, aes(x = run_1, y = run_2, color = age)) +
-  ggh4x::facet_nested_wrap(vars(task_category, task),
-                           nest_line = element_line(), solo_line = TRUE,
-                           axes = "x",
-                           scales = "free_y") +
-  coord_cartesian(clip = "off") +
-  geom_abline(color = "grey", linetype = "dotted") +
+lim <- range(retest_wide$run_1, retest_wide$run_2, finite = TRUE)
+lim <- range(pretty(lim))
+
+ggplot(retest_wide, aes(run_1, run_2, colour = age)) +
+  ggh4x::facet_nested_wrap(
+    vars(task_category, task),
+    scales = "fixed",
+    axes   = "x",              # or "all" for both axes in every panel
+    nest_line = element_line(),
+    solo_line = TRUE
+  ) +
+  coord_equal(xlim = lim, ylim = lim, ratio = 1, expand = FALSE) +
+  geom_abline(slope = 1, intercept = 0, colour = "grey60", linetype = "dotted") +
   geom_point(alpha = 0.8, size = 1.5) +
-  geom_label(data = trt, aes(label = sprintf("r = %.2f", test_retest_r)),
-            size = 4, color = "darkgrey", linewidth = 0, x = -Inf, y = Inf,
-            vjust = "inward", hjust = "inward") +
-  geom_label(data = trt, aes(label = sprintf("N = %s", n)),
-            size = 4, color = "darkgrey", linewidth = 0, x = Inf, y = -Inf,
-            vjust = "inward", hjust = "inward") +
-  geom_smooth(aes(group = 1), color = "darkgrey", method = "lm") +
-  scale_color_viridis(limits = c(5, 12)) +
-  labs(x = "Score 1", y = "Score 2", color = "Age (years)") +
+  geom_smooth(aes(group = 1), colour = "grey40", method = "lm", formula = y ~ x, linewidth = 0.6) +
+  geom_label(
+    data = trt, inherit.aes = FALSE,
+    aes(label = sprintf("r = %.2f", test_retest_r)),
+    x = lim[1], y = lim[2], hjust = "inward", vjust = "inward",
+    size = 3.8, colour = "grey30", linewidth = 0
+  ) +
+  geom_label(
+    data = trt, inherit.aes = FALSE,
+    aes(label = sprintf("N = %s", n)),
+    x = lim[2], y = lim[1], hjust = "inward", vjust = "inward",
+    size = 3.8, colour = "grey30", linewidth = 0
+  ) +
+  viridis::scale_colour_viridis(limits = c(5, 12), end = 0.95) +
+  labs(x = "Score 1", y = "Score 2", colour = "Age (years)") +
   theme(legend.position = "bottom")
 ```
 
@@ -1124,7 +1136,7 @@ Overall, factor loadings supported the intended three-factor structure (converge
 #| label: fig-semplot-core-tasks
 #| fig-cap: SEM for core tasks
 #| fig-width: 8
-#| fig-height: 6
+#| fig-height: 9
 
 source(here::here("03_summaries/modified_sem_plot.R"))
 
@@ -1132,9 +1144,9 @@ source(here::here("03_summaries/modified_sem_plot.R"))
 name_map <- tibble::tibble(
   name   = c("log_age_c","math","tom","reasoning","ef","language",
              "matrix","mrot","hf","mg","sds","trog","vocab"),
-  pretty = c("Age (log years)","Math","Stories","Reasoning","Executive Function","Language",
-             "Pattern Matching","Shape Rotation","Hearts & Flowers","Memory","Same & Different",
-             "Sentence Understanding","Vocabulary")
+  pretty = c("Age (log years)","Math","Stories","Reasoning","Exec Function","Language",
+             "Pattern Match.","Shape Rotation","Hearts and Flowers","Memory","Same & Different",
+             "Sentence Understand.","Vocabulary")
 )
 
 pe <- lavaan::parameterEstimates(fit_cov_age, standardized = TRUE)
@@ -1210,13 +1222,13 @@ layout_cov_age <- matrix(
 
 g <- tidySEM::prepare_graph(
   edges = edges, nodes = nodes, layout = t(layout_cov_age),
-  text_size = 2.5,
-  rect_width = 5.2, rect_height = 2.5,
-  ellipses_width = 4.0, ellipses_height = 3.0,
+  text_size = 3.4,
+  rect_width = 8, rect_height = 2.5,
+  ellipses_width = 5.0, ellipses_height = 3.0,
   variance_height = 2.0, variance_width = 1.5,
   arrow_angle = 15, arrow_length = .1,
   var_arrow_angle = 15, var_arrow_length = .1,
-  spacing_y = 5, spacing_x = 4,
+  spacing_y = 6, spacing_x = 6,
   fix_coord = FALSE
 )
 
@@ -1574,8 +1586,8 @@ plot(g_lang)
 #| fig-height: 8
 
 cat_only   <- coretask_scores %>% filter(adaptive == TRUE)
-cat_only %>% count(adaptive)         
-cat_only %>% count(site_label, task) 
+# cat_only %>% count(adaptive)         
+# cat_only %>% count(site_label, task) 
 
 ggplot(cat_only, aes(age, metric_value)) +
   ggh4x::facet_nested_wrap(vars(task_category, task),
@@ -1590,6 +1602,7 @@ ggplot(cat_only, aes(age, metric_value)) +
   labs(x = "Age (years)", y = "Ability (IRT score)", colour = "Site",
        title = "Ability vs Age (CAT only)") +
   theme(legend.position = "bottom")
+
 ```
 
 \clearpage
