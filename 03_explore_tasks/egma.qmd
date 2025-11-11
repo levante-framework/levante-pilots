@@ -33,9 +33,9 @@ Helper functions
 ```{r}
 #| echo: false
 
-source(here("02_score_data","irt_helpers.R"))
+source(here("02_score_data","02_fit_irt","irt_helpers.R"))
 source(here::here("plot_settings.R"))
-source(here("03_explore_tasks/explore_helper.R"))
+source(here("03_explore_tasks","explore_helper.R"))
 
 ```
 
@@ -59,9 +59,7 @@ sort(unique(egma$item_group))
 Sum scores
 
 ```{r}
-
 # 94 items
-
 colnames(egma)
 
 egma_runs <- egma |>
@@ -89,11 +87,8 @@ egma_sum_scores
 ggsave(
   filename = here::here("03_explore_tasks", "Graphs", "egma_sum_scores.png"),
   plot = egma_sum_scores,
-  width = 10,
-  height = 6,
-  dpi = 300
+  width = 10, height = 6, dpi = 300
 )
-
 ```
 
 Accuracy on item groups
@@ -225,7 +220,6 @@ ggplot(egma_group_summary, aes(x = fct_reorder(item_group, mean_accuracy), y = m
 Box plot - spread of accuracy across categories
 
 ```{r}
-
 ggplot(egma_difficulty_grouped, aes(x = fct_reorder(item_group, mean_accuracy), y = mean_accuracy, fill = item_group)) +
   geom_boxplot() +
   coord_flip() +
@@ -260,7 +254,6 @@ ggsave(
 Reaction times
 
 ```{r}
-
 summary(egma$rt_numeric)
 
 egma_trimmed <- egma |> 
@@ -278,14 +271,13 @@ ggplot(egma_trimmed, aes(x = rt_numeric)) +
 # Check outliers
 summary(egma$rt_numeric)
 summary(egma_trimmed$rt_numeric)
-
-
 ```
 
 
 
 # IRT 
 Load IRT results
+ToDo: fit bifactor model with each subtask
 
 ```{r}
 
@@ -330,9 +322,7 @@ egma_irt
 ggsave(
   filename = here::here("03_explore_tasks", "Graphs", "egma_irt.png"),
   plot = egma_irt,
-  width = 6,
-  height = 4,
-  dpi = 300
+  width = 6, height = 4, dpi = 300
 )
 
 ```
@@ -357,13 +347,11 @@ egma_groups <- egma |>
   mutate(item = glue("{item_uid}_1"))  
 
 egma_difficulty_grouped <- left_join(egma_mean_difficulty, egma_groups, by = "item")
-
 ```
 
 Item difficulty by group
 
 ```{r}
-
 ggplot(egma_difficulty_grouped, aes(x = fct_reorder(item_group, -mean_d), y = mean_d, fill = item_group)) +
   geom_boxplot(alpha = 0.8) +
   coord_flip() +
