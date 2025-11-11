@@ -11,7 +11,7 @@ scoring_table <- list(table = "Scoring",
 # corpus_item field names to export
 export_fields <- c(
   "item_task",
-  "dataset",
+  "redivis_datasets",
   "model_set",
   "subset",
   "itemtype",
@@ -20,12 +20,13 @@ export_fields <- c(
 )
 
 # fetch records in corpus_item table
-scoring <- rlang::exec(airtable, !!!scoring_table) |>
+scoring_df <- rlang::exec(airtable, !!!scoring_table) |>
   read_airtable(fields = export_fields) |>
   as_tibble() |>
   select(!!!export_fields) |>
-  mutate(across(where(is.list), as.character)) |>
-  mutate(across(everything(), \(s) replace_na(s, "")))
+  mutate(across(where(\(v) is.list(v) & all(map_int(v, length) == 1)), as.character))
+
+scoring <- scoring_df |> unnest(redivis_datasets) |> rename(dataset = redivis_datasets)
 
 # connect to item_metadata redivis dataset, create next version if needed
 scoring_dataset <- redivis$organization("levante")$dataset("scoring:e97h")
