@@ -11,7 +11,6 @@ format:
 Required packages
 
 ```{r}
-
 #| echo: false
 
 library("tidyverse")
@@ -25,7 +24,6 @@ library("tidyr")
 library("quarto")
 library("forcats")
 library("ggplot2")
-
 ```
 
 Helper functions
@@ -36,7 +34,6 @@ Helper functions
 source(here("02_score_data","02_fit_irt","irt_helpers.R"))
 source(here::here("plot_settings.R"))
 source(here("03_explore_tasks","explore_helper.R"))
-
 ```
 
 Get egma data
@@ -53,8 +50,6 @@ Exploring item group
 
 ```{r}
 base::table(egma$item_group)
-sort(unique(egma$item_group))
-
 ```
 Sum scores
 
@@ -131,7 +126,6 @@ ggplot(egma_cat_runs, aes(x = age, y = correct)) +
 Cleaner graph 
 
 ```{r}
-
 egma_type <- egma |>
   group_by(site, user_id, run_id, item_group) |>
   summarise(correct = mean(correct, na.rm = TRUE),
@@ -140,13 +134,11 @@ egma_type <- egma |>
 ggplot(egma_type, aes(x = age, y = correct, col = item_group)) +
   geom_smooth(method = "lm", se = FALSE) +
   facet_wrap(~site)
-
 ```
 
 Difficulty
 
 ```{r}
-
 # Proportion correct per item per site
 item_difficulty <- egma |>
   group_by(site, item_uid) |>
@@ -160,13 +152,11 @@ egma_difficulty_raw <- item_difficulty |>
 # Reorder items from easiest to hardest
 egma_difficulty_raw <- egma_difficulty_raw |>
   mutate(item_uid = fct_reorder(item_uid, mean_accuracy))
-
 ```
 
 Plot
 
-```{r fig.height =20, fig.width = 10}
-
+```{r fig.height=20, fig.width=10}
 ggplot(egma_difficulty_raw, aes(x = item_uid, y = mean_accuracy, fill = mean_accuracy)) +
   geom_col() +
   coord_flip() +
@@ -178,9 +168,7 @@ ggplot(egma_difficulty_raw, aes(x = item_uid, y = mean_accuracy, fill = mean_acc
   ) +
   ylim(0, 1) 
 
-
 # Note: The 'easiest' items are based on the proportion of correct responses, which can be misleading if only a few participants attempted them. For example, two fraction items appear among the easiest, even though fractions are generally the most difficult category—this is because the few participants who saw those items answered them correctly. IRT model accounts for this as it estimates item difficulty and discrimination while adjusting for participant ability.
-
 ```
 
 Difficulty by item_group
@@ -191,6 +179,7 @@ egma_groups <- egma |>
   distinct()
 
 egma_difficulty_grouped <- egma_difficulty_raw |>
+  mutate(item_uid = as.character(item_uid)) |>
   left_join(egma_groups, by = "item_uid")
 
 # Mean accuracy by item group
@@ -220,24 +209,25 @@ ggplot(egma_group_summary, aes(x = fct_reorder(item_group, mean_accuracy), y = m
 Box plot - spread of accuracy across categories
 
 ```{r}
-ggplot(egma_difficulty_grouped, aes(x = fct_reorder(item_group, mean_accuracy), y = mean_accuracy, fill = item_group)) +
+ggplot(egma_difficulty_grouped, 
+       aes(x = fct_reorder(item_group, mean_accuracy), y = mean_accuracy, fill = item_group)) +
   geom_boxplot() +
   coord_flip() +
   labs(
     title = "Distribution of item difficulty by group (EGMA)",
-    x = "Item group",
-    y = "Mean accuracy"
+    x = "Item group", y = "Mean accuracy"
   ) 
 
 # Dots
-egma_accuracy_raw <- ggplot(egma_difficulty_grouped, aes(x = fct_reorder(item_group, mean_accuracy), y = mean_accuracy, 
-                                    colour = item_group)) +
+egma_accuracy_raw <- 
+  ggplot(egma_difficulty_grouped, 
+         aes(x = fct_reorder(item_group, mean_accuracy), y = mean_accuracy, 
+             colour = item_group)) +
   geom_jitter() +
   coord_flip() +
   labs(
     title = "Distribution of item difficulty by group (EGMA)",
-    x = "Item group",
-    y = "Mean accuracy"
+    x = "Item group", y = "Mean accuracy"
   ) 
 
 ggsave(
@@ -247,8 +237,6 @@ ggsave(
   height = 6,
   dpi = 300
 )
-
-
 ```
 
 Reaction times
@@ -257,11 +245,11 @@ Reaction times
 summary(egma$rt_numeric)
 
 egma_trimmed <- egma |> 
-  filter(rt_numeric > 200, rt_numeric < 5000)
+  filter(rt_numeric > 200, rt_numeric < 10000)
 
-ggplot(egma_trimmed, aes(x = rt_numeric)) +
-  geom_histogram(binwidth = 100) +
+ggplot(egma_trimmed, aes(x = rt_numeric, fill = correct)) +
   facet_wrap(~site, scales = "free_y") +
+  geom_histogram(binwidth = 100) +
   labs(
     title = "Histogram of reaction times by site",
     x = "Reaction time (ms)",
@@ -280,13 +268,18 @@ Load IRT results
 ToDo: fit bifactor model with each subtask
 
 ```{r}
-
-best_multigroup <- readRDS(here("02_scoring_outputs", "irt_outputs", "multigroup_best_models.rds"))
-multigroup_scores <- readRDS(here("02_scoring_outputs", "scores", "multigroup_scores.rds"))
+# ToDo: update to use model_registry/math/ dir?
+best_multigroup <- readRDS(here("02_scoring_outputs", "old", "irt_outputs", "multigroup_best_models.rds"))
+multigroup_scores <- readRDS(here("02_scoring_outputs", "scores", "old", "multigroup_scores.rds"))
 
 best_multigroup_coefs <- best_multigroup |>
   select(item_task, item_type, invariance_type, coefs) |>
   unnest(coefs)
+
+best_coefs <- readRDS(here("02_scoring_outputs", "best_coefs.rds")) |> 
+  filter(task=="math")
+#all_coefs <- readRDS(here("02_scoring_outputs", "all_coefs.rds"))
+
 ```
 
 Multigroup models
@@ -301,6 +294,9 @@ run_ages <- egma |>
   distinct()
 
 multigroup_scores_egma <- multigroup_scores |>
+  mutate(site = ifelse(site=="ca_pilot", "pilot_western_ca",
+                       ifelse(site=="co_pilot", "pilot_uniandes_co", 
+                              ifelse(site=="de_pilot", "pilot_mpieva_de", site)))) |>
   filter(item_task == "math", site != "us_pilot") |>
   select(site, item_task, user_id, run_id, metric_type, metric_value) |>
   left_join(run_ages)
@@ -308,8 +304,7 @@ multigroup_scores_egma <- multigroup_scores |>
 glimpse(multigroup_scores_egma)
 
 egma_irt <- ggplot(multigroup_scores_egma, aes(x = age, y = metric_value, col = site)) + 
-  geom_point() + 
-  geom_smooth() +
+  geom_point() + geom_smooth() +
   labs(
     title = "Developmental trends in EGMA ability by site",
     subtitle = "IRT-based theta estimates smoothed with GAM",
@@ -331,14 +326,14 @@ Extract the coefficients  and filter for difficulty
 
 ```{r}
 # Extract coefficients
-egma_difficulty <- best_multigroup |> 
-  filter(task_id == "egma-math", term == "difficulty") |> 
-  select(site, item, value)
+egma_difficulty <- best_multigroup_coefs |> 
+  filter(item_task == "math") |> 
+  select(site, item, d)
 
 # Compute average difficulty
 egma_mean_difficulty <- egma_difficulty |> 
   group_by(item) |> 
-  summarise(mean_d = mean(value, na.rm = TRUE), .groups = "drop")
+  summarise(mean_d = mean(d, na.rm = TRUE), .groups = "drop")
 
 # Join with item group
 egma_groups <- egma |> 
@@ -347,6 +342,8 @@ egma_groups <- egma |>
   mutate(item = glue("{item_uid}_1"))  
 
 egma_difficulty_grouped <- left_join(egma_mean_difficulty, egma_groups, by = "item")
+
+egma_difficulty_grouped |> filter(is.na(item_group))
 ```
 
 Item difficulty by group
@@ -387,7 +384,8 @@ ggplot(egma_difficulty_grouped, aes(x = fct_reorder(item_group, -mean_d), y = me
 
 # Number-to-line vs. line-to-number
 
-```{r}
+```{r, eval=T}
+# FixMe - egma_difficulty_grouped no longer includes site group, and site names are outdated
 line_trials <- egma_difficulty_grouped |>
   filter(str_detect(item_uid, "line") | str_detect(item_uid, "slider")) |>
   separate(item_uid, into = c("item", "trial_type", "point","scale"), sep = "_") |>
@@ -431,7 +429,51 @@ with(filter(params, !(scale=="100" & point == "9")),
 with(params,  cor.test(line, slider))
 ```
 
-```{r}
+```{r, eval=F}
 filter(egma, item_uid == "math_line_9_100") |> View()
+```
+
+# Examine Dimensionality
+
+Note: 34% of responses are slower than 5s, yet have high accuracy. 12% are slower than 10s; I'm going to filter trials >20s (2.6% of trials)
+
+```{r, eval=F}
+# exploratory 2-4 factor models, and bifactor model with each subtask
+# nrow(egma |> filter(rt_numeric > 5000)) / nrow(egma) # 34% of responses are slower than 5s, & high accuracy
+
+egma_sorted <- egma |> filter(rt_numeric > 200, rt_numeric < 20000) |>
+  arrange(site, user_id, run_id, item_group, item_uid)
+
+egma_wide <- egma_sorted |> select(site, user_id, age, run_id, item_uid, correct) |>
+  pivot_wider(id_cols = c(site, user_id, run_id, age), names_from = item_uid, values_from = correct)
+
+egma_demo <- egma_wide |> select(site, user_id, age, run_id)
+egma_dat <- egma_wide |> select(-site, -user_id, -age, -run_id)# |> data.matrix()
+
+one_value_cols <- names(egma_dat)[sapply(egma_dat, function(x) {
+  length(unique(na.omit(x))) == 1
+})]
+
+egma_dat <- data.matrix(egma_dat |> select(-all_of(one_value_cols)))
+rownames(egma_dat) = egma_demo$run_id
+
+
+mod_2pl <- mirt(egma_dat, 1, itemtype='2PL', verbose=TRUE,  technical=list(NCYCLES=2000))
+mod_2pl_2f <- mirt(egma_dat, 2, itemtype='2PL', verbose=TRUE,  technical=list(NCYCLES=2000))
+mod_2pl_3f <- mirt(egma_dat, 3, itemtype='2PL', verbose=TRUE,  technical=list(NCYCLES=2000))
+
+anova(mod_2pl, mod_2pl_2f) # AIC prefers 2d, BIC prefers 1d
+anova(mod_2pl_2f, mod_2pl_3f) # AIC prefers 3d, BIC prefers 1d
+
+# also try CFA with just the subtasks
+  
+bifact <- "gen = 1-265
+V = 1-209
+G = 210-226
+S = 227-244
+P = 245-250
+TL = 251-259
+TP = 260-265"
+mod_bif <- mirt(d_mat, bifact, itemtype = "2PL", technical = list(NCYCLES=2000))
 ```
 
