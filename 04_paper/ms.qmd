@@ -213,7 +213,8 @@ In addition to the constructs described above, we were also interested in the as
 #| label: tbl-tasks
 #| tbl-cap: The LEVANTE core tasks, presented with their internal label as well as prior labels used in the literature.
 
-tribble(
+gray_border <- officer::fp_border(color = "gray")
+task_table <- tribble(
   ~"Construct"         , ~"LEVANTE task name"     , ~"Prior/Source task name"              ,
    "Executive Function",  "Hearts & Flowers"      ,  "Hearts and Flowers"                  ,
    ""                  ,  "Memory"                ,  "Corsi Block Task"                    ,
@@ -224,9 +225,13 @@ tribble(
    "Reasoning"         ,  "Pattern Matching"      ,  "Matrix Reasoning"                    ,
    ""                  ,  "Shape Rotation"        ,  "Mental Rotation"                     ,
    "Social Cognition"  ,  "Stories"               ,  "Theory of Mind"
-) |>
+)
+
+line_rows <- task_table |> mutate(i = 1:n() - 1) |> filter(Construct != "") |> slice(-1) |> pull(i)
+task_table |>
   flextable() |>
   align_text_col() |>
+  hline(i = line_rows, border = gray_border) |>
   autofit()
 ```
 
@@ -276,15 +281,25 @@ task_time_summary <- read_rds(here("03_summaries","tables",
                                    "task_time_summary.rds"))
 
 task_time_table <- task_time_summary |>
-  filter(!is.na(is_cat)) |>
   filter(item_task %in% core_tasks) |>
-  mutate(site_label = site |> fct_recode(!!!site_labels),
+  mutate(site_label = site |> fct_recode(!!!site_labels, "All" = "all"),
          adaptive = if_else(is_cat, "Adaptive", "Non-adaptive")) |>
   left_join(task_map) |>
   select(task, site_label, adaptive, median_diff) |>
+  pivot_wider(names_from = adaptive, values_from = median_diff) |>
+  mutate(pct = 100 * as.numeric(Adaptive) / as.numeric(`Non-adaptive`),
+         `Non-adaptive` = sprintf("%.2f", `Non-adaptive`),
+         Adaptive = if_else(is.na(Adaptive), NA, as.character(glue("{Adaptive} ({round(pct, 0)}%)")))) |>
+  select(-pct) |>
+  pivot_longer(names_to = "adaptive", values_to = "median_diff", cols = c(`Non-adaptive`, `Adaptive`)) |>
   pivot_wider(names_from = c(adaptive, site_label), values_from = median_diff) |>
   select(task, starts_with("Non"), starts_with("Adaptive")) |>
   arrange(task)
+
+# task_time_table |>
+#   group
+  # pivot_wider(names_from = adaptive, values_from = median_diff) |>
+  # mutate(pct = 100 * as.numeric(Adaptive) / as.numeric(`Non-adaptive`))
 ```
 
 ## General task properties
@@ -297,19 +312,21 @@ Tasks were implemented using jsPsych [@de-leeuw2015] in a common framework. Illu
 
 All tasks are available for demonstration purposes at <https://researcher.levante-network.org>. Source code for the tasks is available at <https://github.com/levante-framework/core-tasks>. Task code and assets are licensed CC-BY-NC 4.0 for non-commercial reuse (including educational use by not-for-profit and governmental entities) with appropriate attribution. Please see the license file available in the repository for more details. We anticipate that once the LEVANTE researcher management dashboard is completed, interested researchers will be able to create accounts and use the tasks in their own research. 
 
-\clearpage
+::: {.landscape}
 ```{r}
 #| label: tbl-durations
-#| tbl-cap: "Median task durations (minutes)."
+#| tbl-cap: "Median task durations (minutes) for non-adaptive (left) and adaptive (right) versions of each task, within across all sites and within each site. Adaptive durations include in parentheses what percentage that adaptive duration is of the corresponding non-adaptive duration."
 #| cache: false
 
 task_time_table |>
   rename(Task = task) |>
   flextable() |>
   separate_header() |>
-  align_text_col() |>
+  align(align = "right", part = "body") |>
+  align(align = "left", j = 1, part = "all") |>
   flextable::autofit(add_w = 0)
 ```
+:::
 
 General task lengths are described below and average task durations of from pilots (for both CAT and non-CAT versions) are given in @tbl-durations. Because of our interest in testing children across a wide range of ages, we intentionally included trials that we anticipated would be both very easy and very hard for children with the aim of deploying these items adaptively after we had gathered sufficient data. We wanted to avoid frustration for children, however, so during pilot testing, we experimented with a number of different stopping rules. In early iterations of pilot testing in the Colombia site, we ended tasks after three consecutive incorrect trials; we later modified this rule to end tasks after six consecutive incorrect trials. 
 
@@ -539,9 +556,9 @@ ggplot(ages, aes(x = age, fill = site)) +
   labs(x = "Age (years)", y = "Number of children")
 ```
 
-Across all tasks, the sites collected a total of `{r} sum(site_totals)` runs (`{r} get_count_row(1)`) from `{r} sum(user_totals$n_users)` unique children (`{r} user_totals |> deframe() |> collapse_value_list()`), of which some were excluded for being incomplete, invalid, or duplicate (`{r} get_count_row(2)`), for missing item metadata (`{r} get_count_row(3)`), for missing age, or age being out of range (`{r} get_count_row(4)`), or for having too short of a retest gap (`{r} get_count_row(5)`), resulting in a total of `{r} sum(user_score_counts$n_runs)` scored runs (`{r} user_score_counts |> select(site, n_runs) |> deframe() |> collapse_value_list()`) from `{r} sum(user_score_counts$n_users)` unique children (`{r} user_score_counts |> select(site, n_users) |> deframe() |> collapse_value_list()`). 
+Across all tasks, the sites collected a total of `{r} sum(site_totals)` runs (`{r} get_count_row(1)`) from `{r} sum(user_totals$n_users)` unique children (`{r} user_totals |> deframe() |> collapse_value_list()`), of which some runs were excluded for being incomplete, invalid, or duplicate (`{r} get_count_row(2)`), for missing item metadata (`{r} get_count_row(3)`), for missing age (`{r} get_count_row(4)`), or for age being out of range or having too short (<0.6 months) of a retest gap (`{r} get_count_row(5)`), resulting in a total of `{r} sum(user_score_counts$n_runs)` scored runs (`{r} user_score_counts |> select(site, n_runs) |> deframe() |> collapse_value_list()`) from `{r} sum(user_score_counts$n_users)` unique children (`{r} user_score_counts |> select(site, n_users) |> deframe() |> collapse_value_list()`). 
 
-Within the included runs, there were a total of `{r} total_trial_counts$n_trials` trials (`{r} site_trial_counts |> select(site, n_trials) |> deframe() |> collapse_value_list()`), of which `{r} total_trial_counts$excluded` were excluded (`{r} site_trial_counts |> select(site, excluded) |> deframe() |> collapse_value_list()`) due to too fast or too slow reaction times. For reasons of space we do not disaggregate these exclusions by task, but note that the task with the highest exclusion rate was Pattern Matching (`{r} percentify(max(task_trial_counts$pct_excluded))` trials excluded), while all the other tasks ranged between `{r} percentify(min(task_trial_counts$pct_excluded))` and `{r} percentify(sort(task_trial_counts$pct_excluded, decreasing = TRUE)[2])` trials excluded.
+Within the included runs, there were a total of `{r} total_trial_counts$n_trials` trials (`{r} site_trial_counts |> select(site, n_trials) |> deframe() |> collapse_value_list()`), of which `{r} total_trial_counts$excluded` were excluded (`{r} site_trial_counts |> select(site, excluded) |> deframe() |> collapse_value_list()`) due to too fast (<100ms) or too slow (>30s) reaction times. For reasons of space we do not disaggregate these exclusions by task, but note that the task with the highest exclusion rate was Pattern Matching (`{r} percentify(max(task_trial_counts$pct_excluded))` trials excluded), while all the other tasks ranged between `{r} percentify(min(task_trial_counts$pct_excluded))` and `{r} percentify(sort(task_trial_counts$pct_excluded, decreasing = TRUE)[2])` trials excluded.
 
 ## uniandes-co
 
@@ -567,7 +584,7 @@ Our goal for each task was to extract administration-level ability scores with t
 
 ## Heuristic item pruning and data checking
 
-Prior to fitting psychometric models, we examined item-level performance summaries for each task within each site to identify items that were functioning unusually poorly (e.g., showing average accuracy close to or even below chance). We also reviewed classical diagnostics such as proportion correct, item–total correlations, and missingness rates to flag items that showed little discrimination or appeared anomalous. In some cases this was due to potential translation issues; in others it reflected aspects of item design. We manually excluded these items from further processing (N = 10). In one case, this process helped us identify a bug in the scoring of data for three tasks; we excluded these observations, which were made during a two day period of testing for the mpieva-de site. The resulting cleaned calibration dataset formed the basis for all subsequent IRT estimation and invariance analyses.
+Prior to fitting psychometric models, we examined item-level performance summaries for each task within each site to identify items that were functioning unusually poorly (e.g., showing average accuracy close to or even below chance). We also reviewed classical diagnostics such as proportion correct, item–total correlations, and missingness rates to flag items that showed little discrimination or appeared anomalous. In some cases this was due to potential translation issues; in others it reflected aspects of item design. We manually excluded these items from further processing (N = 35; 23 items in Stories, 1--4 items in each of Same & Different, Math, Pattern Matching, Sentence Understanding, and Vocabulary). In one case, this process helped us identify a bug in the scoring of data for three tasks; we excluded these observations, which were made during a two day period of testing for the mpieva-de site. The resulting cleaned calibration dataset formed the basis for all subsequent IRT estimation and invariance analyses.
 
 ## Multigroup IRT model selection
 

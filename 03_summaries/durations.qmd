@@ -51,17 +51,25 @@ time_summary <- task_data |>
   ungroup() |>
   mutate(diff = difftime(end, start, units = "mins")) |>
   left_join(runs |> select(run_id, is_cat = adaptive, completed)) |>
-  filter(trials > 2, completed, diff < 120)
+  filter(trials > 3, completed, diff < 120)
 
-ggplot(time_summary, aes(x = diff)) +
-  facet_wrap(vars(item_task)) +
-  geom_histogram()
+# ggplot(time_summary, aes(x = diff)) +
+#   facet_wrap(vars(item_task)) +
+#   geom_histogram()
+
+ggplot(time_summary |> filter(item_task %in% core_tasks), aes(x = trials, y = diff, color = site)) +
+  facet_wrap(vars(item_task), scales = "free") +
+  geom_point()
+ggsave("durations.png", width = 8, height = 8)
 
 task_time_summary <- time_summary |>
+  bind_rows(time_summary |> mutate(site = "all")) |>
+  filter(!is.na(is_cat)) |>
   group_by(site, item_task, is_cat) |>
   summarise(median_diff = median(diff),
             min_diff = min(diff),
-            max_diff = max(diff)) |>
+            max_diff = max(diff),
+            n_runs = n()) |>
   ungroup() |>
   mutate(across(contains("diff"), \(d) round(d, 2))) |>
   mutate(combined_diff = glue("{median_diff} [{min_diff}, {max_diff}]"))
