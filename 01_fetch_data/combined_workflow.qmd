@@ -9,12 +9,10 @@ library(tidyr)
 
 ```{r}
 dataset_spec <- list(
-  list(name = "pilot_uniandes_co_bogota:3j4z", version = "current"),
-  list(name = "pilot_uniandes_co_rural:66d2",  version = "current"),
-  list(name = "pilot_mpieva_de_main:6c0n",     version = "current"),
-  list(name = "pilot_western_ca_main:97mt",    version = "current"))
-  #list(name = "partner_sparklab_us:4n9e",         version = "current"),
-  #list(name = "us_downward_extension_pilot:a6kb", version = "current"),
+  list(name = "pilot_uniandes_co_bogota:3j4z", version = "v7_8"),
+  list(name = "pilot_uniandes_co_rural:66d2",  version = "v7_2"),
+  list(name = "pilot_mpieva_de_main:6c0n",     version = "v7_4"),
+  list(name = "pilot_western_ca_main:97mt",    version = "v7_28"))
 
 runs <- get_runs(dataset_spec,
                  remove_incomplete_runs = FALSE,
@@ -22,30 +20,13 @@ runs <- get_runs(dataset_spec,
 
 dataset_sites <- runs |>
   distinct(dataset) |>
-  separate_wider_delim(dataset, names = c("dataset_name", "ref", "version"),
-                       delim = ":", cols_remove = FALSE) |>
   mutate(site = str_extract(dataset, "^[^_]*_[^_]*_[^_]*"))
-
-# code language for variants that are missing language & variant name
-missing_langs <- tribble(
-  ~variant_id,            ~lang,
-  "OYKVpWxFYhA9Qh9w58Qy", "es",
-  "zlOE3yc4n4JimAhGtQ6r", "de",
-  "KNaxHVqdpe2CtS9NLoX8", "de",
-  "rq7PRMzgtkw52HMfxvNW", "en",
-  "8NLzzprrkwJPeY18iRRH", "en"
-)
 
 run_data <- runs |>
   left_join(dataset_sites) |>
-  relocate(site, dataset_name, ref, version, .before = everything()) |>
-  select(-dataset) |>
-  rename(dataset = dataset_name) |>
-  mutate(language = if_else(!is.na(language), language,
-                            str_extract(variant_name, "^[a-z][a-z]"))) |>
-  left_join(missing_langs) |>
-  mutate(language = if_else(!is.na(language), language, lang)) |>
-  select(-lang)
+  relocate(site, .before = everything()) |>
+  # filter out CO data post-pilot sample
+  filter(!(site == "pilot_uniandes_co" & time_started > ymd_hms("2025-07-01 00:00:00")))
 
 write_rds(run_data, here("01_fetched_data/run_data.rds"), compress = "gz")
 
@@ -72,23 +53,25 @@ trials_prelim <- get_trials_prelim(dataset_spec,
                                    remove_incomplete_runs = FALSE,
                                    remove_invalid_runs = FALSE,
                                    remove_invalid_trials = FALSE)
+write_rds(trials_prelim, here("01_fetched_data/trials_prelim.rds"),
+          compress = "gz")
 
 trials <- trials_prelim |>
   rlevante:::add_item_ids() |>
   rlevante:::add_item_metadata() |>
   rlevante:::add_trial_numbers() |>
+  tidyr::separate_wider_delim(cols = "dataset", delim = ":",
+                              names = c("dataset", "ref", "version")) |>
   arrange(.data$dataset, .data$task_id, .data$user_id, .data$run_id, .data$trial_number) |>
   select("dataset", "task_id", "user_id", "run_id", "trial_id",
          "trial_number", "item_uid", "item_task", "item_group", "item",
          "chance", "correct", "rt", "rt_numeric", "response", "item_original",
          "answer", "distractors", timestamp = "server_timestamp",
          "valid_trial", "validation_msg_trial")
-  
+
 trial_data <- trials |>
   left_join(dataset_sites) |>
-  relocate(site, dataset_name, ref, version, .before = everything()) |>
-  select(-dataset) |>
-  rename(dataset = dataset_name)
+  relocate(site, .before = everything())
 
 write_rds(trial_data, here("01_fetched_data/trial_data.rds"),
           compress = "gz")

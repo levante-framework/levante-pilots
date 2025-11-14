@@ -2,7 +2,6 @@
 library(tidyverse)
 library(glue)
 library(here)
-library(mirt)
 library(redivis)
 
 source(here("plot_settings.R"))
@@ -10,34 +9,15 @@ source(here("02_score_data/01_scoring_prep/scoring_prep_helpers.R"), chdir = TRU
 
 run_data <- read_rds(here(glue("01_fetched_data/run_data.rds")))
 trial_data <- read_rds(here(glue("01_fetched_data/trial_data.rds")))
+trials_prelim <- read_rds(here(glue("01_fetched_data/trials_prelim.rds")))
 ```
 
 ```{r}
-slider_threshold <- 0.15
-item_fixes <- tribble(
-  ~item_uid,             ~answer_fixed,
-  "math_subtract_37_24", "13"
-)
+runs_nonempty <- run_data |> semi_join(trials_prelim, by = "run_id")
+write_rds(runs_nonempty, here("01_fetched_data/runs_nonempty.rds"),
+          compress = "gz")
 
-# recode correctness for HF, SDS, math slider items, and items with wrong answers
-trial_data_coded <- trial_data |>
-  mutate(original_correct = correct, .after = correct) |>
-  recode_hf() |>
-  recode_sds() |>
-  recode_wrong_items(wrong_items = item_fixes) |>
-  recode_slider(threshold = slider_threshold) |>
-  recode_tom() |>
-  # set chance values for slider items accordingly
-  mutate(chance = if_else(item_group == "slider", 1 / slider_threshold / 100, chance),
-         chance = chance |> replace_na(0))
-
-# exclude items that are marked for exclusion
-exclusions <- redivis$organization("levante")$dataset("item_metadata:czjv")$table("exclusions:0b5t")$to_tibble()
-trial_data_included <- trial_data_coded |> anti_join(exclusions)
-```
-
-```{r}
-runs_filtered <- run_data |>
+runs_filtered <- runs_nonempty |>
   mutate(validation_msg_run = validation_msg_run |> replace_na(""),
          straightlining = str_detect(validation_msg_run, "straightlining")) |>
   # filter to runs completed and no straightlining
@@ -45,8 +25,6 @@ runs_filtered <- run_data |>
   # filter out task version with known bug
   filter(!(task_version == "1.0.0-beta.19" &
              task_id %in% c("matrix-reasoning", "mental-rotation", "theory-of-mind"))) |>
-  # filter out CO data post-pilot sample
-  filter(!(site == "pilot_uniandes_co" & time_started > ymd_hms("2025-07-01 00:00:00"))) |>
   # take each user's first run of each task in each administration
   group_by(user_id, task_id, variant_id, administration_id) |>
   arrange(time_started) |>
@@ -56,7 +34,7 @@ write_rds(runs_filtered, here("01_fetched_data/runs_filtered.rds"),
           compress = "gz")
 
 # subset trials to above runs
-trial_data_subset <- trial_data_included |>
+trial_data_subset <- trial_data |>
   inner_join(runs_filtered |> select(run_id, task_version, language))
 write_rds(trial_data_subset, here("01_fetched_data/trial_data_subset.rds"),
           compress = "gz")
@@ -69,10 +47,20 @@ trial_data_filtered <- trial_data_subset |>
   filter(task_id == "same-different-selection" | is.na(rt_numeric) | !slow_rt,
          !fast_rt) |>
   select(-slow_rt, -fast_rt, -valid_trial, -validation_msg_trial)
+write_rds(trial_data_filtered, here("01_fetched_data/trial_data_filtered.rds"),
+          compress = "gz")
 ```
 
 ```{r}
-task_data_nested <- trial_data_filtered |>
+trial_data_coded <- trial_data_filtered |> recode_trials()
+
+# exclude items that are marked for exclusion
+exclusions <- redivis$organization("levante")$dataset("item_metadata:czjv")$table("exclusions:0b5t")$to_tibble()
+trial_data_included <- trial_data_coded |> anti_join(exclusions)
+```
+
+```{r}
+task_data_nested <- trial_data_included |>
   nest(data = -c(item_task, site, language))
 
 write_rds(task_data_nested, here("01_fetched_data/task_data_nested.rds"),
