@@ -10,3 +10,5 @@ rsconnect*
 
 .DS_Store
 data_raw/
+04_paper/ms.aux
+04_paper/ms.out
