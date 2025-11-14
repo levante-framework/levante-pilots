@@ -435,7 +435,8 @@ filter(egma, item_uid == "math_line_9_100") |> View()
 
 # Examine Dimensionality
 
-Note: 34% of responses are slower than 5s, yet have high accuracy. 12% are slower than 10s; I'm going to filter trials >20s (2.6% of trials)
+Note: 34% of responses are slower than 5s, yet have high accuracy. 12% are slower than 10s; I'm going to filter only trials >20s (2.6% of trials), and those <200ms.
+We fit a 2PL model to these data, as well as exploratory 2- and 3-factor models, a CFA with each subtask fitted separately, and a bifactor model with each subtask, and a general factor. Model comparisons summarized below.
 
 ```{r, eval=F}
 # exploratory 2-4 factor models, and bifactor model with each subtask
@@ -458,22 +459,51 @@ egma_dat <- data.matrix(egma_dat |> select(-all_of(one_value_cols)))
 rownames(egma_dat) = egma_demo$run_id
 
 
-mod_2pl <- mirt(egma_dat, 1, itemtype='2PL', verbose=TRUE,  technical=list(NCYCLES=2000))
-mod_2pl_2f <- mirt(egma_dat, 2, itemtype='2PL', verbose=TRUE,  technical=list(NCYCLES=2000))
-mod_2pl_3f <- mirt(egma_dat, 3, itemtype='2PL', verbose=TRUE,  technical=list(NCYCLES=2000))
+mod_2pl <- mirt(egma_dat, 1, itemtype='2PL', verbose=TRUE,  technical=list(NCYCLES=3000))
+mod_2pl_2f <- mirt(egma_dat, 2, itemtype='2PL', verbose=TRUE,  technical=list(NCYCLES=3000))
+mod_2pl_3f <- mirt(egma_dat, 3, itemtype='2PL', verbose=TRUE,  technical=list(NCYCLES=3000))
 
-anova(mod_2pl, mod_2pl_2f) # AIC prefers 2d, BIC prefers 1d
-anova(mod_2pl_2f, mod_2pl_3f) # AIC prefers 3d, BIC prefers 1d
+egma_dat_sorted <- egma_dat[,order(colnames(egma_dat))]
 
-# also try CFA with just the subtasks
-  
-bifact <- "gen = 1-265
-V = 1-209
-G = 210-226
-S = 227-244
-P = 245-250
-TL = 251-259
-TP = 260-265"
-mod_bif <- mirt(d_mat, bifact, itemtype = "2PL", technical = list(NCYCLES=2000))
+cfa <- "add = 1-49
+comp = 50-69
+frac = 70-83
+iden = 84-123
+line = 124-194
+miss = 195-214
+mult = 215-256
+slid = 257-295
+sub = 296-345"
+mod_cfa <- mirt(egma_dat_sorted, cfa, itemtype = "2PL", technical = list(NCYCLES=2000))
+
+bifact <- "gen = 1-345
+add = 1-49
+comp = 50-69
+frac = 70-83
+iden = 84-123
+line = 124-194
+miss = 195-214
+mult = 215-256
+slid = 257-295
+sub = 296-345"
+mod_bif <- mirt(egma_dat_sorted, bifact, itemtype = "2PL", technical = list(NCYCLES=2000, MAXQUAD=60000))
+
+save(mod_2pl, mod_2pl_2f, mod_2pl_3f, mod_cfa, mod_bif, 
+     file=here::here("03_explore_tasks","math_models.Rdata"))
 ```
 
+```{r}
+load(here::here("03_explore_tasks","math_models.Rdata"))
+
+
+bind_rows(anova(mod_2pl, mod_2pl_2f),  # AIC prefers 2d, BIC prefers 1d
+          anova(mod_2pl_2f, mod_2pl_3f)[2,]) # AIC prefers 3d, BIC prefers 2d
+
+
+
+bind_rows(anova(mod_2pl, mod_cfa),
+          anova(mod_cfa, mod_bif)[2,], # 2pl 1d (and 2d) preferred
+          anova(mod_cfa, mod_2pl_2f)[2,]) # AIC prefers bifactor, BIC favors CFA
+```
+The less conservative AIC prefers 3-factor over 2-factor or unidimensional models, but BIC prefers the simpler models. 
+AIC prefers the bifactor model, while BIC prefers the CFA -- but the unidimensional 2PL is preferred by both criteria. 
