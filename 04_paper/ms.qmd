@@ -146,7 +146,7 @@ knitr:
     ft.arraystretch: 1.25
 
 execute: 
-  #eval: false
+  eval: false
   echo: false
   message: false
   warning: false
