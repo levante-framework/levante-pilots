@@ -338,7 +338,7 @@ task_time_table |>
 ```
 :::
 
-General task lengths are described below and average task durations from pilots (for both CAT and non-CAT versions) are given in @tbl-durations. Because of our interest in testing children across a wide range of ages, we intentionally included trials that we anticipated would be both very easy and very hard for children with the aim of deploying these items adaptively after we had gathered sufficient data. We wanted to avoid frustration for children, however, so during pilot testing, we experimented with a number of different stopping rules. In early iterations of pilot testing in the Colombia site, we ended tasks after three consecutive incorrect trials; we later modified this rule to end tasks after six consecutive incorrect trials. 
+General task lengths are described below and average task durations from pilots (for both adaptive and non-adaptive versions) are given in @tbl-durations. Because of our interest in testing children across a wide range of ages, we intentionally included trials that we anticipated would be both very easy and very hard for children with the aim of deploying these items adaptively after we had gathered sufficient data. We wanted to avoid frustration for children, however, so during pilot testing, we experimented with a number of different stopping rules. In early iterations of pilot testing in the Colombia site, we ended tasks after three consecutive incorrect trials; we later modified this rule to end tasks after six consecutive incorrect trials. 
 
 ## Language 
 
@@ -1677,7 +1677,7 @@ plot(g_lang)
 
 ```{r}
 #| label: fig-age-trends-cat
-#| fig-cap: "Age related trends by task for CAT only children."
+#| fig-cap: "Age related trends by task for children who completed the adaptive versions."
 #| fig-width: 8
 #| fig-height: 8
 
@@ -1696,7 +1696,7 @@ ggplot(cat_only, aes(age, metric_value)) +
   .scale_colour_site() +
   guides(colour = guide_legend(override.aes = list(shape = NA, linetype = 1, linewidth = 2))) +
   labs(x = "Age (years)", y = "Ability (IRT score)", colour = "Site",
-       title = "Ability vs Age (CAT only)") +
+       title = "Ability vs Age (Adaptive only)") +
   theme(legend.position = "bottom")
 
 ```
@@ -1705,7 +1705,7 @@ ggplot(cat_only, aes(age, metric_value)) +
 
 # Adaptive Task Construction
 
-We have already adapted and piloted several of the LEVANTE core tasks as CATs, primarily in the mpieva-de and western_ca pilot sites. To date, these include Sentence Understanding, Vocabulary, Shape Rotation, Pattern Matching, Same and Different, and Math. These tasks maintain an ability score, $\theta$, as an estimate of the participant’s skill level that is updated at the end of each trial. This updated theta is then used to select an item best suited to their estimated ability, which both improves test-taker experience and yields more information on participant skill per item, allowing for a shorter task with fewer items. See @fig-age-trends-cat for age-related ability trends in the tasks currently adapted to the CAT format. These trends mirror those observed in the full dataset (see @fig-age-trends), with similar site-level patterns and positive developmental slopes across domains.
+We have already adapted and piloted several of the LEVANTE core tasks as computer adapted versions, primarily in the mpieva-de and western_ca pilot sites. To date, these include Sentence Understanding, Vocabulary, Shape Rotation, Pattern Matching, Same and Different, and Math. These tasks maintain an ability score, $\theta$, as an estimate of the participant’s skill level that is updated at the end of each trial. This updated theta is then used to select an item best suited to their estimated ability, which both improves test-taker experience and yields more information on participant skill per item, allowing for a shorter task with fewer items. See @fig-age-trends-cat for age-related ability trends in the tasks currently using the adaptive format. These trends mirror those observed in the full dataset (see @fig-age-trends), with similar site-level patterns and positive developmental slopes across domains.
 
 The CAT tasks use an adaptive algorithm made available by the open source jsCat JavaScript library [@ma2025]. The present LEVANTE CAT implementation varies difficulty and guessing for each item while holding both discrimination and upper asymptote constant at 1. Items are selected based on Maximum Fisher Information, and theta is updated according to a maximum likelihood estimator, with limits of -6 and 6. 
 
