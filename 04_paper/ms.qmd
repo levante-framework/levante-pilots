@@ -146,7 +146,7 @@ knitr:
     ft.arraystretch: 1.25
 
 execute: 
-  eval: false
+  #eval: false
   echo: false
   message: false
   warning: false
@@ -316,7 +316,7 @@ The LEVANTE core tasks are brief behavioral assessments that can be delivered in
 
 [^1]: The vocabulary task uses photographs, and the math task shows only text.
 
-![Screenshots from each of the nine LEVANTE core tasks. Top row, from left to right: Sentence Understanding, Vocabulary, Hearts and Flowers; middle row: Memory, Same and Different, Math; bottom row: Pattern Matching, Mental Rotation; Stories.](display/tasks_updated.svg){#fig-tasks}
+![Screenshots from each of the nine LEVANTE core tasks. Top row, from left to right: Sentence Understanding, Vocabulary, Hearts and Flowers; middle row: Memory, Same and Different, Math; bottom row: Pattern Matching, Mental Rotation; Stories.](display/tasks_updated.png){#fig-tasks}
 
 Tasks were implemented using jsPsych [@de-leeuw2015] in a common framework. Illustrations were produced by hand, while auditory stimuli were generated using AI-based voice synthesis tools (<https://elevenlabs.io>), which enabled rapid and iterative revisions without the need for rerecording. The tasks generally share a set of usability features including simple instructions, a small number of practice trials, and buttons to replay audio.
 
@@ -348,7 +348,7 @@ The Test for Reception of Grammar (TROG) [@bishop1982] is a multiple-choice meas
 
 ### Vocabulary
 
-The Vocabulary task was developed as a non-commercial, open alternative to tasks such as the Peabody Picture Vocabulary [@dunn1965] and the NIH Toolbox Picture Vocabulary Task [@nihtoolbox]; see @long_ma_tan_silverman_frank_yeatman_2025 for more details. In this task, children hear a target word read aloud and are shown four pictures. They must identify the picture that matches the word among three distractors. A first set of targets and distractors were sourced from the THINGS+ dataset [@hebart2019things, @stoinski2024thingsplus], specifically from the permissively-licensed subset of the data; in this item subset (108 items) each image had a semantically close and semantically far distractor as well as an unrelated distractor image (e.g., target word “acorn” with close distractor being a “coconut”, and the far and unrelated distractors being “keys” and “laundry”).  Additional difficult items were included beyond those analyzed in @long_ma_tan_silverman_frank_yeatman_2025. These more difficult items were sourced from translated items from an open-sourced Dutch receptive vocabulary assessment tool, the DAIVT [@bousard2021dutch]; we also manually constructed several of our own items to reach a total of 170.
+The Vocabulary task was developed as a non-commercial, open alternative to tasks such as the Peabody Picture Vocabulary [@dunn1965] and the NIH Toolbox Picture Vocabulary Task [@zelazo2013national]; see @long_ma_tan_silverman_frank_yeatman_2025 for more details. In this task, children hear a target word read aloud and are shown four pictures. They must identify the picture that matches the word among three distractors. A first set of targets and distractors were sourced from the THINGS+ dataset [@hebart2019things, @stoinski2024thingsplus], specifically from the permissively-licensed subset of the data; in this item subset (108 items) each image had a semantically close and semantically far distractor as well as an unrelated distractor image (e.g., target word “acorn” with close distractor being a “coconut”, and the far and unrelated distractors being “keys” and “laundry”).  Additional difficult items were included beyond those analyzed in @long_ma_tan_silverman_frank_yeatman_2025. These more difficult items were sourced from translated items from an open-sourced Dutch receptive vocabulary assessment tool, the DAIVT [@bousard2021dutch]; we also manually constructed several of our own items to reach a total of 170.
 
 ## Math
 
@@ -818,124 +818,6 @@ flextable::flextable(deviation_print) |>
 ```
 :::
 
-```{r}
-#| label: fig-em-trends
-#| fig-cap: "Age Slopes by Task"
-#| fig-appendix: true
-#| fig-width: 8
-#| fig-height: 9
-
-slopes_by_task <- function(task_name) {
-  d <- coretask_scores %>% filter(item_task == task_name)
-  d$site  <- factor(d$site)
-  d$age_c <- scale(d$age, scale = FALSE)[, 1]
-  contrasts(d$site) <- contr.sum(nlevels(d$site))
-
-  fit <- lm(metric_value ~ age_c * site, data = d)
-
-  gm <- coef(summary(fit))["age_c", "Estimate"]
-
-  tr_sum <- emtrends(fit, ~ site, var = "age_c") |>
-    summary(infer = c(TRUE, TRUE)) |>
-    as_tibble()
-
-  slope_col <- intersect(names(tr_sum), c("estimate","trend","emmean","age_c.trend"))[1]
-  if (is.na(slope_col)) stop("Could not find slope column in emtrends() summary")
-
-  tr_sum |>
-    transmute(
-      item_task = task_name,
-      site      = .data$site,
-      slope     = .data[[slope_col]],
-      SE        = .data$SE,
-      df        = .data$df,
-      t         = .data$t.ratio,
-      p         = .data$p.value,
-      lower     = .data$lower.CL,
-      upper     = .data$upper.CL,
-      gm_slope  = gm
-    )
-}
-
-slopes_df <- purrr::map_dfr(task_ids, slopes_by_task) %>%                   
-  dplyr::left_join(task_meta, by = "item_task") %>%
-  dplyr::mutate(
-    Site    = forcats::fct_recode(site, !!!site_labels),
-    TaskLab = dplyr::coalesce(task, dplyr::recode(item_task, !!!task_lab_map)),
-    TaskLab = factor(TaskLab, levels = unique(task_meta$task))               
-  )
-
-ggplot(slopes_df, aes(x = slope, y = forcats::fct_rev(Site), colour = Site)) +
-  geom_vline(xintercept = 0, linetype = 3) +
-  geom_vline(data = dplyr::distinct(slopes_df, TaskLab, gm_slope),
-             aes(xintercept = gm_slope),
-             linetype = 2, linewidth = 0.6, colour = "grey40") +
-  geom_errorbarh(aes(xmin = lower, xmax = upper), width = 0) +
-   geom_point(size = 2) +
-  facet_wrap(~ TaskLab, scales = "free_x") +
-  .scale_colour_site() +                                                     
-  labs(x = "Age slope (β per year, estimated marginal trend)",
-       y = NULL, colour = "Site",
-       title = "Site-specific age slopes by task (EMTrends with 95% CI)",
-       subtitle = "Dashed line: task grand-mean slope; dotted line: zero") +
-  theme(legend.position = "bottom")
-```
-
-```{r}
-#| label: fig-predicted-age-slopes
-#| fig-cap: "Predicted Ability v Age"
-#| fig-appendix: true
-#| fig-width: 8
-#| fig-height: 9
-
-pred_curves_augment <- function(task_name) {
-  d <- coretask_scores %>% filter(item_task == task_name)
-  d$site  <- factor(d$site)
-  d$age_c <- scale(d$age, scale = FALSE)[,1]
-  mu_age  <- mean(d$age, na.rm = TRUE)
-
-  fit <- lm(metric_value ~ age_c * site, data = d)
-
-  grid <- expand.grid(
-    age_c = seq(min(d$age_c, na.rm = TRUE),
-                max(d$age_c, na.rm = TRUE),
-                length.out = 100),
-    site  = levels(d$site)
-  )
-
-  broom::augment(fit, newdata = grid, se_fit = TRUE) %>%
-    transmute(
-      item_task = task_name,
-      site      = as.character(site),
-      age       = age_c + mu_age,
-      fit       = .fitted,
-      lower     = .fitted - 1.96*.se.fit,
-      upper     = .fitted + 1.96*.se.fit
-    )
-}
-
-pred_all <- purrr::map_dfr(task_ids, pred_curves_augment) %>%
-  dplyr::left_join(task_meta, by = "item_task") %>%
-  dplyr::mutate(
-    Site    = forcats::fct_recode(site, !!!site_labels),
-    TaskLab = dplyr::coalesce(task, dplyr::recode(item_task, !!!task_lab_map)),
-    TaskLab = factor(TaskLab, levels = unique(task_meta$task))   
-  )
-
-stopifnot(all(c("task_category","TaskLab") %in% names(pred_all)))
-
-ggplot(pred_all, aes(age, fit, colour = Site)) +
-  geom_ribbon(aes(ymin = lower, ymax = upper, fill = Site),
-              alpha = 0.12, colour = NA, show.legend = FALSE) +
-  geom_line(linewidth = 1) +
-  ggh4x::facet_nested_wrap(vars(task_category, TaskLab), scales = "free_y", axes = "x") +
-  .scale_colour_site() +
-  labs(x = "Age (years)", y = "Predicted ability (IRT)",
-       title = "Model-predicted ability vs age by site and task",
-       subtitle = "Lines are marginal predictions from lm(metric_value ~ age_c * site); ribbons = 95% CI") +
-  theme(legend.position = "bottom")
-```
-
 ## Reliability 
 
 One goal for the LEVANTE core tasks is strong reliability both within an individual administration (across test items) and across multiple administrations separated in time. We report on each of these. 
@@ -1157,9 +1039,6 @@ summary(fit_cov_age, fit.measures = TRUE, standardized = TRUE)
 We assessed construct validity using a structural equation model (SEM) specifying three first‐order latent factors—Reasoning, Executive Function, and Language—with each factor measured by its respective tasks and allowed to covary with Math and Stories (see @fig-semplot-core-tasks). Math and Stories were treated as observed endogenous outcomes because each construct had a single task; introducing one-indicator latent variables would require strong, unverifiable assumptions about reliability and error variance. Age was specified to predict each of the latent factors as well as the observed variables Math and Stories.
 
 Model fit was imperfect -- CFI: `r round(lavaan::fitMeasures(fit_cov_age)["cfi"], 3)`, RMSEA: `r round(lavaan::fitMeasures(fit_cov_age)["rmsea"], 3)` RMSEA p-value: `r pval_fmt(lavaan::fitMeasures(fit_cov_age)["rmsea.pvalue"])`. In part we expect that lower model fit may be due to a combination of missing data and site-related differences, which are not accounted for in this specification; future work should pursue more complete models that account for these sources of variability.
-
-Overall, factor loadings supported the intended three-factor structure (convergent validity), and age showed positive associations with each domain. The high inter-factor correlations indicate that much of the variance is shared across domains. Comparison with more parsimonious single-, two-, and three-factor SEMs that did not distinguish Math and Stories showed that none improved fit over the original model (see @tab-alt-models). We therefore retain the three-factor SEM incorporating age effects and treating Math and Stories as observed outcomes, on both conceptual and empirical grounds.
-
 ```{r}
 #| label: fig-semplot-core-tasks
 #| fig-cap: "SEM for core tasks"
@@ -1282,9 +1161,11 @@ g$edges$label_alpha  <- 1
 plot(g)
 
 ```
+\clearpage
 
+Overall, factor loadings supported the intended three-factor structure (convergent validity), and age showed positive associations with each domain. The high inter-factor correlations indicate that much of the variance is shared across domains. Comparison with more parsimonious single-, two-, and three-factor SEMs that did not distinguish Math and Stories showed that none improved fit over the original model (see @tbl-alt-models). We therefore retain the three-factor SEM incorporating age effects and treating Math and Stories as observed outcomes, on both conceptual and empirical grounds.
 ```{r}
-#| label: tab-alt-models
+#| label: tbl-alt-models
 #| tbl-cap: "Comparison of alternative structural models including age as a predictor (robust ML, FIML)"
 
 # single factor model 
@@ -1354,12 +1235,12 @@ fmt_tbl <- fit_tbl %>%
     )
   )
 
-# ft <- flextable(fmt_tbl)
-# ft <- autofit(ft)
-# ft <- align(ft, j = c("Chi-square","p-value","TLI","CFI","RMSEA"), align = "center", part = "all")
-# ft <- bold(ft, j = "Model", bold = TRUE, part = "body")
-# ft <- add_header_lines(ft, values = "Model comparison with age (robust ML, FIML)")
-# ft
+ft <- flextable(fmt_tbl)
+ft <- autofit(ft)
+ft <- align(ft, j = c("Chi-square","p-value","TLI","CFI","RMSEA"), align = "center", part = "all")
+ft <- bold(ft, j = "Model", bold = TRUE, part = "body")
+ft <- add_header_lines(ft, values = "Model comparison with age (robust ML, FIML)")
+ft
 
 
 ```
@@ -1459,8 +1340,8 @@ To assess external validity for the executive function and language tasks, we fi
 nodes <- get_nodes(fit_ef, columns = c("name","shape")) |>
   dplyr::left_join(tibble::tibble(
     name   = c("age","EF","hf","mg","sds","mefs"),
-    pretty = c("Age (years)","Executive Function",
-               "Hearts and Flowers","Memory","Same and Different","MEFS")
+    pretty = c("Age (years)","Executive\nFunction",
+               "Hearts and\nFlowers","Memory","Same and\nDifferent","MEFS")
   ), by = "name") |>
   dplyr::mutate(label = dplyr::coalesce(pretty, name))
 
@@ -1490,33 +1371,53 @@ edges <- pe_ef |>
     )
   ) 
 
-# top-down layout
-layout_ef <- matrix(
-  c(
-    NA, NA, "age", NA, NA,
-    NA, NA, "EF",  NA, NA,
-    "hf","mg", NA, "sds","mefs" 
-  ),
-  nrow = 3, byrow = TRUE
-)
+layout_ef <- as.matrix(readxl::read_excel("ef_sem_layout.xlsx", col_names = FALSE))
+layout_ef[layout_ef == ""] <- NA
+
+# checks
+in_layout_ef <- na.omit(unique(c(layout_ef)))
+stopifnot(setequal(in_layout_ef, nodes$name))   
+stopifnot(!any(duplicated(in_layout_ef)))
 
 g_ef <- tidySEM::prepare_graph(
   edges = edges,
   nodes = nodes,
-  layout = layout_ef,        
-  text_size = 2.8,
-  rect_width = 3.4, rect_height = 1.5,
-  ellipses_width = 5, ellipses_height = 2,
-  variance_height = 3, variance_width = 1.5,
-  arrow_angle = 15, arrow_length = .10,
-  var_arrow_angle = 15, var_arrow_length = .10,
-  spacing_y = 6, spacing_x = 5,
-  fix_coord = TRUE
+  layout = t(layout_ef),
+  text_size = 3.6,
+  rect_width = 7, rect_height = 3.5,
+  ellipses_width = 7, ellipses_height = 3.5,
+  variance_height = 2.5, variance_width = 2,
+  arrow_angle = 15, arrow_length = .2,
+  var_arrow_angle = 15, var_arrow_length = .1,
+  spacing_y = 5, spacing_x = 7,
+  fix_coord = FALSE
 )
 
+# colours
+g_ef$nodes$fill <- dplyr::case_when(
+  g_ef$nodes$shape == "oval"      ~ "#E8F2FF",
+  g_ef$nodes$name  == "log_age_c" ~ "#FFF2E0",
+  TRUE                         ~ "#F5F5F5"
+)
+g_ef$nodes$colour <- "#1F1F1F"
+g_ef$nodes$font   <- "#1F1F1F"
+
+# edge colours
+g_ef$edges$colour <- dplyr::case_when(
+  g_ef$edges$op == "=~" ~ "#1B9E77",
+  g_ef$edges$op == "~"  ~ "#386CB0",
+  g_ef$edges$op == "~~" ~ "#6B6B6B",
+  TRUE               ~ "#000000"
+)
+g_ef$edges$linetype[g_ef$edges$op == "~~"] <- 2L
+g_ef$edges$linetype[g_ef$edges$op != "~~"] <- 1L
+g_ef$edges$size <- 0.6
+
+# labels
+g_ef$nodes$geom_text <- TRUE
 g_ef$edges$label_fill   <- "white"
-g_ef$edges$label_colour <- "black"
-g_ef$edges$label_size   <- 2.8
+g_ef$edges$label_colour <- "#1F1F1F"
+g_ef$edges$label_alpha  <- 1
 
 plot(g_ef)
 ```
@@ -1609,9 +1510,9 @@ nodes_lang <- get_nodes(fit_lang, columns = c("name","shape")) |>
   dplyr::left_join(tibble::tibble(
     name   = c("age","Language","trog","vocab","swr","sre","pa"),
     pretty = c("Age (years)","Language",
-               "Sentence Understanding","Vocabulary",
-               "ROAR-Word","ROAR-Sentence",
-               "ROAR-Phoneme")
+               "Sentence\nUnderstanding","Vocabulary",
+               "ROAR\nWord","ROAR\nSentence",
+               "ROAR\nPhoneme")
   ), by = "name") |>
   dplyr::mutate(label = dplyr::coalesce(pretty, name))
 
@@ -1626,9 +1527,9 @@ edges_lang <- pe_lang |>
     to   = dplyr::if_else(op == "~", lhs, rhs),
     std.all, pvalue,
     arrow = dplyr::case_when(
-      op == "~~" & lhs == rhs ~ "both",     
-      op == "~~" & lhs != rhs ~ "none",     
-      TRUE ~ "last"                         
+      op == "~~" & lhs == rhs ~ "both",
+      op == "~~" & lhs != rhs ~ "none",
+      TRUE ~ "last"
     ),
     curvature = dplyr::if_else(op == "~~" & lhs != rhs, 50, NA_real_),
     linetype  = dplyr::if_else(op == "~~" & lhs != rhs, 2L, 1L),
@@ -1636,44 +1537,73 @@ edges_lang <- pe_lang |>
       op %in% c("~","=~") ~ sprintf("%.2f%s", std.all,
         dplyr::case_when(pvalue < .001 ~ "***",
                          pvalue < .01  ~ "**",
-                         pvalue < .05  ~ "*", TRUE ~ "")),
+                         pvalue < .05  ~ "*",
+                         TRUE          ~ "")),
       TRUE ~ sprintf("%.2f", std.all)
     )
-  ) 
+  )
 
-# top-down layout
-layout_lang <- matrix(
-  c(
-    NA, NA, "age", NA, NA, NA,
-    NA, NA, NA, NA, NA, NA,
-    NA, NA, "Language", NA, NA, NA, 
-    NA, NA, NA, NA, NA, NA,
-    "trog","vocab", NA, NA, NA,
-    NA, NA, NA, "swr","sre","pa"         
-  ),
-  nrow = 6, byrow = TRUE
-)
+layout_lang <- as.matrix(readxl::read_excel("lang_sem_layout.xlsx", col_names = FALSE))
+layout_lang[layout_lang == ""] <- NA
+
+# checks
+in_layout_lang <- na.omit(unique(c(layout_lang)))
+stopifnot(setequal(in_layout_lang, nodes_lang$name))
+stopifnot(!any(duplicated(in_layout_lang)))
 
 g_lang <- tidySEM::prepare_graph(
   edges = edges_lang,
   nodes = nodes_lang,
-  layout = layout_lang,        
-  text_size = 2.8,
-  rect_width = 3.6, rect_height = 3,
-  ellipses_width = 5, ellipses_height = 4,
-  spacing_x = 5,
-  spacing_y = 6,
-  variance_height = 3, variance_width = 2,
-  arrow_angle = 15, arrow_length = .10,
+  layout = t(layout_lang),
+  text_size = 3.6,
+  rect_width = 8.5, rect_height = 3.5,
+  ellipses_width = 6, ellipses_height = 3.5,
+  variance_height = 2.5, variance_width = 2,
+  arrow_angle = 15, arrow_length = .2,
+  var_arrow_angle = 15, var_arrow_length = .1,
+  spacing_y = 5, spacing_x = 7,
   fix_coord = FALSE
 )
 
+# colours
+g_lang$nodes$fill <- dplyr::case_when(
+  g_lang$nodes$shape == "oval" ~ "#E8F2FF",
+  g_lang$nodes$name  == "age"  ~ "#FFF2E0",
+  TRUE                         ~ "#F5F5F5"
+)
+g_lang$nodes$colour <- "#1F1F1F"
+g_lang$nodes$font   <- "#1F1F1F"
+
+# edge colours
+g_lang$edges$colour <- dplyr::case_when(
+  g_lang$edges$op == "=~" ~ "#1B9E77",
+  g_lang$edges$op == "~"  ~ "#386CB0",
+  g_lang$edges$op == "~~" ~ "#6B6B6B",
+  TRUE                    ~ "#000000"
+)
+g_lang$edges$linetype[g_lang$edges$op == "~~"] <- 2L
+g_lang$edges$linetype[g_lang$edges$op != "~~"] <- 1L
+g_lang$edges$size <- 0.6
+
+# labels
+g_lang$nodes$geom_text   <- TRUE
 g_lang$edges$label_fill   <- "white"
-g_lang$edges$label_colour <- "black"
-g_lang$edges$label_size   <- 3
+g_lang$edges$label_colour <- "#1F1F1F"
+g_lang$edges$label_alpha  <- 1
 
 plot(g_lang)
 ```
+\clearpage
+
+# Adaptive Task Construction
+
+We have already adapted and piloted several of the LEVANTE core tasks as computer adapted versions, primarily in the mpieva-de and western_ca pilot sites. To date, these include Sentence Understanding, Vocabulary, Shape Rotation, Pattern Matching, Same and Different, and Math. These tasks maintain an ability score, $\theta$, as an estimate of the participant’s skill level that is updated at the end of each trial. This updated theta is then used to select an item best suited to their estimated ability, which both improves test-taker experience and yields more information on participant skill per item, allowing for a shorter task with fewer items. See @fig-age-trends-cat for age-related ability trends in the tasks currently using the adaptive format. These trends mirror those observed in the full dataset (see @fig-age-trends), with similar site-level patterns and positive developmental slopes across domains.
+
+The CAT tasks use an adaptive algorithm made available by the open source jsCat JavaScript library [@ma2025]. The present LEVANTE CAT implementation varies difficulty and guessing for each item while holding both discrimination and upper asymptote constant at 1. Items are selected based on Maximum Fisher Information, and theta is updated according to a maximum likelihood estimator, with limits of -6 and 6. The LEVANTE CATs are configurable with respect to the initial value of $\theta$ and the conditions for ending the task. The starting $\theta$ is set at 0 for all CAT tasks currently in use, but can be lowered or raised according to the researcher’s prior expectation of participant ability, for example according to age.
+
+Current CAT implementations use time-based stopping rules to facilitate group testing so that all children end at approximately the same time. Sentence Understanding, Shape Rotation, and Vocabulary each have time limits currently set to 4 minutes. Pattern Matching was set to 6 minutes to allow for the increased time typically required to complete items in this task. Items in these tasks are presented together in a single block. 
+
+Same and Different and Math are each divided into three blocks presented sequentially, with per-block stopping based on number of items. These CATs select from the list of items specific to their current block and proceed to the next block once the target number of items is reached, maintaining one overarching ability estimate for the entire task. Same and Different and Math have time limits of 6 minutes and 8 minutes, respectively. 
 
 ```{r}
 #| label: fig-age-trends-cat
@@ -1695,23 +1625,11 @@ ggplot(cat_only, aes(age, metric_value)) +
   scale_x_continuous(breaks = seq(6, 14, 2)) +
   .scale_colour_site() +
   guides(colour = guide_legend(override.aes = list(shape = NA, linetype = 1, linewidth = 2))) +
-  labs(x = "Age (years)", y = "Ability (IRT score)", colour = "Site",
-       title = "Ability vs Age (Adaptive only)") +
-  theme(legend.position = "bottom")
-
+  labs(x = "Age (years)", y = "Ability (IRT score)", colour = "Site"
+       +  theme(legend.position = "bottom")
+       )
 ```
-
 \clearpage
-
-# Adaptive Task Construction
-
-We have already adapted and piloted several of the LEVANTE core tasks as computer adapted versions, primarily in the mpieva-de and western_ca pilot sites. To date, these include Sentence Understanding, Vocabulary, Shape Rotation, Pattern Matching, Same and Different, and Math. These tasks maintain an ability score, $\theta$, as an estimate of the participant’s skill level that is updated at the end of each trial. This updated theta is then used to select an item best suited to their estimated ability, which both improves test-taker experience and yields more information on participant skill per item, allowing for a shorter task with fewer items. See @fig-age-trends-cat for age-related ability trends in the tasks currently using the adaptive format. These trends mirror those observed in the full dataset (see @fig-age-trends), with similar site-level patterns and positive developmental slopes across domains.
-
-The CAT tasks use an adaptive algorithm made available by the open source jsCat JavaScript library [@ma2025]. The present LEVANTE CAT implementation varies difficulty and guessing for each item while holding both discrimination and upper asymptote constant at 1. Items are selected based on Maximum Fisher Information, and theta is updated according to a maximum likelihood estimator, with limits of -6 and 6. 
-
-The LEVANTE CATs are configurable with respect to the initial value of $\theta$ and the conditions for ending the task. The starting $\theta$ is set at 0 for all CAT tasks currently in use, but can be lowered or raised according to the researcher’s prior expectation of participant ability, for example according to age. Current CAT implementations use time-based stopping rules to facilitate group testing so that all children end at approximately the same time. Sentence Understanding, Shape Rotation, and Vocabulary each have time limits currently set to 4 minutes. Pattern Matching was set to 6 minutes to allow for the increased time typically required to complete items in this task. Items in these tasks are presented together in a single block. 
-
-Same and Different and Math are each divided into three blocks presented sequentially, with per-block stopping based on number of items. These CATs select from the list of items specific to their current block and proceed to the next block once the target number of items is reached, maintaining one overarching ability estimate for the entire task. Same and Different and Math have time limits of 6 minutes and 8 minutes, respectively. 
 
 # General Discussion
 
@@ -1736,12 +1654,124 @@ In sum, we have taken steps here towards creating a core set of tasks for measur
 ::: {#refs}
 :::
 
-# Appendix
+# Age Slopes by Task {.appendix #apx-em-trends}
+```{r}
+#| label: fig-em-trends
+#| #fig-cap: "Age Slopes by Task"
+#| fig-width: 8
+#| fig-height: 9
+#| fig-pos: 'H'
 
-# Age Slopes by Task {#apx-em-trends}
 
-# Predicted Ability v Age {#apx-predicted-age-slopes}
+slopes_by_task <- function(task_name) {
+  d <- coretask_scores %>% filter(item_task == task_name)
+  d$site  <- factor(d$site)
+  d$age_c <- scale(d$age, scale = FALSE)[, 1]
+  contrasts(d$site) <- contr.sum(nlevels(d$site))
 
+  fit <- lm(metric_value ~ age_c * site, data = d)
 
+  gm <- coef(summary(fit))["age_c", "Estimate"]
 
+  tr_sum <- emtrends(fit, ~ site, var = "age_c") |>
+    summary(infer = c(TRUE, TRUE)) |>
+    as_tibble()
 
+  slope_col <- intersect(names(tr_sum), c("estimate","trend","emmean","age_c.trend"))[1]
+  if (is.na(slope_col)) stop("Could not find slope column in emtrends() summary")
+
+  tr_sum |>
+    transmute(
+      item_task = task_name,
+      site      = .data$site,
+      slope     = .data[[slope_col]],
+      SE        = .data$SE,
+      df        = .data$df,
+      t         = .data$t.ratio,
+      p         = .data$p.value,
+      lower     = .data$lower.CL,
+      upper     = .data$upper.CL,
+      gm_slope  = gm
+    )
+}
+
+slopes_df <- purrr::map_dfr(task_ids, slopes_by_task) %>%                   
+  dplyr::left_join(task_meta, by = "item_task") %>%
+  dplyr::mutate(
+    Site    = forcats::fct_recode(site, !!!site_labels),
+    TaskLab = dplyr::coalesce(task, dplyr::recode(item_task, !!!task_lab_map)),
+    TaskLab = factor(TaskLab, levels = unique(task_meta$task))               
+  )
+
+ggplot(slopes_df, aes(x = slope, y = forcats::fct_rev(Site), colour = Site)) +
+  geom_vline(xintercept = 0, linetype = 3) +
+  geom_vline(data = dplyr::distinct(slopes_df, TaskLab, gm_slope),
+             aes(xintercept = gm_slope),
+             linetype = 2, linewidth = 0.6, colour = "grey40") +
+  geom_errorbarh(aes(xmin = lower, xmax = upper), width = 0) +
+   geom_point(size = 2) +
+  facet_wrap(~ TaskLab, scales = "free_x") +
+  .scale_colour_site() +                                                     
+  labs(x = "Age slope (β per year, estimated marginal trend)",
+       y = NULL, colour = "Site",
+       title = "Site-specific age slopes by task (EMTrends with 95% CI)",
+       subtitle = "Dashed line: task grand-mean slope; dotted line: zero") +
+  theme(legend.position = "bottom")
+```
+
+# Predicted Ability v Age {.appendix #apx-predicted-age-slopes}
+
+```{r}
+#| label: fig-predicted-age-slopes
+#| #fig-cap: "Predicted Ability v Age"
+#| fig-width: 8
+#| fig-height: 9
+#| fig-pos: 'H'
+
+pred_curves_augment <- function(task_name) {
+  d <- coretask_scores %>% filter(item_task == task_name)
+  d$site  <- factor(d$site)
+  d$age_c <- scale(d$age, scale = FALSE)[,1]
+  mu_age  <- mean(d$age, na.rm = TRUE)
+
+  fit <- lm(metric_value ~ age_c * site, data = d)
+
+  grid <- expand.grid(
+    age_c = seq(min(d$age_c, na.rm = TRUE),
+                max(d$age_c, na.rm = TRUE),
+                length.out = 100),
+    site  = levels(d$site)
+  )
+
+  broom::augment(fit, newdata = grid, se_fit = TRUE) %>%
+    transmute(
+      item_task = task_name,
+      site      = as.character(site),
+      age       = age_c + mu_age,
+      fit       = .fitted,
+      lower     = .fitted - 1.96*.se.fit,
+      upper     = .fitted + 1.96*.se.fit
+    )
+}
+
+pred_all <- purrr::map_dfr(task_ids, pred_curves_augment) %>%
+  dplyr::left_join(task_meta, by = "item_task") %>%
+  dplyr::mutate(
+    Site    = forcats::fct_recode(site, !!!site_labels),
+    TaskLab = dplyr::coalesce(task, dplyr::recode(item_task, !!!task_lab_map)),
+    TaskLab = factor(TaskLab, levels = unique(task_meta$task))   
+  )
+
+stopifnot(all(c("task_category","TaskLab") %in% names(pred_all)))
+
+ggplot(pred_all, aes(age, fit, colour = Site)) +
+  geom_ribbon(aes(ymin = lower, ymax = upper, fill = Site),
+              alpha = 0.12, colour = NA, show.legend = FALSE) +
+  geom_line(linewidth = 1) +
+  ggh4x::facet_nested_wrap(vars(task_category, TaskLab), scales = "free_y", axes = "x") +
+  .scale_colour_site() +
+  labs(x = "Age (years)", y = "Predicted ability (IRT)",
+       title = "Model-predicted ability vs age by site and task",
+       subtitle = "Lines are marginal predictions from lm(metric_value ~ age_c * site); ribbons = 95% CI") +
+  theme(legend.position = "bottom")
+```
