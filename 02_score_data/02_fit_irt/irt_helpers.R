@@ -110,22 +110,22 @@ generate_model_str <- function(df, df_prepped, item_type, f) { # f = num factors
 # generates the mirt model strings
 # this is a version of the above function that generates constraint strings with numerical indices 
 # names seems to throw an error for multigroup?
-generate_model_str_numeric <- function(df, df_prepped, item_type, f) { # f = num factors
-  params <- "d" # always have difficulty
-  prior <- ""
-  
+generate_model_str_numeric <- function(df, df_prepped, item_type, f, priors = NULL) { # f = num factors
+
   items <- df |> pull(item_uid) |> unique() # item ids
-  #items <- df_prepped |> colnames() # note if columns are dropped in prep, this fixes matters.
+
+  # F[i] = 1-K statement for each factor
+  factors <- map_chr(1:f, \(i) glue("F{i} = 1-{ncol(df_prepped)}"))
   
+  params <- "d" # always have difficulty
   if (item_type != "Rasch") {
     # add slopes a[i] based on parameterization
     s <- as.numeric(str_extract(item_type, "^\\d")) - 1
     params <- c(params, paste0("a", 1:s))
-    #prior <- paste0("PRIOR = (1-", length(items), ", a0, norm, 0, 5)") # do these need to be named items?
   }
+  
   constraints <- items |> map(\(item_uid) {
     # get columns with item's instances
-    # matched_idx <- which(str_detect(colnames(df_prepped), paste0(item_uid, item_sep)))
     matched_idx <- which(str_detect(colnames(df_prepped), glue("^{item_uid}{item_sep}")))
     
     if (length(matched_idx) > 1) {
@@ -134,8 +134,11 @@ generate_model_str_numeric <- function(df, df_prepped, item_type, f) { # f = num
     }
   }) |> compact() |> paste_c() # combine into CONSTRAIN statement
   constraint <- if (str_length(constraints) > 1) paste0("CONSTRAIN=", constraints) else ""
-  # F[i] = 1-K statement for each factor
-  factors <- map_chr(1:f, \(i) glue("F{i} = 1-{ncol(df_prepped)}"))
+  
+  # PRIOR = (2-3, 5, d, norm, 0, 1), (4, d, norm, 0, 0.5)')
+  prior_terms <- priors |> imap(\(pr, param) glue("(1-{length(items)},{paste(c(param, pr),collapse = ',')})"))
+  prior <- if (length(prior_terms) > 0) glue("PRIOR={paste(prior_terms, collapse = ',')}") else ""
+  
   # combine statements
   paste(c(factors, constraint, prior), collapse = "\n")
 }

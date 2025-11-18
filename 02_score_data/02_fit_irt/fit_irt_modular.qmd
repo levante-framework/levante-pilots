@@ -52,6 +52,9 @@ models_pooled <- tribble(
        1,   "Rasch",
        1,   "2PL"
 )
+
+# define priors (list where names are parameter names and values are vectors with priorType, val1, val2)
+priors <- list(d = c("norm", 0, 3), a1 = c("norm", 1, 0.3))
 ```
 
 ```{r}
@@ -92,6 +95,7 @@ cluster |>
   cluster_assign_each(task = irt_tasks) |>
   cluster_send(fit_bylanguage_task(task_data = task_data_irt,
                                    models = models_pooled,
+                                   prior = priors,
                                    task = task,
                                    registry_dir = regdir))
 
@@ -100,6 +104,7 @@ cluster |>
   cluster_assign_each(task = irt_tasks) |>
   cluster_send(fit_task_models_multigroup(task_data = task_data_irt,
                                           models = models_multigroup,
+                                          prior = priors,
                                           task = task,
                                           group = site,
                                           registry_dir = regdir))
@@ -108,20 +113,24 @@ cluster |>
 ```{r}
 # fit_bylanguage_task(task_data = task_data_irt,
 #                     models = models_pooled,
+#                     prior = priors,
 #                     task = "hf",
 #                     registry_dir = regdir)
 # 
 # irt_tasks |> map(\(tsk) {
 #   fit_bylanguage_task(task_data = task_data_irt,
 #                       models = models_pooled,
+#                       priors = priors,
 #                       task = tsk,
 #                       registry_dir = regdir)
 # })
 # 
 # fit_task_models_multigroup(task_data = task_data_irt,
 #                            models = models_multigroup,
+#                            prior = priors,
 #                            task = "hf",
 #                            group = site,
-#                            overlap_items = TRUE,
+#                            registry_dir = regdir)
 # 
+# fit_task_models_pooled(task_data_irt, models_pooled, priors, "mrot", language, "de", regdir)
 ```

@@ -8,7 +8,7 @@ invariances <- list(
 )
 
 # for a given task + subsetting variable/value, fit set of pooled models
-fit_task_models_pooled <- \(task_data, models, task, subset_var, subset_val, registry_dir) {
+fit_task_models_pooled <- \(task_data, models, priors, task, subset_var, subset_val, registry_dir) {
   
   subset_var <- enquo(subset_var)
   var_name <- as_name(subset_var)
@@ -37,7 +37,7 @@ fit_task_models_pooled <- \(task_data, models, task, subset_var, subset_val, reg
       message(glue("fitting {task} {subset_val} model ({nfact} factor {itemtype})"))
       
       # generate model string with item constraints + dimensionality
-      model_str <- generate_model_str_numeric(data_filtered, data_prepped, itemtype, nfact)
+      model_str <- generate_model_str_numeric(data_filtered, data_prepped, itemtype, nfact, priors)
       
       # fit model!
       mod <- mirt(
@@ -59,22 +59,22 @@ fit_task_models_pooled <- \(task_data, models, task, subset_var, subset_val, reg
 }
 
 # wrapper: given task, fit by_language model for each language
-fit_bylanguage_task <- \(task_data, models, task, registry_dir) {
+fit_bylanguage_task <- \(task_data, models, priors, task, registry_dir) {
   task_data |> filter(item_task == task) |> pull(language) |> unique() |>
-    walk(\(lang) fit_task_models_pooled(task_data, models, task, language, lang, registry_dir),
+    walk(\(lang) fit_task_models_pooled(task_data, models, priors, task, language, lang, registry_dir),
          .progress = TRUE)
 }
 
 # wrapper: given language, fit by_language model for each task
-fit_bylanguage_lang <- \(task_data, models, lang, registry_dir) {
+fit_bylanguage_lang <- \(task_data, models, priors, lang, registry_dir) {
   task_data |> filter(language == lang) |> pull(item_task) |> unique() |>
-    walk(\(task) fit_task_models_pooled(task_data, models, task, language, lang, registry_dir),
+    walk(\(task) fit_task_models_pooled(task_data, models, priors, task, language, lang, registry_dir),
          .progress = TRUE)
 }
 
 
 # for a given task and group variable, fit and record set of multigroup models
-fit_task_models_multigroup <- \(task_data, models, task, group = site,
+fit_task_models_multigroup <- \(task_data, models, priors, task, group = site,
                                 registry_dir) {
   
   group <- enquo(group)
@@ -110,7 +110,7 @@ fit_task_models_multigroup <- \(task_data, models, task, group = site,
       message(glue("fitting {task} multigroup model ({nfact} factor {itemtype} with {invariance} invariance)"))
       
       # generate model string with item constraints + dimensionality
-      model_str_overlap <- generate_model_str_numeric(data_filtered_overlap, data_prepped_overlap, itemtype, nfact)
+      model_str_overlap <- generate_model_str_numeric(data_filtered_overlap, data_prepped_overlap, itemtype, nfact, priors)
       
       # fit overlap items model
       mod_overlap <- multipleGroup(
@@ -151,7 +151,7 @@ fit_task_models_multigroup <- \(task_data, models, task, group = site,
         select(-item) |>
         distinct()
       
-      model_str_full <- generate_model_str_numeric(data_filtered_full, data_prepped_full, itemtype, nfact) #, exclude = fixed_items)
+      model_str_full <- generate_model_str_numeric(data_filtered_full, data_prepped_full, itemtype, nfact, priors)
       # set up parameter structure of full model
       mod_pars <- multipleGroup(
         data = data_prepped_full,
@@ -203,20 +203,24 @@ fit_task_models_multigroup <- \(task_data, models, task, group = site,
 
 # fit one task + one language
 # fit_task_models_pooled(task_data = task_data_irt, models = models_pooled,
+#                        priors = list(d = c("norm", 0, 3), a1 = c("norm", 1, 0.3)),
 #                        task = "hf", subset_var = language, subset_val = "en")
 
 # fit one task + all languages
 # fit_bylanguage_task(task_data = task_data_irt, models = models_pooled,
+#                        priors = list(d = c("norm", 0, 3), a1 = c("norm", 1, 0.3)),
 #                 task = "mrot2d", registry_dir = regdir)
 
 # fit all tasks + one language
 # fit_bylanguage_lang(task_data = task_data_irt, models = models_pooled,
-#                 lang = "en_us", registry_dir = regdir)
+#                     priors = list(d = c("norm", 0, 3), a1 = c("norm", 1, 0.3)),
+#                     lang = "en_us", registry_dir = regdir)
 
 # fit all irt tasks + all languages
 # irt_tasks |>
 #   walk(\(task) fit_bylanguage_task(task_data = task_data_irt,
 #                                 models = models_pooled,
+#                                 priors = list(d = c("norm", 0, 3), a1 = c("norm", 1, 0.3)),
 #                                 task = task,
 #                                 registry_dir = regdir))
 
@@ -231,6 +235,7 @@ fit_task_models_multigroup <- \(task_data, models, task, group = site,
 # irt_tasks |>
 #   walk(\(task) fit_task_models_multigroup(task_data = task_data_irt,
 #                                           models = models_multigroup,
+#                                           priors = list(d = c("norm", 0, 3), a1 = c("norm", 1, 0.3)),
 #                                           task = task,
 #                                           group = site,
 #                                           registry_dir = regdir))
