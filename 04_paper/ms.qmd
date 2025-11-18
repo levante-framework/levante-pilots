@@ -146,7 +146,7 @@ knitr:
     ft.arraystretch: 1.25
 
 execute: 
-  #eval: false
+  eval: false
   echo: false
   message: false
   warning: false
@@ -219,7 +219,7 @@ In addition to the constructs described above, we were also interested in the as
 
 ```{r}
 #| label: tbl-tasks
-#| tbl-cap: "The LEVANTE core tasks, presented with their internal label as well as prior labels used in the literature."
+#| tbl-cap: "The LEVANTE core tasks, presented with their simplified labels as well as prior labels used in the literature."
 
 gray_border <- officer::fp_border(color = "gray")
 task_table <- tribble(
@@ -316,7 +316,7 @@ The LEVANTE core tasks are brief behavioral assessments that can be delivered in
 
 [^1]: The vocabulary task uses photographs, and the math task shows only text.
 
-![Screenshots from each of the nine LEVANTE core tasks. Top row, from left to right: Sentence Understanding, Vocabulary, Hearts and Flowers; middle row: Memory, Same and Different, Math; bottom row: Pattern Matching, Mental Rotation; Stories.](display/tasks.png){#fig-tasks}
+![Screenshots from each of the nine LEVANTE core tasks. Top row, from left to right: Sentence Understanding, Vocabulary, Hearts and Flowers; middle row: Memory, Same and Different, Math; bottom row: Pattern Matching, Mental Rotation; Stories.](display/tasks_updated.svg){#fig-tasks}
 
 Tasks were implemented using jsPsych [@de-leeuw2015] in a common framework. Illustrations were produced by hand, while auditory stimuli were generated using AI-based voice synthesis tools (<https://elevenlabs.io>), which enabled rapid and iterative revisions without the need for rerecording. The tasks generally share a set of usability features including simple instructions, a small number of practice trials, and buttons to replay audio.
 
@@ -338,7 +338,7 @@ task_time_table |>
 ```
 :::
 
-General task lengths are described below and average task durations from pilots (for both CAT and non-CAT versions) are given in @tbl-durations. Because of our interest in testing children across a wide range of ages, we intentionally included trials that we anticipated would be both very easy and very hard for children with the aim of deploying these items adaptively after we had gathered sufficient data. We wanted to avoid frustration for children, however, so during pilot testing, we experimented with a number of different stopping rules. In early iterations of pilot testing in the Colombia site, we ended tasks after three consecutive incorrect trials; we later modified this rule to end tasks after six consecutive incorrect trials. 
+General task lengths are described below and average task durations from pilots (for both adaptive and non-adaptive versions) are given in @tbl-durations. Because of our interest in testing children across a wide range of ages, we intentionally included trials that we anticipated would be both very easy and very hard for children with the aim of deploying these items adaptively after we had gathered sufficient data. We wanted to avoid frustration for children, however, so during pilot testing, we experimented with a number of different stopping rules. In early iterations of pilot testing in the Colombia site, we ended tasks after three consecutive incorrect trials; we later modified this rule to end tasks after six consecutive incorrect trials. 
 
 ## Language 
 
@@ -575,19 +575,14 @@ Within the included runs, there were a total of `{r} total_trial_counts$n_trials
 
 The Universidad de Los Andes conducted school-based data collection across four schools in Bogotá and three schools in the rural areas of Caquetá and Boyacá, Colombia. By partnering with schools, the research team oversaw task data collection with children using a group testing format on tablets provided by the team. Children were tested in groups, with larger groups for older children and smaller groups for younger children. The uniandes-co site collected data from `{r} user_totals$n_users[user_totals$site == "uniandes-co"]` children ages 5--12 years. Due to time constraints for school-based administration, children typically completed a subset of the tasks. 
 
-SITE-DESCRIPTION PLACEHOLDER: INSERT 2-3 SENTENCES CHARACTERIZING SITE POPULATION AND HOW THE SAMPLE WAS SELECTED.
-
 ## mpieva-de
 
-The Max Planck Institute for Evolutionary Anthropology collected data using family-based remote data collection. Participants were recruited via an existing database of Leipzig families by first contacting families via telephone with an invitation to participate in the study. Upon agreement, families received an email with information to log into the LEVANTE system and complete the tasks assigned to them at home using their own computer or tablet. This site provided retest data with follow-up assignments sent to families 4--5 months after initial completion of the tasks. The mpieva-de site collected data from `r user_totals$n_users[user_totals$site == "mpieva-de"]` children, ages 5--12 years. 
-
-SITE-DESCRIPTION PLACEHOLDER: INSERT 2-3 SENTENCES CHARACTERIZING SITE POPULATION AND HOW THE SAMPLE WAS SELECTED.
+Data for the mpieva-de site were collected by the Max Planck Institute for Evolutionary Anthropology using family-based remote assessment. Families were recruited through an existing database of Leipzig residents and were first contacted by telephone to invite participation. A total of `r user_totals$n_users[user_totals$site == "mpieva-de"]` children, aged 5--12 years participated. Families who agreed to partake received login instructions to complete the assigned LEVANTE tasks at home using their own computer or tablet. Mpieva-de also provided retest data, with follow-up assessments administered 4–5 months after the initial session. Participants were drawn from Leipzig, a medium-sized urban center of approximately 620,000 residents that is culturally diverse, with around 17% of the population having a migration background (primarily from Syria, Ukraine, and the Russian Federation). The population is highly educated, with most adults completing at least nine years of formal schooling and many holding high school and university degrees. Most children in Leipzig attend subsidized external childcare from infancy through primary school.
 
 ## western-ca
 
-Partners at Western University (Ontario) recruited participants from the local community, primarily through online outreach (Facebook advertisements and community group posts), supplemented by posters on neighborhood mailboxes and notices shared via local school newsletters. Children were tested individually by a researcher in a dedicated testing space on campus. The western-ca site collected data from `r user_totals$n_users[user_totals$site == "western-ca"]` children, ages 5-12 years. 
+Partners at Western University (Ontario) recruited participants from the local community, primarily through online outreach (Facebook advertisements and community group posts), supplemented by posters on neighborhood mailboxes and notices shared via local school newsletters. Interested families voluntarily registered to be included in our participant database. Children were tested individually by a researcher in a dedicated testing space on campus. The western-ca site collected data from `r user_totals$n_users[user_totals$site == "western-ca"]` children, ages 5-12 years (100 male, 74 female). Families were primarily recruited from London, Ontario, with a smaller subset from the Greater Toronto Area (GTA), both predominantly urban regions. According to recent census estimates, London residents have a mean education level of some postsecondary education, and the median household income is approximately $80,000 CAD. 
 
-SITE-DESCRIPTION PLACEHOLDER: INSERT 2-3 SENTENCES CHARACTERIZING SITE POPULATION AND HOW THE SAMPLE WAS SELECTED.
 
 # Scoring
 
@@ -687,8 +682,11 @@ fmt_p <- function(p) case_when(
 #| fig-width: 8
 #| fig-height: 9
 
-# remove CAT data
-fixed_only <- coretask_scores %>% filter(adaptive == FALSE)
+# remove CAT data, remove Columbian data from memory task
+fixed_only <- coretask_scores %>% 
+  filter(adaptive == FALSE) %>%
+  # drop Colombia (uniandes-co) *only* for Memory
+  filter(!(task == "Memory" & site_label == "uniandes-co"))
 
 ggplot(fixed_only, aes(age, metric_value)) +
   ggh4x::facet_nested_wrap(vars(task_category, task),
@@ -699,7 +697,8 @@ ggplot(fixed_only, aes(age, metric_value)) +
   geom_point(aes(colour = site_label), alpha = 0.3, size = 1) +
   scale_x_continuous(breaks = seq(6, 14, 2)) +
   .scale_colour_site() +
-  guides(colour = guide_legend(override.aes = list(shape = NA, linetype = 1, linewidth = 2))) +
+  guides(colour = guide_legend(
+    override.aes = list(shape = NA, linetype = 1, linewidth = 2))) +
   labs(x = "Age (years)", y = "Ability (IRT score)", colour = "Site") +
   theme(legend.position = "bottom")
 ```
@@ -943,7 +942,7 @@ One goal for the LEVANTE core tasks is strong reliability both within an individ
 
 ### Marginal reliability
 
-Marginal reliability, an IRT-based analogue to Cronbach’s α, quantifies the proportion of true-score variance captured by the test based on the item information function [@thissen2001test]. IRT models allow the computation of marginal reliability, which captures the inter-relatedness of items in an assessment and hence the proportion of variation attributed to shared variance. In multi-group IRT models, marginal reliabilities can be computed only for individual sub-models. @tbl-task-rxx shows marginal reliabilities for each task, reporting reliability for each sub-model for the best fitting model. Reliabilities were largely acceptable (>.6) [@nunnally1978psychometric], with the exception of the Stories and the Hearts and Flowers tasks, which had lower reliabilities for several sites.
+Marginal reliability, an IRT-based analogue to Cronbach’s α, quantifies the proportion of true-score variance captured by a test based on the item information function [@thissen2001test]. Unlike classical coefficients, which assume uniform measurement precision across the ability range, marginal reliability incorporates the fact that precision varies across θ and estimates overall reliability by integrating information across the assumed population distribution [@embretson2013]. In multi-group IRT models, marginal reliability is computed separately for each site-specific sub-model. @tbl-task-rxx reports marginal reliabilities for each task and site from the best-fitting model. Reliabilities were largely acceptable (>.60) [@nunnally1978psychometric], with the exception of the Stories and Hearts & Flowers tasks, which showed lower reliability in several sites.
 
 ```{r}
 #| label: tbl-task-rxx
@@ -1678,7 +1677,7 @@ plot(g_lang)
 
 ```{r}
 #| label: fig-age-trends-cat
-#| fig-cap: "Age related trends by task for CAT only children."
+#| fig-cap: "Age related trends by task for children who completed the adaptive versions."
 #| fig-width: 8
 #| fig-height: 8
 
@@ -1697,7 +1696,7 @@ ggplot(cat_only, aes(age, metric_value)) +
   .scale_colour_site() +
   guides(colour = guide_legend(override.aes = list(shape = NA, linetype = 1, linewidth = 2))) +
   labs(x = "Age (years)", y = "Ability (IRT score)", colour = "Site",
-       title = "Ability vs Age (CAT only)") +
+       title = "Ability vs Age (Adaptive only)") +
   theme(legend.position = "bottom")
 
 ```
@@ -1706,7 +1705,7 @@ ggplot(cat_only, aes(age, metric_value)) +
 
 # Adaptive Task Construction
 
-We have already adapted and piloted several of the LEVANTE core tasks as CATs, primarily in the mpieva-de and western_ca pilot sites. To date, these include Sentence Understanding, Vocabulary, Shape Rotation, Pattern Matching, Same and Different, and Math. These tasks maintain an ability score, $\theta$, as an estimate of the participant’s skill level that is updated at the end of each trial. This updated theta is then used to select an item best suited to their estimated ability, which both improves test-taker experience and yields more information on participant skill per item, allowing for a shorter task with fewer items. See @fig-age-trends-cat for age-related ability trends in the tasks currently adapted to the CAT format. These trends mirror those observed in the full dataset (see @fig-age-trends), with similar site-level patterns and positive developmental slopes across domains.
+We have already adapted and piloted several of the LEVANTE core tasks as computer adapted versions, primarily in the mpieva-de and western_ca pilot sites. To date, these include Sentence Understanding, Vocabulary, Shape Rotation, Pattern Matching, Same and Different, and Math. These tasks maintain an ability score, $\theta$, as an estimate of the participant’s skill level that is updated at the end of each trial. This updated theta is then used to select an item best suited to their estimated ability, which both improves test-taker experience and yields more information on participant skill per item, allowing for a shorter task with fewer items. See @fig-age-trends-cat for age-related ability trends in the tasks currently using the adaptive format. These trends mirror those observed in the full dataset (see @fig-age-trends), with similar site-level patterns and positive developmental slopes across domains.
 
 The CAT tasks use an adaptive algorithm made available by the open source jsCat JavaScript library [@ma2025]. The present LEVANTE CAT implementation varies difficulty and guessing for each item while holding both discrimination and upper asymptote constant at 1. Items are selected based on Maximum Fisher Information, and theta is updated according to a maximum likelihood estimator, with limits of -6 and 6. 
 
