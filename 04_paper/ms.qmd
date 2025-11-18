@@ -608,16 +608,6 @@ Overall, these results suggest that most tasks showed at least partial measureme
 
 Individual ability scores were estimated from the final multi-group calibrations using the expected-a-posteriori (EAP) method. Scores are expressed on a common latent scale across sites, allowing for direct cross-site comparisons and forming the basis for the developmental, reliability, and validity analyses that follow.
 
-# Psychometric properties of tasks
-
-## Developmental change
-
-Across all nine tasks we observed positive age–ability trends. The smoothed lines in @fig-age-trends suggest that between-site differences primarily reflect overall level differences in ability, rather than differences in the rate at which ability increases with age. Growth appeared steepest for Math and Hearts and Flowers, moderate for Vocabulary, Memory, and Stories, and shallower for Shape Rotation and Sentence Understanding. See Appendix for predicted ability vs age by site and task @fig-predicted-age-slopes. 
-
-To quantify developmental change, we fitted separate ordinary least-squares models predicting ability scores (IRT units) from centered age with site fixed effects and an age × site interaction, allowing slopes to vary by site. As summarized in @tbl-slopes, age-related slopes were positive for all tasks and sites, indicating that older children performed better on every measure (see Figure @fig-em-trends in Appendices for visual representation). 
-
-In addition, we calculated per-site zero-order correlations between age and IRT ability scores. These correlations were uniformly positive (r ≈ .40–.70) and of moderate magnitude across tasks, consistent with the regression estimates. The close correspondence between the linear slopes and the smooth trends suggests that, within the studied age range, developmental gains are approximately linear and broadly comparable across cultural contexts.
-
 ::: {.landscape}
 ```{r}
 #| label: tbl-invariance-explainer
@@ -675,32 +665,55 @@ fmt_p <- function(p) case_when(
   TRUE     ~ sprintf("%.3f", p)
 )
 ```
+# Psychometric properties of tasks
 
+## Developmental change
+
+Across all nine tasks we observed positive age–ability trends. The smoothed lines in @fig-age-trends suggest that between-site differences primarily reflect overall level differences in ability, rather than differences in the rate at which ability increases with age. Growth appeared steepest for Math and Hearts and Flowers, moderate for Vocabulary, Memory, and Stories, and shallower for Shape Rotation and Sentence Understanding. See Appendix for predicted ability vs age by site and task @fig-predicted-age-slopes. 
+
+To quantify developmental change, we fitted separate ordinary least-squares models predicting ability scores (IRT units) from centered age with site fixed effects and an age × site interaction, allowing slopes to vary by site. As summarized in @tbl-slopes, age-related slopes were positive for all tasks and sites, indicating that older children performed better on every measure (see Figure @fig-em-trends in Appendices for visual representation). 
+
+In addition, we calculated per-site zero-order correlations between age and IRT ability scores. These correlations were uniformly positive (r ≈ .40–.70) and of moderate magnitude across tasks, consistent with the regression estimates. The close correspondence between the linear slopes and the smooth trends suggests that, within the studied age range, developmental gains are approximately linear and broadly comparable across cultural contexts.
 ```{r}
 #| label: fig-age-trends
 #| fig-cap: "Age related trends by task."
 #| fig-width: 8
 #| fig-height: 9
 
-# remove CAT data, remove Columbian data from memory task
-fixed_only <- coretask_scores %>% 
-  filter(adaptive == FALSE) %>%
-  # drop Colombia (uniandes-co) *only* for Memory
-  filter(!(task == "Memory" & site_label == "uniandes-co"))
+# remove CAT data, remove CO data from memory task
+fixed_only <- coretask_scores %>%
+  dplyr::filter(adaptive == FALSE) %>%                             
+  dplyr::filter(!(task == "Memory" & site_label == "uniandes-co")) %>%  # rop CO Memory
+  droplevels()
+
 
 ggplot(fixed_only, aes(age, metric_value)) +
-  ggh4x::facet_nested_wrap(vars(task_category, task),
-                           nest_line = element_line(), solo_line = TRUE,
-                           axes = "x", scales = "free_y") +
-  geom_smooth(aes(colour = site_label, group = site_label),
-              method = "gam", formula = y ~ s(x, bs = "re"), se = FALSE) +
+  ggh4x::facet_nested_wrap(
+    vars(task_category, task),
+    nest_line = element_line(), solo_line = TRUE,
+    axes = "x", scales = "free_y"
+  ) +
+  geom_smooth(
+    aes(colour = site_label, group = site_label),
+    method = "gam", formula = y ~ s(x, bs = "re"), se = FALSE
+  ) +
   geom_point(aes(colour = site_label), alpha = 0.3, size = 1) +
   scale_x_continuous(breaks = seq(6, 14, 2)) +
   .scale_colour_site() +
   guides(colour = guide_legend(
-    override.aes = list(shape = NA, linetype = 1, linewidth = 2))) +
-  labs(x = "Age (years)", y = "Ability (IRT score)", colour = "Site") +
-  theme(legend.position = "bottom")
+    override.aes = list(shape = NA, linetype = 1, linewidth = 2)
+  )) +
+  labs(
+    x = "Age (years)",
+    y = "Ability (IRT score)",
+    colour = "Site",
+    caption = "Note. Uniandes-co Memory data were excluded due to task bugs and difficulties with the instructions."
+  ) +
+  theme(
+    legend.position = "bottom",
+    plot.caption = element_text(hjust = 0, size = rel(0.8)),
+    plot.caption.position = "plot"
+  )
 ```
 
 ::: {.landscape}
@@ -1396,7 +1409,7 @@ g_ef <- tidySEM::prepare_graph(
 # colours
 g_ef$nodes$fill <- dplyr::case_when(
   g_ef$nodes$shape == "oval"      ~ "#E8F2FF",
-  g_ef$nodes$name  == "log_age_c" ~ "#FFF2E0",
+  g_ef$nodes$name  == "age" ~ "#FFF2E0",
   TRUE                         ~ "#F5F5F5"
 )
 g_ef$nodes$colour <- "#1F1F1F"
