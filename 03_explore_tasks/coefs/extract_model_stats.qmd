@@ -1,0 +1,55 @@
+```{r}
+library(tidyverse)
+library(here)
+library(glue)
+library(rlang)
+library(mirt)
+
+source(here("02_score_data/02_fit_irt/irt_modular.R"), chdir = TRUE)
+source(here("02_score_data/02_fit_irt/registry_helper.R"))
+source(here("02_score_data/02_fit_irt/irt_helpers.R"))
+```
+
+```{r}
+# read in all models in registry
+mods <- list_models() |> load_models()
+
+# extract model specifications from filenames
+mods_coded <- mods |>
+  mutate(file = str_remove(filename, "\\.rds$")) |>
+  separate_wider_delim(file, names = c("task_dup", "itemtype", "nfact", "invariance"),
+                       delim = "_", cols_remove = FALSE, too_few = "align_start") |>
+  select(-task_dup) |>
+  mutate(invariance = invariance |> replace_na(""))
+
+mod_stats <- \(mod_rec) mod_rec@fit |> unlist() |> as_tibble_row()
+
+task_data_nested <- read_rds(here("01_fetched_data/task_data_nested.rds"))
+trials <- task_data_nested |> filter(item_task == "hf") |> slice(1) |> pull(data) |> pluck(1)
+data_filtered <- trials |> dedupe_items() |> remove_no_var_items()
+data_prepped <- to_mirt_shape(data_filtered)
+guess <- data_filtered |> distinct(item_inst, chance) |> pull(chance)
+itemtype <- "Rasch"
+nfact <- 1
+model_str <- generate_model_str_numeric(data_filtered, data_prepped, itemtype, nfact)
+
+# fit model!
+mod <- mirt(
+  data = data_prepped,
+  itemtype = itemtype,
+  model = mirt.model(model_str),
+  guess = guess,
+  verbose = TRUE,
+  calcNull = TRUE, # compute fit statistics
+  technical = list(NCYCLES = 5000)
+)
+mod@Fit
+
+m2 <- M2(mod, calcNull = FALSE)
+
+all_stats <- mods_coded |>
+  mutate(mod_stats = map(mod_rec, mod_stats)) |>
+  select(-mod_rec, -filename, -path) |>
+  unnest(mod_stats) #|>
+  # mutate(group = fct_recode(group, "pilot_mpieva_de" = "pilot_leuphana_de"))
+```

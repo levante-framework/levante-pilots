@@ -1,0 +1,36 @@
+```{r}
+library(tidyverse)
+library(here)
+library(glue)
+library(rlang)
+library(mirt)
+
+source(here("02_score_data/02_fit_irt/irt_modular.R"), chdir = TRUE)
+source(here("02_score_data/02_fit_irt/registry_helper.R"))
+source(here("02_score_data/02_fit_irt/irt_helpers.R"))
+```
+
+```{r}
+mods_best <- read_rds(here("02_scoring_outputs/mods_best.rds"))
+```
+
+```{r}
+# extract scores from best models
+scores_best <- mods_best |>
+  mutate(scores = map(mod_rec, scores)) |>
+  select(-mod_rec) |>
+  unnest(scores)
+
+scores_labeled <- scores_best |>
+  mutate(nfact = nfact |> as_factor() |> fct_recode("1D" = "f1"), #"2D" = "2"),
+         itemtype = itemtype |> as_factor() |>
+           fct_recode("Rasch" = "rasch", "2PL" = "2pl"),
+         metric_type = "ability",
+         model_class = glue("{model_set} ({subset})"),
+         model = glue("{itemtype}-{nfact}-{invariance}")) |>
+  select(item_task = task, run_id, metric_type, metric_value = ability,
+         model_class, model)
+
+write_rds(scores_labeled, here("02_scoring_outputs/scores/registry_scores.rds"),
+          compress = "gz")
+```

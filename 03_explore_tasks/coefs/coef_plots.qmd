@@ -1,0 +1,117 @@
+---
+format: html
+---
+
+```{r}
+library(tidyverse)
+
+all_coefs <- read_rds("02_scoring_outputs/all_coefs.rds")
+```
+
+hf
+
+```{r}
+hf_coefs <- all_coefs |>
+  filter(task == "hf") |>
+  select(model_set, subset, itemtype, invariance, group, item, a1, d) |>
+  pivot_longer(c(a1, d), names_to = "param", values_to = "value") |>
+  filter(!(param == "a1" & itemtype == "rasch")) |>
+  mutate(group = if_else(model_set == "by_language", subset, group) |>
+           fct_recode("pilot_mpieva_de" = "de", "pilot_uniandes_co" = "es", "pilot_western_ca" = "en")) |>
+  separate(item, into = c("block", "stimulus", "trial_type")) |>
+  unite(col = "item", "block", "stimulus") |>
+  mutate(item = item |> fct_recode("hf_heart" = "heartsflowers_heart",
+                                   "hf_flower" = "heartsflowers_flower",
+                                   "heart" = "hearts_heart",
+                                   "flower" = "flowers_flower"))
+
+hf_coefs |> #invariance == "metric", 
+  filter(model_set == "multigroup_site", itemtype == "rasch") |>
+ggplot(aes(y = value, x = item, colour = trial_type)) +
+  # facet_wrap(vars(model_set, itemtype, invariance)) +
+  # facet_wrap(vars(invariance, group)) +
+  facet_grid(vars(invariance), vars(group)) +
+  geom_crossbar(aes(ymin = value, ymax = value), position = "dodge", width = 0.5, middle.linewidth = 1) +
+  # geom_point(size = 1) +
+  scale_color_ptol() +
+  scale_y_continuous(limits = ~range(.x, 0)) +
+  labs(x = "Item", y = "Difficulty")
+ggsave("plots/hf_coefs_nostart.png", width = 10, height = 3)
+```
+
+mrot
+
+```{r}
+mrot_coefs <- all_coefs |>
+  filter(task == "mrot", model_set == "multigroup_site", subset == "overlap_items") |>
+  select(model_set, subset, itemtype, invariance, group, item, a1, d) |>
+  pivot_longer(c(a1, d), names_to = "param", values_to = "value") |>
+  separate(item, into = c("task", "dimension", "shape", "angle")) |>
+  unite("stimulus", dimension, shape) |>
+  mutate(itemtype = itemtype |> as_factor() |> fct_relevel("rasch"),
+         invariance = invariance |> as_factor() |> fct_relevel("configural", "scalar"))
+  
+mrot_coefs |>
+  filter(param == "d") |>
+ggplot(aes(x = angle, y = value, colour = stimulus)) +
+  facet_grid(vars(itemtype, invariance), vars(group)) +
+  geom_point() +
+  geom_line(aes(group = stimulus)) +
+  scale_colour_ptol() +
+  labs(x = "Angle", y = "Difficulty")
+ggsave("plots/mrot_difficulty.png", width = 10, height = 8)
+
+mrot_coefs |>
+  filter(param == "a1", itemtype != "rasch") |>
+ggplot(aes(x = angle, y = value, colour = stimulus)) +
+  facet_grid(vars(itemtype, invariance), vars(group)) +
+  geom_point() +
+  geom_line(aes(group = stimulus)) +
+  scale_colour_ptol() +
+  labs(x = "Angle", y = "Discrimination")
+ggsave("plots/mrot_discrimination.png", width = 10, height = 6)
+```
+
+tom
+
+```{r}
+tom_items <- task_data_nested |>
+  filter(item_task == "tom") |>
+  unnest(data) |>
+  distinct(item_uid, item_group, item) |>
+  mutate(item_type = str_remove(item, "_.$")) |>
+  mutate(story = str_extract(item_uid, "(?<=tom_story)[0-9]+") |> as.numeric()) |>
+  arrange(story) |>
+  mutate(story = paste("story", story) |> fct_inorder())
+
+tom_coefs <- all_coefs |>
+  filter(task == "tom") |>
+  filter(model_set == "by_language", itemtype == "rasch") |>
+  mutate(group = if_else(model_set == "by_language", subset, group) |>
+           fct_recode("pilot_mpieva_de" = "de", "pilot_uniandes_co" = "es", "pilot_western_ca" = "en")) |>
+  select(model_set, subset, itemtype, invariance, group, item, a1, d) |>
+  pivot_longer(c(a1, d), names_to = "param", values_to = "value") |>
+  filter(!(param == "a1" & itemtype == "rasch")) |>
+  rename(item_uid = item) |>
+  left_join(tom_items)
+
+item_groups <- tom_items |> distinct(item_group) |> pull(item_group)
+item_types <- unique(tom_coefs$item_type)
+
+tom_coef_plot <- \(grp) {
+  tom_coefs |>
+    filter(param == "d") |> filter(item_group == grp) |> mutate(item_group = item_group |> str_replace("_", " ")) |>
+    ggplot(aes(x = value, y = item, colour = item_type)) +
+    facet_grid(vars(item_group, story), vars(group), scales = "free_y", space = "free_y") +
+    geom_vline(xintercept = 0, color = "darkgrey", linetype = "dotted") +
+    geom_crossbar(aes(xmin = value, xmax = value), orientation = "y", position = "dodge", width = 0.5, middle.linewidth = 1) +
+    scale_color_manual(values = ptol_pal()(length(item_types)) |> set_names(item_types)) +
+    labs(x = "Difficulty", y = "Item", colour = "Item type",
+         caption = "Model: By language Rasch") +
+    theme(panel.border = element_rect(),
+          strip.text.y = element_text(size = rel(0.9), vjust = 0))
+  ggsave(glue("plots/tom_difficulty_{grp}.png"), width = 11, height = 7)
+}
+
+walk(item_groups, tom_coef_plot)
+```
