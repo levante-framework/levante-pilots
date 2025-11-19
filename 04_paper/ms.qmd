@@ -164,12 +164,15 @@ library(here)
 library(glue)
 library(purrr)
 library(viridis)
+
 library(flextable)
+library(ftExtra)
+library(png)
+
 library(lavaan)
 library(mirt)
 library(broom.mixed)
 library(lmerTest)
-library(png)
 library(emmeans)
 
 source(here("03_summaries","plotting_helper.R"))
@@ -186,7 +189,7 @@ core_tasks   <- c("matrix","mrot","math","hf","mg","sds",
                   "trog","vocab","tom")
 
 sites <- names(site_labels)
-site_pal <- solarized_pal()(length(sites)) |> rlang::set_names(sites)
+site_pal <- solarized_pal()(length(sites)) |> set_names(sites)
 
 set_flextable_defaults(theme_fun = theme_apa, arraystretch = 1, padding = 1)
 
@@ -225,7 +228,7 @@ In addition to the constructs described above, we were also interested in the as
 gray_border <- officer::fp_border(color = "gray")
 task_table <- tribble(
   ~"Construct"         , ~"LEVANTE task name"     , ~"Prior/Source task name",
-   "Executive Function",  "Hearts and Flowers"    ,  "Hearts and Flowers",
+   "Executive Function",  "Hearts and Flowers"    ,  "Hearts and Flowers [@davidson2006]",
    ""                  ,  "Memory"                ,  "AMES Memory Game",
    ""                  ,  "Same & Different"      ,  "The Same Different Selection Task",
    "Language"          ,  "Vocabulary"            ,  "Picture Vocabulary",
@@ -239,10 +242,12 @@ task_table <- tribble(
 line_rows <- task_table |> mutate(i = 1:n() - 1) |> filter(Construct != "") |> slice(-1) |> pull(i)
 task_table |>
   flextable() |>
+  colformat_md() |>
   align_text_col() |>
   hline(i = line_rows, border = gray_border) |>
   autofit()
 ```
+
 ## The current study
 
 Here we report on the development and validation of the LEVANTE core tasks. This was an iterative process in which data from 5--12 year old children were across three sites: Bogota, Colombia (uniandes-co); Leipzig, Germany (mpieva-de); and Ottawa, Canada (western-ca).^[In the remainder of the manuscript, we refer to these sites by their site designators, uniandes-co, mpieva-de, and western-ca. These designators mark the research group and country of data collection. We make this choice to avoid the inference that these data are particularly representative of Canadian, German, or Colombian children more broadly.] In some cases, we used these data during the data collection process to make minor changes to the tasks. We also used data from these three pilot sites both to provide initial evidence on the reliability and validity of the measures and to develop efficient, computer adaptive task (CAT) versions of many of the tasks.  
@@ -334,7 +339,7 @@ task_time_table |>
   separate_header() |>
   align(align = "right", part = "body") |>
   align(align = "left", j = 1, part = "all") |>
-  flextable::autofit(add_w = 0)
+  autofit(add_w = 0)
 ```
 :::
 
@@ -682,8 +687,8 @@ In addition, we calculated per-site zero-order correlations between age and IRT 
 
 # remove CAT data, remove CO data from memory task
 fixed_only <- coretask_scores %>%
-  dplyr::filter(adaptive == FALSE) %>%                             
-  dplyr::filter(!(task == "Memory" & site_label == "uniandes-co")) %>%  # rop CO Memory
+  filter(adaptive == FALSE) %>%                             
+  filter(!(task == "Memory" & site_label == "uniandes-co")) %>%  # rop CO Memory
   droplevels()
 
 
@@ -781,7 +786,7 @@ analyze_task_slopes <- function(task_name) {
     left_join(corr_tab, by = "site")
 }
 
-deviation_raw <- purrr::map_dfr(task_ids, analyze_task_slopes) %>%
+deviation_raw <- map_dfr(task_ids, analyze_task_slopes) %>%
   rename(item_task = task) %>%
   left_join(task_meta, by = "item_task") %>%
   mutate(Task = coalesce(task, recode(item_task, !!!task_lab_map)))
@@ -797,7 +802,7 @@ deviation_print <- deviation_raw %>%
   ) %>%
   transmute(
     Task,
-    Site = forcats::fct_recode(site, !!!site_labels),
+    Site = fct_recode(site, !!!site_labels),
     `Grand Mean Slope (β)` = round(Mean_Slope, 2),
     `Grand Mean SE`        = round(Mean_SE, 2),
     `Grand Mean p-value`,
@@ -809,8 +814,8 @@ deviation_print <- deviation_raw %>%
     `r p-value`
   )
 
-flextable::flextable(deviation_print) |>
-  flextable::set_header_labels(
+flextable(deviation_print) |>
+  set_header_labels(
     `Grand Mean Slope (β)` = "GM β",
     `Grand Mean SE`        = "GM SE",
     `Grand Mean p-value`   = "GM p",
@@ -820,14 +825,14 @@ flextable::flextable(deviation_print) |>
     `r (age, ability)`     = "r(age,ability)",
     `r p-value`            = "r p"
   ) |>
-  flextable::colformat_num(
+  colformat_num(
     j = c("Grand Mean Slope (β)", "Grand Mean SE",
           "Deviation from Mean", "Deviation SE",
           "N", "r (age, ability)"),
     digits = 2
   ) |>
-  flextable::align_text_col() |>
-  flextable::autofit()
+  align_text_col() |>
+  autofit()
 ```
 :::
 
@@ -861,7 +866,7 @@ trx |>
   flextable() |>
   separate_header() |>
   align_text_col() |>
-  flextable::autofit(add_w = 0, add_h = 0)
+  autofit(add_w = 0, add_h = 0)
 ```
 
 ```{r}
@@ -939,7 +944,7 @@ ggplot(retest_wide, aes(run_1, run_2, colour = age)) +
     x = lim[2], y = lim[1], hjust = "inward", vjust = "inward",
     size = 3.8, colour = "grey30", linewidth = 0
   ) +
-  viridis::scale_colour_viridis(limits = c(5, 12), end = 0.95) +
+  scale_colour_viridis(limits = c(5, 12), end = 0.95) +
   labs(x = "Score 1", y = "Score 2", colour = "Age (years)") +
   theme(legend.position = "bottom")
 ```
@@ -1001,7 +1006,7 @@ model_cov_no_age <- "
   math ~~ tom
 "
 
-fit_cov_no_age <- lavaan::sem(
+fit_cov_no_age <- sem(
   model_cov_no_age, data = vars_core_std,
   estimator = 'MLR', std.lv = TRUE, missing = 'fiml'
 )
@@ -1039,7 +1044,7 @@ model_cov_age <- "
   math ~~ tom
 "
 
-fit_cov_age <- lavaan::sem(
+fit_cov_age <- sem(
   model_cov_age, data = vars_core_std,
   estimator = 'MLR', missing = 'fiml',
   std.lv = FALSE, optim.method = 'nlminb',
@@ -1051,28 +1056,28 @@ summary(fit_cov_age, fit.measures = TRUE, standardized = TRUE)
 ### Construct validity
 We assessed construct validity using a structural equation model (SEM) specifying three first‐order latent factors—Reasoning, Executive Function, and Language—with each factor measured by its respective tasks and allowed to covary with Math and Stories (see @fig-semplot-core-tasks). Math and Stories were treated as observed endogenous outcomes because each construct had a single task; introducing one-indicator latent variables would require strong, unverifiable assumptions about reliability and error variance. Age was specified to predict each of the latent factors as well as the observed variables Math and Stories.
 
-Model fit was imperfect -- CFI: `r round(lavaan::fitMeasures(fit_cov_age)["cfi"], 3)`, RMSEA: `r round(lavaan::fitMeasures(fit_cov_age)["rmsea"], 3)` RMSEA p-value: `r pval_fmt(lavaan::fitMeasures(fit_cov_age)["rmsea.pvalue"])`. In part we expect that lower model fit may be due to a combination of missing data and site-related differences, which are not accounted for in this specification; future work should pursue more complete models that account for these sources of variability.
+Model fit was imperfect -- CFI: `r round(fitMeasures(fit_cov_age)["cfi"], 3)`, RMSEA: `r round(fitMeasures(fit_cov_age)["rmsea"], 3)` RMSEA p-value: `r pval_fmt(fitMeasures(fit_cov_age)["rmsea.pvalue"])`. In part we expect that lower model fit may be due to a combination of missing data and site-related differences, which are not accounted for in this specification; future work should pursue more complete models that account for these sources of variability.
 ```{r}
 #| label: fig-semplot-core-tasks
 #| fig-cap: "SEM for core tasks"
 #| fig-width: 8
 #| fig-height: 9
 
-source(here::here("03_summaries/modified_sem_plot.R")) # veronica helper
+source(here("03_summaries/modified_sem_plot.R")) # veronica helper
 
-pe <- lavaan::parameterEstimates(fit_cov_age, standardized = TRUE)
+pe <- parameterEstimates(fit_cov_age, standardized = TRUE)
 latents  <- sort(unique(pe$lhs[pe$op == "=~"]))
 indics   <- sort(unique(pe$rhs[pe$op == "=~"]))
 extras   <- c("log_age_c","math","tom")
 observed <- sort(union(indics, extras))
 
-nodes <- tibble::tibble(
+nodes <- tibble(
   name  = c(observed, latents),
   shape = c(rep("rect", length(observed)), rep("oval", length(latents)))
 )
 
 # Pretty labels
-nodes$label <- dplyr::recode(
+nodes$label <- recode(
   nodes$name,
   matrix    = "Pattern\nMatching",
   mrot      = "Shape\nRotation",
@@ -1083,17 +1088,17 @@ nodes$label <- dplyr::recode(
   tom       = "Stories",
   ef        = "Executive Function",
   log_age_c = "Age (log years)",
-  .default  = stringr::str_to_title(nodes$name)
+  .default  = str_to_title(nodes$name)
 )
 
 factor_names  <- c("reasoning","ef","language")
 outcome_names <- c("math","tom")
 
 edges <- pe %>%
-  dplyr::filter(op %in% c("~","=~","~~")) %>% # hide math and tom residual covariance
-  dplyr::filter(!(op == "~~" & ((lhs == "math" & rhs == "tom") |
+  filter(op %in% c("~","=~","~~")) %>% # hide math and tom residual covariance
+  filter(!(op == "~~" & ((lhs == "math" & rhs == "tom") |
                                 (lhs == "tom"  & rhs == "math")))) %>%
-  dplyr::mutate(keep = dplyr::case_when(
+  mutate(keep = case_when(
     op %in% c("~","=~") ~ TRUE,
     op == "~~" & lhs %in% factor_names & rhs %in% outcome_names ~ TRUE,
     op == "~~" & rhs %in% factor_names & lhs %in% outcome_names ~ TRUE,
@@ -1101,29 +1106,29 @@ edges <- pe %>%
     op == "~~" & lhs == rhs ~ TRUE,
     TRUE ~ FALSE
   )) %>%
-  dplyr::filter(keep) %>%
-  dplyr::transmute(
-    from = dplyr::if_else(op == "~", rhs, lhs),
-    to   = dplyr::if_else(op == "~", lhs, rhs),
+  filter(keep) %>%
+  transmute(
+    from = if_else(op == "~", rhs, lhs),
+    to   = if_else(op == "~", lhs, rhs),
     op, est, std.all, pvalue,
-    arrow     = dplyr::if_else(op == "~~", "both", "last"),
+    arrow     = if_else(op == "~~", "both", "last"),
     curved    = op == "~~" & lhs != rhs,
-    curvature = dplyr::case_when(
+    curvature = case_when(
       op == "~~" & lhs != rhs & lhs %in% factor_names & rhs %in% factor_names ~ 0.20,
       op == "~~" & lhs != rhs ~ 0.35,
       TRUE ~ as.numeric(NA)
     ),
-    linetype  = dplyr::if_else(op == "~~" & lhs != rhs, 2L, 1L)
+    linetype  = if_else(op == "~~" & lhs != rhs, 2L, 1L)
   ) %>%
-  dplyr::mutate(
-    stars = dplyr::case_when(pvalue < .001 ~ "***",
+  mutate(
+    stars = case_when(pvalue < .001 ~ "***",
                              pvalue < .01  ~ "**",
                              pvalue < .05  ~ "*",
                              TRUE ~ ""),
     label = sprintf("%.2f%s", std.all, stars)
   )
 
-layout_ids <- as.matrix(readxl::read_excel("SEM_layout.xlsx", col_names = FALSE))
+layout_ids <- as.matrix(read_excel("SEM_layout.xlsx", col_names = FALSE))
 layout_ids[layout_ids == ""] <- NA
 
 # checks
@@ -1146,7 +1151,7 @@ g <- tidySEM::prepare_graph(
 )
 
 # colours
-g$nodes$fill <- dplyr::case_when(
+g$nodes$fill <- case_when(
   g$nodes$shape == "oval"      ~ "#E8F2FF",
   g$nodes$name  == "log_age_c" ~ "#FFF2E0",
   TRUE                         ~ "#F5F5F5"
@@ -1155,7 +1160,7 @@ g$nodes$colour <- "#1F1F1F"
 g$nodes$font   <- "#1F1F1F"
 
 # edge colours
-g$edges$colour <- dplyr::case_when(
+g$edges$colour <- case_when(
   g$edges$op == "=~" ~ "#1B9E77",
   g$edges$op == "~"  ~ "#386CB0",
   g$edges$op == "~~" ~ "#6B6B6B",
@@ -1221,7 +1226,7 @@ fit_3f <- sem(mdl_3f, data = vars_core_std,
 want <- c("chisq", "pvalue", "tli", "cfi", "rmsea")
 
 grab_fit <- function(fit, name){
-  fm <- lavaan::fitMeasures(fit, fit.measures = want)
+  fm <- fitMeasures(fit, fit.measures = want)
   tibble(
     Model  = name,
     `Chi-square` = unname(fm["chisq"]),
@@ -1244,7 +1249,7 @@ fmt_tbl <- fit_tbl %>%
     TLI   = round(TLI, 3),
     CFI   = round(CFI, 3),
     RMSEA = round(RMSEA, 3),
-    `p-value` = dplyr::case_when(
+    `p-value` = case_when(
       `p-value` < .001 ~ "< .001",
       TRUE             ~ format(round(`p-value`, 3), nsmall = 3, trim = TRUE)
     )
@@ -1324,20 +1329,20 @@ summary(fit_ef, fit.measures = TRUE, standardized = TRUE)
 ```{r}
 #| label: ef-stats
 #| include: false
-pe_ef <- lavaan::parameterEstimates(fit_ef, standardized = TRUE)
+pe_ef <- parameterEstimates(fit_ef, standardized = TRUE)
 
 beta_age_EF <- pe_ef |>
-  dplyr::filter(lhs == "EF", op == "~", rhs == "age") |>
-  dplyr::pull(std.all) |> as.numeric()
+  filter(lhs == "EF", op == "~", rhs == "age") |>
+  pull(std.all) |> as.numeric()
 
-r2_EF <- as.numeric(lavaan::lavInspect(fit_ef, "r2")["EF"])
+r2_EF <- as.numeric(lavInspect(fit_ef, "r2")["EF"])
 
 fmt <- function(x, d = 2) formatC(x, digits = d, format = "f")
 # standardised loadings (λ) for EF =~ hf + mg + sds + mefs
 load_tab <- pe_ef |>
-  dplyr::filter(op == "=~", lhs == "EF", rhs %in% c("hf","mg","sds","mefs")) |>
-  dplyr::select(rhs, std.all) |>
-  tibble::deframe()  # named vector: c(hf = ., mg = ., sds = ., mefs = .)
+  filter(op == "=~", lhs == "EF", rhs %in% c("hf","mg","sds","mefs")) |>
+  select(rhs, std.all) |>
+  deframe()  # named vector: c(hf = ., mg = ., sds = ., mefs = .)
 
 ```
 
@@ -1345,7 +1350,7 @@ load_tab <- pe_ef |>
 
 ### External validity
 
-To assess external validity for the executive function and language tasks, we fitted a single-factor executive function model with Hearts and Flowers, Memory, Same and Different, and the external measure, the Minnesota Executive Function Scale (MEFS) as indicators (@fig-semplot-ef). We modeled age as a predictor of the latent executive function factor. Model fit was good: CFI: `r round(lavaan::fitMeasures(fit_ef)["cfi"], 3)`, RMSEA: `r round(lavaan::fitMeasures(fit_ef)["rmsea"], 3)`, RMSEA p-value: `r pval_fmt(lavaan::fitMeasures(fit_ef)["rmsea.pvalue"])`. Standardized loadings were moderate-to-strong: Hearts and Flowers = `r fmt(load_tab["hf"])`, Memory = `r fmt(load_tab["mg"])`, Same and Different = `r fmt(load_tab["sds"])`, MEFS = `r fmt(load_tab["mefs"])`, indicating that MEFS aligns closely with the latent executive function construct and providing good evidence for external validity. Age strongly predicted executive function ($\beta$ = `r round(beta_age_EF, 2)`; $R^2$ = `r round(r2_EF, 2)`), consistent with expected developmental gains.
+To assess external validity for the executive function and language tasks, we fitted a single-factor executive function model with Hearts and Flowers, Memory, Same and Different, and the external measure, the Minnesota Executive Function Scale (MEFS) as indicators (@fig-semplot-ef). We modeled age as a predictor of the latent executive function factor. Model fit was good: CFI: `r round(fitMeasures(fit_ef)["cfi"], 3)`, RMSEA: `r round(fitMeasures(fit_ef)["rmsea"], 3)`, RMSEA p-value: `r pval_fmt(fitMeasures(fit_ef)["rmsea.pvalue"])`. Standardized loadings were moderate-to-strong: Hearts and Flowers = `r fmt(load_tab["hf"])`, Memory = `r fmt(load_tab["mg"])`, Same and Different = `r fmt(load_tab["sds"])`, MEFS = `r fmt(load_tab["mefs"])`, indicating that MEFS aligns closely with the latent executive function construct and providing good evidence for external validity. Age strongly predicted executive function ($\beta$ = `r round(beta_age_EF, 2)`; $R^2$ = `r round(r2_EF, 2)`), consistent with expected developmental gains.
 
 ```{r}
 #| label: fig-semplot-ef
@@ -1353,40 +1358,40 @@ To assess external validity for the executive function and language tasks, we fi
 #| fig-height: 4
 
 nodes <- get_nodes(fit_ef, columns = c("name","shape")) |>
-  dplyr::left_join(tibble::tibble(
+  left_join(tibble(
     name   = c("age","EF","hf","mg","sds","mefs"),
     pretty = c("Age (years)","Executive\nFunction",
                "Hearts and\nFlowers","Memory","Same and\nDifferent","MEFS")
   ), by = "name") |>
-  dplyr::mutate(label = dplyr::coalesce(pretty, name))
+  mutate(label = coalesce(pretty, name))
 
 # edges from standardized parameter estimates ---
-pe_ef <- lavaan::parameterEstimates(fit_ef, standardized = TRUE)
+pe_ef <- parameterEstimates(fit_ef, standardized = TRUE)
 
 edges <- pe_ef |>
-  dplyr::filter(op %in% c("~","=~","~~")) |>
-  dplyr::transmute(
+  filter(op %in% c("~","=~","~~")) |>
+  transmute(
     lhs, rhs, op,
-    from = dplyr::if_else(op == "~", rhs, lhs),
-    to   = dplyr::if_else(op == "~", lhs, rhs),
+    from = if_else(op == "~", rhs, lhs),
+    to   = if_else(op == "~", lhs, rhs),
     std.all, pvalue,
-    arrow = dplyr::case_when(
+    arrow = case_when(
       op == "~~" & lhs == rhs ~ "both",  # variance loop
       op == "~~" & lhs != rhs ~ "none",  # covariance
       TRUE ~ "last"                       # regressions/loadings
     ),
-    curvature = dplyr::if_else(op == "~~" & lhs != rhs, 50, NA_real_),
-    linetype  = dplyr::if_else(op == "~~" & lhs != rhs, 2, 1),
-    label = dplyr::case_when(
+    curvature = if_else(op == "~~" & lhs != rhs, 50, NA_real_),
+    linetype  = if_else(op == "~~" & lhs != rhs, 2, 1),
+    label = case_when(
       op %in% c("~","=~") ~ sprintf("%.2f%s", std.all,
-        dplyr::case_when(pvalue < .001 ~ "***",
+        case_when(pvalue < .001 ~ "***",
                          pvalue < .01  ~ "**",
                          pvalue < .05  ~ "*", TRUE ~ "")),
       TRUE ~ sprintf("%.2f", std.all)
     )
   ) 
 
-layout_ef <- as.matrix(readxl::read_excel("ef_sem_layout.xlsx", col_names = FALSE))
+layout_ef <- as.matrix(read_excel("ef_sem_layout.xlsx", col_names = FALSE))
 layout_ef[layout_ef == ""] <- NA
 
 # checks
@@ -1409,7 +1414,7 @@ g_ef <- tidySEM::prepare_graph(
 )
 
 # colours
-g_ef$nodes$fill <- dplyr::case_when(
+g_ef$nodes$fill <- case_when(
   g_ef$nodes$shape == "oval"      ~ "#E8F2FF",
   g_ef$nodes$name  == "age" ~ "#FFF2E0",
   TRUE                         ~ "#F5F5F5"
@@ -1418,7 +1423,7 @@ g_ef$nodes$colour <- "#1F1F1F"
 g_ef$nodes$font   <- "#1F1F1F"
 
 # edge colours
-g_ef$edges$colour <- dplyr::case_when(
+g_ef$edges$colour <- case_when(
   g_ef$edges$op == "=~" ~ "#1B9E77",
   g_ef$edges$op == "~"  ~ "#386CB0",
   g_ef$edges$op == "~~" ~ "#6B6B6B",
@@ -1493,28 +1498,28 @@ Language ~ age
 fit_lang <- cfa(cfa_lang, data = lang_wide_std,
                 estimator = "MLR", std.lv = TRUE, missing = "fiml")
 summary(fit_lang, fit.measures = TRUE, standardized = TRUE)
-pe_lang <- lavaan::parameterEstimates(fit_lang, standardized = TRUE)
-fm_lang <- lavaan::fitMeasures(fit_lang)
+pe_lang <- parameterEstimates(fit_lang, standardized = TRUE)
+fm_lang <- fitMeasures(fit_lang)
 
 # standardised beta and R^2
 beta_age_Lang <- pe_lang |>
-dplyr::filter(lhs == "Language", op == "~", rhs == "age") |>
-dplyr::pull(std.all) |> as.numeric()
-r2_Lang <- as.numeric(lavaan::lavInspect(fit_lang, "r2")["Language"])
+filter(lhs == "Language", op == "~", rhs == "age") |>
+pull(std.all) |> as.numeric()
+r2_Lang <- as.numeric(lavInspect(fit_lang, "r2")["Language"])
 
 # standarised loadings
 load_tab_lang <- pe_lang |>
-dplyr::filter(op == "=~", lhs == "Language",
+filter(op == "=~", lhs == "Language",
 rhs %in% c("swr","sre","pa","trog","vocab")) |>
-dplyr::select(rhs, std.all) |>
-tibble::deframe()
+select(rhs, std.all) |>
+deframe()
 
 ```
 
 \clearpage
 
 We ran a similar model to determine the external validity of the language and literacy measures (Sentence Understanding and Vocabulary) against ROAR tasks, including measures of Phonological Awareness (ROAR-Phoneme), Single Word Reading (ROAR-Word) and Sentence Reading Efficiency (ROAR-Sentence). We fitted a single latent Language factor with ROAR tasks plus Sentence Understanding and Vocabulary as indicators, and modeled age as a predictor of the latent factor (@fig-semplot-lang). Model fit was again good, CFI: `r round(fm_lang["cfi"], 3)`, RMSEA: `r round(fm_lang["rmsea"], 3)`, RMSEA p-value: 
-`r pval_fmt(lavaan::fitMeasures(fit_lang)["rmsea.pvalue"])`. Standardized loadings were moderate-to-strong: ROAR-Word = `r round(load_tab_lang["swr"], 2)`, ROAR-Sentence = `r round(load_tab_lang["sre"], 2)`, ROAR-Phoneme = `r round(load_tab_lang["pa"], 2)`, Sentence Understanding = `r round(load_tab_lang["trog"], 2)`, Vocabulary = `r round(load_tab_lang["vocab"], 2)`. Age predicted Language ($\beta$ = `r round(beta_age_Lang, 2)`; $R^2$ = `r round(r2_Lang, 2)`) consistent with expected developmental gains. 
+`r pval_fmt(fitMeasures(fit_lang)["rmsea.pvalue"])`. Standardized loadings were moderate-to-strong: ROAR-Word = `r round(load_tab_lang["swr"], 2)`, ROAR-Sentence = `r round(load_tab_lang["sre"], 2)`, ROAR-Phoneme = `r round(load_tab_lang["pa"], 2)`, Sentence Understanding = `r round(load_tab_lang["trog"], 2)`, Vocabulary = `r round(load_tab_lang["vocab"], 2)`. Age predicted Language ($\beta$ = `r round(beta_age_Lang, 2)`; $R^2$ = `r round(r2_Lang, 2)`) consistent with expected developmental gains. 
 
 ```{r}
 #| label: fig-semplot-lang
@@ -1522,35 +1527,35 @@ We ran a similar model to determine the external validity of the language and li
 #| fig-height: 4
 
 nodes_lang <- get_nodes(fit_lang, columns = c("name","shape")) |>
-  dplyr::left_join(tibble::tibble(
+  left_join(tibble(
     name   = c("age","Language","trog","vocab","swr","sre","pa"),
     pretty = c("Age (years)","Language",
                "Sentence\nUnderstanding","Vocabulary",
                "ROAR\nWord","ROAR\nSentence",
                "ROAR\nPhoneme")
   ), by = "name") |>
-  dplyr::mutate(label = dplyr::coalesce(pretty, name))
+  mutate(label = coalesce(pretty, name))
 
 # edges (standardized, with stars on loadings/paths)
-pe_lang <- lavaan::parameterEstimates(fit_lang, standardized = TRUE)
+pe_lang <- parameterEstimates(fit_lang, standardized = TRUE)
 
 edges_lang <- pe_lang |>
-  dplyr::filter(op %in% c("~","=~","~~")) |>
-  dplyr::transmute(
+  filter(op %in% c("~","=~","~~")) |>
+  transmute(
     lhs, rhs, op,
-    from = dplyr::if_else(op == "~", rhs, lhs),
-    to   = dplyr::if_else(op == "~", lhs, rhs),
+    from = if_else(op == "~", rhs, lhs),
+    to   = if_else(op == "~", lhs, rhs),
     std.all, pvalue,
-    arrow = dplyr::case_when(
+    arrow = case_when(
       op == "~~" & lhs == rhs ~ "both",
       op == "~~" & lhs != rhs ~ "none",
       TRUE ~ "last"
     ),
-    curvature = dplyr::if_else(op == "~~" & lhs != rhs, 50, NA_real_),
-    linetype  = dplyr::if_else(op == "~~" & lhs != rhs, 2L, 1L),
-    label = dplyr::case_when(
+    curvature = if_else(op == "~~" & lhs != rhs, 50, NA_real_),
+    linetype  = if_else(op == "~~" & lhs != rhs, 2L, 1L),
+    label = case_when(
       op %in% c("~","=~") ~ sprintf("%.2f%s", std.all,
-        dplyr::case_when(pvalue < .001 ~ "***",
+        case_when(pvalue < .001 ~ "***",
                          pvalue < .01  ~ "**",
                          pvalue < .05  ~ "*",
                          TRUE          ~ "")),
@@ -1558,7 +1563,7 @@ edges_lang <- pe_lang |>
     )
   )
 
-layout_lang <- as.matrix(readxl::read_excel("lang_sem_layout.xlsx", col_names = FALSE))
+layout_lang <- as.matrix(read_excel("lang_sem_layout.xlsx", col_names = FALSE))
 layout_lang[layout_lang == ""] <- NA
 
 # checks
@@ -1581,7 +1586,7 @@ g_lang <- tidySEM::prepare_graph(
 )
 
 # colours
-g_lang$nodes$fill <- dplyr::case_when(
+g_lang$nodes$fill <- case_when(
   g_lang$nodes$shape == "oval" ~ "#E8F2FF",
   g_lang$nodes$name  == "age"  ~ "#FFF2E0",
   TRUE                         ~ "#F5F5F5"
@@ -1590,7 +1595,7 @@ g_lang$nodes$colour <- "#1F1F1F"
 g_lang$nodes$font   <- "#1F1F1F"
 
 # edge colours
-g_lang$edges$colour <- dplyr::case_when(
+g_lang$edges$colour <- case_when(
   g_lang$edges$op == "=~" ~ "#1B9E77",
   g_lang$edges$op == "~"  ~ "#386CB0",
   g_lang$edges$op == "~~" ~ "#6B6B6B",
@@ -1704,11 +1709,11 @@ pred_curves_augment <- function(task_name) {
     )
 }
 
-pred_all <- purrr::map_dfr(task_ids, pred_curves_augment) %>%
-  dplyr::left_join(task_meta, by = "item_task") %>%
-  dplyr::mutate(
-    Site    = forcats::fct_recode(site, !!!site_labels),
-    TaskLab = dplyr::coalesce(task, dplyr::recode(item_task, !!!task_lab_map)),
+pred_all <- map_dfr(task_ids, pred_curves_augment) %>%
+  left_join(task_meta, by = "item_task") %>%
+  mutate(
+    Site    = fct_recode(site, !!!site_labels),
+    TaskLab = coalesce(task, recode(item_task, !!!task_lab_map)),
     TaskLab = factor(TaskLab, levels = unique(task_meta$task))   
   )
 
@@ -1768,17 +1773,17 @@ slopes_by_task <- function(task_name) {
     )
 }
 
-slopes_df <- purrr::map_dfr(task_ids, slopes_by_task) %>%                   
-  dplyr::left_join(task_meta, by = "item_task") %>%
-  dplyr::mutate(
-    Site    = forcats::fct_recode(site, !!!site_labels),
-    TaskLab = dplyr::coalesce(task, dplyr::recode(item_task, !!!task_lab_map)),
+slopes_df <- map_dfr(task_ids, slopes_by_task) %>%                   
+  left_join(task_meta, by = "item_task") %>%
+  mutate(
+    Site    = fct_recode(site, !!!site_labels),
+    TaskLab = coalesce(task, recode(item_task, !!!task_lab_map)),
     TaskLab = factor(TaskLab, levels = unique(task_meta$task))               
   )
 
-ggplot(slopes_df, aes(x = slope, y = forcats::fct_rev(Site), colour = Site)) +
+ggplot(slopes_df, aes(x = slope, y = fct_rev(Site), colour = Site)) +
   geom_vline(xintercept = 0, linetype = 3) +
-  geom_vline(data = dplyr::distinct(slopes_df, TaskLab, gm_slope),
+  geom_vline(data = distinct(slopes_df, TaskLab, gm_slope),
              aes(xintercept = gm_slope),
              linetype = 2, linewidth = 0.6, colour = "grey40") +
   geom_errorbarh(aes(xmin = lower, xmax = upper), width = 0) +

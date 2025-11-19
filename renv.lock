@@ -3975,6 +3975,49 @@
       "Maintainer": "Gábor Csárdi <csardi.gabor@gmail.com>",
       "Repository": "CRAN"
     },
+    "ftExtra": {
+      "Package": "ftExtra",
+      "Version": "0.6.4",
+      "Source": "Repository",
+      "Title": "Extensions for 'Flextable'",
+      "Date": "2024-05-11",
+      "Authors@R": "c(person(given = \"Atsushi\", family = \"Yasumoto\", role = c(\"aut\", \"cph\", \"cre\"), email = \"atusy.rpkg@gmail.com\", comment = c(ORCID = \"0000-0002-8335-495X\")), person(given = \"David\", family = \"Gohel\", role = \"ctb\"), person(given = \"Romain\", family = \"François\", role = \"ctb\", comment = c(ORCID = \"0000-0002-2444-4226\")), person(given = \"Tatsuya\", family = \"Shima\", email = \"ts1s1andn@gmail.com\", role = \"ctb\"))",
+      "Maintainer": "Atsushi Yasumoto <atusy.rpkg@gmail.com>",
+      "Description": "Build display tables easily by extending the functionality of the 'flextable' package. Features include spanning header, grouping rows, parsing markdown and so on.",
+      "License": "MIT + file LICENSE",
+      "URL": "https://ftextra.atusy.net, https://github.com/atusy/ftExtra",
+      "BugReports": "https://github.com/atusy/ftExtra/issues",
+      "Imports": [
+        "dplyr (>= 1.0.0)",
+        "jsonlite",
+        "flextable (>= 0.9.5)",
+        "tidyr",
+        "purrr (>= 1.0.0)",
+        "magrittr",
+        "rmarkdown",
+        "rlang",
+        "stringr",
+        "tibble",
+        "tidyselect (>= 1.1.0)",
+        "xfun",
+        "yaml",
+        "vctrs"
+      ],
+      "Suggests": [
+        "testthat (>= 2.1.0)",
+        "knitr",
+        "qpdf"
+      ],
+      "VignetteBuilder": "knitr",
+      "Encoding": "UTF-8",
+      "Language": "en-US",
+      "RoxygenNote": "7.3.1",
+      "SystemRequirements": "pandoc (>= 2.0.6) - http://pandoc.org",
+      "Config/testthat/edition": "3",
+      "NeedsCompilation": "no",
+      "Author": "Atsushi Yasumoto [aut, cph, cre] (<https://orcid.org/0000-0002-8335-495X>), David Gohel [ctb], Romain François [ctb] (<https://orcid.org/0000-0002-2444-4226>), Tatsuya Shima [ctb]",
+      "Repository": "CRAN"
+    },
     "furrr": {
       "Package": "furrr",
       "Version": "0.3.1",
@@ -8296,7 +8339,7 @@
     },
     "redivis": {
       "Package": "redivis",
-      "Version": "0.11.9",
+      "Version": "0.11.11",
       "Source": "GitHub",
       "Type": "Package",
       "Title": "R interface for Redivis",
@@ -8331,13 +8374,13 @@
         "sf (>= 1.0)",
         "testthat (>= 2.1.0)"
       ],
-      "Collate": "'util.R' 'auth.R' 'api_request.R' 'Version.R' 'Export.R' 'Variable.R' 'Transform.R' 'Secret.R' 'User.R' 'Notebook.R' 'Datasource.R' 'Organization.R' 'Workflow.R' 'Table.R' 'Dataset.R' 'File.R' 'Query.R' 'Upload.R' 'index.R'",
+      "Collate": "'util.R' 'auth.R' 'api_request.R' 'Version.R' 'Export.R' 'Variable.R' 'Parameter.R' 'Transform.R' 'Secret.R' 'User.R' 'Notebook.R' 'Datasource.R' 'Organization.R' 'Workflow.R' 'Table.R' 'Dataset.R' 'File.R' 'Query.R' 'Upload.R' 'index.R'",
       "RemoteType": "github",
+      "RemoteHost": "api.github.com",
       "RemoteUsername": "redivis",
       "RemoteRepo": "redivis-r",
       "RemoteRef": "main",
-      "RemoteSha": "0359c91c29bcd65074354d7166bcee5985a9995f",
-      "RemoteHost": "api.github.com"
+      "RemoteSha": "7cbba0ed74099e2da184a3d034e997b2614c463a"
     },
     "reformulas": {
       "Package": "reformulas",
@@ -8634,6 +8677,9 @@
       "Encoding": "UTF-8",
       "LazyData": "true",
       "URL": "https://levante-framework.github.io/rlevante/",
+      "Depends": [
+        "R (>= 4.1.0)"
+      ],
       "Imports": [
         "assertthat",
         "dplyr",
@@ -8641,18 +8687,22 @@
         "glue",
         "jsonlite",
         "lubridate",
+        "methods",
         "purrr",
+        "readr",
         "redivis",
         "rlang",
         "stringr",
+        "tibble",
         "tidyr"
       ],
       "Suggests": [
         "ggplot2",
         "knitr",
+        "mirt",
         "rmarkdown"
       ],
-      "RoxygenNote": "7.3.2",
+      "RoxygenNote": "7.3.3",
       "Author": "Michael Frank [aut] (ORCID: <https://orcid.org/0000-0002-7551-4378>), Mika Braginsky [aut, cre] (ORCID: <https://orcid.org/0000-0001-9039-3220>)",
       "Maintainer": "Mika Braginsky <mika.br@gmail.com>",
       "RemoteType": "github",
@@ -8660,7 +8710,7 @@
       "RemoteUsername": "levante-framework",
       "RemoteRepo": "rlevante",
       "RemoteRef": "main",
-      "RemoteSha": "c6cdcc20e17a74663f85618949d3b1b7f4f21f62",
+      "RemoteSha": "b047665a1f52517c9c10cca5b3cad995be9c344b",
       "Remotes": "redivis=redivis/redivis-r"
     },
     "rmarkdown": {
