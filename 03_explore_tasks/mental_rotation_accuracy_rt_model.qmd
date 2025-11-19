@@ -1,0 +1,772 @@
+---
+title: "Mental Rotation Analysis"
+format: html
+execute:
+  echo: false       
+  warning: false    
+  message: false    
+  cache: false
+  knitr: 
+    opts_chunk: 
+      results: "hide"      
+---
+
+```{r}
+library("tidyverse")
+library("glue")
+library("here")
+library(patchwork)
+library(ggtext)
+```
+
+```{r helper functions}
+#| echo: false
+source(here::here("plot_settings.R"))
+source(here("03_explore_tasks/explore_helper.R"))
+```
+
+```{r load irt data}
+site_labels <- c("uniandes-co" = "pilot_uniandes_co",
+                 "mpieva-de" = "pilot_mpieva_de",
+                 "western-ca" = "pilot_western_ca")
+
+site_map <- tibble::tibble(
+  site       = names(site_labels),
+  site_label = unname(site_labels)
+)
+
+core_tasks   <- c("matrix","mrot","math","hf","mg","sds",
+                  "trog","vocab","tom")
+
+# Run data
+run_data <- readr::read_rds(here::here("01_fetched_data/run_data.rds"))
+#colnames(run_data)
+
+# IRT data
+all_scores <- readr::read_rds(here::here("02_scoring_outputs","scores","scores_combined.rds"))
+# colnames(all_scores)
+# table(all_scores$item_task)
+# table(all_scores$metric_type)
+```
+
+## Sample size by site
+
+```{r mrot counts}
+all_sum_scores <- readr::read_rds(here::here("01_fetched_data","task_data_nested.rds"))
+# colnames(all_sum_scores)
+# glimpse(all_sum_scores$data[[1]])
+# glimpse(all_sum_scores %>% filter(item_task == "mrot") %>% pull(data) %>% .[[1]])
+
+mrot <- all_sum_scores %>%
+  filter(item_task == "mrot") %>%
+  select(site, language, data) %>%
+  unnest(data) %>%
+  filter(!is.na(correct)) %>%
+  mutate(correct = as.numeric(correct))  
+
+counts_site <- mrot %>%
+  summarise(
+    n_trials = dplyr::n(),
+    n_users  = dplyr::n_distinct(user_id),
+    n_runs   = dplyr::n_distinct(paste(user_id, run_id)),
+    .by = site
+  ) %>%
+  arrange(site)
+
+knitr::kable(
+  counts_site,
+  format  = "html",
+  caption = "Mental Rotation: Counts by Site"
+)
+
+```
+
+## Raw data
+
+### (1) Ability - proportion correct
+
+```{r proportion correct by age}
+# removing all 20 degree trials as they're practice trials
+mrot <- all_sum_scores %>%
+  dplyr::filter(item_task == "mrot") %>%
+  dplyr::select(site, language, data) %>%
+  tidyr::unnest(data) %>%
+  dplyr::mutate(
+    correct = as.numeric(correct),
+    angle   = as.integer(stringr::str_extract(item, "\\d+"))
+  ) %>%
+  dplyr::filter(!is.na(angle), angle != 20L)
+
+run_ages <- all_scores %>%
+  filter(item_task == "mrot") %>%
+  transmute(user_id, run_id, age = as.numeric(age)) %>%
+  distinct()
+stopifnot(!any(duplicated(run_ages[c("user_id","run_id")])))
+
+# left join age, then summarise per run 
+mrot_runs <- mrot %>%
+  left_join(run_ages, by = c("user_id","run_id")) %>%
+  group_by(site, user_id, run_id) %>%
+  summarise(
+    correct  = mean(correct, na.rm = TRUE),  
+    age      = first(age),                    
+    n_items  = n_distinct(item_uid),
+    .groups  = "drop"
+  )
+
+# plot
+mrot_sum_scores <- ggplot(mrot_runs, aes(x = age, y = correct)) +
+  geom_point(alpha = 0.5, size = 1) +
+  geom_smooth(method = "gam", formula = y ~ s(x, k = 4), se = TRUE) +  # <- ribbon on
+  coord_cartesian(ylim = c(0, 1)) +
+  facet_wrap(~ site) +
+  labs(
+    title   = "Age-related accuracy, smoothed trends by site",
+    x       = "Age (years)",
+    y       = "Proportion correct",
+    caption = "Each point = participant run; trend = GAM per site"
+  )
+mrot_sum_scores
+
+#ggsave(
+#  filename = here::here("03_explore_tasks", "Graphs", "mrot_sum_scores.png"),
+#  plot = mrot_sum_scores,
+#  width = 10,
+#  height = 6,
+#  dpi = 300
+#)
+```
+
+### (2) Angle curves
+
+```{r angle curve with CI}
+
+# 1) Per-run accuracy at each reflected angle
+mrot_run_angle <- mrot |>
+  mutate(
+    stimulus = str_extract(item, "^[a-z]+"),
+    angle    = as.integer(str_extract(item, "\\d+")),
+    reflected_angle = if_else(angle > 180, 360 - angle, angle),
+    is_reflected    = angle > 180
+  ) |>
+  filter(stimulus %in% c("duck", "rabbit", "shape"), !is.na(reflected_angle)) |>
+  group_by(site, stimulus, item_group, reflected_angle, is_reflected, user_id, run_id) |>
+  summarise(p_run = mean(correct, na.rm = TRUE), .groups = "drop")
+
+# 2) Aggregate across runs: mean ± 95% CI
+mrot_items_ci <- mrot_run_angle |>
+  group_by(site, stimulus, item_group, reflected_angle, is_reflected) |>
+  summarise(
+    correct = mean(p_run, na.rm = TRUE),
+    sd  = sd(p_run, na.rm = TRUE),
+    n   = dplyr::n(),
+    se  = sd / sqrt(pmax(n, 1)),
+    lwr = pmax(0, correct - 1.96 * se),
+    upr = pmin(1, correct + 1.96 * se),
+    .groups = "drop"
+  )
+
+mrot_angle <- ggplot(
+  mrot_items_ci,
+  aes(x = reflected_angle, y = correct, colour = stimulus, linetype = item_group)
+) +
+  geom_point(alpha = 0.7) +
+  geom_errorbar(aes(ymin = lwr, ymax = upr), width = 2, linewidth = 0.4, alpha = 0.7) +
+  geom_line(aes(group = interaction(item_group, is_reflected))) +
+  facet_grid(stimulus ~ site) +
+  labs(
+    title    = "Accuracy by angle with 95% CIs (mean of per-run accuracies)",
+    x        = "Reflected rotation angle (°)",
+    y        = "Proportion correct",
+    colour   = "Stimulus",
+    linetype = "Item Type"
+  )
+mrot_angle
+```
+
+## IRT estimates
+
+### (3) Ability - thetas
+
+```{r irt thetas by age}
+# colnames(all_scores)
+# table(all_scores$model)
+
+mrot_df <- all_scores %>%
+  filter(item_task == "mrot", metric_type == "ability") %>%
+  mutate(
+    age          = as.numeric(age),
+    metric_value = as.numeric(metric_value),
+    site_label   = dplyr::recode(site, !!!site_labels, .default = site)
+  ) %>%
+  filter(is.finite(age), is.finite(metric_value))
+
+mrot_irt <- ggplot(mrot_df, aes(x = age, y = metric_value, colour = site_label)) +
+  geom_point(alpha = 0.35, size = 1.1) +
+  geom_smooth(method = "gam", formula = y ~ s(x, k = 5), se = TRUE) +
+  labs(
+    title = "Developmental trends in Mental Rotation ability by site",
+    subtitle = "Ability estimates smoothed with GAM",
+    x = "Age (years)",
+    y = "Ability (theta)",
+    colour = "Site"
+  )
+mrot_irt
+
+#ggsave(
+#  filename = here::here("03_explore_tasks", "Graphs", "mrot_irt.png"),
+#  plot = mrot_irt,
+#  width = 6,
+#  height = 4,
+#  dpi = 300
+#)
+
+```
+
+### (4) Difficulty by rotation angle (2PL scalar)
+
+```{r subset 2pl scalar item params}
+coefs <- readr::read_rds(here::here("02_scoring_outputs","all_coefs.rds"))
+# colnames(coefs)
+# table(coefs$invariance)
+# table(coefs$group)
+
+# filter to mrot, 2PL, scalar; keep a and d
+mrot_2pl_scalar <- coefs %>%
+  filter(
+    task == "mrot",
+    invariance == "scalar",
+    itemtype %in% c("2PL", "2pl")   # be tolerant of case
+  ) %>%
+  filter(group != "all") %>%
+  transmute(
+    site = dplyr::recode(group, !!!site_labels, .default = group),
+    item,
+    a = a1,   # discrimination
+    d = d     # difficulty (see note on sign below)
+  ) %>%
+  distinct(site, item, .keep_all = TRUE)
+# colnames(mrot_2pl_scalar)
+```
+
+```{r difficulty by angle, 2pl scalar}
+mrot_diff_2pl <- mrot_2pl_scalar %>%
+  filter(!is.na(d)) %>%
+  tidyr::separate(
+    item,
+    into = c("prefix","item_group","stimulus","angle","version"),
+    sep = "_",
+    remove = FALSE,
+    fill = "right"
+  ) %>%
+  mutate(angle = suppressWarnings(as.integer(angle))) %>%
+  filter(
+    stimulus %in% c("duck","rabbit","shape"),
+    !is.na(angle),
+    angle != 20L                  # <-- filter here, not in transmute
+  ) %>%
+  transmute(
+    site, stimulus, item_group, angle,
+    value = -d
+  ) %>%
+  distinct(site, stimulus, item_group, angle, value)
+
+
+plot_mrot_diff_2pl <- ggplot(mrot_diff_2pl, aes(x = angle, y = value, col = stimulus)) + 
+  geom_point() +
+  geom_line(aes(group = stimulus)) + 
+  xlab("Rotation angle (°)") + 
+  ylab("IRT difficulty") + 
+  facet_wrap(~site) +
+  labs(
+    title = "Item difficulty by rotation angle and stimulus type",
+    subtitle = "IRT difficulty estimates (2PL scalar), higher = more difficult",
+    colour = "Stimulus"
+  ) 
+plot_mrot_diff_2pl
+```
+
+### (5) Discrimination by rotation angle (2PL scalar)
+
+```{r discrimination by angle}
+# colnames(mrot_2pl_scalar)
+mrot_discrim_2pl <- mrot_2pl_scalar %>%
+  filter(!is.na(d)) %>%
+  tidyr::separate(
+    item,
+    into = c("prefix","item_group","stimulus","angle","version"),
+    sep = "_",
+    remove = FALSE,
+    fill = "right"
+  ) %>%
+  mutate(angle = suppressWarnings(as.integer(angle))) %>%
+  filter(
+    stimulus %in% c("duck","rabbit","shape"),
+    !is.na(angle),
+    angle != 20L        
+  ) %>%
+  transmute(
+    site, stimulus, item_group, angle,
+    value = a
+  ) %>%
+  distinct(site, stimulus, item_group, angle, value)
+
+plot_2PL_discrim <- ggplot(mrot_discrim_2pl, aes(x = value, y = angle, col = stimulus, lty = item_group)) +
+  geom_point() +
+  geom_line(aes(group = interaction(stimulus, item_group))) +
+  facet_wrap(~site) +
+  scale_y_continuous(breaks = seq(0, 360, 60)) +
+  labs(
+    title = "Item Discrimination by rotation angle, stimulus, and dimensionality",
+    subtitle = "IRT discrimination (2PL scalar), higher = more sensitive to ability",
+    x = "Discrimination (a-parameter)",
+    y = "Rotation Angle (°)",
+    colour = "Stimulus",
+    lty = "Item Type (2D vs 3D)"
+  ) 
+plot_2PL_discrim
+```
+
+## Reaction time (RT)
+
+### (6) RT by age
+
+```{r RT by age}
+# raw data
+# colnames(mrot)
+
+mrot_rt_sum <- all_sum_scores %>%
+  filter(item_task == "mrot") %>%
+  select(site, language, data) %>%
+  unnest(data) %>%
+  mutate(
+    correct = as.numeric(correct),
+    rt_s    = as.numeric(rt_numeric) / 1000
+  ) %>%
+  filter(is.finite(rt_s), rt_s > 0) %>%
+  mutate(log_rt = log(rt_s))
+
+mrot_rt_runs <- mrot_rt_sum %>%
+  left_join(run_ages, by = c("user_id","run_id")) %>%
+  group_by(site, user_id, run_id) %>%
+  summarise(
+    # raw
+    #rt_median   = median(rt_s[correct == 1], na.rm = TRUE),
+    #rt_trimmed  = mean(rt_s[correct == 1], trim = 0.10, na.rm = TRUE),
+    # log scale
+    logrt_median  = median(log_rt[correct == 1], na.rm = TRUE),
+    logrt_mean = mean(log_rt[correct == 1], na.rm = TRUE), #trim = 0.10 removed
+    age = first(age),
+    n_items = n_distinct(item_uid),
+    .groups = "drop"
+  )
+
+mrot_rt_plot_log <- ggplot(mrot_rt_runs, aes(x = age, y = logrt_mean)) +
+  geom_point(alpha = 0.5, size = 1) +
+  geom_smooth(method = "gam", formula = y ~ s(x, k = 4), se = TRUE) +
+  facet_wrap(~ site) +
+  labs(
+    title   = "Age-related reaction time (log scale), by site",
+    subtitle= "Mean of log RT on correct trials; each point = participant run",
+    x       = "Age (years)",
+    y       = "log RT (seconds)"
+  )
+
+mrot_rt_plot_log
+```
+
+### (7) Accuracy by RT (raw scores) broken down by age group
+
+```{r}
+mrot_prop_correct <- mrot_runs %>%
+  select(site, user_id, run_id, correct, age) %>%
+  inner_join(
+    mrot_rt_runs %>% select(site, user_id, run_id, logrt_mean),
+    by = c("site", "user_id", "run_id")
+  )
+
+mrot_year_binned <- mrot_prop_correct %>%
+  tidyr::drop_na(age, logrt_mean, correct) %>%
+  mutate(
+    age_binned = floor(age),                                   # <-- floor to whole years
+    age_binned = factor(age_binned, levels = sort(unique(age_binned)))
+  )
+
+ggplot(
+  mrot_year_binned,
+  aes(x = logrt_mean, y = correct, colour = age_binned)
+) +
+  geom_point(alpha = 0.55, size = 1) +
+  geom_smooth(method = "lm", se = FALSE) +             
+  facet_wrap(~ site) +
+  labs(
+    title    = "Proportion correct vs log RT, by site, coloured by age",
+    subtitle = "Each point = participant run; lines = linear fits per age within site",
+    x        = "log RT (s)",
+    y        = "Proportion correct",
+    colour   = "Age (y)"
+  )
+```
+
+### (8) Accuracy by RT (IRT scores) broken down by age group
+
+```{r Ability (thetas) by RT 2}
+ability_runs <- all_scores %>% 
+  filter(item_task == "mrot", metric_type == "ability") %>%
+  select(site, user_id, run_id, ability = metric_value, age) %>%
+  group_by(site, user_id, run_id) %>%               
+  summarise(ability = mean(ability, na.rm = TRUE),
+            age = first(age),
+            .groups = "drop")
+
+# join with your RT summary 
+mrot_speed_ability <- ability_runs %>%
+  inner_join(
+    mrot_rt_runs %>% select(site, user_id, run_id, logrt_mean),
+    by = c("site", "user_id", "run_id")
+  )
+
+# plot
+mrot_speed_ability |>
+  mutate(age_binned = as_factor(floor(age))) |>
+  ggplot(aes(x = logrt_mean, y = ability, colour = age_binned)) +
+  geom_point(alpha = 0.55, size = 1) +
+  geom_smooth(method = "lm", se = FALSE) +
+  facet_wrap(~ site) +
+  # scale_colour_viridis_c() +
+  labs(
+    title = "IRT Ability (Thetas) vs log RT, by site, colored by age",
+    subtitle = "Each point = participant run; line = linear fit per site",
+    x = "log RT (s)", y = "IRT Ability (Thetas)", color = "Age (y)"
+  )
+```
+
+### (9) Rotation angle by RT
+
+```{r angle by RT}
+mrot_rt_trial <- mrot %>%
+  dplyr::mutate(
+    correct = as.numeric(correct),
+    rt_s    = as.numeric(rt_numeric) / 1000,
+    log_rt  = log(rt_s)
+  ) %>%
+  dplyr::filter(
+    is.finite(rt_s), is.finite(log_rt),
+    dplyr::between(rt_s, 0.2, 10)
+  )
+
+mrot_run_angle <- mrot_rt_trial %>%
+  mutate(
+    stimulus = stringr::str_extract(item, "^[a-z]+"),
+    angle    = as.integer(stringr::str_extract(item, "\\d+"))
+  ) %>%
+  filter(stimulus %in% c("duck","rabbit","shape"), !is.na(angle), correct == 1) %>%
+  group_by(site, stimulus, item_group, user_id, run_id, angle) %>%
+  summarise(logrt_med = median(log_rt, na.rm = TRUE), .groups = "drop")
+
+mrot_items_rt_ci <- mrot_run_angle %>%
+  mutate(
+    reflected_angle = if_else(angle > 180L, 360L - angle, angle),
+    is_reflected    = angle > 180L
+  ) %>%
+  group_by(site, stimulus, item_group, reflected_angle, is_reflected) %>%
+  summarise(
+    y   = mean(logrt_med, na.rm = TRUE),
+    sd  = sd(logrt_med, na.rm = TRUE),
+    n   = dplyr::n(),
+    se  = sd / sqrt(pmax(n,1)),
+    lwr = y - 1.96*se,
+    upr = y + 1.96*se,
+    .groups = "drop"
+  )
+
+ggplot(
+  mrot_items_rt_ci,
+  aes(x = reflected_angle, y = y, colour = stimulus, linetype = item_group)
+) +
+  geom_point(alpha = 0.6) +
+  geom_errorbar(aes(ymin = lwr, ymax = upr), width = 2, linewidth = 0.4, alpha = 0.7) +
+  geom_line(aes(group = interaction(item_group, is_reflected))) +
+  facet_grid(stimulus ~ site) +
+  labs(
+    title = "log Reaction Time by reflected angle, stimulus, and dimensionality ±95% CI",
+    x     = "Reflected rotation angle (°)",
+    y     = "log RT (seconds)",
+    colour   = "Stimulus",
+    linetype = "Item Type"
+  )
+```
+
+### (10) Rotation angle by RT and age
+
+```{r}
+age_breaks <- c(5, 8, 11, 14)
+
+# run-level medians
+mrot_items_rt_runs <- mrot_rt_trial %>%
+  mutate(
+    stimulus = stringr::str_extract(item, "^[a-z]+"),
+    angle    = as.integer(stringr::str_extract(item, "\\d+"))
+  ) %>%
+  filter(stimulus %in% c("duck", "rabbit", "shape"), !is.na(angle)) %>%
+  left_join(run_ages, by = c("user_id","run_id")) %>%
+  filter(!is.na(age)) %>%
+  group_by(site, user_id, run_id, age, stimulus, item_group, angle) %>%
+  summarise(
+    logrt_med = median(log_rt[correct == 1], na.rm = TRUE),
+    .groups = "drop"
+  )
+
+# add age groups, then aggregate WITH CI across runs
+mrot_items_rt_agebin_ci <- mrot_items_rt_runs %>%
+  mutate(age_group = cut(age, breaks = age_breaks, include.lowest = TRUE, right = TRUE)) %>%
+  tidyr::drop_na(age_group) %>%
+  group_by(site, stimulus, item_group, angle, age_group) %>%
+  summarise(
+    y   = mean(logrt_med, na.rm = TRUE),
+    sd  = sd(logrt_med, na.rm = TRUE),
+    n   = dplyr::n(),
+    se  = sd / sqrt(pmax(n,1)),
+    lwr = y - 1.96 * se,
+    upr = y + 1.96 * se,
+    .groups = "drop"
+  )
+
+ggplot(
+  mrot_items_rt_agebin_ci,
+  aes(x = angle, y = y,
+      group = interaction(item_group, stimulus),
+      colour = stimulus, linetype = item_group)
+) +
+  geom_point(size = 1) +
+  geom_errorbar(aes(ymin = lwr, ymax = upr), width = 2, linewidth = 0.35, alpha = 0.6) +
+  geom_line(alpha = 0.85) +
+  facet_grid(site ~ age_group) +
+  labs(
+    title    = "Mental Rotation: log RT by angle within age groups ±95% CI",
+    x = "Rotation angle (°)", y = "log RT (s)",
+    colour = "Stimulus", linetype = "Item Type"
+  )
+```
+
+### (11) Histogram - Reaction Time
+
+```{r}
+# trial-level data with rt_s already computed above
+rt_hist <- mrot_rt_trial %>%
+  filter(correct == 1)  
+
+ggplot(rt_hist, aes(x = rt_s)) +
+  geom_histogram(bins = 50, boundary = 0) +
+  facet_wrap(~ site, scales = "free_y") +
+  scale_x_log10() +
+  labs(
+    title = "RT distribution by site (correct trials)",
+    x = "Reaction time (s, log scale)",
+    y = "Count"
+  )
+```
+
+## Analysis 1: Accuracy-Time Bivariate Model
+
+### RQs
+
+RQ1: Do children trade off speed and accuracy consistently?
+
+RQ2: After controlling for RT, do site differences persist?
+
+RQ3: How does the relationship change with age?
+
+```{r}
+# Conceptually: 
+# Ability_i ~ N(μ_ability + β_site + β_age, σ²_ability)
+# logRT_i ~ N(μ_RT + γ_site + γ_age, σ²_RT)
+# with correlation ρ between the two
+# brms (Bayesian)
+library(brms)
+# Prepare data
+model_data <- mrot_speed_ability %>%
+  filter(!is.na(ability), !is.na(logrt_mean), !is.na(age))
+m_joint <- brm(
+  mvbind(ability, logrt_mean) ~ site + age + (1|p|user_id),
+  data = model_data,
+  chains = 4, cores = 4
+)
+
+```
+
+```{r}
+print(m_joint)
+```
+
+### What the Results Tell Us:
+
+**RQ1: Do children trade off speed and accuracy consistently?**
+
+Yes
+
+-   **Person-level correlation: r = 0.40** (95% CI: 0.22–0.57)
+
+    -   Children who are generally slower have higher ability
+
+-   **Residual correlation: r = 0.23** (95% CI: 0.06–0.38)
+
+    -   Even within-person, slower responses → higher ability
+
+**RQ2: After controlling for RT, do site differences persist?**
+
+Yes
+
+-   **Colombia**: -1.30 SD lower ability (after accounting for their faster RT)
+-   **Canada**: -0.42 SD lower ability (after accounting for their faster RT)
+-   **Germany**: Reference group (highest ability)
+
+Colombia is BOTH lower in ability AND faster in RT (-0.37 log seconds). This suggests they may be sacrificing accuracy for speed more than other sites.
+
+**RQ3: How does the relationship change with age?**
+
+Ability improves but speed doesn't change much
+
+-   **Ability increases**: +0.20 SD per year (strong developmental effect)
+-   **RT barely changes**: -0.01 log seconds per year (credible interval includes 0)
+
+**Interpretation**: Children get better at the task with age, but they don't get faster. This suggests they're improving in mental rotation *skill* rather than just processing speed.
+
+### Summary
+
+#### **Main Finding 1: Speed-Accuracy Tradeoff is Universal**
+
+Across all sites, we observed a consistent speed-accuracy tradeoff (person-level r = 0.40, residual r = 0.23), where slower response times were associated with higher mental rotation ability. This pattern held across all three cultural contexts.
+
+```{r}
+#| message: false
+#| warning: false
+re <- ranef(m_joint)$user_id
+
+# Extract the estimates for both ability and RT intercepts
+person_df <- data.frame(
+  user_id = rownames(re[, , "ability_Intercept"]),
+  ability_intercept = re[, "Estimate", "ability_Intercept"],
+  logrt_intercept = re[, "Estimate", "logrtmean_Intercept"]
+)
+
+# Join with site information
+person_df <- person_df %>%
+  left_join(
+    model_data %>% distinct(user_id, site),
+    by = "user_id"
+  )
+
+# Calculate site-specific correlations
+site_cors <- person_df %>%
+  group_by(site) %>%
+  summarise(
+    r = cor(logrt_intercept, ability_intercept),
+    n = n()
+  ) %>%
+  mutate(
+    site_label = recode(site,
+                       "pilot_mpieva_de" = "Germany",
+                       "pilot_western_ca" = "Canada", 
+                       "pilot_uniandes_co" = "Colombia")
+  )
+
+# Plot
+p_rq1 <- ggplot(site_cors, aes(x = reorder(site_label, r), y = r, fill = site_label)) +
+  geom_col(width = 0.6) +
+  geom_hline(yintercept = 0.40, linetype = "dashed", linewidth = 1) +
+  geom_text(aes(label = sprintf("r = %.2f\n(n=%d)", r, n)), 
+            vjust = -0.5, size = 4, fontface = "bold") +
+  annotate("text", x = 3, y = 0.42, label = "Overall r = 0.40", 
+           hjust = 1, size = 3.5, color = "gray30") +
+  coord_cartesian(ylim = c(0, 0.6)) +
+  labs(
+    title = "RQ1: Speed-accuracy tradeoffs are consistent across sites",
+    subtitle = "Person-level correlation between RT tendency and ability",
+    x = NULL,
+    y = "Correlation (r)"
+  ) +
+  theme_minimal(base_size = 12) +
+  theme(
+    plot.title = element_text(face = "bold", size = 14),
+    legend.position = "none",
+    panel.grid.major.x = element_blank()
+  )
+
+p_rq1
+```
+
+#### **Main Finding 2: Site Differences Reflect True Ability Gaps**
+
+After accounting for response time, substantial site differences persisted. Colombian children showed 1.30 SD lower ability than German children, despite responding 0.37 log-seconds faster. This suggests that accuracy differences cannot be explained by differential speed-accuracy strategies alone.
+
+#### **Main Finding 3: Development Improves Skill, Not Speed**
+
+Mental rotation ability improved by 0.20 SD per year, but response times remained stable across ages. This dissociation suggests that developmental gains reflect improved mental rotation skill rather than general processing speed.
+
+```{r}
+# Create age bins for visualization
+model_data_age <- model_data %>%
+  mutate(
+    age_group = cut(age, 
+                   breaks = c(5, 8, 11, 14), 
+                   labels = c("5-8 years", "8-11 years", "11-14 years"),
+                   include.lowest = TRUE)
+  ) %>%
+  drop_na(age_group)
+# Panel A
+p_rq3a <- ggplot(model_data_age, 
+                 aes(x = logrt_mean, y = ability, color = age_group)) +
+  geom_point(alpha = 0.4, size = 1.5) +
+  geom_smooth(method = "lm", se = TRUE, linewidth = 1.2) +
+  scale_color_brewer(palette = "Set1") +
+  labs(
+    title = "Speed-accuracy tradeoff by age group",
+    x = "log RT (seconds)",
+    y = "Ability (theta)",
+    color = "Age", caption = "Lines are parallel → tradeoff strength is age-invariant"
+  ) +
+  theme_minimal(base_size = 12) +
+   theme(
+    legend.position = "bottom",
+    legend.direction = "horizontal",
+    legend.key.size = unit(0.4, "cm"),
+    legend.text = element_text(size = 8),
+    legend.title = element_text(size = 9),
+    legend.box.margin = margin(0, 0, 0, 0)
+  )
+# Panel B: Marginal effects
+# Calculate slopes by age group
+age_slopes <- model_data_age %>%
+  group_by(age_group) %>%
+  summarise(
+    slope = coef(lm(ability ~ logrt_mean))[2],
+    intercept = coef(lm(ability ~ logrt_mean))[1],
+    n = n()
+  )
+p_rq3b <- ggplot(age_slopes, aes(x = age_group, y = slope)) +
+  geom_col(aes(fill = age_group), width = 0.6) +
+  geom_hline(yintercept = 0, linetype = "dashed") +
+  geom_text(aes(label = sprintf("β = %.2f", slope)), 
+            vjust = -0.5, size = 3.5, fontface = "bold") +
+  scale_fill_brewer(palette = "Set1") +
+  labs(
+    title = "Speed-accuracy tradeoff strength",
+    caption = "Similar across age groups",
+    x = NULL,
+    y = "Regression slope\n(ability ~ log RT)"
+  ) +
+  theme_minimal(base_size = 12) +
+  theme(
+    plot.title = element_text(face = "bold", size = 14),
+    legend.position = "none",
+    panel.grid.major.x = element_blank()
+  )
+
+p_rq3 <- p_rq3a + p_rq3b + 
+  plot_annotation(
+    title = "RQ3: Speed-accuracy tradeoff is stable across development",
+    theme = theme(plot.title = element_text(size = 14, face = "bold"))
+  )
+p_rq3
+```
