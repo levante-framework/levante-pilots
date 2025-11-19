@@ -230,7 +230,7 @@ task_table <- tribble(
   ~"Construct"         , ~"LEVANTE task name"     , ~"Prior/Source task name",
    "Executive Function",  "Hearts and Flowers"    ,  "Hearts and Flowers [@davidson2006]",
    ""                  ,  "Memory"                ,  "AMES Memory Game",
-   ""                  ,  "Same & Different"      ,  "The Same Different Selection Task",
+   ""                  ,  "Same and Different"    ,  "The Same Different Selection Task",
    "Language"          ,  "Vocabulary"            ,  "Picture Vocabulary",
    ""                  ,  "Sentence Understanding",  "Test for Reception of Grammar (TROG)",
    "Math"              ,  "Math"                  ,  "Early Grades Math Assessment (EGMA)",
@@ -371,9 +371,9 @@ Mental rotation refers to the ability to imagine the rotation of objects in spac
 
 ## Executive Function
 
-### Same Different Selection
+### Same and Different 
 
-The Same Different Selection (SDS) task is designed to assess cognitive flexibility in children [@obradovic2025sds]. It incorporates elements from the “Something’s the Same” task [@willoughby2011] and “Flexible Item Selection Task” [@jacques2001] as initial task blocks and extends these tasks by including more advanced blocks that increase the number of conceptual dimensions, values per dimension, and number of presented cards. Children are presented with sets of cards that show geometric figures that vary along multiple dimensions, such as shape, color, size, and number. They are required to identify similarities and differences between cards based on these dimensions (e.g., choosing a pair of cards with figures that share the same color and then choosing a pair of cards that share the same number of figures), by engaging their ability to shift attention from previously identified dimensions and identify new matching dimensions criteria. The version of the task we adapted included successively more difficult blocks of trials in which children were asked to identify two, three, or four pairs of items that were the same in different ways (e.g., matching on different dimensions).
+The Same Different Selection (SDS) task was designed to assess cognitive flexibility in children [@obradovic2025sds]. It incorporates elements from the “Something’s the Same” task [@willoughby2011] and “Flexible Item Selection Task” [@jacques2001] as initial task blocks and extends these tasks by including more advanced blocks that increase the number of conceptual dimensions, values per dimension, and number of presented cards. Children are presented with sets of cards that show geometric figures that vary along multiple dimensions, such as shape, color, size, and number. They are required to identify similarities and differences between cards based on these dimensions (e.g., choosing a pair of cards with figures that share the same color and then choosing a pair of cards that share the same number of figures), by engaging their ability to shift attention from previously identified dimensions and identify new matching dimensions criteria. The version of the task we adapted included successively more difficult blocks of trials in which children were asked to identify two, three, or four pairs of items that were the same in different ways (e.g., matching on different dimensions).
 
 ### Hearts and Flowers
 
@@ -1128,6 +1128,7 @@ edges <- pe %>%
     label = sprintf("%.2f%s", std.all, stars)
   )
 
+library(readxl)
 layout_ids <- as.matrix(read_excel("SEM_layout.xlsx", col_names = FALSE))
 layout_ids[layout_ids == ""] <- NA
 
