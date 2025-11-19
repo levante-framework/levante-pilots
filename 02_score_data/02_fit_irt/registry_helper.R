@@ -27,17 +27,6 @@ model_from_record <- \(mod_rec) {
   }
 }
 
-# map invariance as recorded in mirt
-# (subset of c("free_means", "free_var", "intercepts", "slopes"))
-# to shorthand name
-# (one of c("configural", "metric", "scalar_intercepts", "scalar_slopes_and_intercepts", "full")
-translate_invariance <- \(invariance_terms) {
-  invariances |>
-    map(\(inv) setequal(inv, invariance_terms)) |>
-    keep(identity) |>
-    names()
-}
-
 # count number of items with non-NA responses for each run
 count_items <- \(mod_rec) {
   counts <- mod_rec@data |> negate(is.na)() |> rowSums()

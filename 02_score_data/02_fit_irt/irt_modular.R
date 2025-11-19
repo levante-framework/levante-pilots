@@ -1,6 +1,3 @@
-source("ModelRecord.R")
-source("anova_mirt.R")
-
 invariances <- list(
   configural = "",
   metric = c("slopes"),
