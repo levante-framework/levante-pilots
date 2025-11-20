@@ -4,6 +4,8 @@ format: html
 
 ```{r}
 library(tidyverse)
+library(ggthemes)
+source(here("plot_settings.R"))
 
 all_coefs <- read_rds("02_scoring_outputs/all_coefs.rds")
 ```
@@ -114,4 +116,100 @@ tom_coef_plot <- \(grp) {
 }
 
 walk(item_groups, tom_coef_plot)
+```
+
+sds
+
+```{r}
+all_coefs <- read_rds("02_scoring_outputs/all_coefs.rds")
+
+sds_coefs <- all_coefs |>
+  filter(task == "sds", model_set == "multigroup_site") |> #, subset == "all_items") |>
+  select(model_set, subset, itemtype, invariance, group, item, a1, d) |>
+  pivot_longer(c(a1, d), names_to = "param", values_to = "value") |>
+  filter(!(param == "a1" & itemtype == "rasch")) |>
+  separate(item, into = c("task", "block", "trial_type")) |>
+  mutate(itemtype = itemtype |> as_factor() |> fct_relevel("rasch"),
+         invariance = invariance |> as_factor() |> fct_relevel("configural", "scalar"),
+         block = block |> fct_recode(dims = "dimensions"))
+
+sds_coefs |>
+  filter(param == "d") |>
+  # filter(param == "d", !(block %in% c("dimensions", "same"))) |>
+  ggplot(aes(y = value, x = block, colour = trial_type)) +
+  facet_grid(vars(itemtype, invariance), vars(group)) +
+  geom_hline(yintercept = 0, color = "darkgrey", linetype = "dotted") +
+  geom_crossbar(aes(ymin = value, ymax = value), position = "dodge", width = 0.5, middle.linewidth = 0.5) +
+  scale_color_manual(values = c(rev(ptol_pal()(4)), rev(ptol_pal()(6)))) +
+  # scale_color_ptol() +
+  scale_y_continuous(limits = ~range(.x, 0)) +
+  labs(x = "Block", y = "Difficulty", colour = "Item") +
+  theme(panel.border = element_rect())
+ggsave("plots/sds_difficulty.png", width = 11, height = 8)
+
+sds_coefs |>
+  filter(param == "d", block == "dims") |>
+  # filter(param == "d", !(block %in% c("dimensions", "same"))) |>
+  ggplot(aes(y = value, x = block, colour = trial_type)) +
+  facet_grid(vars(itemtype, invariance), vars(group)) +
+  geom_hline(yintercept = 0, color = "darkgrey", linetype = "dotted") +
+  geom_crossbar(aes(ymin = value, ymax = value), position = "dodge", width = 0.5, middle.linewidth = 0.5) +
+  scale_color_manual(values = rev(ptol_pal()(5))) +
+  # scale_color_ptol() +
+  scale_y_continuous(limits = ~range(.x, 0)) +
+  labs(x = "Block", y = "Difficulty", colour = "Item") +
+  theme(panel.border = element_rect())
+ggsave("plots/sds_dims.png", width = 7, height = 8)
+
+sds_coefs |>
+  filter(param == "a1", !(block %in% c("dimensions", "same"))) |>
+  ggplot(aes(y = value, x = block, colour = trial_type)) +
+  facet_grid(vars(itemtype, invariance), vars(group)) +
+  geom_hline(yintercept = 0, color = "darkgrey", linetype = "dotted") +
+  geom_crossbar(aes(ymin = value, ymax = value), position = "dodge", width = 0.5, middle.linewidth = 1) +
+  scale_color_manual(values = rev(ptol_pal()(9))) +
+  scale_y_continuous(limits = ~range(.x, 0)) +
+  labs(x = "Block", y = "Discrimination", colour = "Item") +
+  theme(panel.border = element_rect())
+ggsave("plots/sds_discrimination.png", width = 8, height = 6)
+
+sds_coefs |>
+  filter(itemtype == "2pl", !(block %in% c("dimensions", "same"))) |>
+  pivot_wider(names_from = param, values_from = value) |>
+  # unite("item", c("block", "trial_type")) |>
+  ggplot(aes(x = d, y = a1, colour = trial_type, shape = block)) +
+  facet_grid(vars(itemtype, invariance), vars(group)) +
+  geom_point(size = 1) +
+  # geom_hline(yintercept = 0, color = "darkgrey", linetype = "dotted") +
+  # geom_crossbar(aes(ymin = value, ymax = value), position = "dodge", width = 0.5, middle.linewidth = 1) +
+  scale_color_manual(values = rev(ptol_pal()(9))) +
+  # scale_y_continuous(limits = ~range(.x, 0)) +
+  labs(x = "Difficulty", y = "Discrimination", colour = "Item", shape = "Block") +
+  theme(panel.border = element_rect())
+ggsave("sds_diff_disc.png", width = 9.5, height = 6)
+```
+
+```{r}
+task_data_nested <- read_rds(here("01_fetched_data/task_data_nested.rds"))
+sds_data <- task_data_nested |> filter(item_task == "sds") |> unnest(data)
+
+sds_props <- sds_data |>
+  group_by(site, item_uid, item_group, item) |>
+  summarise(prop_correct = mean(correct), n = n()) |>
+  ungroup() |>
+  mutate(param = "prop_correct") |>
+  rename(group = site, block = item_group, trial_type = item, value = prop_correct)
+
+sds_props |>
+  # filter(!(block %in% c("dimensions", "same"))) |>
+  ggplot(aes(y = value, x = block, colour = trial_type)) +
+  facet_grid(vars(), vars(group)) +
+  geom_hline(yintercept = 0, color = "darkgrey", linetype = "dotted") +
+  geom_crossbar(aes(ymin = value, ymax = value), position = "dodge", width = 0.5, middle.linewidth = 1) +
+  # scale_color_manual(values = rev(ptol_pal()(4))) +
+  scale_color_manual(values = c(rev(ptol_pal()(4)), rev(ptol_pal()(6)))) +
+  scale_y_continuous(limits = ~range(.x, 0)) +
+  labs(x = "Block", y = "Proportion correct", colour = "Item") +
+  theme(panel.border = element_rect())
+ggsave("sds_props.png", width = 9, height = 4)
 ```
