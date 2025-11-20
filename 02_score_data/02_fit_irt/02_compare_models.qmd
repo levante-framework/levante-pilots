@@ -88,15 +88,15 @@ mods_overlap <- mods_coded |>
   # mutate(BIC = map_dbl(mod_rec, BIC))
   mutate(BIC = map_dbl(mod_rec, \(rec) rec@fit$BIC))
 
-# mods_overlap |>
-#   group_by(task) |>
-#   mutate(delta_bic = BIC - min(BIC)) |>
-# ggplot(aes(x = delta_bic, y = paste(itemtype, invariance))) +
-#   facet_wrap(vars(task), scales = "free") +
-#   geom_vline(xintercept = 0, color = "grey") +
-#   geom_point() +
-#   labs(x = "BIC difference from lowest", y = "Model")
-# ggsave("plots/bic_comparison.png", width = 9, height = 6)
+mods_overlap |>
+  group_by(task) |>
+  mutate(delta_bic = BIC - min(BIC)) |>
+ggplot(aes(x = delta_bic, y = paste(itemtype, invariance))) +
+  facet_wrap(vars(task), scales = "free") +
+  geom_vline(xintercept = 0, color = "grey") +
+  geom_point() +
+  labs(x = "BIC difference from lowest", y = "Model")
+ggsave(here("02_score_data/plots/bic_comparison.png"), width = 9, height = 6)
 
 mods_best_overlap <- mods_overlap |>
   group_by(task, subset) |>

@@ -55,7 +55,7 @@ write_rds(trial_data_filtered, here("01_fetched_data/trial_data_filtered.rds"),
 trial_data_coded <- trial_data_filtered |> recode_trials()
 
 # exclude items that are marked for exclusion
-exclusions <- redivis$organization("levante")$dataset("item_metadata:czjv")$table("exclusions:0b5t")$to_tibble()
+exclusions <- redivis$organization("levante")$dataset("levante_metadata_items:czjv")$table("exclusions:0b5t")$to_tibble()
 trial_data_included <- trial_data_coded |> anti_join(exclusions)
 ```
 

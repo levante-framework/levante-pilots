@@ -1,5 +1,5 @@
 ### functions to prep data for modeling
-
+item_sep = "-"
 paste_c <- partial(paste, collapse = ",")
 
 # generates the mirt model strings

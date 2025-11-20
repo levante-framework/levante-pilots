@@ -5,6 +5,7 @@ library(here)
 library(mirt)
 library(rlang)
 library(multidplyr)
+library(rlevante)
 
 source(here("02_score_data/02_fit_irt/irt_helpers.R"))
 source(here("02_score_data/02_fit_irt/irt_modular.R"), chdir = TRUE)
@@ -114,7 +115,7 @@ cluster |>
 # fit_bylanguage_task(task_data = task_data_irt,
 #                     models = models_pooled,
 #                     prior = priors,
-#                     task = "hf",
+#                     task = "sds",
 #                     registry_dir = regdir)
 # 
 # irt_tasks |> map(\(tsk) {
@@ -128,7 +129,7 @@ cluster |>
 # fit_task_models_multigroup(task_data = task_data_irt,
 #                            models = models_multigroup,
 #                            prior = priors,
-#                            task = "hf",
+#                            task = "sds",
 #                            group = site,
 #                            registry_dir = regdir)
 # 
