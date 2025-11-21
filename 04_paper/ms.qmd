@@ -4,6 +4,7 @@ shorttitle: "LEVANTE Measures"
 
 author: 
   - name: "George Kachergis*"
+    orcid: 0000-0003-4153-4167
     affiliations:
       - ref: stanford
   - name: "Fionnuala O'Reilly*"
@@ -230,14 +231,14 @@ gray_border <- officer::fp_border(color = "gray")
 task_table <- tribble(
   ~"Construct"         , ~"LEVANTE task name"     , ~"Prior/Source task name",
    "Executive Function",  "Hearts and Flowers"    ,  "Hearts and Flowers [@davidson2006]",
-   ""                  ,  "Memory"                ,  "AMES Memory Game [@corsi1972]",
-   ""                  ,  "Same and Different"    ,  "The Same Different Selection Task [@jacques2001]",
-   "Language"          ,  "Vocabulary"            ,  "Picture Vocabulary [@dunn1965]",
-   ""                  ,  "Sentence Understanding",  "Test for Reception of Grammar (TROG) [@bishop1982]",
-   "Math"              ,  "Math"                  ,  "Early Grades Math Assessment (EGMA) [@platas2014]",
-   "Reasoning"         ,  "Pattern Matching"      ,  "Matrix Reasoning [@chierchia2019]",
-   ""                  ,  "Shape Rotation"        ,  "Mental Rotation [@frick2013]",
-   "Social Cognition"  ,  "Stories"               ,  "Theory of Mind [@sotomayor-enriquez2024]"
+   ""                  ,  "Memory"                ,  "AMES Memory Game",
+   ""                  ,  "Same and Different"    ,  "The Same Different Selection Task",
+   "Language"          ,  "Vocabulary"            ,  "Picture Vocabulary",
+   ""                  ,  "Sentence Understanding",  "Test for Reception of Grammar (TROG)",
+   "Math"              ,  "Math"                  ,  "Early Grades Math Assessment (EGMA)",
+   "Reasoning"         ,  "Pattern Matching"      ,  "Matrix Reasoning",
+   ""                  ,  "Shape Rotation"        ,  "Mental Rotation",
+   "Social Cognition"  ,  "Stories"               ,  "Theory of Mind"
 )
 
 line_rows <- task_table |> mutate(i = 1:n() - 1) |> filter(Construct != "") |> slice(-1) |> pull(i)
@@ -843,7 +844,7 @@ One goal for the LEVANTE core tasks is strong reliability both within an individ
 
 ### Marginal reliability
 
-Marginal reliability, an IRT-based analogue to Cronbach’s α, quantifies the proportion of true-score variance captured by a test based on the item information function [@thissen2001test]. Unlike classical coefficients, which assume uniform measurement precision across the ability range, marginal reliability incorporates the fact that precision varies across θ and estimates overall reliability by integrating information across the assumed population distribution [@embretson2013]. In multi-group IRT models, marginal reliability is computed separately for each site-specific sub-model. @tbl-task-rxx reports marginal reliabilities for each task and site from the best-fitting model. Reliabilities were largely acceptable (>.60) [@nunnally1978psychometric], with the exception of the Stories and Hearts and Flowers tasks, which showed lower reliability in several sites.
+Marginal reliability, an IRT-based analogue to Cronbach’s α, quantifies the proportion of true-score variance captured by a test based on the item information function [@thissen2001test]. Unlike classical coefficients, which assume uniform measurement precision across the ability range, marginal reliability incorporates the fact that precision varies across θ and estimates overall reliability by integrating information across the assumed population distribution [@embretson2013]. In multi-group IRT models, marginal reliability is computed separately for each site-specific sub-model. @tbl-task-rxx reports marginal reliabilities for each task and site from the best-fitting model. Reliabilities were largely acceptable (>.60) [@nunnally1978psychometric], with the exception of the Stories and Hearts & Flowers tasks, which showed lower reliability in several sites.
 
 ```{r}
 #| label: tbl-task-rxx
@@ -1660,10 +1661,14 @@ In this paper, we presented the LEVANTE core tasks -- nine psychometrically grou
 Using pilot data from three different countries, collected via three different administration methods (in-school, in-lab, and at-home administration), we provided preliminary evidence of reliability and validity. Further, using computer adaptive testing algorithms, we are able to deploy efficient versions of these tasks that produce scores for children across a wide range of abilities in just a few minutes. While these tasks do not all yet meet conventional thresholds for reliability (i.e., CFI ≥ 0.95, TLI ≥ 0.95, RMSEA ≤ 0.05), it is important to note that they still fill a gap: many tasks used with children are not assessed for reliability at all and may well be substantially less reliable than those presented here. 
 
 Several of the nine tasks remain under construction, and we expect gains in reliability and validity as items are refined, distractors improved, and instructions localized. We are actively monitoring task performance and iteratively refining items as new data accrue across sites. This includes updating IRT calibrations, conducting routine checks for differential item functioning, and making revisions guided by fit diagnostics and error patterns. We are attempting to strike a balance between minimizing bias and ensuring that observed differences reflect genuine developmental variation rather than artifacts of the measurement process.
+With pilot data collection complete in Canada, Colombia, and Germany, our goal here has been to present the LEVANTE framework tasks, our scoring methods, and an initial analysis of validity and reliability. 
+Although task refinement is an iterative process, we discuss the next steps of extending the framework for broader participation in data collection and analysis.
 
-We hope that the core tasks presented here will become the backbone of the LEVANTE framework, in which sites around the world collaborate to collect longitudinal data measuring children's learning and development as well as the overlapping contexts in which they develop. De-identified data collected using the tasks presented here flow into a shared repository, becoming part of a large-scale dataset that we hope will enable a wide variety of downstream investigations. The power of these data is that -- especially when combined with contextual data about children’s caregivers, home environment, school, and community environment -- they afford one analysis of the sources of developmental and contextual variability at global scale.
+## Future Directions
 
-Towards this goal, one strength of our approach here is that it easily accommodates future internationalization and adaptation. In fact, at the time of writing we are working on adaptations for two more languages (French and Dutch) and intend to further broaden the set of languages for which the tasks are available. As part of this process, we have created a website using CrowdIn for generating and reviewing translation materials. The LEVANTE researcher website documents the use of this platform and our ongoing language adaptation efforts: <https://researcher.levante-network.org>. 
+Our plan is for the core tasks presented to become the backbone of the LEVANTE framework, in which sites around the world collaborate to collect longitudinal data measuring children's learning and development as well as the overlapping contexts in which they develop. De-identified data collected using the tasks presented here flow into a shared repository, becoming part of a large-scale dataset that we hope will enable a wide variety of downstream investigations. The power of these data is that -- especially when combined with contextual data about children’s caregivers, home environment, school, and community environment -- they afford one analysis of the sources of developmental and contextual variability at global scale.
+
+Towards this goal, one strength of our approach here is that it easily accommodates future internationalization and adaptation. In fact, at the time of writing we are working on adaptations for two more languages (French and Dutch), with sites to begin data collection in January, and we intend to further broaden the set of languages for which the tasks are available. As part of this process, we have created a website using CrowdIn for generating and reviewing translation materials. The LEVANTE researcher website documents the use of this platform and our ongoing language adaptation efforts: <https://researcher.levante-network.org>. 
 
 Our current task set is designed for children ages 5--12, but we are currently pursuing downward extension of many of these tasks for children ages 2--4. By design, the forced choice, tablet-based format of our tasks makes them highly amenable to use with younger children [@frank2016]. In our downward extension work, we are adding easier items to each task, increasing the number of practice trials, and increasing the amount of instructions. We anticipate that not all tasks will be usable for all ages, but for at least the executive function and language tasks there is strong evidence of usability with children under age 5 [@davidson2006;@bishop1982;@long_ma_tan_silverman_frank_yeatman_2025]. 
 
