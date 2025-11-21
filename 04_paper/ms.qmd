@@ -231,14 +231,14 @@ gray_border <- officer::fp_border(color = "gray")
 task_table <- tribble(
   ~"Construct"         , ~"LEVANTE task name"     , ~"Prior/Source task name",
    "Executive Function",  "Hearts and Flowers"    ,  "Hearts and Flowers [@davidson2006]",
-   ""                  ,  "Memory"                ,  "AMES Memory Game",
-   ""                  ,  "Same and Different"    ,  "The Same Different Selection Task",
-   "Language"          ,  "Vocabulary"            ,  "Picture Vocabulary",
-   ""                  ,  "Sentence Understanding",  "Test for Reception of Grammar (TROG)",
-   "Math"              ,  "Math"                  ,  "Early Grades Math Assessment (EGMA)",
-   "Reasoning"         ,  "Pattern Matching"      ,  "Matrix Reasoning",
-   ""                  ,  "Shape Rotation"        ,  "Mental Rotation",
-   "Social Cognition"  ,  "Stories"               ,  "Theory of Mind"
+   ""                  ,  "Memory"                ,  "AMES Memory Game [@corsi1972]",
+   ""                  ,  "Same and Different"    ,  "The Same Different Selection Task [@jacques2001]",
+   "Language"          ,  "Vocabulary"            ,  "Picture Vocabulary [@dunn1965]",
+   ""                  ,  "Sentence Understanding",  "Test for Reception of Grammar (TROG) [@bishop1982]",
+   "Math"              ,  "Math"                  ,  "Early Grades Math Assessment (EGMA) [@platas2014]",
+   "Reasoning"         ,  "Pattern Matching"      ,  "Matrix Reasoning [@chierchia2019]",
+   ""                  ,  "Shape Rotation"        ,  "Mental Rotation [@frick2013]",
+   "Social Cognition"  ,  "Stories"               ,  "Theory of Mind [@sotomayor-enriquez2024]"
 )
 
 line_rows <- task_table |> mutate(i = 1:n() - 1) |> filter(Construct != "") |> slice(-1) |> pull(i)
