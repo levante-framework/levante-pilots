@@ -151,7 +151,7 @@ execute:
   #eval: false
   echo: false
   message: false
-  warning: falsex
+  warning: false
   error: true
   cache: true
 ---
@@ -1723,25 +1723,50 @@ pred_curves_augment <- function(task_name) {
 }
 
 pred_all <- map_dfr(task_ids, pred_curves_augment) %>%
-  left_join(task_meta, by = "item_task") %>%
-  mutate(
-    Site    = fct_recode(site, !!!site_labels),
-    TaskLab = coalesce(task, recode(item_task, !!!task_lab_map)),
-    TaskLab = factor(TaskLab, levels = unique(task_meta$task))   
-  )
+  left_join(task_meta, by = "item_task") |>
+  left_join(select(fixed_only, task_category, site_label, site) |> distinct())
 
-stopifnot(all(c("task_category","TaskLab") %in% names(pred_all)))
+# stopifnot(all(c("task_category","TaskLab") %in% names(pred_all)))
 
-ggplot(pred_all, aes(age, fit, colour = Site)) +
-  geom_ribbon(aes(ymin = lower, ymax = upper, fill = Site),
+# ggplot(pred_all, aes(age, fit, colour = Site)) +
+#   geom_ribbon(aes(ymin = lower, ymax = upper, fill = Site),
+#               alpha = 0.12, colour = NA, show.legend = FALSE) +
+#   geom_line(linewidth = 1) +
+#   ggh4x::facet_nested_wrap(vars(task_category, TaskLab), scales = "free_y", axes = "x") +
+#   .scale_colour_site() +
+#   labs(x = "Age (years)", y = "Predicted ability (IRT)",
+#        title = "Model-predicted ability vs age by site and task",
+#        subtitle = "Lines are marginal predictions from lm(metric_value ~ age_c * site); ribbons = 95% CI") +
+#   theme(legend.position = "bottom")
+
+ggplot(fixed_only, aes(age, metric_value)) +
+  ggh4x::facet_nested_wrap(
+    vars(task_category, task),
+    nest_line = element_line(), solo_line = TRUE,
+    axes = "x", scales = "free_y"
+  ) +
+  geom_ribbon(data = pred_all, 
+              aes(y = fit, ymin = lower, 
+                  ymax = upper, fill = site_label),
               alpha = 0.12, colour = NA, show.legend = FALSE) +
-  geom_line(linewidth = 1) +
-  ggh4x::facet_nested_wrap(vars(task_category, TaskLab), scales = "free_y", axes = "x") +
+  geom_line(data = pred_all, aes(y= fit, col = site_label), linewidth = 1) + 
+  geom_point(aes(colour = site_label), alpha = 0.3, size = 1) +
+  scale_x_continuous(breaks = seq(6, 14, 2)) +
   .scale_colour_site() +
-  labs(x = "Age (years)", y = "Predicted ability (IRT)",
-       title = "Model-predicted ability vs age by site and task",
-       subtitle = "Lines are marginal predictions from lm(metric_value ~ age_c * site); ribbons = 95% CI") +
-  theme(legend.position = "bottom")
+  guides(colour = guide_legend(
+    override.aes = list(shape = NA, linetype = 1, linewidth = 2)
+  )) +
+  labs(
+    x = "Age (years)",
+    y = "Ability (IRT score)",
+    colour = "Site",
+    caption = "Note. Uniandes-co Memory data were excluded due to task bugs and difficulties with the instructions."
+  ) +
+  theme(
+    legend.position = "bottom",
+    plot.caption = element_text(hjust = 0, size = rel(0.8)),
+    plot.caption.position = "plot"
+  )
 ```
 
 # Age Slopes by Task {.appendix #apx-em-trends}
