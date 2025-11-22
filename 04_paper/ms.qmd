@@ -63,7 +63,7 @@ author:
   - name: "Maria Camilla Perfetti"
     affiliations:
       - ref: uniandes
-  - name: "Julian Mariño"
+  - name: "Julián P. Mariño"
     affiliations:
       - ref: uniandes
   - name: "Luise Hornoff"
@@ -223,35 +223,72 @@ To create our core tasks, we selected pre-existing measures from the literature 
 In addition to the constructs described above, we were also interested in the assessment of literacy. The LEVANTE task battery makes use of a number of previously-validated literacy tasks from the Rapid Online Assessment of Reading [@yeatman2021], including Single Word Reading (ROAR-Word) [@yeatman2021; @ma2025roar], Sentence Reading Efficiency (ROAR-Sentence) [@yeatman2024development], and Phonological Awareness (ROAR-Phoneme) [@gijbels2024rapid]. Because they are extensively described elsewhere, we do not report on these tasks here, though we make use of literacy data for validation of language measures. For validation of our executive function measures, we also included a commercially-available broad measure of executive function, the Minnesota Executive Function Scale (MEFS), for which substantial reliability and validity evidence has already been gathered [@carlson2021]. 
 
 ```{r}
+##| label: tbl-tasks
+##| tbl-cap: "The LEVANTE core tasks, presented with their simplified labels as well as prior labels used in the literature."
+
+#gray_border <- officer::fp_border(color = "gray")
+#task_table <- tribble(
+#  ~"Construct"         , ~"LEVANTE task name"     , ~"Prior/Source task name",             ~"Most similar source citation"
+#   "Executive Function",  "Hearts and Flowers"    ,  "Hearts and Flowers",                  "[@davidson2006]",
+#   ""                  ,  "Memory"                ,  "AMES Memory Game",                    "[@corsi1972]",
+#   ""                  ,  "Same and Different"    ,  "The Same Different Selection Task",   "[@jacques2001]",
+#   "Language"          ,  "Vocabulary"            ,  "Picture Vocabulary",                  "[@dunn1965]",
+#   ""                  ,  "Sentence Understanding",  "Test for Reception of Grammar (TROG)","[@bishop1982]",
+#   "Math"              ,  "Math"                  ,  "Early Grades Math Assessment (EGMA)", "[@platas2014]",
+#   "Reasoning"         ,  "Pattern Matching"      ,  "Matrix Reasoning",                    "[@chierchia2019]",
+#   ""                  ,  "Shape Rotation"        ,  "Mental Rotation",                     "[@frick2013]",
+#   "Social Cognition"  ,  "Stories"               ,  "Theory of Mind",                      "[@sotomayor-enriquez2024]"
+#)
+
+#line_rows <- task_table |> mutate(i = 1:n() - 1) |> filter(Construct != "") |> slice(-1) |> pull(i)
+#task_table |>
+#  flextable() |>
+#  colformat_md() |>
+#  align_text_col() |>
+#  hline(i = line_rows, border = gray_border) |>
+#  autofit()
+
+```
+
+::: {.landscape}
+```{r}
 #| label: tbl-tasks
 #| tbl-cap: "The LEVANTE core tasks, presented with their simplified labels as well as prior labels used in the literature."
 
 gray_border <- officer::fp_border(color = "gray")
+
 task_table <- tribble(
-  ~"Construct"         , ~"LEVANTE task name"     , ~"Prior/Source task name",
-   "Executive Function",  "Hearts and Flowers"    ,  "Hearts and Flowers [@davidson2006]",
-   ""                  ,  "Memory"                ,  "AMES Memory Game [@corsi1972]",
-   ""                  ,  "Same and Different"    ,  "The Same Different Selection Task [@jacques2001]",
-   "Language"          ,  "Vocabulary"            ,  "Picture Vocabulary [@dunn1965]",
-   ""                  ,  "Sentence Understanding",  "Test for Reception of Grammar (TROG) [@bishop1982]",
-   "Math"              ,  "Math"                  ,  "Early Grades Math Assessment (EGMA) [@platas2014]",
-   "Reasoning"         ,  "Pattern Matching"      ,  "Matrix Reasoning [@chierchia2019]",
-   ""                  ,  "Shape Rotation"        ,  "Mental Rotation [@frick2013]",
-   "Social Cognition"  ,  "Stories"               ,  "Theory of Mind [@sotomayor-enriquez2024]"
+  ~Construct, ~`LEVANTE task name`, ~`Prior/Source task name`, ~`Most similar source citation`,
+  "Executive Function", "Hearts and Flowers",       "Hearts and Flowers",                  "[@davidson2006]",
+  "",                   "Memory",                   "AMES Memory Game",                    "[@corsi1972]",
+  "",                   "Same and Different",       "Picture Dominance/Selection Task",    "[@jacques2001]",
+  "Language",           "Vocabulary",               "Receptive Vocabulary",                "[@dunn1965]",
+  "",                   "Sentence Understanding",   "Test for Reception of Grammar (TROG)","[@bishop1982]",
+  "Math",               "Math",                     "Early Grade Math Assessment (EGMA)",  "[@platas2014]",
+  "Reasoning",          "Pattern Matching",         "Matrix Reasoning",                    "[@chierchia2019]",
+  "Spatial Cognition",  "Shape Rotation",           "Mental Rotation",                     "[@frick2013]",
+  "Social Cognition",   "Stories",                  "Theory of Mind",                      "[@sotomayor-enriquez2024]"
 )
 
-line_rows <- task_table |> mutate(i = 1:n() - 1) |> filter(Construct != "") |> slice(-1) |> pull(i)
+line_rows <- task_table |>
+  mutate(i = 1:n() - 1) |>
+  filter(Construct != "") |>
+  slice(-1) |>
+  pull(i)
+
 task_table |>
   flextable() |>
   colformat_md() |>
   align_text_col() |>
   hline(i = line_rows, border = gray_border) |>
   autofit()
+
 ```
+:::
 
 ## The current study
 
-Here we report on the development and validation of the LEVANTE core tasks. This was an iterative process in which data from 5--12 year old children were across three sites: Bogota, Colombia (uniandes-co); Leipzig, Germany (mpieva-de); and Ottawa, Canada (western-ca).^[In the remainder of the manuscript, we refer to these sites by their site designators, uniandes-co, mpieva-de, and western-ca. These designators mark the research group and country of data collection. We make this choice to avoid the inference that these data are particularly representative of Canadian, German, or Colombian children more broadly.] 
+Here we report on the development and validation of the LEVANTE core tasks. This was an iterative process in which data from 5--12 year old children were across three sites: Bogota, Caquetá and Boyacá, Colombia (uniandes-co); Leipzig, Germany (mpieva-de); and Ottawa, Canada (western-ca).^[In the remainder of the manuscript, we refer to these sites by their site designators, uniandes-co, mpieva-de, and western-ca. These designators mark the research group and country of data collection. We make this choice to avoid the inference that these data are particularly representative of Canadian, German, or Colombian children more broadly.] 
 
 Our practices in this manuscript reflect an evolving set of measures -- in this sense, LEVANTE is a "ship that is being built as we are sailing it." In some cases, we used data gathered during the pilot data collection process to make minor changes to the tasks. We also used data from these three pilot sites to develop efficient, computer adaptive task (CAT) versions of many of the tasks. Thus, our report here reflects progress to date, rather than a single, monolithic process in which tasks were created and then piloted uniformly across all groups.
 
@@ -581,7 +618,7 @@ Within the included runs, there were a total of `{r} total_trial_counts$n_trials
 
 ## uniandes-co
 
-The Universidad de Los Andes conducted school-based data collection across four schools in Bogotá and three schools in the rural areas of Caquetá and Boyacá, Colombia. By partnering with schools, the research team oversaw task data collection with children using a group testing format on tablets provided by the team. Children were tested in groups, with larger groups for older children and smaller groups for younger children. The uniandes-co site collected data from `{r} user_totals$n_users[user_totals$site == "uniandes-co"]` children ages 5--12 years. Due to time constraints for school-based administration, children typically completed a subset of the tasks. 
+The Universidad de Los Andes team conducted school-based data collection at four schools in Bogotá and two public schools in the rural departments of Caquetá and Boyacá, selected by convenience from schools that had participated in previous projects with the university. In Bogotá, three of the participating schools belong to two family compensation funds and the fourth is managed by a charter-school organisation; across all sites, the schools primarily serve children from lower-middle and low-income families. By partnering with these schools, the research team oversaw data collection using a group testing format on tablets provided by the team, with larger groups for older children and smaller groups for younger children. The uniandes-co site collected data from `{r} user_totals$n_users[user_totals$site == "uniandes-co"]` children ages 5--12 years. Due to time constraints for school-based administration, children typically completed a subset of the tasks. 
 
 ## mpieva-de
 
@@ -604,7 +641,7 @@ Prior to fitting psychometric models, we examined item-level performance summari
 
 Following item screening, we evaluated measurement invariance across sites using nested multi-group IRT models to assess the comparability of latent ability estimates. The conventional hierarchy of factor-analytic invariance—configural → metric → scalar—was implemented in the IRT framework as successive equality constraints on item parameters (see @tbl-invariance-explainer for correspondence and interpretation). Configural invariance reflects a shared latent structure, metric invariance constrains item discriminations, and scalar invariance constrains both discriminations and difficulties across sites.
 
-For each task, we compared unidimensional Rasch and two-parameter logistic (2PL) models under these nested invariance constraints. All models were estimated using the `mirt` R package [@mirt] via marginal maximum likelihood using 500 quadrature points, with expected a posteriori (EAP) scoring. Overlapping items across sites served as anchors to establish a common scale; non-overlapping items were freely estimated within the same multi-group calibration. Model convergence and identification were verified by ensuring stable log-likelihoods and Hessian condition numbers below $10^3$.
+For each task, we compared unidimensional Rasch and two-parameter logistic (2PL) models under these nested invariance constraints. All models were estimated using the `mirt` R package [@mirt] via marginal maximum likelihood using 500 quadrature points, with expected a posteriori (EAP) scoring. Overlapping items across languages served as anchors to establish a common scale; non-overlapping items were freely estimated within the same multi-group calibration. Model convergence and identification were verified by ensuring stable log-likelihoods and Hessian condition numbers below $10^3$.
 
 Model selection was based on the Bayesian Information Criterion (BIC), with the final model for each task representing the most parsimonious combination of model type and invariance constraints that adequately reproduced cross-site response patterns. Across domains, Rasch models generally provided the best fit, whereas 2PL models were preferred for Same and Different and Shape Rotation, which showed greater variability in item discrimination.
 
@@ -677,15 +714,15 @@ fmt_p <- function(p) case_when(
 
 ## Developmental change
 
-Across all nine tasks we observed positive age–ability trends. The smoothed lines in @fig-age-trends suggest that between-site differences primarily reflect overall level differences in ability, rather than differences in the rate at which ability increases with age. Growth appeared steepest for Math and Hearts and Flowers, moderate for Vocabulary, Memory, and Stories, and shallower for Shape Rotation and Sentence Understanding. See @fig-predicted-age-slopes in the appendices for predicted ability vs age by site and task. 
+Across all nine tasks, predicted IRT ability increased with age at all sites, indicating robust positive age–ability gradients (see @fig-age-trends). This pattern was particularly pronounced for Vocabulary, Hearts and Flowers, and Math. Age-related slopes were broadly similar across sites: the panels suggest parallel developmental gradients in cognitive performance, with systematic shifts in mean ability but little evidence that the rate of age-related change differs markedly by site.
 
 To quantify developmental change, we fitted separate ordinary least-squares models predicting ability scores (IRT units) from centered age with site fixed effects and an age × site interaction, allowing slopes to vary by site. As summarized in @tbl-slopes, age-related slopes were positive for all tasks and sites, indicating that older children performed better on every measure (see @fig-em-trends in the appendices for visual representation). 
 
-In addition, we calculated per-site zero-order correlations between age and IRT ability scores. These correlations were uniformly positive (r ≈ .40–.70) and of moderate magnitude across tasks, consistent with the regression estimates. The close correspondence between the linear slopes and the smooth trends suggests that, within the studied age range, developmental gains are approximately linear and broadly comparable across cultural contexts.
+In addition, we calculated per-site zero-order correlations between age and IRT ability scores. These correlations were uniformly positive (r ≈ .40–.70) and of moderate magnitude across tasks, consistent with the regression estimates. The close correspondence between the linear slopes and the smooth trends suggests that within the studied age range, developmental gains are approximately linear and broadly comparable across cultural contexts.
 
 ```{r}
 #| label: fig-age-trends
-#| fig-cap: "IRT-computed ability scores plotted by age for each task and site."
+#| fig-cap: "Predicted IRT ability by age across tasks and sites, non-adaptive data only."
 #| fig-width: 8
 #| fig-height: 9
 
@@ -695,6 +732,35 @@ fixed_only <- coretask_scores %>%
   filter(!(task == "Memory" & site_label == "uniandes-co")) %>%  # rop CO Memory
   droplevels()
 
+pred_curves_augment <- function(task_name) {
+  d <- fixed_only %>% filter(item_task == task_name)
+  d$site  <- factor(d$site)
+  d$age_c <- scale(d$age, scale = FALSE)[,1]
+  mu_age  <- mean(d$age, na.rm = TRUE)
+
+  fit <- lm(metric_value ~ age_c * site, data = d)
+
+  grid <- expand.grid(
+    age_c = seq(min(d$age_c, na.rm = TRUE),
+                max(d$age_c, na.rm = TRUE),
+                length.out = 100),
+    site  = levels(d$site)
+  )
+
+  broom::augment(fit, newdata = grid, se_fit = TRUE) %>%
+    transmute(
+      item_task = task_name,
+      site      = as.character(site),
+      age       = age_c + mu_age,
+      fit       = .fitted,
+      lower     = .fitted - 1.96*.se.fit,
+      upper     = .fitted + 1.96*.se.fit
+    )
+}
+
+pred_all <- map_dfr(task_ids, pred_curves_augment) %>%
+  left_join(task_meta, by = "item_task") |>
+  left_join(select(fixed_only, task_category, site_label, site) |> distinct())
 
 ggplot(fixed_only, aes(age, metric_value)) +
   ggh4x::facet_nested_wrap(
@@ -702,10 +768,11 @@ ggplot(fixed_only, aes(age, metric_value)) +
     nest_line = element_line(), solo_line = TRUE,
     axes = "x", scales = "free_y"
   ) +
-  geom_smooth(
-    aes(colour = site_label, group = site_label),
-    method = "gam", formula = y ~ s(x, bs = "re"), se = FALSE
-  ) +
+  geom_ribbon(data = pred_all, 
+              aes(y = fit, ymin = lower, 
+                  ymax = upper, fill = site_label),
+              alpha = 0.12, colour = NA, show.legend = FALSE) +
+  geom_line(data = pred_all, aes(y= fit, col = site_label), linewidth = 1) + 
   geom_point(aes(colour = site_label), alpha = 0.3, size = 1) +
   scale_x_continuous(breaks = seq(6, 14, 2)) +
   .scale_colour_site() +
@@ -723,16 +790,17 @@ ggplot(fixed_only, aes(age, metric_value)) +
     plot.caption = element_text(hjust = 0, size = rel(0.8)),
     plot.caption.position = "plot"
   )
+
 ```
 
 ::: {.landscape}
 ```{r}
 #| label: tbl-slopes
-#| tbl-cap: "Age-Related Change in Performance: Task Grand Means (GM), Site Deviations (Δ), and Age–Ability Correlations (r)."
+#| tbl-cap: "Age-Related Change in Performance: Task Grand Means (GM), Site Deviations (Δ), and Age–Ability Correlations (r), non-adaptive data only."
 #| ft.arraystretch: 1
 
 analyze_task_slopes <- function(task_name) {
-  d <- coretask_scores %>% filter(item_task == task_name)
+  d <- fixed_only %>% filter(item_task == task_name)
   d$site  <- as.factor(d$site)
   d$age_c <- scale(d$age, scale = FALSE)[, 1]
   contrasts(d$site) <- contr.sum(nlevels(d$site))
@@ -1687,100 +1755,18 @@ In sum, we have taken steps here towards creating a core set of tasks for measur
 ::: {#refs}
 :::
 
-# Predicted Ability v Age {.appendix #apx-predicted-age-slopes}
-
-```{r}
-#| label: fig-predicted-age-slopes
-#| #fig-cap: "Predicted Ability v Age"
-#| fig-width: 8
-#| fig-height: 9
-#| fig-pos: 'H'
-
-pred_curves_augment <- function(task_name) {
-  d <- coretask_scores %>% filter(item_task == task_name)
-  d$site  <- factor(d$site)
-  d$age_c <- scale(d$age, scale = FALSE)[,1]
-  mu_age  <- mean(d$age, na.rm = TRUE)
-
-  fit <- lm(metric_value ~ age_c * site, data = d)
-
-  grid <- expand.grid(
-    age_c = seq(min(d$age_c, na.rm = TRUE),
-                max(d$age_c, na.rm = TRUE),
-                length.out = 100),
-    site  = levels(d$site)
-  )
-
-  broom::augment(fit, newdata = grid, se_fit = TRUE) %>%
-    transmute(
-      item_task = task_name,
-      site      = as.character(site),
-      age       = age_c + mu_age,
-      fit       = .fitted,
-      lower     = .fitted - 1.96*.se.fit,
-      upper     = .fitted + 1.96*.se.fit
-    )
-}
-
-pred_all <- map_dfr(task_ids, pred_curves_augment) %>%
-  left_join(task_meta, by = "item_task") |>
-  left_join(select(fixed_only, task_category, site_label, site) |> distinct())
-
-# stopifnot(all(c("task_category","TaskLab") %in% names(pred_all)))
-
-# ggplot(pred_all, aes(age, fit, colour = Site)) +
-#   geom_ribbon(aes(ymin = lower, ymax = upper, fill = Site),
-#               alpha = 0.12, colour = NA, show.legend = FALSE) +
-#   geom_line(linewidth = 1) +
-#   ggh4x::facet_nested_wrap(vars(task_category, TaskLab), scales = "free_y", axes = "x") +
-#   .scale_colour_site() +
-#   labs(x = "Age (years)", y = "Predicted ability (IRT)",
-#        title = "Model-predicted ability vs age by site and task",
-#        subtitle = "Lines are marginal predictions from lm(metric_value ~ age_c * site); ribbons = 95% CI") +
-#   theme(legend.position = "bottom")
-
-ggplot(fixed_only, aes(age, metric_value)) +
-  ggh4x::facet_nested_wrap(
-    vars(task_category, task),
-    nest_line = element_line(), solo_line = TRUE,
-    axes = "x", scales = "free_y"
-  ) +
-  geom_ribbon(data = pred_all, 
-              aes(y = fit, ymin = lower, 
-                  ymax = upper, fill = site_label),
-              alpha = 0.12, colour = NA, show.legend = FALSE) +
-  geom_line(data = pred_all, aes(y= fit, col = site_label), linewidth = 1) + 
-  geom_point(aes(colour = site_label), alpha = 0.3, size = 1) +
-  scale_x_continuous(breaks = seq(6, 14, 2)) +
-  .scale_colour_site() +
-  guides(colour = guide_legend(
-    override.aes = list(shape = NA, linetype = 1, linewidth = 2)
-  )) +
-  labs(
-    x = "Age (years)",
-    y = "Ability (IRT score)",
-    colour = "Site",
-    caption = "Note. Uniandes-co Memory data were excluded due to task bugs and difficulties with the instructions."
-  ) +
-  theme(
-    legend.position = "bottom",
-    plot.caption = element_text(hjust = 0, size = rel(0.8)),
-    plot.caption.position = "plot"
-  )
-```
-
 # Age Slopes by Task {.appendix #apx-em-trends}
 
 ```{r}
 #| label: fig-em-trends
-#| #fig-cap: "Age Slopes by Task"
+#| #fig-cap: "Age Slopes by Task, Non-adaptive data only"
 #| fig-width: 8
 #| fig-height: 9
 #| fig-pos: 'H'
 
 
 slopes_by_task <- function(task_name) {
-  d <- coretask_scores %>% filter(item_task == task_name)
+  d <- fixed_only %>% filter(item_task == task_name)
   d$site  <- factor(d$site)
   d$age_c <- scale(d$age, scale = FALSE)[, 1]
   contrasts(d$site) <- contr.sum(nlevels(d$site))
@@ -1830,7 +1816,7 @@ ggplot(slopes_df, aes(x = slope, y = fct_rev(Site), colour = Site)) +
   .scale_colour_site() +                                                     
   labs(x = "Age slope (β per year, estimated marginal trend)",
        y = NULL, colour = "Site",
-       title = "Site-specific age slopes by task (EMTrends with 95% CI)",
+       title = "Site-specific age slopes by task (EMTrends with 95% CI), non-adaptive datat only",
        subtitle = "Dashed line: task grand-mean slope; dotted line: zero") +
   theme(legend.position = "bottom")
 ```
