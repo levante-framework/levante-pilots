@@ -222,34 +222,6 @@ To create our core tasks, we selected pre-existing measures from the literature 
 
 In addition to the constructs described above, we were also interested in the assessment of literacy. The LEVANTE task battery makes use of a number of previously-validated literacy tasks from the Rapid Online Assessment of Reading [@yeatman2021], including Single Word Reading (ROAR-Word) [@yeatman2021; @ma2025roar], Sentence Reading Efficiency (ROAR-Sentence) [@yeatman2024development], and Phonological Awareness (ROAR-Phoneme) [@gijbels2024rapid]. Because they are extensively described elsewhere, we do not report on these tasks here, though we make use of literacy data for validation of language measures. For validation of our executive function measures, we also included a commercially-available broad measure of executive function, the Minnesota Executive Function Scale (MEFS), for which substantial reliability and validity evidence has already been gathered [@carlson2021]. 
 
-```{r}
-##| label: tbl-tasks
-##| tbl-cap: "The LEVANTE core tasks, presented with their simplified labels as well as prior labels used in the literature."
-
-#gray_border <- officer::fp_border(color = "gray")
-#task_table <- tribble(
-#  ~"Construct"         , ~"LEVANTE task name"     , ~"Prior/Source task name",             ~"Most similar source citation"
-#   "Executive Function",  "Hearts and Flowers"    ,  "Hearts and Flowers",                  "@davidson2006",
-#   ""                  ,  "Memory"                ,  "AMES Memory Game",                    "@corsi1972",
-#   ""                  ,  "Same and Different"    ,  "The Same Different Selection Task",   "@jacques2001",
-#   "Language"          ,  "Vocabulary"            ,  "Picture Vocabulary",                  "@dunn1965",
-#   ""                  ,  "Sentence Understanding",  "Test for Reception of Grammar (TROG)","@bishop1982",
-#   "Math"              ,  "Math"                  ,  "Early Grades Math Assessment (EGMA)", "@platas2014",
-#   "Reasoning"         ,  "Pattern Matching"      ,  "Matrix Reasoning",                    "@chierchia2019",
-#   ""                  ,  "Shape Rotation"        ,  "Mental Rotation",                     "@frick2013",
-#   "Social Cognition"  ,  "Stories"               ,  "Theory of Mind",                      "@sotomayor-enriquez2024"
-#)
-
-#line_rows <- task_table |> mutate(i = 1:n() - 1) |> filter(Construct != "") |> slice(-1) |> pull(i)
-#task_table |>
-#  flextable() |>
-#  colformat_md() |>
-#  align_text_col() |>
-#  hline(i = line_rows, border = gray_border) |>
-#  autofit()
-
-```
-
 ::: {.landscape}
 ```{r}
 #| label: tbl-tasks
@@ -282,7 +254,6 @@ task_table |>
   align_text_col() |>
   hline(i = line_rows, border = gray_border) |>
   autofit()
-
 ```
 :::
 
@@ -1759,7 +1730,7 @@ In sum, we have taken steps here towards creating a core set of tasks for measur
 
 ```{r}
 #| label: fig-em-trends
-#| #fig-cap: "Age Slopes by Task, Non-adaptive data only"
+#| fig-cap: "Site-specific age slopes by task (EMTrends with 95% CI), non-adaptive data only"
 #| fig-width: 8
 #| fig-height: 9
 #| fig-pos: 'H'
@@ -1816,7 +1787,7 @@ ggplot(slopes_df, aes(x = slope, y = fct_rev(Site), colour = Site)) +
   .scale_colour_site() +                                                     
   labs(x = "Age slope (β per year, estimated marginal trend)",
        y = NULL, colour = "Site",
-       title = "Site-specific age slopes by task (EMTrends with 95% CI), non-adaptive datat only",
+       #title = "Site-specific age slopes by task (EMTrends with 95% CI), non-adaptive datat only",
        subtitle = "Dashed line: task grand-mean slope; dotted line: zero") +
   theme(legend.position = "bottom")
 ```
