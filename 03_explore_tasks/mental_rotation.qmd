@@ -277,7 +277,12 @@ plot_mrot_diff_2pl <- ggplot(mrot_diff_2pl, aes(x = angle, y = value, col = stim
     subtitle = "IRT difficulty estimates (2PL scalar), higher = more difficult",
     colour = "Stimulus"
   ) 
-plot_mrot_diff_2pl
+
+ggsave(
+  "mrot_diff_2pl.png",
+  plot  = plot_mrot_diff_2pl,
+  width = 8, height = 6, dpi = 300
+)
 ```
 
 ### (5) Discrimination by rotation angle (2PL scalar)
@@ -400,6 +405,7 @@ ggplot(
     y        = "Proportion correct",
     colour   = "Age (y)"
   )
+
 ```
 
 ### (8) Accuracy by RT (IRT scores) broken down by age group
@@ -421,7 +427,7 @@ mrot_speed_ability <- ability_runs %>%
   )
 
 # plot
-mrot_speed_ability |>
+p_mrot_speed_ability <- mrot_speed_ability |>
   mutate(age_binned = as_factor(floor(age))) |>
   ggplot(aes(x = logrt_mean, y = ability, colour = age_binned)) +
   geom_point(alpha = 0.55, size = 1) +
@@ -433,6 +439,12 @@ mrot_speed_ability |>
     subtitle = "Each point = participant run; line = linear fit per site",
     x = "log RT (s)", y = "IRT Ability (Thetas)", color = "Age (y)"
   )
+
+ggsave(
+  "mrot_speed_ability.png",
+  plot = p_mrot_speed_ability,
+  width = 8, height = 6, dpi = 300
+)
 ```
 
 ### (9) Rotation angle by RT
@@ -526,7 +538,7 @@ mrot_items_rt_agebin_ci <- mrot_items_rt_runs %>%
     .groups = "drop"
   )
 
-ggplot(
+p_mrot_rt_ange_age <- ggplot(
   mrot_items_rt_agebin_ci,
   aes(x = angle, y = y,
       group = interaction(item_group, stimulus),
@@ -541,6 +553,12 @@ ggplot(
     x = "Rotation angle (°)", y = "log RT (s)",
     colour = "Stimulus", linetype = "Item Type"
   )
+
+ggsave(
+  "mrot_rt_by_angle.png",
+  plot = p_mrot_rt_ange_age,
+  width = 8, height = 6, dpi = 300
+)
 ```
 
 ### (11) Histogram - Reaction Time
