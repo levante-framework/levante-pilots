@@ -348,7 +348,7 @@ task_time_table |>
   rename(Task = task) |>
   flextable() |>
   separate_header() |>
-  align(align = "right", part = "body") |>
+  align(align = "left", part = "body") |>
   align(align = "left", j = 1, part = "all") |>
   autofit(add_w = 0)
 ```
@@ -446,7 +446,7 @@ counts <- list(run_counts, run_nonempty_counts, run_filtered_counts, trial_filte
   arrange(task) |>
   mutate(site = site |> fct_recode(!!!site_labels))
 
-# write_csv(counts, here("04_paper/display/counts.csv"))
+# write_csv(counts, here("04_papers/display/counts.csv"))
 
 # counts_long <- combined_counts |>
 #   pivot_longer(starts_with("n_"), names_to = "count", names_prefix = "n_", values_to = "n") |>
@@ -632,7 +632,7 @@ Individual ability scores were estimated from the final multi-group calibrations
 #| ft.arraystretch: 1.2
 
 # read and lightly normalize columns
-inv_explainer <- read_csv(here("04_paper", "display", "invariance.csv")) |>
+inv_explainer <- read_csv(here("04_papers", "display", "invariance.csv")) |>
   mutate(across(everything(), \(v) replace_na(v, "–"))) |>
   relocate(mirt, .after = model) #|>
   # mutate(test = "``bem''")
@@ -688,7 +688,7 @@ fmt_p <- function(p) case_when(
 
 Our goal for the LEVANTE core tasks is that they are sensitive to developmental change. In cross-sectional data, the age-gradients provide an approximation of how sensitive a task is to developmental differences and may, when longitudinal data are available, capture within-person change. Across all nine tasks, ability scores were higher at older ages at all sites, indicating robust positive age gradients (see @fig-age-trends). This pattern was particularly pronounced for Vocabulary, Hearts and Flowers, and Math. Age gradients were broadly similar across sites: the panels suggest parallel developmental gradients in cognitive performance, with systematic shifts in mean ability but little evidence that the age-related slope differs markedly by site.
 
-To quantify the age gradients, we fitted separate ordinary least-squares models predicting ability scores (IRT units) from centered age with site fixed effects and an age × site interaction, allowing slopes to vary by site. As summarized in @tbl-slopes, age-related slopes were positive for all tasks and sites, indicating that older children performed better on every measure (see @fig-em-trends in the appendices for visual representation). 
+To quantify the age gradients, we fit separate ordinary least-squares models predicting ability scores (IRT units) from centered age with site fixed effects and an age × site interaction, allowing slopes to vary by site. As summarized in @tbl-slopes, age-related slopes were positive for all tasks and sites, indicating that older children performed better on every measure (see @fig-em-trends in the appendices for visual representation). 
 
 For ease of interpretation, we calculated the zero-order correlations between age and IRT ability scores for each site. As seen in the right side of Table 4, these correlations were uniformly positive (r = .40 to .70), of moderate magnitude across tasks, and broadly similar across sites. In sum, the results of the age-based analyses suggest that the tasks are sensitive to age-related differences and are likely suitable for deployment in longitudinal studies of developmental change.
 
@@ -898,19 +898,40 @@ trx <- task_rxx |>
   rename(item_task = task) |>
   left_join(task_map) |>
   select(task, site, itemtype, invariance, rxx) |>
-  mutate(site = site |> fct_recode(!!!site_labels),
-         itemtype = itemtype |> fct_recode("Rasch" = "rasch", "2PL" = "2pl"),
-         invariance = invariance |> str_to_sentence()) |>
+  mutate(
+    site      = site |> fct_recode(!!!site_labels),
+    itemtype  = itemtype |> fct_recode("Rasch" = "rasch", "2PL" = "2pl"),
+    invariance = invariance |> str_to_sentence()
+  ) |>
   arrange(task) |>
-  pivot_wider(names_from = site, values_from = rxx,
-              names_prefix = "Reliability_") |>
+  pivot_wider(
+    names_from   = site,
+    values_from  = rxx,
+    names_prefix = "Reliability_"
+  ) |>
   rename(Task = task, Model = itemtype, Invariance = invariance)
 
-trx |>
+# get reliability columns
+reliab_cols <- names(trx)[startsWith(names(trx), "Reliability_")]
+
+ft <- trx |>
   flextable() |>
   separate_header() |>
-  align_text_col() |>
-  autofit(add_w = 0, add_h = 0)
+  align_text_col()
+
+# reliability < 0.6 in blue
+for (col in reliab_cols) {
+  idx <- which(trx[[col]] < 0.6 & !is.na(trx[[col]]))
+  ft  <- color(ft, i = idx, j = col, color = "blue", part = "body")
+}
+
+ft <- autofit(ft, add_w = 0, add_h = 0)
+ft <- ft |>
+  add_footer_lines(values = "Note. Cells in blue indicate reliability < .60.") |>
+  fontsize(part = "footer", size = 8) |>
+  italic(part = "footer")
+ft
+
 ```
 
 ```{r}
@@ -953,7 +974,8 @@ trt <- retest_wide |>
 
 We were also interested in capturing the extent to which the LEVANTE tasks yield reliable signal across a delay. The mpieva-de pilot site was able to re-administer tasks to a subset of their original participant group with a retest interval of either 3 months (group 1) or 7 months (group 2) approximately. We used this re-administration as an opportunity to collect data with computer adaptive versions of many of the tasks (Sentence Understanding, Pattern Matching, Shape Rotation, Math, and Vocabulary); see below for further details of computer adaptive versions. In addition, for several tasks (Math, Stories, Pattern Matching), we used this opportunity to gather item data about new groups of retest items that were designed to match the content of the original items but vary in their surface forms. For the other tasks, we retested using the same items. 
 
-@fig-retest shows the relations between time 1 and time 2 scores. Uptake for retest administrations varied between N=`r min(trt$n)` and N=`r max(trt$n)`; the low number of repeat administrations for Sentence Understanding reflects an error in which this task was not sent to younger children. Each figure panel also shows the test-retest correlation and sample size for the corresponding task. Most retest correlations were in the range of r = .5 -- .7, with two exceptions.Sentence Understanding had a smaller sample size with a more restricted age range and showed lower reliability within that range; and Math showed higher reliability than the other tasks. 
+@fig-retest shows the relations between time 1 and time 2 scores. Uptake for retest administrations varied between N=`r min(trt$n)` and N=`r max(trt$n)`; the low number of repeat administrations for Sentence Understanding reflects an error in which this task was not sent to younger children. Each figure panel also shows the test-retest correlation and sample size for the corresponding task. Most retest correlations were in the range of r = .5 -- .7, with two exceptions. Sentence Understanding had a smaller sample size with a more restricted age range and showed lower reliability within that range; and Math showed higher reliability than the other tasks. Under classical test theory assumptions, these test–retest correlations provide an estimate of score reliability that complements the marginal reliabilities reported above [@kline2013handbook].
+
 
 ```{r}
 #| label: fig-retest
@@ -1061,8 +1083,8 @@ summary(fit_cov_no_age, fit.measures = TRUE, standardized = TRUE)
 ```{r sem-g-age, include=FALSE}
 #| echo: false
 #| results: "hide" 
-# ensure log-age (centred) exists
-vars_core_std$log_age_c <- scale(log(vars_core_std$age))[,1]
+# vars_core_std$log_age_c <- scale(log(vars_core_std$age))[,1] # removing log_age_c following feedback from BD and NR.
+vars_core_std$age_c <- scale(vars_core_std$age, scale = FALSE)[, 1] # center age
 
 model_cov_age <- "
   # first-order factors (fix first loading to 1 for each factor)
@@ -1071,13 +1093,13 @@ model_cov_age <- "
   language  =~ 1*trog   + vocab
 
   # age predicts factors
-  reasoning ~ log_age_c
-  ef        ~ log_age_c
-  language  ~ log_age_c
+  reasoning ~ age_c
+  ef        ~ age_c
+  language  ~ age_c
 
   # age predicts outcomes
-  math ~ log_age_c
-  tom  ~ log_age_c
+  math ~ age_c
+  tom  ~ age_c
 
   # covariances of factors with observed outcomes
   reasoning ~~ math + tom
@@ -1102,7 +1124,8 @@ We assessed construct validity using a structural equation model (SEM) specifyin
 
 ```{r}
 #| label: fig-semplot-core-tasks
-#| fig-cap: "SEM for core tasks"
+#| fig-cap: "Structural Equation Model for core tasks.
+#| *Note: Ovals represent latent factors; rectangles represent observed variables. Blue fill indicates latent factors, orange indicates the age predictor, and grey indicates observed indicators and outcomes. Green arrows represent factor loadings; blue arrows represent regression paths; grey dashed double-headed arrows represent residual variances and covariances (error terms). Values on paths are standardised coefficients.*"
 #| fig-width: 8
 #| fig-height: 9
 
@@ -1111,7 +1134,7 @@ source(here("03_summaries/modified_sem_plot.R")) # veronica helper
 pe <- parameterEstimates(fit_cov_age, standardized = TRUE)
 latents  <- sort(unique(pe$lhs[pe$op == "=~"]))
 indics   <- sort(unique(pe$rhs[pe$op == "=~"]))
-extras   <- c("log_age_c","math","tom")
+extras   <- c("age_c","math","tom")
 observed <- sort(union(indics, extras))
 
 nodes <- tibble(
@@ -1129,8 +1152,8 @@ nodes$label <- recode(
   sds       = "Same and\nDifferent",
   trog      = "Sentence\nUnderstanding",
   tom       = "Stories",
-  ef        = "Executive Function",
-  log_age_c = "Age (log years)",
+  ef        = "Executive\nFunction",
+  age_c     = "Age (years)",
   .default  = str_to_title(nodes$name)
 )
 
@@ -1194,16 +1217,16 @@ g <- tidySEM::prepare_graph(
   fix_coord = FALSE
 )
 
-# colours
+# colors
 g$nodes$fill <- case_when(
   g$nodes$shape == "oval"      ~ "#E8F2FF",
-  g$nodes$name  == "log_age_c" ~ "#FFF2E0",
+  g$nodes$name  == "age_c" ~ "#FFF2E0",
   TRUE                         ~ "#F5F5F5"
 )
 g$nodes$colour <- "#1F1F1F"
 g$nodes$font   <- "#1F1F1F"
 
-# edge colours
+# edge colors
 g$edges$colour <- case_when(
   g$edges$op == "=~" ~ "#1B9E77",
   g$edges$op == "~"  ~ "#386CB0",
@@ -1221,7 +1244,6 @@ g$edges$label_colour <- "#1F1F1F"
 g$edges$label_alpha  <- 1
 
 plot(g)
-
 ```
 \clearpage
 
@@ -1235,15 +1257,15 @@ Comparison with more parsimonious alternatives—including a single-factor model
 # single factor model 
 mdl_1f <- "
 g =~ matrix + mrot + hf + mg + sds + trog + vocab + math + tom
-g ~ log_age_c
+g ~ age_c
 "
 
 mdl_2f <- "
 reasoning =~ mg + sds + hf + mrot + matrix + math
 language  =~ vocab + trog + tom
 reasoning ~~ language
-reasoning ~ log_age_c
-language  ~ log_age_c
+reasoning ~ age_c
+language  ~ age_c
 "
 
 mdl_3f <- "
@@ -1252,9 +1274,9 @@ ef        =~ mg + sds + hf
 language  =~ vocab + trog + tom
 reasoning ~~ ef + language
 ef ~~ language
-reasoning ~ log_age_c
-ef ~ log_age_c
-language ~ log_age_c
+reasoning ~ age_c
+ef ~ age_c
+language ~ age_c
 "
 
 fit_1f <- sem(mdl_1f, data = vars_core_std,
@@ -1394,7 +1416,7 @@ load_tab <- pe_ef |>
 
 ### External validity
 
-To assess external validity for the executive function and language tasks, we fitted a single-factor executive function model with Hearts and Flowers, Memory, Same and Different, and the external measure, the Minnesota Executive Function Scale (MEFS) as indicators (@fig-semplot-ef). We modeled age as a predictor of the latent executive function factor. Model fit was ok, but not great: CFI: `r round(fitMeasures(fit_ef)["cfi"], 3)`, RMSEA: `r round(fitMeasures(fit_ef)["rmsea"], 3)`, RMSEA p-value: `r pval_fmt(fitMeasures(fit_ef)["rmsea.pvalue"])`. Standardized loadings were moderate-to-strong: Hearts and Flowers = `r fmt(load_tab["hf"])`, Memory = `r fmt(load_tab["mg"])`, Same and Different = `r fmt(load_tab["sds"])`, MEFS = `r fmt(load_tab["mefs"])`, indicating that MEFS aligns closely with the latent executive function construct and providing good evidence for external validity. Age strongly predicted executive function ($\beta$ = `r round(beta_age_EF, 2)`; $R^2$ = `r round(r2_EF, 2)`), consistent with expected developmental gains.
+To assess external validity for the executive function and language tasks, we fit a single-factor executive function model with Hearts and Flowers, Memory, Same and Different, and the external measure, the Minnesota Executive Function Scale (MEFS) as indicators (@fig-semplot-ef). We modeled age as a predictor of the latent executive function factor. Model fit was ok, but not great: CFI: `r round(fitMeasures(fit_ef)["cfi"], 3)`, RMSEA: `r round(fitMeasures(fit_ef)["rmsea"], 3)`, RMSEA p-value: `r pval_fmt(fitMeasures(fit_ef)["rmsea.pvalue"])`. Standardized loadings were moderate-to-strong: Hearts and Flowers = `r fmt(load_tab["hf"])`, Memory = `r fmt(load_tab["mg"])`, Same and Different = `r fmt(load_tab["sds"])`, MEFS = `r fmt(load_tab["mefs"])`, indicating that MEFS aligns closely with the latent executive function construct and providing good evidence for external validity. Age strongly predicted executive function ($\beta$ = `r round(beta_age_EF, 2)`; $R^2$ = `r round(r2_EF, 2)`), consistent with expected developmental gains.
 
 ```{r}
 #| label: fig-semplot-ef
@@ -1562,7 +1584,7 @@ deframe()
 
 \clearpage
 
-We ran a similar model to determine the external validity of the language and literacy measures (Sentence Understanding and Vocabulary) against ROAR tasks, including measures of Phonological Awareness (ROAR-Phoneme), Single Word Reading (ROAR-Word) and Sentence Reading Efficiency (ROAR-Sentence). We fitted a single latent Language factor with ROAR tasks plus Sentence Understanding and Vocabulary as indicators, and modeled age as a predictor of the latent factor (@fig-semplot-lang). Model fit was again good, CFI: `r round(fm_lang["cfi"], 3)`, RMSEA: `r round(fm_lang["rmsea"], 3)`, RMSEA p-value: 
+We ran a similar model to determine the external validity of the language and literacy measures (Sentence Understanding and Vocabulary) against ROAR tasks, including measures of Phonological Awareness (ROAR-Phoneme), Single Word Reading (ROAR-Word) and Sentence Reading Efficiency (ROAR-Sentence). We fit a single latent Language factor with ROAR tasks plus Sentence Understanding and Vocabulary as indicators, and modeled age as a predictor of the latent factor (@fig-semplot-lang). Model fit was again good, CFI: `r round(fm_lang["cfi"], 3)`, RMSEA: `r round(fm_lang["rmsea"], 3)`, RMSEA p-value: 
 `r pval_fmt(fitMeasures(fit_lang)["rmsea.pvalue"])`. Standardized loadings were moderate-to-strong: ROAR-Word = `r round(load_tab_lang["swr"], 2)`, ROAR-Sentence = `r round(load_tab_lang["sre"], 2)`, ROAR-Phoneme = `r round(load_tab_lang["pa"], 2)`, Sentence Understanding = `r round(load_tab_lang["trog"], 2)`, Vocabulary = `r round(load_tab_lang["vocab"], 2)`. Age predicted Language ($\beta$ = `r round(beta_age_Lang, 2)`; $R^2$ = `r round(r2_Lang, 2)`) consistent with expected developmental differences. 
 
 ```{r}
@@ -1661,9 +1683,9 @@ plot(g_lang)
 
 # Adaptive Task Construction
 
-We have already adapted and piloted several of the LEVANTE core tasks as computer adapted versions, primarily in the mpieva-de and western_ca pilot sites. To date, these include Sentence Understanding, Vocabulary, Shape Rotation, Pattern Matching, Same and Different, and Math. These adaptive versions of the tasks maintain an ability score, $\theta$, as an estimate of the participant’s skill level that is updated at the end of each trial. This updated theta is then used to select an item best suited to their estimated ability, which both improves test-taker experience and yields more information on participant skill per item, allowing for a shorter task with fewer items. See @fig-age-trends-cat for age-related ability trends in the tasks currently using the adaptive format. Trends mirror those observed in the full dataset (see @fig-age-trends), with similar site-level patterns and positive developmental slopes across domains.
+We have already adapted and piloted several of the LEVANTE core tasks as computer adapted versions, primarily in the mpieva-de and western_ca pilot sites. To date, these include Sentence Understanding, Vocabulary, Shape Rotation, Pattern Matching, Same and Different, and Math. These adaptive versions of the tasks maintain an ability score, theta, as an estimate of the participant’s skill level that is updated at the end of each trial. This updated theta is then used to select an item best suited to their estimated ability, which both improves test-taker experience and yields more information on participant skill per item, allowing for a shorter task with fewer items. See @fig-age-trends-cat for age-related ability trends in the tasks currently using the adaptive format. Trends mirror those observed in the full dataset (see @fig-age-trends), with similar site-level patterns and positive developmental slopes across domains.
 
-The CAT tasks use an adaptive algorithm made available by the open source jsCat JavaScript library [@ma2025]. The present LEVANTE CAT implementation varies difficulty and guessing for each item while holding both discrimination and upper asymptote constant at 1. Items are selected based on Maximum Fisher Information, and theta is updated according to a maximum likelihood estimator, with limits of -6 and 6. The LEVANTE CATs are configurable with respect to the initial value of $\theta$ and the conditions for ending the task. The starting $\theta$ is set at 0 for all CAT tasks currently in use, but can be lowered or raised according to the researcher’s prior expectation of participant ability, for example, by using age as a proxy indicator of the initial ability estimate.
+The CAT tasks use an adaptive algorithm made available by the open source jsCat JavaScript library [@ma2025]. The present LEVANTE CAT implementation varies difficulty and guessing for each item while holding both discrimination and upper asymptote constant at 1. Items are selected based on Maximum Fisher Information, and theta is updated according to a maximum likelihood estimator, with limits of -6 and 6. The LEVANTE CATs are configurable with respect to the initial value of theta and the conditions for ending the task. The starting theta is set at 0 for all CAT tasks currently in use, but can be lowered or raised according to the researcher’s prior expectation of participant ability, for example, by using age as a proxy indicator of the initial ability estimate.
 
 Current CAT implementations use time-based stopping rules to facilitate group testing so that all children end at approximately the same time. Sentence Understanding, Shape Rotation, and Vocabulary each have time limits currently set to 4 minutes. Pattern Matching was set to 6 minutes to allow for the increased time typically required to complete items in this task. Items in these tasks are presented together in a single block. 
 
