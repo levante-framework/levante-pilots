@@ -448,8 +448,12 @@ egma_sorted <- egma |> filter(rt_numeric > 200, rt_numeric < 20000) |>
 egma_wide <- egma_sorted |> select(site, user_id, age, run_id, item_uid, correct) |>
   pivot_wider(id_cols = c(site, user_id, run_id, age), names_from = item_uid, values_from = correct)
 
+egma_wide_rt <- egma_sorted |> select(site, user_id, age, run_id, item_uid, rt_numeric) |>
+  pivot_wider(id_cols = c(site, user_id, run_id, age), names_from = item_uid, values_from = rt_numeric)
+
 egma_demo <- egma_wide |> select(site, user_id, age, run_id)
 egma_dat <- egma_wide |> select(-site, -user_id, -age, -run_id)# |> data.matrix()
+egma_dat_rt <- egma_wide_rt |> select(-site, -user_id, -age, -run_id)
 
 one_value_cols <- names(egma_dat)[sapply(egma_dat, function(x) {
   length(unique(na.omit(x))) == 1
@@ -458,6 +462,12 @@ one_value_cols <- names(egma_dat)[sapply(egma_dat, function(x) {
 egma_dat <- data.matrix(egma_dat |> select(-all_of(one_value_cols)))
 rownames(egma_dat) = egma_demo$run_id
 
+egma_dat_rt <- data.matrix(egma_dat_rt |> select(-all_of(one_value_cols)))
+rownames(egma_dat_rt) = egma_demo$run_id
+
+require("diffIRT")
+mod_drt <- diffIRT(egma_dat_rt, egma_dat)
+#mirt(egma_dat, 1, itemtype='2PL', verbose=TRUE,  technical=list(NCYCLES=3000))
 
 mod_2pl <- mirt(egma_dat, 1, itemtype='2PL', verbose=TRUE,  technical=list(NCYCLES=3000))
 mod_2pl_2f <- mirt(egma_dat, 2, itemtype='2PL', verbose=TRUE,  technical=list(NCYCLES=3000))
