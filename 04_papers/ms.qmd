@@ -139,7 +139,7 @@ format:
     documentmode: man
     keep-tex: true
     include-in-header: preamble.tex
-    fig-format: png
+    fig-format: pdf
     # fig-pos: H        
     # tbl-pos: H  
 
@@ -1685,7 +1685,7 @@ plot(g_lang)
 
 # Adaptive Task Construction
 
-We have already adapted and piloted several of the LEVANTE core tasks as computer adapted versions, primarily in the mpieva-de and western_ca pilot sites. To date, these include Sentence Understanding, Vocabulary, Shape Rotation, Pattern Matching, Same and Different, and Math. These adaptive versions of the tasks maintain an ability score, theta, as an estimate of the participant’s skill level that is updated at the end of each trial. This updated theta is then used to select an item best suited to their estimated ability, which both improves test-taker experience and yields more information on participant skill per item, allowing for a shorter task with fewer items. See @fig-age-trends-cat for age-related ability trends in the tasks currently using the adaptive format. Trends mirror those observed in the full dataset (see @fig-age-trends), with similar site-level patterns and positive developmental slopes across domains.
+We have already adapted and piloted several of the LEVANTE core tasks as computer adapted versions, primarily in the mpieva-de and western_ca pilot sites. To date, these include Sentence Understanding, Vocabulary, Shape Rotation, Pattern Matching, Same and Different, and Math. These adaptive versions of the tasks maintain an ability score, theta, as an estimate of the participant’s skill level that is updated at the end of each trial. This updated theta is then used to select an item best suited to their estimated ability, which both improves test-taker experience and yields more information on participant skill per item, allowing for a shorter task with fewer items. See @fig-age-trends-cat for age-related ability trends in the tasks currently using the adaptive format. 
 
 The CAT tasks use an adaptive algorithm made available by the open source jsCat JavaScript library [@ma2025]. The present LEVANTE CAT implementation varies difficulty and guessing for each item while holding both discrimination and upper asymptote constant at 1. Items are selected based on Maximum Fisher Information, and theta is updated according to a maximum likelihood estimator, with limits of -6 and 6. The LEVANTE CATs are configurable with respect to the initial value of theta and the conditions for ending the task. The starting theta is set at 0 for all CAT tasks currently in use, but can be lowered or raised according to the researcher’s prior expectation of participant ability, for example, by using age as a proxy indicator of the initial ability estimate.
 
@@ -1716,6 +1716,68 @@ ggplot(cat_only, aes(age, metric_value)) +
   labs(x = "Age (years)", y = "Ability (IRT score)", colour = "Site"
        +  theme(legend.position = "bottom")
        )
+```
+Standard errors of IRT ability estimates were generally comparable across adaptive and fixed-length versions; typical SE ≈ 0.4–0.8 (see @fig-se). In most tasks, the fixed-length forms yielded slightly lower SEs than the adaptive forms across the mid to high range of ability, whereas adaptive forms showed marginally lower SEs for a small number of children at the lowest ability levels. Given the small cell sizes in these extreme bands and the modest magnitude of differences, precision of ability estimates was broadly similar across administration modes.
+```{r}
+#| label: fig-se
+#| fig-cap: "Standard error of IRT ability estimates by ability level for fixed-length versus adaptive versions of the six CAT tasks."
+#| fig-width: 8
+#| fig-height: 8
+
+# colnames(coretask_scores)
+
+# tasks that have CAT versions 
+tasks_cat <- cat_only %>%
+  distinct(task, task_category)
+
+ability_scores_cat <- coretask_scores %>%
+  semi_join(tasks_cat, by = c("task", "task_category")) %>%
+  mutate(
+    adaptive = factor(
+      adaptive,
+      levels = c(FALSE, TRUE),
+      labels = c("Fixed-length", "Adaptive (CAT)")
+    )
+  )
+
+# plot
+ggplot(ability_scores_cat,
+       aes(x = metric_value, y = metric_se, colour = adaptive)) +
+  geom_point(alpha = 0.15, size = 0.7) +
+  geom_smooth(se = FALSE, method = "loess") +
+  scale_colour_discrete(na.translate = FALSE) +
+  ggh4x::facet_nested_wrap(
+    vars(task_category, task),
+    nest_line = element_line(),
+    solo_line = TRUE,
+    axes = "x",
+    scales = "free_y"
+  ) +
+  labs(
+    x = "Ability (IRT score)",
+    y = "Standard error",
+    colour = "Administration",
+    #title = "Standard error of ability estimates by ability level\nAdaptive vs Fixed-length"
+  ) +
+  theme(legend.position = "bottom")
+
+# check at each theta
+# ability_scores_cat %>%
+#   mutate(
+#     theta_band = cut(
+#       metric_value,
+#       breaks = c(-Inf, -2, -1, 0, 1, 2, Inf),
+#       labels = c("< -2", "-2 to -1", "-1 to 0", "0 to 1", "1 to 2", "> 2")
+#     )
+#   ) %>%
+#   group_by(task, theta_band, adaptive) %>%
+#   summarise(
+#     n = n(),
+#     mean_se = mean(metric_se, na.rm = TRUE),
+#     .groups = "drop"
+#   ) %>%
+#   arrange(task, theta_band, adaptive)
+
 ```
 \clearpage
 
