@@ -29,7 +29,7 @@ scores_labeled <- scores_best |>
          model_class = glue("{model_set} ({subset})"),
          model = glue("{itemtype}-{nfact}-{invariance}")) |>
   select(item_task = task, run_id, metric_type, metric_value = ability,
-         model_class, model)
+         metric_se = se, model_class, model)
 
 write_rds(scores_labeled, here("02_scoring_outputs/scores/registry_scores.rds"),
           compress = "gz")

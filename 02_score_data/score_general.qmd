@@ -39,7 +39,9 @@ thetas <- runs_filtered |>
   left_join(task_map) |>
   mutate(metric_type = "ability", model_class = "CAT", model = "cat_irt") |>
   select(item_task, run_id, metric_type,
-         metric_value = test_comp_theta_estimate, model_class, model)
+         metric_value = test_comp_theta_estimate,
+         metric_se = test_comp_theta_se,
+         model_class, model)
 
 write_rds(thetas, here("02_scoring_outputs", "scores", "roar_thetas.rds"),
           compress = "gz")
