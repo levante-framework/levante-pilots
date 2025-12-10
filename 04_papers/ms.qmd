@@ -231,15 +231,16 @@ gray_border <- officer::fp_border(color = "gray")
 
 task_table <- tribble(
   ~Construct, ~`LEVANTE task name`, ~`Prior/Source task name`, ~`Most similar source citation`,
-  "Executive Function", "Hearts and Flowers",       "Hearts and Flowers",                  "@davidson2006",
-  "",                   "Memory",                   "AMES Memory Game",                    "@corsi1972",
-  "",                   "Same and Different",       "Picture Dominance/Selection Task",    "@jacques2001",
-  "Language",           "Vocabulary",               "Receptive Vocabulary",                "@dunn1965",
-  "",                   "Sentence Understanding",   "Test for Reception of Grammar (TROG)","@bishop1982",
-  "Math",               "Math",                     "Early Grade Math Assessment (EGMA)",  "@platas2014",
-  "Reasoning",          "Pattern Matching",         "Matrix Reasoning",                    "@chierchia2019",
-  "Spatial Cognition",  "Shape Rotation",           "Mental Rotation",                     "@frick2013",
-  "Social Cognition",   "Stories",                  "Theory of Mind",                      "@sotomayor-enriquez2024"
+  "Executive Function", "Hearts and Flowers",       "AMES Hearts and Flowers",                              "@davidson2006",
+  "",                   "Memory",                   "AMES Memory Game",                                     "@corsi1972",
+  "",                   "Same and Different",       "Something’s the Same/Flexible Item Selection Task",    "@willoughby2011",         
+  "",                   "",                         "",                                                     "@jacques2001",
+  "Language",           "Vocabulary",               "Receptive Vocabulary",                                 "@dunn1965",
+  "",                   "Sentence Understanding",   "Test for Reception of Grammar (TROG)",                 "@bishop1982",
+  "Math",               "Math",                     "Early Grade Math Assessment (EGMA)",                   "@platas2014",
+  "Reasoning",          "Pattern Matching",         "Matrix Reasoning",                                     "@chierchia2019",
+  "Spatial Cognition",  "Shape Rotation",           "Mental Rotation",                                      "@frick2013",
+  "Social Cognition",   "Stories",                  "Theory of Mind",                                       "@sotomayor-enriquez2024"
 )
 
 line_rows <- task_table |>
@@ -694,7 +695,7 @@ For ease of interpretation, we calculated the zero-order correlations between ag
 
 ```{r}
 #| label: fig-age-trends
-#| fig-cap: "Predicted IRT ability by age across tasks and sites, non-adaptive data only."
+#| fig-cap: "Estimated IRT ability by age across tasks and sites, non-adaptive data only."
 #| fig-width: 8
 #| fig-height: 9
 
@@ -972,13 +973,63 @@ trt <- retest_wide |>
   arrange(task)
 ```
 
+```{r, include=FALSE}
+# age comparison of re-test sample
+# ages for all de participants 
+de_general_ages <- coretask_scores |>
+  filter(site == "pilot_mpieva_de") |>
+  group_by(user_id, task_category, task) |>
+  summarise(
+    age = mean(age, na.rm = TRUE),
+    .groups = "drop"
+  )
+
+# test–retest sample ages, per user × task (from your code)
+de_retest_ages <- retest_wide |>
+  select(user_id, task_category, task, age) |>
+  distinct()
+
+# --- overall comparison: collapse to ONE row per child ---
+
+# general sample: one age per child
+de_general_children <- de_general_ages |>
+  group_by(user_id) |>
+  summarise(
+    age = mean(age, na.rm = TRUE),
+    .groups = "drop"
+  )
+
+# test–retest sample: one age per child
+de_retest_children <- de_retest_ages |>
+  group_by(user_id) |>
+  summarise(
+    age = mean(age, na.rm = TRUE),
+    .groups = "drop"
+  )
+
+overall_age_comparison <- bind_rows(
+  de_general_children |> mutate(sample = "general"),
+  de_retest_children  |> mutate(sample = "test_retest")
+) |>
+  group_by(sample) |>
+  summarise(
+    n        = dplyr::n(),        # now = number of unique children
+    mean_age = mean(age, na.rm = TRUE),
+    sd_age   = sd(age, na.rm = TRUE),
+    .groups  = "drop"
+  )
+
+gen_age <- overall_age_comparison |> dplyr::filter(sample == "general")
+trt_age <- overall_age_comparison |> dplyr::filter(sample == "test_retest")
+age_diff_years <- trt_age$mean_age - gen_age$mean_age
+age_diff_months <- age_diff_years * 12
+```
+
 ### Test-retest reliability
 
 We were also interested in capturing the extent to which the LEVANTE tasks yield reliable signal across a delay. The mpieva-de pilot site was able to re-administer tasks to a subset of their original participant group with a retest interval of either 3 months (group 1) or 7 months (group 2) approximately. We used this re-administration as an opportunity to collect data with computer adaptive versions of many of the tasks (Sentence Understanding, Pattern Matching, Shape Rotation, Math, and Vocabulary); see below for further details of computer adaptive versions. In addition, for several tasks (Math, Stories, Pattern Matching), we used this opportunity to gather item data about new groups of retest items that were designed to match the content of the original items but vary in their surface forms. For the other tasks, we retested using the same items. 
 
-@fig-retest shows the relations between time 1 and time 2 scores. Uptake for retest administrations varied between N=`r min(trt$n)` and N=`r max(trt$n)`; the low number of repeat administrations for Sentence Understanding reflects an error in which this task was not sent to younger children. Each figure panel also shows the test-retest correlation and sample size for the corresponding task. Most retest correlations were in the range of r = .5 -- .7, with two exceptions. Sentence Understanding had a smaller sample size with a more restricted age range and showed lower reliability within that range; and Math showed higher reliability than the other tasks. Under classical test theory assumptions, these test–retest correlations provide an estimate of score reliability that complements the marginal reliabilities reported above [@kline2013handbook].
-
-
+@fig-retest shows the relations between time 1 and time 2 scores. Task-specific uptake for retest administrations varied, with sample sizes ranging from N = `r min(trt$n)` to N = `r max(trt$n)`; the low number of repeat administrations for Sentence Understanding reflects an error in which this task was not sent to younger children. Children in the test–retest subsample were very similar in age to those in the overall mpieva-de pilot sample. The overall sample (n = `r gen_age$n`) had a mean age of `r round(gen_age$mean_age, 2)` years (SD = `r round(gen_age$sd_age, 2)`), whereas the test–retest subsample (n = `r trt_age$n`) had a mean age of `r round(trt_age$mean_age, 2)` years (SD = `r round(trt_age$sd_age, 2)`), a difference of approximately `r round(age_diff_years, 2)` years (~`r round(age_diff_months, 0)` months). Each figure panel also shows the test-retest correlation and sample size for the corresponding task. Most retest correlations were in the range of r = .5 -- .7, with two exceptions. Sentence Understanding had a smaller sample size with a more restricted age range and showed lower reliability within that range; and Math showed higher reliability than the other tasks. Under classical test theory assumptions, these test–retest correlations provide an estimate of score reliability that complements the marginal reliabilities reported above [@kline2013handbook].
 ```{r}
 #| label: fig-retest
 #| fig-cap: "Test-retest correlations per task (in mpieva-de data)."
