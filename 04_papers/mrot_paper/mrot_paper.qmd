@@ -1,0 +1,90 @@
+---
+title: "Measuring the development of mental rotation ages 5-12 across three populations"
+shorttitle: "LEVANTE Mental Rotation"
+
+author: 
+  - name: "Fionnuala O'Reilly*"
+    orcid: 0000-0002-4355-9088
+    affiliations:
+      - ref: stanford
+  - name: "Xingyao Xiao"
+    affiliations:
+      - ref: stanford
+  - name: "Rebecca Zhu"
+    affiliations:
+      - ref: stanford
+  - name: "Mika Braginsky"
+    orcid: 0000-0001-9039-3220
+    affiliations:
+      - ref: stanford
+  - name: "Nilam Ram"
+    affiliations:
+      - ref: stanford
+  - name: "Benjamin W. Domingue"
+    affiliations:
+      - ref: stanford
+  - name: "Michael C. Frank"
+    orcid: 0000-0002-7551-4378
+    affiliations:
+      - ref: stanford
+    corresponding: true
+    email: mcfrank@stanford.edu
+    # role:
+    #   - conceptualization
+    #   - writing
+    #   - editing
+    #   - supervision
+
+affiliations:
+  - id: stanford
+    name: "Stanford University"
+
+author-note:
+  disclosures:
+    financial-support: "This work was supported by the Jacobs Foundation."
+    # conflict-of-interest: The author has no conflict of interest to declare.
+
+abstract: To add.
+
+keywords: ["cognitive development", "mental rotation", "spatial reasoning"]
+word-count: true
+
+bibliography: library.bib
+
+floatsintext: true
+numbered-lines: true
+# draft: false
+mask: false
+
+# appendix
+number-sections: false
+appendix-style: default
+
+# figurelist: no
+# tablelist: no
+# footnotelist: no
+
+format:
+  apaquarto-pdf:
+    documentmode: man
+    keep-tex: true
+    include-in-header: preamble.tex
+    fig-format: pdf
+    # fig-pos: H        
+    # tbl-pos: H  
+
+knitr:
+  opts_chunk:
+    ft.arraystretch: 1.25
+
+execute: 
+  echo: false
+  message: false
+  warning: false
+  error: true
+  cache: true
+---
+
+```{r}
+
+```
