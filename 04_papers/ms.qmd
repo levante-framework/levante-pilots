@@ -7,107 +7,242 @@ author:
     orcid: 0000-0003-4153-4167
     affiliations:
       - ref: stanford
+    roles:
+      - conceptualization
+      - data curation
+      - formal analysis
+      - investigation
+      - methodology
+      - project administration
+      - software
+      - supervision
+      - writing – original draft
+      - writing – review & editing
   - name: "Fionnuala O'Reilly*"
     orcid: 0000-0002-4355-9088
     affiliations:
       - ref: stanford
+    roles:
+      - conceptualization
+      - formal analysis
+      - investigation
+      - methodology
+      - visualization
+      - writing – original draft
+      - writing – review & editing
   - name: "Mika Braginsky"
     orcid: 0000-0001-9039-3220
     affiliations:
       - ref: stanford
+    roles:
+      - conceptualization
+      - data curation
+      - formal analysis
+      - investigation
+      - methodology
+      - project administration
+      - software
+      - visualization
+      - writing – original draft
+      - writing – review & editing
   - name: "Xingyao Xiao"
     orcid: 0000-0001-8430-0438
     affiliations:
       - ref: stanford
+    roles:
+      - formal analysis
+      - investigation
+      - methodology
+      - writing – original draft
   - name: "Amy A. Lightbody"
     orcid: 0000-0001-7219-416
     affiliations:
       - ref: stanford
+    roles:
+      - methodology
+      - project administration
+      - writing – original draft
+      - writing – review & editing
   - name: "Katherine Adams Shannon"
     orcid: 0000-0003-4069-9576
     affiliations:
       - ref: stanford
+    roles:
+      - methodology
+      - writing – review & editing
   - name: "Zachary Watson"
     affiliations:
       - ref: stanford
+    roles:
+      - software
+      - writing – original draft
   - name: "Lijin Zhang"
     orcid: 0000-0002-4222-8850
     affiliations:
       - ref: stanford
+    roles:
+      - methodology
+      - writing – review & editing
   - name: "Rebecca Zhu"
     orcid: 0000-0003-0957-5962
     affiliations:
       - ref: stanford
+    roles:
+      - methodology
+      - project administration
+      - writing – review & editing
   - name: "Adani Abutto"
     affiliations:
       - ref: stanford
+    roles:
+      - methodology
+      - writing – review & editing
   - name: "Wanjing Anya Ma"
     orcid: 0000-0001-5761-8707
     affiliations:
       - ref: stanford
+    roles:
+      - data curation
+      - methodology
   - name: "Bria Long"
     orcid: 0000-0001-7156-6878
     affiliations:
       - ref: ucsd
+    roles:
+      - data curation
+      - methodology
+      - project administration
+      - writing – review & editing
   - name: "Tonya Murray"
     affiliations:
       - ref: stanford
+    roles:
+      - software
   - name: "Jason D. Yeatman"
     orcid: 0000-0002-2686-1293
     affiliations:
       - ref: stanford
+    roles:
+      - methodology
+      - software
+      - writing – review & editing
   - name: "Michael J. Sulik"
     orcid: 0000-0002-4405-6554
     affiliations:
       - ref: stanford
+    roles:
+      - methodology
+      - writing – review & editing
   - name: "Jelena Obradović"
     orcid: 0000-0001-7405-4608
     affiliations:
       - ref: stanford
+    roles:
+      - methodology
+      - supervision
+      - writing – review & editing
   - name: "Nichola Jenkins"
     affiliations:
       - ref: western
+    roles:
+      - data curation
+      - investigation
+      - project administration
   - name: "Daniel Ansari"
     orcid: 0000-0002-7625-618X
     affiliations:
       - ref: western
+    roles:
+      - data curation
+      - investigation
+      - project administration
   - name: "Maria Camilla Perfetti"
     affiliations:
       - ref: uniandes
+    roles:
+      - data curation
   - name: "Julián P. Mariño"
     affiliations:
       - ref: uniandes
+    roles:
+      - data curation
+      - writing – review & editing
   - name: "Luise Hornoff"
     affiliations:
       - ref: mpieva
+    roles:
+      - data curation
+      - investigation
+      - project administration
   - name: "Manuel Bohn"
     orcid: 0000-0001-6006-1348
     affiliations:
       - ref: mpieva 
       - ref: leuphana
+    roles:
+      - data curation
+      - investigation
+      - writing – review & editing
   - name: "Daniel Haun"
     orcid: 0000-0002-3262-645X
     affiliations:
       - ref: mpieva
+    roles:
+      - data curation
+      - writing – review & editing
   - name: "Nilàm Ram"
     orcid: 0000-0003-1671-5257
     affiliations:
       - ref: stanford
+    roles: 
+      - conceptualization
+      - investigation
+      - methodology
+      - supervision
+      - writing – review & editing
   - name: "Benjamin W. Domingue"
     orcid: 0000-0002-3894-9049
     affiliations:
       - ref: stanford
+    roles:
+      - conceptualization
+      - investigation
+      - methodology
+      - supervision
+      - writing – review & editing
   - name: "Michael C. Frank"
     orcid: 0000-0002-7551-4378
     affiliations:
       - ref: stanford
+    roles:
+      - conceptualization
+      - data curation
+      - formal analysis
+      - funding acquisition
+      - investigation
+      - methodology
+      - project administration
+      - software
+      - supervision
+      - visualization
+      - writing – original draft
+      - writing – review & editing
     corresponding: true
     email: mcfrank@stanford.edu
-    # role:
-    #   - conceptualization
-    #   - writing
-    #   - editing
-    #   - supervision
+
+roles:
+      - conceptualization
+      - data curation
+      - formal analysis
+      - funding acquisition
+      - investigation
+      - methodology
+      - project administration
+      - software
+      - supervision
+      - visualization
+      - writing – original draft
+      - writing – review & editing
 
 affiliations:
   - id: stanford
