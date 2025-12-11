@@ -305,8 +305,9 @@ all_scores <- read_rds(here("02_scoring_outputs","scores","scores_combined.rds")
 
 task_map <- all_scores |> distinct(item_task, task)
 
-included_scores <- all_scores |>
-  filter(!is.na(age), age >= 5, age <= 12) |>
+age_scores <- all_scores |> filter(age >= 5, age < 13)
+
+included_scores <- age_scores |>
   filter(run_number == 1 | (run_number == 2 & age_gap > 1/6))
 
 coretask_scores <- included_scores |>
@@ -448,13 +449,16 @@ task_data <- read_rds(here(glue("01_fetched_data/task_data_nested.rds"))) |> unn
 trial_filtered_run_counts <- task_data |> distinct(site, task_id, run_id) |> count(site, task_id, name = "n_trials_filtered_runs")
 
 # scores (above runs + non-missing age)
-score_counts <- all_scores |> filter(item_task != "ha") |> count(site, task_id, name = "n_scores")
+score_counts <- all_scores |> count(site, task_id, name = "n_scores")
 
-# included scores (above scores + age in range + first run or large enough age gap)
-included_score_counts <- included_scores |> filter(item_task != "ha") |> count(site, task_id, name = "n_included_scores")
+# age in range scores (above scores + age in range)
+age_score_counts <- age_scores |> count(site, task_id, name = "n_age_scores")
+
+# included scores (above scores + first run or large enough age gap)
+included_score_counts <- included_scores |> count(site, task_id, name = "n_included_scores")
 
 # combined_counts <- list(run_counts, trial_run_counts, run_filtered_counts, trial_filtered_run_counts, score_counts, included_score_counts) |>
-counts <- list(run_counts, run_nonempty_counts, run_filtered_counts, trial_filtered_run_counts, score_counts, included_score_counts) |>
+counts <- list(run_counts, run_nonempty_counts, run_filtered_counts, trial_filtered_run_counts, score_counts, age_score_counts, included_score_counts) |>
   reduce(left_join) |>
   left_join(all_scores |> distinct(task_id, item_task, task) |> filter(item_task != "ha")) |>
   filter(item_task %in% core_tasks) |>
@@ -519,7 +523,8 @@ site_table <- bind_rows(site_endpoints, site_diffs) |>
     "Excluded for being incomplete, invalid, or duplicate" = "nonempty_runs - filtered_runs",
     "Excluded for missing item metadata" = "filtered_runs - trials_filtered_runs",
     "Excluded for missing age" = "trials_filtered_runs - scores",
-    "Excluded for age out of range or too short retest gap" = "scores - included_scores",
+    "Excluded for age out of range" = "scores - age_scores",
+    "Excluded for non-retest non-first run or retest with too short retest gap" = "age_scores - included_scores",
     "Final number of scored runs" = "included_scores"
   )) |>
   rename(Count = count)
@@ -588,7 +593,7 @@ A key feature of the LEVANTE framework is that all data are fully de-identified,
 
 ages <- coretask_scores |>
   group_by(site, site_label, dataset, user_id) |>
-  summarise(age = min(age), 
+  summarise(age = min(age),
             n_runs = n())
 
 ggplot(ages, aes(x = age, fill = site)) + 
@@ -613,7 +618,7 @@ Partners at Western University (Ontario) recruited participants from the local c
 
 ## Data filtering
 
-We use "run" to represent an instance of a child attempting a single task. Across all tasks, the sites collected a total of `{r} sum(site_totals)` runs (`{r} get_count_row(1)`) from `{r} sum(user_totals$n_users)` unique children (`{r} user_totals |> deframe() |> collapse_value_list()`), of which some runs were excluded for not having any associated trial data (`{r} get_count_row(2)`), for being incomplete, invalid, or duplicate (`{r} get_count_row(3)`), for missing item metadata (`{r} get_count_row(4)`), for missing age (`{r} get_count_row(5)`), or for age being out of range or having too short (<0.6 months) of a retest gap (`{r} get_count_row(6)`), resulting in a total of `{r} sum(user_score_counts$n_runs)` scored runs (`{r} user_score_counts |> select(site, n_runs) |> deframe() |> collapse_value_list()`) from `{r} sum(user_score_counts$n_users)` unique children (`{r} user_score_counts |> select(site, n_users) |> deframe() |> collapse_value_list()`). 
+We use "run" to represent an instance of a child attempting a single task. Across all tasks, the sites collected a total of `{r} sum(site_totals)` runs (`{r} get_count_row(1)`) from `{r} sum(user_totals$n_users)` unique children (`{r} user_totals |> deframe() |> collapse_value_list()`), of which some runs were excluded for not having any associated trial data (`{r} get_count_row(2)`); for being incomplete, invalid, or duplicate (`{r} get_count_row(3)`); for missing item metadata (`{r} get_count_row(4)`); for missing age (`{r} get_count_row(5)`); for for age being out of range (`{r} get_count_row(6)`), or for having too short (<0.6 months) of a retest gap (`{r} get_count_row(7)`), resulting in a total of `{r} sum(user_score_counts$n_runs)` scored runs (`{r} user_score_counts |> select(site, n_runs) |> deframe() |> collapse_value_list()`) from `{r} sum(user_score_counts$n_users)` unique children (`{r} user_score_counts |> select(site, n_users) |> deframe() |> collapse_value_list()`).
 
 Within the included runs, there were a total of `{r} total_trial_counts$n_trials` trials (`{r} site_trial_counts |> select(site, n_trials) |> deframe() |> collapse_value_list()`), of which `{r} total_trial_counts$excluded` were excluded (`{r} site_trial_counts |> select(site, excluded) |> deframe() |> collapse_value_list()`) due to too fast (<100ms) or too slow (>30s) reaction times. For reasons of space we do not disaggregate these exclusions by task, but note that the task with the highest exclusion rate was Pattern Matching (`{r} percentify(max(task_trial_counts$pct_excluded))` trials excluded), while all the other tasks ranged between `{r} percentify(min(task_trial_counts$pct_excluded))` and `{r} percentify(sort(task_trial_counts$pct_excluded, decreasing = TRUE)[2])` trials excluded.
 
