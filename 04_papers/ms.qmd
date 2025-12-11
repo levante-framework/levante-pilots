@@ -53,6 +53,7 @@ author:
     affiliations:
       - ref: stanford
   - name: "Jason D. Yeatman"
+    orcid: 0000-0002-2686-1293
     affiliations:
       - ref: stanford
   - name: "Michael J. Sulik"
@@ -142,7 +143,6 @@ mask: false
 # appendix
 number-sections: false
 appendix-style: default
-
 
 # figurelist: no
 # tablelist: no
