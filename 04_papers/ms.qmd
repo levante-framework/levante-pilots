@@ -16,30 +16,37 @@ author:
     affiliations:
       - ref: stanford
   - name: "Xingyao Xiao"
+    orcid: 0000-0001-8430-0438
     affiliations:
       - ref: stanford
   - name: "Amy A. Lightbody"
+    orcid: 0000-0001-7219-416
     affiliations:
       - ref: stanford
   - name: "Katherine Adams Shannon"
+    orcid: 0000-0003-4069-9576
     affiliations:
       - ref: stanford
   - name: "Zachary Watson"
     affiliations:
       - ref: stanford
   - name: "Lijin Zhang"
+    orcid: 0000-0002-4222-8850
     affiliations:
       - ref: stanford
   - name: "Rebecca Zhu"
+    orcid: 0000-0003-0957-5962
     affiliations:
       - ref: stanford
   - name: "Adani Abutto"
     affiliations:
       - ref: stanford
   - name: "Wanjing Anya Ma"
+    orcid: 0000-0001-5761-8707
     affiliations:
       - ref: stanford
   - name: "Bria Long"
+    orcid: 0000-0001-7156-6878
     affiliations:
       - ref: ucsd
   - name: "Tonya Murray"
@@ -49,15 +56,18 @@ author:
     affiliations:
       - ref: stanford
   - name: "Michael J. Sulik"
+    orcid: 0000-0002-4405-6554
     affiliations:
       - ref: stanford
   - name: "Jelena Obradović"
+    orcid: 0000-0001-7405-4608
     affiliations:
       - ref: stanford
   - name: "Nichola Jenkins"
     affiliations:
       - ref: western
   - name: "Daniel Ansari"
+    orcid: 0000-0002-7625-618X
     affiliations:
       - ref: western
   - name: "Maria Camilla Perfetti"
@@ -70,16 +80,20 @@ author:
     affiliations:
       - ref: mpieva
   - name: "Manuel Bohn"
+    orcid: 0000-0001-6006-1348
     affiliations:
       - ref: mpieva 
       - ref: leuphana
   - name: "Daniel Haun"
+    orcid: 0000-0002-3262-645X
     affiliations:
       - ref: mpieva
-  - name: "Nilam Ram"
+  - name: "Nilàm Ram"
+    orcid: 0000-0003-1671-5257
     affiliations:
       - ref: stanford
   - name: "Benjamin W. Domingue"
+    orcid: 0000-0002-3894-9049
     affiliations:
       - ref: stanford
   - name: "Michael C. Frank"

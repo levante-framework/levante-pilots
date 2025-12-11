@@ -17,7 +17,7 @@ author:
     orcid: 0000-0001-9039-3220
     affiliations:
       - ref: stanford
-  - name: "Nilam Ram"
+  - name: "Nilàm Ram"
     affiliations:
       - ref: stanford
   - name: "Benjamin W. Domingue"
@@ -49,7 +49,7 @@ abstract: To add.
 keywords: ["cognitive development", "mental rotation", "spatial reasoning"]
 word-count: true
 
-bibliography: library.bib
+bibliography: library_mrot.bib
 
 floatsintext: true
 numbered-lines: true
@@ -85,6 +85,14 @@ execute:
   cache: true
 ---
 
+
+
+
 ```{r}
+
+
+
+
+
 
 ```
