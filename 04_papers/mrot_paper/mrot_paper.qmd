@@ -85,8 +85,9 @@ execute:
   cache: true
 ---
 
+Spatial reasoning, broadly defined as the ability to generate, retain, and manipulate visuospatial information is a fundamental cognitive skill [@lohman2013spatial]. It allows us to form and transform mental images of 2D shapes and 3D objects (e.g., by rotating, bending, or folding them), and to represent how spatial relations between locations, shapes, and objects change over time [@frick2014development; @newcombe2014thinking].
 
-
+Spatial ability is important for a wide range of educational outcomes [@wai2018spatial], including creative domains such as music [@padulo2020effects; @hetland2000learning] and visual arts [@kell2013creativity; @winner2013relationship] as well as STEM subjects [@wai2009spatial] and, most notably, math (@atit2022examining; @xie2020spatial; @mix2012relation; @gunderson2012relation]. Given it’s importance for educational outcomes, a number of attempts have been made to train spatial reasoning skills. For example, @Hhawes2015effects reported that, compared with an active control group, 6–8-year-old children who received mental rotation training showed significant gains on two separate 2D mental rotation measures, as well as more general improvements in spatial reasoning on an untrained spatial task. @uttal2013malleability conducted a meta-analysis of 217 studies with child and adult samples to examine the size and generalizability of spatial skills training effects. Across studies, the mean effect size for training compared with control conditions was Hedges’ g = 0.47 (SE = 0.04). @gilligan2020first showed that training spatial reasoning skills had	near,	intermediate	and	far	transfer	effects in 8-year old children [@gilligan2020first]. Similarly,in a sample of elementary school students, @lowrie2017visuospatial showed that those who participated in a 10-week visuospatial reasoning (VSR) program achieved substantially higher spatial reasoning scores than students in the control group, and also demonstrated improved mathematics performance.  	
 
 ```{r}
 
