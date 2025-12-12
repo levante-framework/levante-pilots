@@ -118,14 +118,17 @@ author:
       - ref: stanford
     roles:
       - data curation
-      - software
   - name: "Jason D. Yeatman"
     orcid: 0000-0002-2686-1293
     affiliations:
       - ref: stanford
     roles:
+      - conceptualization
+      - funding acquisition
       - methodology
       - software
+      - supervision
+      - visualization
       - writing – review & editing
   - name: "Michael J. Sulik"
     orcid: 0000-0002-4405-6554
