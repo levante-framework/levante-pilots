@@ -557,6 +557,59 @@ Assessing social cognition across a wide range of ages is a challenge, and relat
 
 Initially designed in English, the core tasks were subsequently adapted for Spanish and German following a set of internationalization procedures in collaboration with researchers at the uniandes-co and mpieva-de sites, respectively. We began with AI-generated translations of all verbal materials, including task instructions, items, and other key terminology such as encouragement phrases that appear throughout the core tasks; we used the DeepL platform for these initial translations. A professional translator then reviewed and edited the AI translations for general grammatical correctness and appropriateness. Materials were next reviewed by a researcher who was a native speaker of the relevant language and dialect, confirming that the materials were clear and appropriate for the specific task. We then conducted back translation using AI translation tools to verify semantic and conceptual equivalence and to flag items needing further review by native speakers. For tasks evaluating language skills (Vocabulary and Sentence Understanding), we additionally recruited PhD-level linguists with expertise in language acquisition for both Spanish and German to review items and make recommendations about relevant changes or additions to the item set for that language. Additional language adaptation work for these two tasks is ongoing based on the results of our pilot data collection. 
 
+```{r}
+#| label: tbl-trial-irt-counts
+#| tbl-cap: "Number of trials and IRT items per LEVANTE task."
+
+#install.packages("gt")
+library(gt)
+
+irt_items <- tribble(
+   ~task_id,              ~item_task, ~irt_items,
+  "Hearts and Flowers",       "hf",     "10",
+  "Memory",                   "mg",     "27",
+  "Same and Different",       "sds",    "15",         
+  "Vocabulary",               "vocab",  "161",
+  "Sentence Understanding",   "trog",   "98",
+  "Math",                     "math",   "359",
+  "Pattern Matching",         "matrix", "156",
+  "Shape Rotation",           "mrot",   "12",
+  "Stories",                  "tom",    "89"
+)
+
+trial_counts <- tribble(
+  ~task_id,              ~total_trials_nonCAT,
+  "Hearts and Flowers",       "60",
+  "Memory",                   "41",
+  "Same and Different",       "127",         
+  "Vocabulary",               "170",
+  "Sentence Understanding",   "99",
+  "Math",                     "202",
+  "Pattern Matching",         "78",
+  "Shape Rotation",           "81",
+  "Stories",                  "6"
+)
+
+table_items <- irt_items %>%
+  left_join(trial_counts, by = "task_id") %>%
+  select(
+    Task = task_id,
+    `Total trials (questions)` = total_trials_nonCAT,
+    `IRT items (analytic units)` = irt_items
+  )
+
+table_items |>
+  gt() |>
+  tab_header(title = "Number of trials and IRT items per LEVANTE task") |>
+  tab_source_note(
+    "Note. “Total trials” gives the number of distinct questions"
+    %+% "in the non-adaptive version of each task. “IRT items” gives the "
+    %+% "number of scored units included in IRT modelling after collapsing "
+    %+% "repeated trials and excluding practice/feedback trials."
+  )
+
+```
+
 # Pilot Data Collection
 
 ```{r compute_counts}
