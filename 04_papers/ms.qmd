@@ -556,10 +556,6 @@ Assessing social cognition across a wide range of ages is a challenge, and relat
 
 For each task we distinguish between trials and IRT items (see @tbl-trial-irt-counts). Trials refer to individual questions that could be presented to the child (design-level count; e.g., 60 trials in the non-adaptive Hearts & Flowers task). For psychometric analyses, we define a smaller set of IRT items, where repeated trials of the same type are collapsed into a single scored unit and practice or feedback trials are excluded. These IRT items are the units that enter the IRT models and therefore have estimated discrimination and difficulty parameters.
 
-## Translation and adaptation
-
-Initially designed in English, the core tasks were subsequently adapted for Spanish and German following a set of internationalization procedures in collaboration with researchers at the uniandes-co and mpieva-de sites, respectively. We began with AI-generated translations of all verbal materials, including task instructions, items, and other key terminology such as encouragement phrases that appear throughout the core tasks; we used the DeepL platform for these initial translations. A professional translator then reviewed and edited the AI translations for general grammatical correctness and appropriateness. Materials were next reviewed by a researcher who was a native speaker of the relevant language and dialect, confirming that the materials were clear and appropriate for the specific task. We then conducted back translation using AI translation tools to verify semantic and conceptual equivalence and to flag items needing further review by native speakers. For tasks evaluating language skills (Vocabulary and Sentence Understanding), we additionally recruited PhD-level linguists with expertise in language acquisition for both Spanish and German to review items and make recommendations about relevant changes or additions to the item set for that language. Additional language adaptation work for these two tasks is ongoing based on the results of our pilot data collection. 
-
 ```{r}
 #| label: tbl-trial-irt-counts
 #| tbl-cap: "Number of trials and IRT items per LEVANTE task."
@@ -608,6 +604,11 @@ table_items |>
   fontsize(part = "footer", size = 8) |>
   italic(part = "footer")
 ```
+\clearpage
+
+## Translation and adaptation
+
+Initially designed in English, the core tasks were subsequently adapted for Spanish and German following a set of internationalization procedures in collaboration with researchers at the uniandes-co and mpieva-de sites, respectively. We began with AI-generated translations of all verbal materials, including task instructions, items, and other key terminology such as encouragement phrases that appear throughout the core tasks; we used the DeepL platform for these initial translations. A professional translator then reviewed and edited the AI translations for general grammatical correctness and appropriateness. Materials were next reviewed by a researcher who was a native speaker of the relevant language and dialect, confirming that the materials were clear and appropriate for the specific task. We then conducted back translation using AI translation tools to verify semantic and conceptual equivalence and to flag items needing further review by native speakers. For tasks evaluating language skills (Vocabulary and Sentence Understanding), we additionally recruited PhD-level linguists with expertise in language acquisition for both Spanish and German to review items and make recommendations about relevant changes or additions to the item set for that language. Additional language adaptation work for these two tasks is ongoing based on the results of our pilot data collection. 
 
 # Pilot Data Collection
 
@@ -811,7 +812,7 @@ Within the included runs, there were a total of `{r} total_trial_counts$n_trials
 
 # Scoring
 
-Our goal for the psychometric modelling of the data obtained in each task was to extract administration-level ability scores (i.e., at the level of a testing session) with the highest possible reliability and validity. To do so, we first conducted heuristic item screening to remove poorly functioning items, then fit a sequence of multi-group IRT models to the retained items to estimate latent ability scores. These analyses provided the foundation for the reliability, developmental, and validity results described in subsequent sections.
+Our goal for the psychometric modelling of the data obtained in each task was to extract administration-level ability scores (i.e., at the level of a testing session) with the highest possible reliability and validity. To do so, we first conducted heuristic item screening to remove poorly functioning items, then fit a sequence of multi-group IRT models to the retained items to estimate latent ability scores. These analyses provided the foundation for the reliability, developmental, and validity results described in subsequent sections. For all IRT models, we specified Gaussian priors on item difficulty (mean = 0, SD = 3) and discrimination (mean = 1, SD = 0.3) parameters.
 
 ## Heuristic item pruning and data checking
 
@@ -1980,70 +1981,7 @@ ggplot(cat_only, aes(age, metric_value)) +
        )
 ```
 
-Standard errors of IRT ability estimates were generally comparable across adaptive and fixed-length versions; typical SE ≈ 0.4–0.8 (see @fig-se). In most tasks, the fixed-length forms yielded slightly lower SEs than the adaptive forms across the mid to high range of ability, whereas adaptive forms showed marginally lower SEs for a small number of children at the lowest ability levels. Given the small cell sizes in these extreme bands and the modest magnitude of differences, precision of ability estimates was broadly similar across administration modes.
-
-```{r}
-#| label: fig-se
-#| fig-cap: "Standard error of IRT ability estimates by ability level for fixed-length versus adaptive versions of the six CAT tasks."
-#| fig-width: 8
-#| fig-height: 8
-
-# colnames(coretask_scores)
-
-# tasks that have CAT versions 
-tasks_cat <- cat_only %>%
-  distinct(task, task_category)
-
-ability_scores_cat <- coretask_scores %>%
-  semi_join(tasks_cat, by = c("task", "task_category")) %>%
-  mutate(
-    adaptive = factor(
-      adaptive,
-      levels = c(FALSE, TRUE),
-      labels = c("Fixed-length", "Adaptive (CAT)")
-    )
-  )
-
-# plot
-ggplot(ability_scores_cat,
-       aes(x = metric_value, y = metric_se, colour = adaptive)) +
-  geom_point(alpha = 0.15, size = 0.7) +
-  geom_smooth(se = FALSE, method = "loess") +
-  scale_colour_discrete(na.translate = FALSE) +
-  ggh4x::facet_nested_wrap(
-    vars(task_category, task),
-    nest_line = element_line(),
-    solo_line = TRUE,
-    axes = "x",
-    scales = "free_y"
-  ) +
-  labs(
-    x = "Ability (IRT score)",
-    y = "Standard error",
-    colour = "Administration",
-    #title = "Standard error of ability estimates by ability level\nAdaptive vs Fixed-length"
-  ) +
-  theme(legend.position = "bottom")
-
-# check at each theta
-# ability_scores_cat %>%
-#   mutate(
-#     theta_band = cut(
-#       metric_value,
-#       breaks = c(-Inf, -2, -1, 0, 1, 2, Inf),
-#       labels = c("< -2", "-2 to -1", "-1 to 0", "0 to 1", "1 to 2", "> 2")
-#     )
-#   ) %>%
-#   group_by(task, theta_band, adaptive) %>%
-#   summarise(
-#     n = n(),
-#     mean_se = mean(metric_se, na.rm = TRUE),
-#     .groups = "drop"
-#   ) %>%
-#   arrange(task, theta_band, adaptive)
-
-```
-\clearpage
+Standard errors of IRT ability estimates were generally comparable across adaptive and fixed-length versions; typical SE ≈ 0.4–0.8 (see @fig-se in appendices). In most tasks, the fixed-length forms yielded slightly lower SEs than the adaptive forms across the mid to high range of ability, whereas adaptive forms showed marginally lower SEs for a small number of children at the lowest ability levels. Given the small cell sizes in these extreme bands and the modest magnitude of differences, precision of ability estimates was broadly similar across administration modes.
 
 # General Discussion
 
@@ -2141,3 +2079,64 @@ ggplot(slopes_df, aes(x = slope, y = fct_rev(Site), colour = Site)) +
   theme(legend.position = "bottom")
 ```
 
+```{r}
+#| label: fig-se
+#| fig-cap: "Standard error of IRT ability estimates by ability level for fixed-length versus adaptive versions of the six CAT tasks."
+#| fig-width: 8
+#| fig-height: 8
+
+# colnames(coretask_scores)
+
+# tasks that have CAT versions 
+tasks_cat <- cat_only %>%
+  distinct(task, task_category)
+
+ability_scores_cat <- coretask_scores %>%
+  semi_join(tasks_cat, by = c("task", "task_category")) %>%
+  mutate(
+    adaptive = factor(
+      adaptive,
+      levels = c(FALSE, TRUE),
+      labels = c("Fixed-length", "Adaptive (CAT)")
+    )
+  )
+
+# plot
+ggplot(ability_scores_cat,
+       aes(x = metric_value, y = metric_se, colour = adaptive)) +
+  geom_point(alpha = 0.15, size = 0.7) +
+  geom_smooth(se = FALSE, method = "loess") +
+  scale_colour_discrete(na.translate = FALSE) +
+  ggh4x::facet_nested_wrap(
+    vars(task_category, task),
+    nest_line = element_line(),
+    solo_line = TRUE,
+    axes = "x",
+    scales = "free_y"
+  ) +
+  labs(
+    x = "Ability (IRT score)",
+    y = "Standard error",
+    colour = "Administration",
+    #title = "Standard error of ability estimates by ability level\nAdaptive vs Fixed-length"
+  ) +
+  theme(legend.position = "bottom")
+
+# check at each theta
+# ability_scores_cat %>%
+#   mutate(
+#     theta_band = cut(
+#       metric_value,
+#       breaks = c(-Inf, -2, -1, 0, 1, 2, Inf),
+#       labels = c("< -2", "-2 to -1", "-1 to 0", "0 to 1", "1 to 2", "> 2")
+#     )
+#   ) %>%
+#   group_by(task, theta_band, adaptive) %>%
+#   summarise(
+#     n = n(),
+#     mean_se = mean(metric_se, na.rm = TRUE),
+#     .groups = "drop"
+#   ) %>%
+#   arrange(task, theta_band, adaptive)
+
+```
