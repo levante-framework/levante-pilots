@@ -307,6 +307,9 @@ execute:
   warning: false
   error: true
   cache: true
+  
+params:
+  anonymise: true
 ---
 
 ```{r setup}
@@ -815,7 +818,7 @@ Within the included runs, there were a total of `{r} total_trial_counts$n_trials
 
 # Scoring
 
-Our goal for the psychometric modelling of the data obtained in each task was to extract administration-level ability scores (i.e., at the level of a testing session) with the highest possible reliability and validity. To do so, we first conducted heuristic item screening to remove poorly functioning items, then fit a sequence of multi-group IRT models to the retained items to estimate latent ability scores. These analyses provided the foundation for the reliability, developmental, and validity results described in subsequent sections. For all IRT models, we specified Gaussian priors on item difficulty (mean = 0, SD = 3) and discrimination (mean = 1, SD = 0.3) parameters.
+Our goal for the psychometric modelling of the data obtained in each task was to extract administration-level ability scores (i.e., at the level of a testing session) with the highest possible reliability and validity. To do so, we first conducted heuristic item screening to remove poorly functioning items, then fit a sequence of multi-group IRT models to the retained items to estimate latent ability scores. These analyses provided the foundation for the reliability, developmental, and validity results described in subsequent sections. 
 
 ## Heuristic item pruning and data checking
 
@@ -825,7 +828,7 @@ Prior to fitting psychometric models, we examined item-level performance summari
 
 Following item screening, we evaluated measurement invariance across sites using nested multi-group IRT models to assess the comparability of latent ability estimates. The conventional hierarchy of factor-analytic invariance—configural → metric → scalar—was implemented in the IRT framework as successive equality constraints on item parameters (see @tbl-invariance-explainer for correspondence and interpretation). Configural invariance reflects a shared latent structure, metric invariance constrains item discriminations, and scalar invariance constrains both discriminations and difficulties across sites. For each task, we compared unidimensional Rasch and two-parameter logistic (2PL) models under these nested invariance constraints. 
 
-All models were estimated using the `mirt` R package [@mirt] via marginal maximum likelihood using 500 quadrature points, with expected a posteriori (EAP) scoring. Overlapping items across languages served as anchors to establish a common scale; non-overlapping items were freely estimated within the same multi-group calibration. Model convergence and identification were verified by ensuring stable log-likelihoods and Hessian condition numbers below $10^3$.
+All models were estimated using the `mirt` R package [@mirt] via marginal maximum likelihood using 500 quadrature points, with expected a posteriori (EAP) scoring. Overlapping items across languages served as anchors to establish a common scale; non-overlapping items were freely estimated within the same multi-group calibration. Model convergence and identification were verified by ensuring stable log-likelihoods and Hessian condition numbers below $10^3$. We specified Gaussian priors on item difficulty (mean = 0, SD = 3) and discrimination (mean = 1, SD = 0.3) parameters in all models.
 
 Model selection was based on the Bayesian Information Criterion (BIC), with the final model for each task representing the most parsimonious combination of model type (Rasch, 2PL) and invariance constraints that adequately reproduced cross-site response patterns. Across domains, Rasch models generally provided the best fit, whereas 2PL models were preferred for Same and Different and Shape Rotation, which showed greater variability of discrimination parameters across items.
 
