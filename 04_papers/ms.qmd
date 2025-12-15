@@ -160,7 +160,7 @@ author:
       - data curation
       - investigation
       - project administration
-  - name: "Maria Camilla Perfetti"
+  - name: "Maria Camila Perfetti"
     affiliations:
       - ref: uniandes
     roles:
@@ -277,7 +277,7 @@ bibliography: library.bib
 floatsintext: true
 numbered-lines: true
 # draft: false
-mask: false
+# mask: true
 
 # appendix
 number-sections: false
@@ -307,9 +307,6 @@ execute:
   warning: false
   error: true
   cache: true
-  
-params:
-  anonymise: true
 ---
 
 ```{r setup}
@@ -370,7 +367,7 @@ A final set of challenges has to do with accessibility. Many gold-standard measu
 
 ## LEVANTE
 
-The Learning Variability Network Exchange (LEVANTE) was designed to address these challenges [@frank2025] by validating an openly accessible set of measures applicable to a wide developmental age range within varied contexts. LEVANTE adopts a software framework from the Rapid Online Assessment of Reading (ROAR) to facilitate data collection with these measures. The ROAR dashboard is a web interface to assign both task bundles and surveys to groups of children, caregivers, and teachers. LEVANTE "forked" (duplicated) the ROAR dashboard and modified it for international research with the addition of a framework for data harmonization and validation. Data collected through the dashboard are harmonized into a centralized data repository and made accessible first to the researchers who collected them and then, through regular data releases, to the broader research community. Through a partnership with the Jacobs Foundation, sites around the world are funded to collect longitudinal data from children using the LEVANTE framework. The eventual goal of LEVANTE is to create and openly share a rich dataset and suite of measures documenting children’s learning and development across contexts. Code and task implementations are available at https://github.com/levante-framework.
+The Learning Variability Network Exchange (LEVANTE) was designed to address these challenges [@frank2025] by validating an openly accessible set of measures applicable to a wide developmental age range within varied contexts. LEVANTE adopts a software framework from the Rapid Online Assessment of Reading (ROAR) to facilitate data collection with these measures. The ROAR dashboard is a web interface to assign both task bundles and surveys to groups of children, caregivers, and teachers. LEVANTE "forked" (duplicated) the ROAR dashboard and modified it for international research with the addition of a framework for data harmonization and validation. Data collected through the dashboard are harmonized into a centralized data repository and made accessible first to the researchers who collected them and then, through regular data releases, to the broader research community. Through a partnership with the Jacobs Foundation, sites around the world are funded to collect longitudinal data from children using the LEVANTE framework. The eventual goal of LEVANTE is to create and openly share a rich dataset and suite of measures documenting children’s learning and development across contexts. Code and task implementations are available at https://github.com/levante-framework and the first release of data can be found at [placeholder].
 
 The current manuscript introduces the LEVANTE core tasks, a suite of behavioral measures for children, and draws on data from the now-completed pilot phase of the project, which we used to evaluate and refine the tasks’ reliability, validity, and feasibility across sites and age groups. In our initial development of the task battery, we cast a broad net for important constructs in child development with well-accepted measures that had been used internationally. This process is described in @frank2025. The broad constructs that we selected were executive function, language, mathematics, reasoning, and social cognition, with these being instantiated through a number of well-accepted task types. 
 
