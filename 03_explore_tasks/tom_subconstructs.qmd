@@ -61,6 +61,11 @@ And examining the above relationships by dividing TOM into **its subconstructs:*
 
 -   Check TOM relationships with other abilities while controlling for remaining factors
 
+    -   Using subconstructs as predictors (rather than composite IRT ability estimate)
+        could be interesting to differentiate more nuanced effects
+
+    -   Run FA on constructs and use that; sum scores come with more issues
+
 # Setup
 
 Packages and file settings:
@@ -90,7 +95,7 @@ source(here::here("plot_settings.R"))
 # fix print width for knitted doc
 options(width = 70)
 
-# set random seed
+
 set.seed(1)
 
 ```
@@ -360,10 +365,12 @@ Comparing across sites (DE, CO, CA):
 
 # plot
 tom_sum_scores =
-  ggplot(tom_runs, aes(x = age, y = correct)) +
-  geom_point(alpha = 0.5, size = 1) +
+  ggplot(tom_runs, aes(x = age, y = correct*100)) +
+  geom_point(alpha = .2, size = 1) +
   geom_smooth(method = "gam", formula = y ~ s(x, k = 4), se = T) +
-  coord_cartesian(ylim = c(0, 1)) +
+  coord_cartesian(ylim = c(0, 100)) +
+  scale_x_continuous(limits = c(5, 14),
+                     breaks = seq(5, 14, 1)) +
   facet_wrap(~ site) +
   labs(title = "Accuracy across ages by site",
        x = "Age (years)",
@@ -392,10 +399,12 @@ tom_sum_scores2 =
             age = first(age),                    
             n_items  = n_distinct(item_uid),
             .groups  = "drop") %>% 
-  ggplot(aes(x = age, y = correct)) +
-  geom_point(alpha = 0.5, size = 1) +
+  ggplot(aes(x = age, y = correct*100)) +
+  geom_point(alpha = .4, size = 1) +
   geom_smooth(method = "gam", formula = y ~ s(x, k = 4), se = T) +
-  coord_cartesian(ylim = c(0, 1)) +
+  coord_cartesian(ylim = c(0, 100)) +
+  scale_x_continuous(limits = c(5, 14),
+                     breaks = seq(5, 14, 1)) +
   facet_wrap(~ location) +
   labs(title = "Accuracy across ages, urban vs rural",
        subtitle = "CO only",
@@ -446,12 +455,12 @@ tom_ef_plot =
               values_from = metric_value) %>%
   ggplot(aes(x = `executive function`,
              y = `social cognition`)) +
-  geom_point(alpha = 0.5, size = 1) +
+  geom_point(alpha = .2, size = 1) +
   geom_smooth(method = "gam", formula = y ~ s(x, k = 4), se = T,
               alpha = .1) +
   facet_wrap(~site_label) +
-  scale_y_continuous(limits = c(-4, 4)) +
-  scale_x_continuous(limits = c(-4, 4)) +
+  scale_y_continuous(limits = c(-6, 6)) +
+  scale_x_continuous(limits = c(-6, 6)) +
   labs(title = "EF vs TOM, by site",
        x = "EF Ability (theta)",
        y = "TOM Ability (theta)",
@@ -479,12 +488,12 @@ tom_ef_plot2 =
   ggplot(aes(x = `executive function`,
              y = `social cognition`,
              color = site_label)) +
-  geom_point(alpha = 0.5, size = 1) +
+  geom_point(alpha = .3, size = 1) +
   facet_wrap(~ age_binned) +
   geom_smooth(method = "gam", formula = y ~ s(x, k = 4), se = F,
               alpha = .1) +
-  scale_y_continuous(limits = c(-4, 4)) +
-  scale_x_continuous(limits = c(-4, 4)) +
+  scale_y_continuous(limits = c(-6, 6)) +
+  scale_x_continuous(limits = c(-6, 6)) +
   labs(title = "EF vs TOM, by site, colored by age",
        x = "EF Ability (theta)",
        y = "TOM Ability (theta)",
@@ -512,13 +521,15 @@ tom_ef_plot3 =
   ggplot(aes(x = `executive function`,
              y = `social cognition`,
              color = age_binned)) +
-  geom_point(alpha = 0.5, size = 1) +
+  geom_point(alpha = .3, size = 1) +
   facet_wrap(~ site_label) +
   geom_smooth(method = "gam", formula = y ~ s(x, k = 4), se = F,
               alpha = .1) +
+  scale_y_continuous(limits = c(-6, 6)) +
+  scale_x_continuous(limits = c(-6, 6)) +
   labs(title = "EF vs TOM, by site, colored by age",
-       x = "EF Ability",
-       y = "TOM Ability",
+       x = "EF Ability (theta)",
+       y = "TOM Ability (theta)",
        caption = "Each point = participant; trend = GAM per site")
 
 tom_ef_plot3
@@ -551,13 +562,15 @@ tom_ef_plot4 =
   ggplot(aes(x = `executive function`,
              y = `social cognition`,
              color = age_binned)) +
-  geom_point(alpha = 0.5, size = 1) +
+  geom_point(alpha = .5, size = 1) +
   facet_wrap(~ location) +
   geom_smooth(method = "gam", formula = y ~ s(x, k = 4), se = F) +
+  scale_y_continuous(limits = c(-6, 6)) +
+  scale_x_continuous(limits = c(-6, 6)) +
   labs(title = "EF vs TOM, urban vs rural, colored by age",
        subtitle = "CO data only",
-       x = "Executive Function",
-       y = "TOM Ability",
+       x = "EF Ability (theta)",
+       y = "TOM Ability (theta)",
        caption = "Each point = participant; trend = GAM per location")
 
 tom_ef_plot4
@@ -601,12 +614,14 @@ tom_lang_plot =
               values_from = metric_value) %>%
   ggplot(aes(x = `language`,
              y = `social cognition`)) +
-  geom_point(alpha = 0.5, size = 1) +
+  geom_point(alpha = .2, size = 1) +
   facet_wrap(~ site_label) +
   geom_smooth(method = "gam", formula = y ~ s(x, k = 4), se = T) +
+  scale_y_continuous(limits = c(-6, 6)) +
+  scale_x_continuous(limits = c(-6, 6)) +
   labs(title = "Language vs TOM, by site",
-       x = "Language Ability",
-       y = "TOM Ability",
+       x = "Language Ability (theta)",
+       y = "TOM Ability (theta)",
        caption = "Each point = participant; trend = GAM per site")
 
 tom_lang_plot
@@ -631,12 +646,14 @@ tom_lang_plot2 =
   ggplot(aes(x = `language`,
              y = `social cognition`,
              color = site_label)) +
-  geom_point(alpha = 0.5, size = 1) +
+  geom_point(alpha = .3, size = 1) +
   facet_wrap(~ age_binned) +
   geom_smooth(method = "gam", formula = y ~ s(x, k = 4), se = F) +
+  scale_y_continuous(limits = c(-6, 6)) +
+  scale_x_continuous(limits = c(-6, 6)) +
   labs(title = "Language vs TOM, by site, split by age",
-       x = "Language Ability",
-       y = "TOM Ability",
+       x = "Language Ability (theta)",
+       y = "TOM Ability (theta)",
        caption = "Each point = participant run; trend = GAM per site")
 
 tom_lang_plot2
@@ -661,12 +678,14 @@ tom_lang_plot3 =
   ggplot(aes(x = `language`,
              y = `social cognition`,
              color = age_binned)) +
-  geom_point(alpha = 0.5, size = 1) +
+  geom_point(alpha = .3, size = 1) +
   facet_wrap(~ site_label) +
+  scale_y_continuous(limits = c(-6, 6)) +
+  scale_x_continuous(limits = c(-6, 6)) +
   geom_smooth(method = "gam", formula = y ~ s(x, k = 4), se = F) +
   labs(title = "Language vs TOM, by site, split by age",
-       x = "Language Ability",
-       y = "TOM Ability",
+       x = "Language Ability (theta)",
+       y = "TOM Ability (theta)",
        caption = "Each point = participant run; trend = GAM per site")
 
 tom_lang_plot3
@@ -696,13 +715,15 @@ tom_lang_plot4 =
   ggplot(aes(x = `language`,
              y = `social cognition`,
              color = age_binned)) +
-  geom_point(alpha = 0.5, size = 1) +
+  geom_point(alpha = .4, size = 1) +
   facet_wrap(~ location) +
   geom_smooth(method = "gam", formula = y ~ s(x, k = 4), se = F) +
+  scale_y_continuous(limits = c(-6, 6)) +
+  scale_x_continuous(limits = c(-6, 6)) +
   labs(title = "Language vs TOM, split by urban/rural, split by age",
        subtitle = "CO data only",
-       x = "Language Ability",
-       y = "TOM Ability",
+       x = "Language Ability (theta)",
+       y = "TOM Ability (theta)",
        caption = "Each point = participant; trend = GAM per location")
 
 tom_lang_plot4
@@ -760,12 +781,14 @@ tom_scs_plot =
               values_from = metric_value) %>%
   ggplot(aes(x = `social competence`,
              y = `social cognition`)) +
-  geom_point(alpha = 0.5, size = 1) +
+  geom_point(alpha = .2, size = 1) +
   facet_wrap(~ site) +
   geom_smooth(method = "gam", formula = y ~ s(x, k = 4), se = T) +
+  scale_y_continuous(limits = c(-6, 6)) +
+  scale_x_continuous(limits = c(-6, 6)) +
   labs(title = "Social Competence (Caregiver Estimate) vs TOM, by site",
        x = "Social Competence Scale (z-scored)",
-       y = "TOM Ability",
+       y = "TOM Ability (Theta)",
        caption = "Each point = participant; trend = GAM per site")
 
 tom_scs_plot
@@ -804,29 +827,41 @@ Comparing WITHIN site (CO only), urban vs rural:
 
 ## TOM Subconstructs
 
-TODO: Examine subconstruct relationships
+```{r}
+
+tom_fa =
+  tom %>%
+  select(user_id, run_id, item_uid, item_group, correct) %>%
+  group_by(run_id, item_uid) %>%
+  slice_tail(n = 1) %>%
+  pivot_wider(id_cols = c(user_id),
+              names_from = item_uid,
+              values_from = correct,
+              values_fn = list(correct = ~ as.numeric(.x[1]))) %>%
+  select(-user_id) %>%
+  mutate(across(everything(), as.numeric))
+
+```
+
+### EFA
 
 ```{r}
 
-# tom_group_scores =
-#   tom %>% 
-#   group_by(site, user_id, run_id, item_group) |>
-#   summarise(prop_correct = mean(correct, na.rm = TRUE), age = median(age), .groups = "drop")
-# 
-# # facet by group instead of country
-# tom_groups <- ggplot(tom_group_scores, aes(x = age, y = prop_correct, colour = site)) +
-#   geom_point(alpha = 0.2) +
-#   geom_smooth(method = "gam", formula = y ~ s(x, bs = "tp")) +
-#   facet_wrap(~item_group) +
-#   ylim(0, 1) +
-#   labs(
-#     title = "Raw accuracy by age across Theory of Mind sub-skills",
-#     x = "Age (years)",
-#     y = "Proportion correct",
-#     colour = "Site"
-#   )
-# 
-# tom_groups
+efa =
+  psych::fa(tom_fa,
+            nfactors = 5,
+            rotate = "varimax",
+            fm = "ml")
+
+fa.sort(efa)
+
+```
+
+### CFA
+
+```{r}
+
+
 
 ```
 
