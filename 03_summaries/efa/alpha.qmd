@@ -2,11 +2,11 @@
 survey_data_nested <- read_rds(here::here("01_fetched_data/survey_data_nested.rds"))
 
 get_survey_data <- function(survey_data_nested, type) {
-  survey_data_nested %>%
-    filter(survey_type == type) %>%
-    pull(data) %>%
-    .[[1]] %>%
-    filter(question_type == "Measurement") %>%   
+  survey_data_nested |>
+    filter(survey_type == type) |>
+    pull(data) |>
+    pluck(1) |>
+    filter(question_type == "Measurement") |>   
     collect()
 }
 
@@ -20,22 +20,22 @@ student_data   <- get_survey_data(survey_data_nested, "student")
 
 ```{r}
 
-caregiver_alpha <- caregiver_data %>%
-  group_by(site, user_id, form_construct, form_subconstruct, variable) %>%
-  summarise(value = mean(value, na.rm = TRUE), .groups = "drop") %>%
-  nest(data = c(user_id, variable, value)) %>%
-  mutate(wide_data = map(data, ~ .x %>%
-                           pivot_wider(names_from = variable, values_from = value) %>%
-                           select(-user_id))) %>%
-  filter(map_int(wide_data, ncol) > 1) %>%
+caregiver_alpha <- caregiver_data |>
+  group_by(site, user_id, form_construct, form_subconstruct, variable) |>
+  summarise(value = mean(value, na.rm = TRUE), .groups = "drop") |>
+  nest(data = c(user_id, variable, value)) |>
+  mutate(wide_data = map(data, ~ .x |>
+                           pivot_wider(names_from = variable, values_from = value) |>
+                           select(-user_id))) |>
+  filter(map_int(wide_data, ncol) > 1) |>
   mutate(alpha_result = map_dbl(wide_data, function(df) {
     df <- df[, colSums(is.na(df)) < nrow(df)]
     if (ncol(df) < 2) return(NA_real_)
     tryCatch({
       ltm::cronbach.alpha(df, na.rm = TRUE)$alpha
     }, error = function(e) NA_real_)
-  })) %>%
-  filter(!is.na(alpha_result)) %>%
+  })) |>
+  filter(!is.na(alpha_result)) |>
   select(site, form_construct, form_subconstruct, alpha = alpha_result) 
 
 ggplot(caregiver_alpha, aes(x = alpha, y = form_subconstruct, color = site)) +
@@ -54,34 +54,38 @@ ggsave(here::here("03_summaries/plots/survey_alphas_caregiver.png"), width = 8, 
 
 ```{r}
 
-student_alpha <- student_data %>%
-  group_by(site, user_id, form_construct, variable) %>%
-  summarise(value = mean(value, na.rm = TRUE), .groups = "drop") %>%
-  nest(data = c(user_id, variable, value)) %>%
-  mutate(wide_data = map(data, ~ .x %>%
-                           pivot_wider(names_from = variable, values_from = value) %>%
-                           select(-user_id))) %>%
-  filter(map_int(wide_data, ncol) > 1) %>%
+student_alpha <- student_data |>
+  filter(site != 'pilot_western_ca') |>
+  group_by(site, user_id, form_construct, variable) |>
+  summarise(value = mean(value, na.rm = TRUE), .groups = "drop") |>
+  nest(data = c(user_id, variable, value)) |>
+  mutate(wide_data = map(data, ~ .x |>
+                           pivot_wider(names_from = variable, values_from = value) |>
+                           select(-user_id))) |>
+  filter(map_int(wide_data, ncol) > 1) |>
   mutate(alpha_result = map_dbl(wide_data, function(df) {
     df <- df[, colSums(is.na(df)) < nrow(df)]
     if (ncol(df) < 2) return(NA_real_)
     tryCatch({
       ltm::cronbach.alpha(df, na.rm = TRUE)$alpha
     }, error = function(e) NA_real_)
-  })) %>%
-  filter(!is.na(alpha_result)) %>%
-  select(site, form_construct, alpha = alpha_result)
+  })) |>
+  filter(!is.na(alpha_result)) |>
+  select(site, form_construct, alpha = alpha_result) |>
+  arrange(form_construct) 
+
+site_pal_filtered <- site_pal[names(site_pal) %in% unique(student_alpha$site)]
 
 ggplot(student_alpha, aes(x = alpha, y = form_construct, color = site)) +
   geom_vline(xintercept = 0.7, colour = "lightgrey") +
-  geom_crossbar(aes(xmin = alpha, xmax = alpha), orientation = "y") +
-  ggthemes::scale_colour_solarized() +
-  scale_color_manual(values = site_pal) +  # Use custom color palettelabs(x = "Cronbach's alpha", y = NULL, color = "Site") +
-  expand_limits(x = 0) 
-  
+  geom_crossbar(aes(x = alpha, xmin = alpha, xmax = alpha), width = 0.4) +
+  scale_color_manual(values = site_pal_filtered) +
+  labs(x = "Cronbach's alpha", y = NULL, color = "Site") +
+  expand_limits(x = 0)
 
 
-ggsave(here::here("03_summaries/plots/survey_alphas_student.png"), width = 8, height = 5)
+
+ggsave(here::here("03_summaries/efa/fig/survey_alphas_student.png"), width = 8, height = 5)
 
 ```
 
@@ -89,22 +93,22 @@ ggsave(here::here("03_summaries/plots/survey_alphas_student.png"), width = 8, he
 
 ```{r}
 
-teacher_alpha <- teacher_data %>%
-  group_by(site, user_id, form_construct, variable) %>%
-  summarise(value = mean(value, na.rm = TRUE), .groups = "drop") %>%
-  nest(data = c(user_id, variable, value)) %>%
-  mutate(wide_data = map(data, ~ .x %>%
-                           pivot_wider(names_from = variable, values_from = value) %>%
-                           select(-user_id))) %>%
-  filter(map_int(wide_data, ncol) > 1) %>%
+teacher_alpha <- teacher_data |>
+  group_by(site, user_id, form_construct, variable) |>
+  summarise(value = mean(value, na.rm = TRUE), .groups = "drop") |>
+  nest(data = c(user_id, variable, value)) |>
+  mutate(wide_data = map(data, ~ .x |>
+                           pivot_wider(names_from = variable, values_from = value) |>
+                           select(-user_id))) |>
+  filter(map_int(wide_data, ncol) > 1) |>
   mutate(alpha_result = map_dbl(wide_data, function(df) {
     df <- df[, colSums(is.na(df)) < nrow(df)]
     if (ncol(df) < 2) return(NA_real_)
     tryCatch({
       ltm::cronbach.alpha(df, na.rm = TRUE)$alpha
     }, error = function(e) NA_real_)
-  })) %>%
-  filter(!is.na(alpha_result)) %>%
+  })) |>
+  filter(!is.na(alpha_result)) |>
   select(site, form_construct, alpha = alpha_result)
 
 ggplot(teacher_alpha, aes(x = alpha, y = form_construct, color = site)) +
