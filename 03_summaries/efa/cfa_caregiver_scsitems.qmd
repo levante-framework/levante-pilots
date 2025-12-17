@@ -1,0 +1,196 @@
+
+# CFA analysis for SCS items 
+
+## Data preparation
+```{r}
+source(here::here("plot_settings.R"))
+source(here::here("03_summaries", "efa", "cfa_helpers.R"))
+survey_data_nested <- read_rds(here::here("01_fetched_data/survey_data_nested.rds"))
+
+get_survey_data <- function(survey_data_nested, type) {
+  survey_data_nested %>%
+    filter(survey_type == type) %>%
+    pull(data) %>%
+    .[[1]] %>%
+    collect()
+}
+
+caregiver_data <- get_survey_data(survey_data_nested, "caregiver")
+
+
+
+caregiver_data_childSCS <- caregiver_data %>%
+  filter(grepl("ChildSCS", as.character(variable)))
+
+
+
+
+caregiver_childSCS_tidy <- caregiver_data_childSCS %>%
+  select(site, user_id, child_id, form_construct, form_subconstruct, variable, value) %>%
+  filter(!is.na(form_subconstruct), !is.na(value)) %>%
+  group_by(site, form_construct, form_subconstruct, user_id, variable) %>%
+  filter(n() == 1) %>%
+  ungroup() %>%
+  nest(data = c(site, user_id, child_id, form_subconstruct, variable, value)) %>%
+  mutate(
+    df_vals = map(data, ~ .x %>%
+                    select(site, user_id, child_id, variable, value) %>%
+                    pivot_wider(names_from = variable, values_from = value))
+  ) 
+
+
+```
+
+
+
+## CFA and Measurement Invariance
+
+### Configural Model
+
+Determine the number of factors
+```{r}
+caregiver_childSCS_tidy <- caregiver_childSCS_tidy %>%
+  mutate(fit_configural = pmap(
+    list(form_construct, df_vals, data),
+    ~ fit_invariance_model_mf(..1, ..2, ..3, group_equal = NULL)
+  ))
+
+
+```
+
+```{r}
+
+caregiver_childSCS_tidy <- caregiver_childSCS_tidy %>%
+  mutate(
+    params_configural = map2(fit_configural, data, ~ extract_parameters_multiF(.x, .y)),
+  )
+
+for (i in seq_len(nrow(caregiver_childSCS_tidy))) {
+  formi <- caregiver_childSCS_tidy$form_construct[i]
+  params_df <- caregiver_childSCS_tidy$params_configural[[i]]
+
+  if (is.null(params_df)) next
+
+  params_long <- params_df %>%
+    select(item, site, value, type, form_subconstruct) %>%
+    filter(!is.na(value))
+
+  p <- ggplot(params_long, aes(x = value, y = item, color = site)) +
+    geom_crossbar(aes(xmin = value, xmax = value), orientation = "y", width = 0.4) +
+    facet_grid(form_subconstruct  ~ type, scales = "free", space = "free") +
+    scale_color_manual(values = site_pal) +  
+    labs(
+      x = "Estimate",
+      y = NULL,
+      color = "Site",
+      title = formi
+    )
+
+  print(p)
+
+  #ggsave(filename = here::here(paste0("03_summaries/efa/fig/cfa_", gsub("[/\"']", "_", formi), ".png")), plot = p,
+  #  width = 12, height = 6, dpi = 300)
+}
+
+```
+
+
+
+
+
+### Metric and Scalar Invariance Model
+```{r}
+caregiver_childSCS_tidy <- caregiver_childSCS_tidy %>%
+  mutate(
+    # Metric: only constrain loadings
+    fit_metric = pmap(list(form_construct, df_vals, data),
+                      ~ fit_invariance_model_mf(..1, ..2, ..3, group_equal = "loadings")),
+
+    # Scalar: constrain loadings + thresholds (WLSMV) or intercepts (ML)
+    fit_scalar = pmap(list(form_construct, df_vals, data),
+                      ~ fit_invariance_model_mf(..1, ..2, ..3, group_equal = c("loadings", "intercepts")))
+  )
+
+
+```
+
+### Factor Score
+
+```{r}
+caregiver_childSCS_tidy <- caregiver_childSCS_tidy %>%
+  mutate(
+    fscore_configural = map2(fit_configural, df_vals, extract_fscore_mf),
+    fscore_metric     = map2(fit_metric,     df_vals, extract_fscore_mf),
+    fscore_scalar     = map2(fit_scalar,     df_vals, extract_fscore_mf)
+  )
+
+
+
+
+# save 
+extract_long_fscore <- function(fscore_df, model_name, form_name) {
+  if (is.null(fscore_df)) return(NULL)
+
+  fscore_df %>%
+    pivot_longer(
+      cols = -c(site, user_id, child_id),
+      names_to = "form_subconstruct",
+      values_to = "value"
+    ) %>%
+    mutate(
+      model = model_name,
+      form_construct = form_name
+    )
+}
+
+
+
+caregiver_fscore_all <- pmap_dfr(caregiver_childSCS_tidy, function(form_construct, ..., fscore_configural, fscore_metric, fscore_scalar) {
+  bind_rows(
+    extract_long_fscore(fscore_configural, "configural", form_construct),
+    extract_long_fscore(fscore_metric,     "metric",     form_construct),
+    extract_long_fscore(fscore_scalar,     "scalar",     form_construct)
+  )
+})
+
+
+saveRDS(caregiver_fscore_all, here::here("03_summaries/efa/caregiver_fscore_all.rds"))
+```
+
+```{r}
+for (formi in caregiver_childSCS_tidy$form_construct) {
+  row <- caregiver_childSCS_tidy %>% filter(form_construct == formi)
+  fs_c <- row$fscore_configural[[1]]
+  fs_m <- row$fscore_metric[[1]]
+  fs_s <- row$fscore_scalar[[1]]
+  
+  if (is.null(fs_c) || is.null(fs_m) || is.null(fs_s)) next
+  
+  factor_names <- setdiff(colnames(fs_c), c("site", "user_id", "child_id"))
+  
+  for (f in factor_names) {
+    df <- list(
+      fs_c %>% select(site, user_id, !!f) %>% rename(Configural = !!f),
+      fs_m %>% select(site, user_id, !!f) %>% rename(Metric = !!f),
+      fs_s %>% select(site, user_id, !!f) %>% rename(Scalar = !!f)
+    ) %>%
+      reduce(full_join, by = c("site", "user_id")) %>%
+      drop_na()
+  
+    df_plot <- df %>% select(Configural, Metric, Scalar)
+  
+    p <- ggpairs(
+      df_plot,
+      upper = list(continuous = wrap("cor", size = 4)),
+      title = paste0(formi, " - ", f)
+    ) + theme_classic()
+  
+    print(p)
+  }
+
+}
+```
+
+
+
+

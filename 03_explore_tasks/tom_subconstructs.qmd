@@ -1,0 +1,914 @@
+---
+title: "TOM (Stories): Cross-Cultural Analysis"
+format: html
+execute:
+  echo: false       
+  warning: false    
+  message: false    
+  cache: false
+  knitr: 
+    opts_chunk: 
+      results: "hide"      
+---
+
+# Background Info
+
+-   [Info on data
+    structure](https://docs.google.com/document/d/1v-nqBxk3R9cSbvJshaBsWQp7KUtBjQSdMNXHw9NDfKg/edit?tab=t.0#heading=h.c60fcjq089m)
+    (Fionnuala)
+
+-   [TOM
+    Airtable](https://airtable.com/appe2p0S3xk4DL2qc/shrSnlS1BwADsrBGq/tblnnFrYQfMOFhIF9)
+
+-   [TOM Item
+    Exclusions](https://docs.google.com/spreadsheets/d/1c079Z0CxLoM-YeI5GPV1p6-ps_GaWDPUjfNonMroDos/edit?gid=396569398#gid=396569398)
+
+-   [Automated runs through
+    tasks](Automated%20runs%20through%20tasks:%20https://crowdin.com/project/levantetranslations/screenshots)
+
+# Aims
+
+**Here, we examine the relationship between TOM/social cognition ability (Stories) and its
+common correlates:**
+
+1.  Age
+2.  EF
+3.  language ability
+4.  social competence/prosocial behaviors
+
+We will also examine the above relationships **divided as follows:**
+
+1.  Across sites (CA, CO, DE)
+2.  Within sites (rural vs urban; CO only)
+
+And examining the above relationships by dividing TOM into **its subconstructs:**
+
+\[Need to reconsider split - EFA?\]
+
+1.  (True/)false belief
+2.  Emotion reasoning
+3.  Moral reasoning
+
+# To-dos
+
+-   Split TOM into subconstructs
+
+-   Examine parent survey constructs besides Social Competence Scale
+
+-   For Social Competence Scale, look at age bins
+
+-   Check TOM relationships before and after item exclusions
+
+-   Check TOM relationships with other abilities while controlling for remaining factors
+
+    -   Using subconstructs as predictors (rather than composite IRT ability estimate)
+        could be interesting to differentiate more nuanced effects
+
+    -   Run FA on constructs and use that; sum scores come with more issues
+
+# Setup
+
+Packages and file settings:
+
+```{r setup, include = T, message = F, warning = F, echo = F}
+
+# load relevant libraries and functions
+library(here)
+library(glue)          # for working with images
+library(png)           
+library(grid)
+library(patchwork)
+library(DT)            # for nicer tables
+library(corrr)         # for correlations
+library(mirt)          # for IRT models
+library(tidyverse)     # for everything else
+library(psych)
+library(dplyr)
+library(reshape2)
+
+# set default code chunk options
+knitr::opts_chunk$set(echo = T, warning = F, message = F)
+
+# import plot settings
+source(here::here("plot_settings.R"))
+
+# fix print width for knitted doc
+options(width = 70)
+
+
+set.seed(1)
+
+```
+
+Importing helper functions:
+
+```{r}
+
+source(here("03_explore_tasks/explore_helper.R"))
+
+```
+
+## Data Import
+
+First, let's load all the relevant data.
+
+```{r}
+
+site_labels =
+  c("uniandes-co" = "pilot_uniandes_co",
+    "mpieva-de" = "pilot_mpieva_de",
+    "western-ca" = "pilot_western_ca")
+
+site_map =
+  tibble::tibble(site = names(site_labels),
+                 site_label = unname(site_labels))
+
+# Fetch run and survey data from GitHub dir
+run_data =
+  readr::read_rds(here::here("01_fetched_data/run_data.rds"))
+
+survey_data =
+  readr::read_rds(here::here("01_fetched_data/survey_data_nested.rds"))
+
+# Fetch IRT/scores data from GitHub dir
+core_tasks =
+  c("tom", # tom
+    "hf", "sds", "mg", # EF
+    "trog","vocab", # language
+    "pa") # parent survey
+
+all_scores =
+  readr::read_rds(here::here("02_scoring_outputs",
+                             "scores",
+                             "scores_combined.rds"))
+
+all_sum_scores =
+  readr::read_rds(here::here("01_fetched_data",
+                             "task_data_nested.rds"))
+
+```
+
+Let's import age information.
+
+```{r}
+
+# fetch age information
+df.age =
+  read_rds(here(glue("01_fetched_data/run_data.rds"))) %>%
+  dplyr::select(run_id, age)
+
+```
+
+### All tasks
+
+Let's create one big data frame containing IRT ability estimates for all relevant tasks
+(language, EF, social cognition/TOM).
+
+```{r}
+
+# create joint df
+all_tasks =
+  all_sum_scores %>%
+  filter(item_task %in% core_tasks) %>%
+  dplyr::select(site, language, data) %>%
+  unnest(data) %>%
+  mutate(correct = as.numeric(correct))
+
+all_tasks =
+  all_tasks %>%
+  left_join(df.age, by = "run_id")
+
+# ability estimates from IRT models
+all_scores =
+  all_scores %>%
+  filter(item_task %in% core_tasks) %>%
+  filter(metric_type == "ability") %>%
+  mutate(age = as.numeric(age),
+         metric_value = as.numeric(metric_value),
+         site_label = dplyr::recode(site, !!!site_labels,
+                                    .default = site)) %>%
+  filter(is.finite(age), is.finite(metric_value))
+
+```
+
+Let's also create separate data frames for each task.
+
+### Theory of Mind (Stories / Social Cognition)
+
+```{r}
+
+# LATER: exclusions as per https://docs.google.com/spreadsheets/d/1c079Z0CxLoM-YeI5GPV1p6-ps_GaWDPUjfNonMroDos/edit?gid=439574247#gid=439574247
+
+# exclusions = c("deception_emotion_reasoning_2",
+#                "deception_false_belief_1",
+#                "deception_reality_check_2",
+#                "deception_reality_check_3",
+#                "moral_reasoning_reality_check_1",
+#                "reality_known_false_belief",
+#                "reference_reference",
+#                "second_order_false_belief_2",
+#                "second_order_false_belief_3",
+#                "second_order_false_belief_4",
+#                "second_order_false_belief_5",
+#                "second_order_reality_check")
+# 
+# pattern = str_c(exclusions, collapse = "|")
+
+```
+
+```{r}
+
+tom =
+  all_sum_scores %>%
+  filter(item_task == "tom") %>%
+  dplyr::select(site, language, data) %>%
+  unnest(data) %>%
+  filter(!is.na(correct)) %>%
+  mutate(correct = as.numeric(correct))
+
+# tom_exclusions =
+#   tom_full %>%
+#   filter(str_detect(item_uid, pattern)) %>%
+#   distinct(item_uid)
+# 
+# tom_retained =
+#   tom_full %>%
+#   filter(!str_detect(item_uid, pattern)) %>%
+#   distinct(item_uid)
+
+```
+
+### Language
+
+```{r}
+
+language =
+  all_sum_scores %>%
+  filter(item_task == "vocab" |
+           item_task == "trog") %>%
+  dplyr::select(site, language, data) %>%
+  unnest(data) %>%
+  filter(!is.na(correct)) %>%
+  mutate(correct = as.numeric(correct))
+
+```
+
+### EF
+
+```{r}
+
+ef =
+  all_sum_scores %>%
+  filter(item_task == "mg" |
+           item_task == "sds" |
+           item_task == "hf") %>%
+  dplyr::select(site, language, data) %>%
+  unnest(data)
+
+```
+
+### Caregiver Survey
+
+```{r}
+
+df.caregiver =
+  survey_data %>%
+  filter(survey_type == "caregiver") %>%
+  unnest(data)
+
+```
+
+## Sample size by site
+
+Let's summarize the number of trials, users, and runs for TOM specifically.
+
+### Task runs
+
+```{r}
+
+counts_site =
+  tom %>%
+  summarise(n_trials = dplyr::n(),
+            n_users  = dplyr::n_distinct(user_id),
+            n_runs   = dplyr::n_distinct(paste(user_id, run_id)),
+            .by = site) %>%
+  arrange(site)
+
+knitr::kable(counts_site,
+             format  = "html",
+             caption = "Theory of Mind: Counts by Site")
+
+```
+
+### Caregiver survey
+
+Let's also summarize the number of responses and users for the parent surveys.
+
+```{r}
+
+counts_site =
+  df.caregiver %>%
+  summarise(n_responses = dplyr::n(),
+            n_users  = dplyr::n_distinct(user_id),
+            .by = site) %>%
+  arrange(site)
+
+knitr::kable(counts_site,
+             format  = "html",
+             caption = "Caregiver Survey: Counts by Site")
+
+```
+
+## TOM Ability Correlates
+
+Next, let's plot the **relationship between TOM ability and its common correlates:**
+
+1.  Age
+2.  EF
+3.  language ability
+4.  social competence/prosocial behaviors
+
+We will also examine the above relationships divided as follows:
+
+1.  Across sites (CA, CO, DE)
+2.  Within sites (rural vs urban; CO only)
+
+Finally, let's examine the above relationships by dividing TOM into its subconstructs:
+
+\[RUN EFA?\]
+
+1.  (True/)false belief
+2.  Emotion reasoning
+3.  Moral reasoning
+
+### (1) TOM ability by age
+
+Let's start with % correct by age.
+
+```{r}
+
+# summarize performance data
+tom_runs =
+  all_tasks %>%
+  filter(task_id == "theory-of-mind") %>%
+  group_by(site, user_id, run_id) %>%
+  summarise(correct = mean(correct, na.rm = T),  
+            age = first(age),                    
+            n_items  = n_distinct(item_uid),
+            .groups  = "drop")
+
+```
+
+Comparing across sites (DE, CO, CA):
+
+```{r}
+
+# plot
+tom_sum_scores =
+  ggplot(tom_runs, aes(x = age, y = correct*100)) +
+  geom_point(alpha = .2, size = 1) +
+  geom_smooth(method = "gam", formula = y ~ s(x, k = 4), se = T) +
+  coord_cartesian(ylim = c(0, 100)) +
+  scale_x_continuous(limits = c(5, 14),
+                     breaks = seq(5, 14, 1)) +
+  facet_wrap(~ site) +
+  labs(title = "Accuracy across ages by site",
+       x = "Age (years)",
+       y = "% correct",
+       caption = "Each point = participant run; trend = GAM per site")
+
+tom_sum_scores
+
+```
+
+Comparing WITHIN site (CO only), urban vs rural:
+
+```{r}
+
+# plot
+tom_sum_scores2 =
+  all_tasks %>%
+  filter(task_id == "theory-of-mind") %>%
+  filter(language == "es") %>%
+  mutate(location = case_when(dataset ==
+                                "pilot_uniandes_co_bogota" ~ "urban",
+                              dataset ==
+                                "pilot_uniandes_co_rural" ~ "rural")) %>%
+  group_by(location, user_id, run_id) %>%
+  summarise(correct = mean(correct, na.rm = T),  
+            age = first(age),                    
+            n_items  = n_distinct(item_uid),
+            .groups  = "drop") %>% 
+  ggplot(aes(x = age, y = correct*100)) +
+  geom_point(alpha = .4, size = 1) +
+  geom_smooth(method = "gam", formula = y ~ s(x, k = 4), se = T) +
+  coord_cartesian(ylim = c(0, 100)) +
+  scale_x_continuous(limits = c(5, 14),
+                     breaks = seq(5, 14, 1)) +
+  facet_wrap(~ location) +
+  labs(title = "Accuracy across ages, urban vs rural",
+       subtitle = "CO only",
+       x = "Age (years)",
+       y = "% correct",
+       caption = "Each point = participant run; trend = GAM per site")
+
+tom_sum_scores2
+
+```
+
+### (2) TOM ability by EF ability
+
+Next, let's look at the relationship between EF and TOM.
+
+```{r}
+
+# summarize performance data
+tom_ef_runs =
+  all_tasks %>%
+  filter(task_id == "theory-of-mind" |
+           task_id == "memory-game" |
+           task_id == "hearts-and-flowers" |
+           task_id == "same-different-selection") %>%
+  mutate(ability = case_when(task_id == "theory-of-mind" ~ "tom",
+                             task_id == "memory-game" ~ "ef",
+                             task_id == "hearts-and-flowers" ~ "ef",
+                             task_id == "same-different-selection" ~ "ef")) %>%
+  group_by(site, user_id, run_id, task_id, ability) %>%
+  summarise(correct = mean(correct, na.rm = T),  
+            age = first(age),                    
+            n_items  = n_distinct(item_uid),
+            .groups  = "drop")
+
+```
+
+Comparing across sites (DE, CO, CA):
+
+```{r}
+
+# plot
+tom_ef_plot =
+  all_scores %>%
+  group_by(user_id, task_category, site_label) %>%
+  slice_tail(n = 1) %>%
+  pivot_wider(id_cols = c(user_id, site_label),
+              names_from = task_category,
+              values_from = metric_value) %>%
+  ggplot(aes(x = `executive function`,
+             y = `social cognition`)) +
+  geom_point(alpha = .2, size = 1) +
+  geom_smooth(method = "gam", formula = y ~ s(x, k = 4), se = T,
+              alpha = .1) +
+  facet_wrap(~site_label) +
+  scale_y_continuous(limits = c(-6, 6)) +
+  scale_x_continuous(limits = c(-6, 6)) +
+  labs(title = "EF vs TOM, by site",
+       x = "EF Ability (theta)",
+       y = "TOM Ability (theta)",
+       caption = "Each point = participant; trend = GAM per site")
+
+tom_ef_plot
+
+```
+
+Comparing across sites (DE, CO, CA), splitting into age bins:
+
+```{r}
+
+# plot
+tom_ef_plot2 =
+  all_scores %>%
+  mutate(age_binned = floor(age),
+         age_binned = factor(age_binned,
+                             levels = sort(unique(age_binned)))) %>%
+  group_by(user_id, task_category, site_label, age_binned) %>%
+  slice_tail(n = 1) %>%
+  pivot_wider(id_cols = c(user_id, site_label, age_binned),
+              names_from = task_category,
+              values_from = metric_value) %>%
+  ggplot(aes(x = `executive function`,
+             y = `social cognition`,
+             color = site_label)) +
+  geom_point(alpha = .3, size = 1) +
+  facet_wrap(~ age_binned) +
+  geom_smooth(method = "gam", formula = y ~ s(x, k = 4), se = F,
+              alpha = .1) +
+  scale_y_continuous(limits = c(-6, 6)) +
+  scale_x_continuous(limits = c(-6, 6)) +
+  labs(title = "EF vs TOM, by site, colored by age",
+       x = "EF Ability (theta)",
+       y = "TOM Ability (theta)",
+       caption = "Each point = participant; trend = GAM per site")
+
+tom_ef_plot2
+
+```
+
+Comparing across sites (DE, CO, CA), splitting into age bins:
+
+```{r}
+
+# plot
+tom_ef_plot3 =
+  all_scores %>%
+  mutate(age_binned = floor(age),
+         age_binned = factor(age_binned,
+                             levels = sort(unique(age_binned)))) %>%
+  group_by(user_id, task_category, site_label, age_binned) %>%
+  slice_tail(n = 1) %>%
+  pivot_wider(id_cols = c(user_id, site_label, age_binned),
+              names_from = task_category,
+              values_from = metric_value) %>%
+  ggplot(aes(x = `executive function`,
+             y = `social cognition`,
+             color = age_binned)) +
+  geom_point(alpha = .3, size = 1) +
+  facet_wrap(~ site_label) +
+  geom_smooth(method = "gam", formula = y ~ s(x, k = 4), se = F,
+              alpha = .1) +
+  scale_y_continuous(limits = c(-6, 6)) +
+  scale_x_continuous(limits = c(-6, 6)) +
+  labs(title = "EF vs TOM, by site, colored by age",
+       x = "EF Ability (theta)",
+       y = "TOM Ability (theta)",
+       caption = "Each point = participant; trend = GAM per site")
+
+tom_ef_plot3
+
+```
+
+Comparing WITHIN site (CO only), urban vs rural:
+
+**NEED TO FIX – URBAN NOT SHOWING UP? Looks like none of the urban kids have all three
+measures available.**
+
+```{r}
+
+# plot
+tom_ef_plot4 =
+  all_scores %>%
+  filter(language == "es") %>%
+  mutate(location = case_when(dataset ==
+                                "pilot_uniandes_co_bogota" ~ "urban",
+                              dataset ==
+                                "pilot_uniandes_co_rural" ~ "rural")) %>%
+  mutate(age_binned = floor(age),
+         age_binned = factor(age_binned,
+                             levels = sort(unique(age_binned)))) %>%
+  group_by(user_id, task_category, location) %>%
+  slice_tail(n = 1) %>%
+  pivot_wider(id_cols = c(user_id, location, age_binned),
+              names_from = task_category,
+              values_from = metric_value) %>%
+  ggplot(aes(x = `executive function`,
+             y = `social cognition`,
+             color = age_binned)) +
+  geom_point(alpha = .5, size = 1) +
+  facet_wrap(~ location) +
+  geom_smooth(method = "gam", formula = y ~ s(x, k = 4), se = F) +
+  scale_y_continuous(limits = c(-6, 6)) +
+  scale_x_continuous(limits = c(-6, 6)) +
+  labs(title = "EF vs TOM, urban vs rural, colored by age",
+       subtitle = "CO data only",
+       x = "EF Ability (theta)",
+       y = "TOM Ability (theta)",
+       caption = "Each point = participant; trend = GAM per location")
+
+tom_ef_plot4
+
+```
+
+### (3) TOM ability by Language ability
+
+Next, let's look at the relationship between TOM and language ability.
+
+```{r}
+
+# summarize performance data
+tom_lang_runs =
+  all_tasks %>%
+  filter(task_id == "theory-of-mind" |
+           task_id == "vocab" |
+           task_id == "trog") %>%
+  mutate(ability = case_when(task_id == "theory-of-mind" ~ "tom",
+                             task_id == "trog" ~ "language",
+                             task_id == "vocab" ~ "language")) %>%
+  group_by(site, user_id, run_id, task_id, ability) %>%
+  summarise(correct = mean(correct, na.rm = T),  
+            age = first(age),                    
+            n_items  = n_distinct(item_uid),
+            .groups  = "drop")
+
+```
+
+Comparing across sites (DE, CO, CA):
+
+```{r}
+
+# plot
+tom_lang_plot =
+  all_scores %>%
+  group_by(user_id, task_category, site_label) %>%
+  slice_tail(n = 1) %>%
+  pivot_wider(id_cols = c(user_id, site_label),
+              names_from = task_category,
+              values_from = metric_value) %>%
+  ggplot(aes(x = `language`,
+             y = `social cognition`)) +
+  geom_point(alpha = .2, size = 1) +
+  facet_wrap(~ site_label) +
+  geom_smooth(method = "gam", formula = y ~ s(x, k = 4), se = T) +
+  scale_y_continuous(limits = c(-6, 6)) +
+  scale_x_continuous(limits = c(-6, 6)) +
+  labs(title = "Language vs TOM, by site",
+       x = "Language Ability (theta)",
+       y = "TOM Ability (theta)",
+       caption = "Each point = participant; trend = GAM per site")
+
+tom_lang_plot
+
+```
+
+Comparing across sites (DE, CO, CA), splitting into age bins:
+
+```{r}
+
+# plot
+tom_lang_plot2 =
+  all_scores %>%
+  mutate(age_binned = floor(age),
+         age_binned = factor(age_binned,
+                             levels = sort(unique(age_binned)))) %>%
+  group_by(user_id, task_category, site_label) %>%
+  slice_tail(n = 1) %>%
+  pivot_wider(id_cols = c(user_id, site_label, age_binned),
+              names_from = task_category,
+              values_from = metric_value) %>%
+  ggplot(aes(x = `language`,
+             y = `social cognition`,
+             color = site_label)) +
+  geom_point(alpha = .3, size = 1) +
+  facet_wrap(~ age_binned) +
+  geom_smooth(method = "gam", formula = y ~ s(x, k = 4), se = F) +
+  scale_y_continuous(limits = c(-6, 6)) +
+  scale_x_continuous(limits = c(-6, 6)) +
+  labs(title = "Language vs TOM, by site, split by age",
+       x = "Language Ability (theta)",
+       y = "TOM Ability (theta)",
+       caption = "Each point = participant run; trend = GAM per site")
+
+tom_lang_plot2
+
+```
+
+Comparing across sites (DE, CO, CA), splitting into age bins:
+
+```{r}
+
+# plot
+tom_lang_plot3 =
+  all_scores %>%
+  mutate(age_binned = floor(age),
+         age_binned = factor(age_binned,
+                             levels = sort(unique(age_binned)))) %>%
+  group_by(user_id, task_category, site_label) %>%
+  slice_tail(n = 1) %>%
+  pivot_wider(id_cols = c(user_id, site_label, age_binned),
+              names_from = task_category,
+              values_from = metric_value) %>%
+  ggplot(aes(x = `language`,
+             y = `social cognition`,
+             color = age_binned)) +
+  geom_point(alpha = .3, size = 1) +
+  facet_wrap(~ site_label) +
+  scale_y_continuous(limits = c(-6, 6)) +
+  scale_x_continuous(limits = c(-6, 6)) +
+  geom_smooth(method = "gam", formula = y ~ s(x, k = 4), se = F) +
+  labs(title = "Language vs TOM, by site, split by age",
+       x = "Language Ability (theta)",
+       y = "TOM Ability (theta)",
+       caption = "Each point = participant run; trend = GAM per site")
+
+tom_lang_plot3
+
+```
+
+Comparing WITHIN site (CO only), urban vs rural:
+
+```{r}
+
+# plot
+tom_lang_plot4 =
+  all_scores %>%
+  filter(language == "es") %>%
+  mutate(location = case_when(dataset ==
+                                "pilot_uniandes_co_bogota" ~ "urban",
+                              dataset ==
+                                "pilot_uniandes_co_rural" ~ "rural")) %>%
+  mutate(age_binned = floor(age),
+         age_binned = factor(age_binned,
+                             levels = sort(unique(age_binned)))) %>%
+  group_by(user_id, task_category, location) %>%
+  slice_tail(n = 1) %>%
+  pivot_wider(id_cols = c(user_id, location, age_binned),
+              names_from = task_category,
+              values_from = metric_value) %>%
+  ggplot(aes(x = `language`,
+             y = `social cognition`,
+             color = age_binned)) +
+  geom_point(alpha = .4, size = 1) +
+  facet_wrap(~ location) +
+  geom_smooth(method = "gam", formula = y ~ s(x, k = 4), se = F) +
+  scale_y_continuous(limits = c(-6, 6)) +
+  scale_x_continuous(limits = c(-6, 6)) +
+  labs(title = "Language vs TOM, split by urban/rural, split by age",
+       subtitle = "CO data only",
+       x = "Language Ability (theta)",
+       y = "TOM Ability (theta)",
+       caption = "Each point = participant; trend = GAM per location")
+
+tom_lang_plot4
+
+```
+
+### (4) TOM ability by Social competence (caregiver estimate)
+
+Next, let's look at the relationship between Social Competence and TOM.
+
+See:
+<https://docs.google.com/spreadsheets/d/11dUA12W6mBbX4Mkhknb21AJDdqsjIFkVzjBUArfOai4/edit?gid=1860191519#gid=1860191519>
+
+See also
+[https://doi-org.stanford.idm.oclc.org/10.1111/j.1467-9507.2007.00430.x](https://doi-org.stanford.idm.oclc.org/10.1111/j.1467-9507.2007.00430.x,){.uri}
+– one way of scoring SDS is taking the mean value, where higher values indicate greater
+(caregiver-estimated) social competence.
+
+```{r}
+# generate question list
+scs_questions = paste0("ChildSCS", 1:12)
+
+# filter for only ChildSCS questions
+scs_data =
+  df.caregiver %>%
+  filter(survey_type == "caregiver") %>%
+  filter(variable %in% scs_questions) %>%
+  group_by(child_id, site) %>%
+  summarise(metric_value = mean(value)) %>%
+  group_by(site) %>%
+  mutate(metric_value = as.numeric(scale(metric_value))) %>% 
+  rename(user_id = child_id) %>%
+  mutate(task_category = "social competence")
+
+scs_data =
+  all_scores %>%
+  group_by(user_id, site, task_category) %>%
+  slice_tail(n = 1) %>%
+  dplyr::select(user_id, site, metric_value, task_category,
+                age, dataset) %>% 
+  bind_rows(scs_data) %>%
+  arrange(user_id, task_category, metric_value)
+
+```
+
+Comparing across sites (DE, CO, CA):
+
+```{r}
+
+# plot
+tom_scs_plot =
+  scs_data %>%
+  pivot_wider(id_cols = c(user_id, site),
+              names_from = task_category,
+              values_from = metric_value) %>%
+  ggplot(aes(x = `social competence`,
+             y = `social cognition`)) +
+  geom_point(alpha = .2, size = 1) +
+  facet_wrap(~ site) +
+  geom_smooth(method = "gam", formula = y ~ s(x, k = 4), se = T) +
+  scale_y_continuous(limits = c(-6, 6)) +
+  scale_x_continuous(limits = c(-6, 6)) +
+  labs(title = "Social Competence (Caregiver Estimate) vs TOM, by site",
+       x = "Social Competence Scale (z-scored)",
+       y = "TOM Ability (Theta)",
+       caption = "Each point = participant; trend = GAM per site")
+
+tom_scs_plot
+
+```
+
+Comparing WITHIN site (CO only), urban vs rural:
+
+```{r}
+
+# plot
+# tom_scs_plot2 =
+#   scs_data %>%
+#   filter(dataset == "pilot_uniandes_co_bogota" |
+#            dataset == "pilot_uniandes_co_rural") %>%
+#   mutate(location = case_when(dataset ==
+#                                 "pilot_uniandes_co_bogota" ~ "urban",
+#                               dataset ==
+#                                 "pilot_uniandes_co_rural" ~ "rural")) %>%
+#   pivot_wider(id_cols = c(user_id, location),
+#               names_from = task_category,
+#               values_from = metric_value) %>%
+#   ggplot(aes(x = `social competence`,
+#              y = `social cognition`)) +
+#   geom_point(alpha = 0.5, size = 1) +
+#   facet_wrap(~location) +
+#   geom_smooth(method = "gam", formula = y ~ s(x, k = 4), se = T) +
+#   labs(title = "Social Competence (Caregiver Estimate) vs TOM, by site",
+#        x = "Social Competence Scale (z-scored)",
+#        y = "TOM Ability",
+#        caption = "Each point = participant; trend = GAM per site")
+# 
+# tom_scs_plot2
+
+```
+
+## TOM Subconstructs
+
+```{r}
+
+tom_fa =
+  tom %>%
+  select(user_id, run_id, item_uid, item_group, correct) %>%
+  group_by(run_id, item_uid) %>%
+  slice_tail(n = 1) %>%
+  pivot_wider(id_cols = c(user_id),
+              names_from = item_uid,
+              values_from = correct,
+              values_fn = list(correct = ~ as.numeric(.x[1]))) %>%
+  select(-user_id) %>%
+  mutate(across(everything(), as.numeric))
+
+```
+
+### EFA
+
+```{r}
+
+efa =
+  psych::fa(tom_fa,
+            nfactors = 5,
+            rotate = "varimax",
+            fm = "ml")
+
+fa.sort(efa)
+
+```
+
+### CFA
+
+```{r}
+
+
+
+```
+
+### (1) False Belief
+
+```{r}
+
+false_belief =
+  tom %>%
+  filter(str_detect(item, "false_belief"))
+
+```
+
+### (2) True Belief
+
+```{r}
+
+
+
+```
+
+### (3) Deception
+
+```{r}
+
+deception =
+  tom %>%
+  filter(item_group == "deception")
+
+```
+
+### (4) Moral Reasoning
+
+```{r}
+
+moral_reasoning =
+  tom %>%
+  filter(item_group == "moral_reasoning")
+
+```
+
+### (5) Emotion Reasoning
+
+```{r}
+
+emotion_reasoning =
+  tom %>%
+  filter(str_detect(item, "emotion_reasoning"))
+
+```

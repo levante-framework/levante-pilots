@@ -118,14 +118,17 @@ author:
       - ref: stanford
     roles:
       - data curation
-      - software
   - name: "Jason D. Yeatman"
     orcid: 0000-0002-2686-1293
     affiliations:
       - ref: stanford
     roles:
+      - conceptualization
+      - funding acquisition
       - methodology
       - software
+      - supervision
+      - visualization
       - writing – review & editing
   - name: "Michael J. Sulik"
     orcid: 0000-0002-4405-6554
@@ -157,7 +160,7 @@ author:
       - data curation
       - investigation
       - project administration
-  - name: "Maria Camilla Perfetti"
+  - name: "Maria Camila Perfetti"
     affiliations:
       - ref: uniandes
     roles:
@@ -274,7 +277,7 @@ bibliography: library.bib
 floatsintext: true
 numbered-lines: true
 # draft: false
-mask: false
+# mask: true
 
 # appendix
 number-sections: false
@@ -364,7 +367,7 @@ A final set of challenges has to do with accessibility. Many gold-standard measu
 
 ## LEVANTE
 
-The Learning Variability Network Exchange (LEVANTE) was designed to address these challenges [@frank2025] by validating an openly accessible set of measures applicable to a wide developmental age range within varied contexts. LEVANTE adopts a software framework from the Rapid Online Assessment of Reading (ROAR) to facilitate data collection with these measures. The ROAR dashboard is a web interface to assign both task bundles and surveys to groups of children, caregivers, and teachers. LEVANTE "forked" (duplicated) the ROAR dashboard and modified it for international research with the addition of a framework for data harmonization and validation. Data collected through the dashboard are harmonized into a centralized data repository and made accessible first to the researchers who collected them and then, through regular data releases, to the broader research community. Through a partnership with the Jacobs Foundation, sites around the world are funded to collect longitudinal data from children using the LEVANTE framework. The eventual goal of LEVANTE is to create and openly share a rich dataset and suite of measures documenting children’s learning and development across contexts. Code and task implementations are available at https://github.com/levante-framework.
+The Learning Variability Network Exchange (LEVANTE) was designed to address these challenges [@frank2025] by validating an openly accessible set of measures applicable to a wide developmental age range within varied contexts. LEVANTE adopts a software framework from the Rapid Online Assessment of Reading (ROAR) to facilitate data collection with these measures. The ROAR dashboard is a web interface to assign both task bundles and surveys to groups of children, caregivers, and teachers. LEVANTE "forked" (duplicated) the ROAR dashboard and modified it for international research with the addition of a framework for data harmonization and validation. Data collected through the dashboard are harmonized into a centralized data repository and made accessible first to the researchers who collected them and then, through regular data releases, to the broader research community. Through a partnership with the Jacobs Foundation, sites around the world are funded to collect longitudinal data from children using the LEVANTE framework. The eventual goal of LEVANTE is to create and openly share a rich dataset and suite of measures documenting children’s learning and development across contexts. Code and data for reproducing this paper are available at https://github.com/levante-framework/levante-pilots.
 
 The current manuscript introduces the LEVANTE core tasks, a suite of behavioral measures for children, and draws on data from the now-completed pilot phase of the project, which we used to evaluate and refine the tasks’ reliability, validity, and feasibility across sites and age groups. In our initial development of the task battery, we cast a broad net for important constructs in child development with well-accepted measures that had been used internationally. This process is described in @frank2025. The broad constructs that we selected were executive function, language, mathematics, reasoning, and social cognition, with these being instantiated through a number of well-accepted task types. 
 
@@ -514,7 +517,7 @@ General task lengths are described below and average task durations from pilots 
 
 ### Sentence Understanding
 
-The Test for Reception of Grammar (TROG) [@bishop1982] is a multiple-choice measure of receptive grammatical understanding. On each trial, the child hears a spoken sentence (e.g., "The cow is pushed by the girl.") and is asked to select one of four pictures that best matches its meaning. The original test contained 20 blocks, each with four items assessing the same grammatical structure. In our adaptation of the original TROG (which was permissively licensed for reuse), we removed several items that no longer reflected contemporary cultural norms, particularly those involving gender stereotypes. In addition, based on early pilot testing showing that many trials were easy for older children, we added a set of several dozen more challenging sentences. All illustrations were remade with details intended to be accessible across a broad range of cultures. Currently, this task has 99 items.
+The Test for Reception of Grammar (TROG) [@bishop1982] is a multiple-choice measure of receptive grammatical understanding. On each trial, the child hears a spoken sentence (e.g., "The cow is pushed by the girl.") and is asked to select one of four pictures that best matches its meaning. The original test contained 20 blocks, each with four items assessing the same grammatical structure. In our adaptation of the original TROG (which was permissively licensed for reuse), we removed several items that no longer reflected contemporary cultural norms, particularly those involving gender stereotypes. In addition, based on early pilot testing showing that many trials were easy for older children, we added a set of several dozen more challenging sentences. All illustrations were remade with details intended to be accessible across a broad range of cultures. 
 
 ### Vocabulary
 
@@ -522,31 +525,31 @@ The Vocabulary task was developed as a non-commercial, open alternative to tasks
 
 ## Math
 
-We developed the Math task based on the EGMA (Early Grade Mathematics Assessment) [@platas2014]. This short, paper-and-pencil assessment is widely administered in international contexts for children ages 5--8 and includes number identification, number comparison, missing number, addition, and subtraction sub-tests. In our adaptation, we increased the breadth of the initial item bank, added multiplication, division, and fractions items to extend up to content that might be encountered by approximately age 12 years. We also included number line identification problems in which children were asked to place a marker on a number line across a range of scales (including simple 0–10 trials, larger whole-number scales, and a fraction scale). Number line tasks of this type are known to be strongly associated with mathematical ability [@schneider2018]. The primary version of this task includes 275 items (though no child saw all items) and the secondary version for retest purposes includes an additional 237 (512 items in total). 
+We developed the Math task based on the EGMA (Early Grade Mathematics Assessment) [@platas2014]. This short, paper-and-pencil assessment is widely administered in international contexts for children ages 5--8 and includes number identification, number comparison, missing number, addition, and subtraction sub-tests. In our adaptation, we increased the breadth of the initial item bank, added multiplication, division, and fractions items to extend up to content that might be encountered by approximately age 12 years. We also included number line identification problems in which children were asked to place a marker on a number line across a range of scales (including simple 0–10 trials, larger whole-number scales, and a fraction scale). Number line tasks of this type are known to be strongly associated with mathematical ability [@schneider2018].  
 
 ## Reasoning
 
 ### Pattern Matching
 
-In classic matrix reasoning tasks, participants see a set of abstract figures in a grid format with a missing cell and must choose the most appropriate figure to complete the grid. Matrix reasoning scores are highly correlated with general cognitive ability and educational attainment [e.g., @roth2015]. Here we make use of the Mars-IB matrix reasoning stimuli, an open-source, permissively-licensed set of 80 matrix reasoning problems with retest variants that have been normed with a large sample of adolescents and adults [@chierchia2019].
+In classic matrix reasoning tasks, participants see a set of abstract figures in a grid format with a missing cell and must choose the most appropriate figure to complete the grid. Matrix reasoning scores are highly correlated with general cognitive ability and educational attainment [e.g., @roth2015]. Here we make use of the Mars-IB matrix reasoning stimuli, an open-source, permissively-licensed set of matrix reasoning problems with retest variants that have been normed with a large sample of adolescents and adults [@chierchia2019].
  
 ### Shape Rotation
 
-Mental rotation refers to the ability to imagine the rotation of objects in space, which is strongly related to mathematics and reasoning abilities [@xie2020]. In our version of the mental rotation task [based on @frick2013], children are presented with a target item (e.g., a picture of a rabbit). Then, they are presented with two comparison items (e.g., two silhouettes of rabbits). One of the comparison items will match the target item when rotated; the other comparison item will not match the target item when rotated. The child must select the comparison item that matches the target item. Both accuracy and reaction time are measured. Across trials, the degree of rotation varies (e.g., 40, 80, 120, 160 degrees), affecting children’s accuracy and reaction time. We included both two-dimensional duck and rabbit stimuli as well as harder three-dimensional geometric figures from the original stimulus set developed by @shepard1971. Currently, this task has 81 items.
+Mental rotation refers to the ability to imagine the rotation of objects in space, which is strongly related to mathematics and reasoning abilities [@xie2020]. In our version of the mental rotation task [based on @frick2013], children are presented with a target item (e.g., a picture of a rabbit). Then, they are presented with two comparison items (e.g., two silhouettes of rabbits). One of the comparison items will match the target item when rotated; the other comparison item will not match the target item when rotated. The child must select the comparison item that matches the target item. Both accuracy and reaction time are measured. Across trials, the degree of rotation varies (e.g., 40, 80, 120, 160 degrees), affecting children’s accuracy and reaction time. We included both two-dimensional duck and rabbit stimuli as well as harder three-dimensional geometric figures from the original stimulus set developed by @shepard1971. 
 
 ## Executive Function
 
 ### Same and Different 
 
-The Same Different Selection (SDS) task was designed to assess cognitive flexibility in children [@obradovic2025sds]. It incorporates elements from the “Something’s the Same” task [@willoughby2011] and “Flexible Item Selection Task” [@jacques2001] as initial task blocks and extends these tasks by including more advanced blocks that increase the number of conceptual dimensions, values per dimension, and number of presented cards. Children are presented with sets of cards that show geometric figures that vary along multiple dimensions, such as shape, color, size, and number. They are required to identify similarities and differences between cards based on these dimensions (e.g., choosing a pair of cards with figures that share the same color and then choosing a pair of cards that share the same number of figures), by engaging their ability to shift attention from previously identified dimensions and identify new matching dimensions criteria. The version of the task we adapted included successively more difficult blocks of trials in which children were asked to identify two, three, or four pairs of items that were the same in different ways (e.g., matching on different dimensions). Currently, this task has 127 items.
+The Same Different Selection (SDS) task was designed to assess cognitive flexibility in children [@obradovic2025sds]. It incorporates elements from the “Something’s the Same” task [@willoughby2011] and “Flexible Item Selection Task” [@jacques2001] as initial task blocks and extends these tasks by including more advanced blocks that increase the number of conceptual dimensions, values per dimension, and number of presented cards. Children are presented with sets of cards that show geometric figures that vary along multiple dimensions, such as shape, color, size, and number. They are required to identify similarities and differences between cards based on these dimensions (e.g., choosing a pair of cards with figures that share the same color and then choosing a pair of cards that share the same number of figures), by engaging their ability to shift attention from previously identified dimensions and identify new matching dimensions criteria. The version of the task we adapted included successively more difficult blocks of trials in which children were asked to identify two, three, or four pairs of items that were the same in different ways (e.g., matching on different dimensions). 
 
 ### Hearts and Flowers
 
-The Hearts and Flowers task assesses inhibitory control and cognitive flexibility [@davidson2006]. We modeled the task design after the AMES tablet task version which has been tested in many global settings including Ghana and Côte d'Ivoire [@khan2024modeling; @ahmed2022directly]. Participants respond according to stimulus type: pressing a key on the same side as a heart (congruent rule), and on the opposite side for a flower (incongruent rule). The task includes three blocks: congruent (hearts only), incongruent (flowers only), and mixed (hearts and flowers). The congruent block serves as a baseline with minimal executive demands. Participants in our version of the task are encouraged to respond as quickly as possible but -- due to variation in administration platform and in contrast to some versions of the task -- we did not provide a hard time limit on each trial, though we scored responses slower than 3000 ms as incorrect. Currently, there are 12 items in the hearts only block, 16 items in the flowers only block and 32 items in the mixed block (hearts and flowers). 
+The Hearts and Flowers task assesses inhibitory control and cognitive flexibility [@davidson2006]. We modeled the task design after the AMES tablet task version which has been tested in many global settings including Ghana and Côte d'Ivoire [@khan2024modeling; @ahmed2022directly]. Participants respond according to stimulus type: pressing a key on the same side as a heart (congruent rule), and on the opposite side for a flower (incongruent rule). The task includes three blocks: congruent (hearts only), incongruent (flowers only), and mixed (hearts and flowers). The congruent block serves as a baseline with minimal executive demands. Participants in our version of the task are encouraged to respond as quickly as possible but -- due to variation in administration platform and in contrast to some versions of the task -- we did not provide a hard time limit on each trial, though we scored responses slower than 3000 ms as incorrect.  
 
 ### Memory
 
-The Corsi Block task is a widely-used measure of visuospatial short-term and working memory [@corsi1972]. In our version of the task modeled after the AMES tablet task version [@obradovic2025motivation], the child sees a grid of squares; during each trial, a subset of squares lights up one at a time in a specific sequence. The child is required to reproduce the sequence by touching the squares: in the first block, the sequence is reproduced in the same order and in the second block, it is reproduced backwards. The task begins with short sequences (e.g., two items) and gradually increases in difficulty (up to seven items) until the child fails two sequences of the same length. We used both 2x2 and 3x3 grids in our pilot testing, with relatively similar results. This task has 41 items currently.
+The Corsi Block task is a widely-used measure of visuospatial short-term and working memory [@corsi1972]. In our version of the task modeled after the AMES tablet task version [@obradovic2025motivation], the child sees a grid of squares; during each trial, a subset of squares lights up one at a time in a specific sequence. The child is required to reproduce the sequence by touching the squares: in the first block, the sequence is reproduced in the same order and in the second block, it is reproduced backwards. The task begins with short sequences (e.g., two items) and gradually increases in difficulty (up to seven items) until the child fails two sequences of the same length. We used both 2x2 and 3x3 grids in our pilot testing, with relatively similar results. 
 
 ## Social Cognition
 
@@ -555,10 +558,6 @@ The Corsi Block task is a widely-used measure of visuospatial short-term and wor
 Assessing social cognition across a wide range of ages is a challenge, and relatively few instruments show good reliability and validity across not just early childhood but older children as well [cf. @heise2025]. In addition, due to the lengthy nature of vignette-based assessments, it was challenging to identify an assessment that would fit in our allotted time. We chose to adapt and re-illustrate a storybook task developed by @sotomayor-enriquez2024 in which children hear stories with multiple social reasoning questions embedded, including questions about true and false beliefs, deception, and moral reasoning. Drawing on published data from this task, we selected items with good psychometric properties and strong potential for cross-cultural validity (e.g., stories commonly found across many cultures), and then supplemented these with additional trials assessing emotional reasoning. The result was a set of six stories, each with approximately five forced-choice social reasoning questions embedded within each story. We then developed two sets of alternative retest stories, in each case using the same structure as an existing story but substituting new details and characters.
 
 For each task we distinguish between trials and IRT items (see @tbl-trial-irt-counts). Trials refer to individual questions that could be presented to the child (design-level count; e.g., 60 trials in the non-adaptive Hearts & Flowers task). For psychometric analyses, we define a smaller set of IRT items, where repeated trials of the same type are collapsed into a single scored unit and practice or feedback trials are excluded. These IRT items are the units that enter the IRT models and therefore have estimated discrimination and difficulty parameters.
-
-## Translation and adaptation
-
-Initially designed in English, the core tasks were subsequently adapted for Spanish and German following a set of internationalization procedures in collaboration with researchers at the uniandes-co and mpieva-de sites, respectively. We began with AI-generated translations of all verbal materials, including task instructions, items, and other key terminology such as encouragement phrases that appear throughout the core tasks; we used the DeepL platform for these initial translations. A professional translator then reviewed and edited the AI translations for general grammatical correctness and appropriateness. Materials were next reviewed by a researcher who was a native speaker of the relevant language and dialect, confirming that the materials were clear and appropriate for the specific task. We then conducted back translation using AI translation tools to verify semantic and conceptual equivalence and to flag items needing further review by native speakers. For tasks evaluating language skills (Vocabulary and Sentence Understanding), we additionally recruited PhD-level linguists with expertise in language acquisition for both Spanish and German to review items and make recommendations about relevant changes or additions to the item set for that language. Additional language adaptation work for these two tasks is ongoing based on the results of our pilot data collection. 
 
 ```{r}
 #| label: tbl-trial-irt-counts
@@ -608,6 +607,11 @@ table_items |>
   fontsize(part = "footer", size = 8) |>
   italic(part = "footer")
 ```
+\clearpage
+
+## Translation and adaptation
+
+Initially designed in English, the core tasks were subsequently adapted for Spanish and German following a set of internationalization procedures in collaboration with researchers at the uniandes-co and mpieva-de sites, respectively. We began with AI-generated translations of all verbal materials, including task instructions, items, and other key terminology such as encouragement phrases that appear throughout the core tasks; we used the DeepL platform for these initial translations. A professional translator then reviewed and edited the AI translations for general grammatical correctness and appropriateness. Materials were next reviewed by a researcher who was a native speaker of the relevant language and dialect, confirming that the materials were clear and appropriate for the specific task. We then conducted back translation using AI translation tools to verify semantic and conceptual equivalence and to flag items needing further review by native speakers. For tasks evaluating language skills (Vocabulary and Sentence Understanding), we additionally recruited PhD-level linguists with expertise in language acquisition for both Spanish and German to review items and make recommendations about relevant changes or additions to the item set for that language. Additional language adaptation work for these two tasks is ongoing based on the results of our pilot data collection. 
 
 # Pilot Data Collection
 
@@ -811,7 +815,7 @@ Within the included runs, there were a total of `{r} total_trial_counts$n_trials
 
 # Scoring
 
-Our goal for the psychometric modelling of the data obtained in each task was to extract administration-level ability scores (i.e., at the level of a testing session) with the highest possible reliability and validity. To do so, we first conducted heuristic item screening to remove poorly functioning items, then fit a sequence of multi-group IRT models to the retained items to estimate latent ability scores. These analyses provided the foundation for the reliability, developmental, and validity results described in subsequent sections.
+Our goal for the psychometric modelling of the data obtained in each task was to extract administration-level ability scores (i.e., at the level of a testing session) with the highest possible reliability and validity. To do so, we first conducted heuristic item screening to remove poorly functioning items, then fit a sequence of multi-group IRT models to the retained items to estimate latent ability scores. These analyses provided the foundation for the reliability, developmental, and validity results described in subsequent sections. 
 
 ## Heuristic item pruning and data checking
 
@@ -821,7 +825,7 @@ Prior to fitting psychometric models, we examined item-level performance summari
 
 Following item screening, we evaluated measurement invariance across sites using nested multi-group IRT models to assess the comparability of latent ability estimates. The conventional hierarchy of factor-analytic invariance—configural → metric → scalar—was implemented in the IRT framework as successive equality constraints on item parameters (see @tbl-invariance-explainer for correspondence and interpretation). Configural invariance reflects a shared latent structure, metric invariance constrains item discriminations, and scalar invariance constrains both discriminations and difficulties across sites. For each task, we compared unidimensional Rasch and two-parameter logistic (2PL) models under these nested invariance constraints. 
 
-All models were estimated using the `mirt` R package [@mirt] via marginal maximum likelihood using 500 quadrature points, with expected a posteriori (EAP) scoring. Overlapping items across languages served as anchors to establish a common scale; non-overlapping items were freely estimated within the same multi-group calibration. Model convergence and identification were verified by ensuring stable log-likelihoods and Hessian condition numbers below $10^3$.
+All models were estimated using the `mirt` R package [@mirt] via marginal maximum likelihood using 500 quadrature points, with expected a posteriori (EAP) scoring. Overlapping items across languages served as anchors to establish a common scale; non-overlapping items were freely estimated within the same multi-group calibration. Model convergence and identification were verified by ensuring stable log-likelihoods and Hessian condition numbers below $10^3$. We specified Gaussian priors on item difficulty (mean = 0, SD = 3) and discrimination (mean = 1, SD = 0.3) parameters in all models.
 
 Model selection was based on the Bayesian Information Criterion (BIC), with the final model for each task representing the most parsimonious combination of model type (Rasch, 2PL) and invariance constraints that adequately reproduced cross-site response patterns. Across domains, Rasch models generally provided the best fit, whereas 2PL models were preferred for Same and Different and Shape Rotation, which showed greater variability of discrimination parameters across items.
 
@@ -1980,70 +1984,7 @@ ggplot(cat_only, aes(age, metric_value)) +
        )
 ```
 
-Standard errors of IRT ability estimates were generally comparable across adaptive and fixed-length versions; typical SE ≈ 0.4–0.8 (see @fig-se). In most tasks, the fixed-length forms yielded slightly lower SEs than the adaptive forms across the mid to high range of ability, whereas adaptive forms showed marginally lower SEs for a small number of children at the lowest ability levels. Given the small cell sizes in these extreme bands and the modest magnitude of differences, precision of ability estimates was broadly similar across administration modes.
-
-```{r}
-#| label: fig-se
-#| fig-cap: "Standard error of IRT ability estimates by ability level for fixed-length versus adaptive versions of the six CAT tasks."
-#| fig-width: 8
-#| fig-height: 8
-
-# colnames(coretask_scores)
-
-# tasks that have CAT versions 
-tasks_cat <- cat_only %>%
-  distinct(task, task_category)
-
-ability_scores_cat <- coretask_scores %>%
-  semi_join(tasks_cat, by = c("task", "task_category")) %>%
-  mutate(
-    adaptive = factor(
-      adaptive,
-      levels = c(FALSE, TRUE),
-      labels = c("Fixed-length", "Adaptive (CAT)")
-    )
-  )
-
-# plot
-ggplot(ability_scores_cat,
-       aes(x = metric_value, y = metric_se, colour = adaptive)) +
-  geom_point(alpha = 0.15, size = 0.7) +
-  geom_smooth(se = FALSE, method = "loess") +
-  scale_colour_discrete(na.translate = FALSE) +
-  ggh4x::facet_nested_wrap(
-    vars(task_category, task),
-    nest_line = element_line(),
-    solo_line = TRUE,
-    axes = "x",
-    scales = "free_y"
-  ) +
-  labs(
-    x = "Ability (IRT score)",
-    y = "Standard error",
-    colour = "Administration",
-    #title = "Standard error of ability estimates by ability level\nAdaptive vs Fixed-length"
-  ) +
-  theme(legend.position = "bottom")
-
-# check at each theta
-# ability_scores_cat %>%
-#   mutate(
-#     theta_band = cut(
-#       metric_value,
-#       breaks = c(-Inf, -2, -1, 0, 1, 2, Inf),
-#       labels = c("< -2", "-2 to -1", "-1 to 0", "0 to 1", "1 to 2", "> 2")
-#     )
-#   ) %>%
-#   group_by(task, theta_band, adaptive) %>%
-#   summarise(
-#     n = n(),
-#     mean_se = mean(metric_se, na.rm = TRUE),
-#     .groups = "drop"
-#   ) %>%
-#   arrange(task, theta_band, adaptive)
-
-```
-\clearpage
+Standard errors of IRT ability estimates were generally comparable across adaptive and fixed-length versions; typical SE ≈ 0.4–0.8 (see @fig-se in appendices). In most tasks, the fixed-length forms yielded slightly lower SEs than the adaptive forms across the mid to high range of ability, whereas adaptive forms showed marginally lower SEs for a small number of children at the lowest ability levels. Given the small cell sizes in these extreme bands and the modest magnitude of differences, precision of ability estimates was broadly similar across administration modes.
 
 # General Discussion
 
@@ -2067,6 +2008,34 @@ Our current task set is designed for children ages 5--12, but we are currently p
 ## Conclusions
 
 In sum, we have taken steps here towards creating a core set of tasks for measuring children’s learning and development. We hope that this work is the beginning, rather than the end, of a process of iterative refinement and growth that results in a common, open measurement toolkit for developmental science.
+
+\newpage
+
+# Declarations
+
+### Funding
+This research was supported by the Jacobs Foundation.
+
+### Conflicts of interest
+The authors declare that they have no conflicting interests.
+
+### Ethics approval
+Each LEVANTE site is responsible for obtaining ethical approval from the relevant institutional and/or governmental ethics committees. Only fully de-identified data are contributed to the LEVANTE Data Repository (LDR). 
+
+### Consent to participate
+Each participating site is responsible for obtaining informed consent in accordance with local regulations and institutional guidelines. Only fully de-identified data enter the LDR, and participant identities cannot be readily ascertained or otherwise associated with the data by LDR staff or secondary data users.
+
+### Consent for publication
+All authors have consented to the submission of this manuscript for publication. Consent for publication from participants is not applicable because only de-identified, aggregate data are reported.
+
+### Availability of data and materials
+Data for reproducing this paper are available at https://github.com/levante-framework/levante-pilots.
+
+### Code availability
+Code for reproducing this paper is available at https://github.com/levante-framework/levante-pilots.
+
+### Authors' contribution
+Authors’ contributions are detailed on the title page, following the CRediT authorship taxonomy.
 
 \newpage
 
@@ -2141,3 +2110,64 @@ ggplot(slopes_df, aes(x = slope, y = fct_rev(Site), colour = Site)) +
   theme(legend.position = "bottom")
 ```
 
+```{r}
+#| label: fig-se
+#| fig-cap: "Standard error of IRT ability estimates by ability level for fixed-length versus adaptive versions of the six CAT tasks."
+#| fig-width: 8
+#| fig-height: 8
+
+# colnames(coretask_scores)
+
+# tasks that have CAT versions 
+tasks_cat <- cat_only %>%
+  distinct(task, task_category)
+
+ability_scores_cat <- coretask_scores %>%
+  semi_join(tasks_cat, by = c("task", "task_category")) %>%
+  mutate(
+    adaptive = factor(
+      adaptive,
+      levels = c(FALSE, TRUE),
+      labels = c("Fixed-length", "Adaptive (CAT)")
+    )
+  )
+
+# plot
+ggplot(ability_scores_cat,
+       aes(x = metric_value, y = metric_se, colour = adaptive)) +
+  geom_point(alpha = 0.15, size = 0.7) +
+  geom_smooth(se = FALSE, method = "loess") +
+  scale_colour_discrete(na.translate = FALSE) +
+  ggh4x::facet_nested_wrap(
+    vars(task_category, task),
+    nest_line = element_line(),
+    solo_line = TRUE,
+    axes = "x",
+    scales = "free_y"
+  ) +
+  labs(
+    x = "Ability (IRT score)",
+    y = "Standard error",
+    colour = "Administration",
+    #title = "Standard error of ability estimates by ability level\nAdaptive vs Fixed-length"
+  ) +
+  theme(legend.position = "bottom")
+
+# check at each theta
+# ability_scores_cat %>%
+#   mutate(
+#     theta_band = cut(
+#       metric_value,
+#       breaks = c(-Inf, -2, -1, 0, 1, 2, Inf),
+#       labels = c("< -2", "-2 to -1", "-1 to 0", "0 to 1", "1 to 2", "> 2")
+#     )
+#   ) %>%
+#   group_by(task, theta_band, adaptive) %>%
+#   summarise(
+#     n = n(),
+#     mean_se = mean(metric_se, na.rm = TRUE),
+#     .groups = "drop"
+#   ) %>%
+#   arrange(task, theta_band, adaptive)
+
+```

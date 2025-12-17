@@ -1,5 +1,5 @@
 
-# EFA analysis for surveys for students
+# CFA analysis for student surveys
 
 ## Data preparation
 ```{r}
@@ -7,49 +7,43 @@ source(here::here("03_summaries", "efa", "cfa_helpers.R"))
 survey_data_nested <- read_rds(here::here("01_fetched_data/survey_data_nested.rds"))
 
 get_survey_data <- function(survey_data_nested, type) {
-  survey_data_nested %>%
-    filter(survey_type == type) %>%
-    pull(data) %>%
-    .[[1]] %>%
+  survey_data_nested |>
+    filter(survey_type == type) |>
+    pull(data) |>
+    pluck(1) |>
     collect()
 }
 
 student_data   <- get_survey_data(survey_data_nested, "student")
 
-
-student_data %>%
-  filter(!is.na(form_construct)) %>%
-  group_by(form_construct) %>%
-  filter(!all(is.na(value))) %>%  
+student_data |>
+  filter(!is.na(form_construct)) |>
+  group_by(form_construct) |>
+  filter(!all(is.na(value))) |>  
   summarise(
     min = min(value, na.rm = TRUE),
     max = max(value, na.rm = TRUE),
     .groups = "drop"
   )
 
-
-# currently we focus on co_pilot and de_pilot
-student_tidy <- student_data %>%
-  mutate(site = case_when(
-    site %in% c("co_bogota", "co_rural") ~ "co_bogota_rural",
-    TRUE ~ site
-  ))  %>%
-  filter(site != 'ca_western') %>%
-  select(site, user_id, variable, value, form_construct) %>%
+student_tidy <- student_data |>
+  select(site, user_id, variable, value, form_construct) |>
   filter(!is.na(form_construct),
          !is.na(value),
-         form_construct != 'Safety') %>%
-  group_by(site, form_construct, user_id, variable) %>%
-  filter(n() == 1) %>% 
-  ungroup() %>%
-  nest(data = c(site, user_id, variable, value)) %>% 
+         form_construct != 'Safety') |> # only one item for safety
+  filter(site != 'pilot_western_ca') |>
+  group_by(site, form_construct, user_id, variable) |>
+  filter(n() == 1) |> 
+  ungroup() |>
+  nest(data = c(site, user_id, variable, value)) |> 
   mutate(df_vals = map(data, function(df) {
-    df %>%
+    df |>
       pivot_wider(
         names_from = variable,
         values_from = value
       ) 
-  })) 
+  }))  |>
+  arrange(form_construct)
 
 ```
 
@@ -61,26 +55,46 @@ student_tidy <- student_data %>%
 
 ### Configural Model
 
-Determine the number of factors
+Model fitting
 ```{r}
 # Fit configural model
-student_tidy <- student_tidy %>%
+student_tidy <- student_tidy |>
   mutate(fit_configural = pmap(
     list(df_vals, form_construct),
-    ~ fit_invariance_model_1f(..1, ..2, group_equal = NULL)
+    ~ fit_invariance_model_1f(..1, ..2, group_equal = NULL)#, estim='ML')
   ))
 
+# helper to extract measures safely
+get_measure <- function(fit, measure) {
+  if (is.null(fit)) return(NA_real_)
+  fitMeasures(fit, measure)
+}
 
+fit_table_configural <- student_tidy |>
+  mutate(
+    CFI   = map_dbl(fit_configural, ~ fitMeasures(.x, "cfi")),
+    TLI   = map_dbl(fit_configural, ~ fitMeasures(.x, "tli")),
+    RMSEA = map_dbl(fit_configural, ~ fitMeasures(.x, "rmsea")),
+    SRMR  = map_dbl(fit_configural, ~ fitMeasures(.x, "srmr"))
+  ) |>
+  select(form_construct, CFI, TLI, RMSEA, SRMR) |>
+  arrange(form_construct)
 
-student_tidy <- student_tidy %>%
+fit_table_configural
+
+```
+
+Parameter estimates
+```{r}
+student_tidy <- student_tidy |>
   mutate(params_confi = map(fit_configural, extract_parameters_1F))
 
 
 
-params_all_plot <- student_tidy %>%
-  select(form_construct, params_confi) %>%
-  filter(!map_lgl(params_confi, is.null)) %>%
-  unnest(params_confi) %>%
+params_all_plot <- student_tidy |>
+  select(form_construct, params_confi) |>
+  filter(!map_lgl(params_confi, is.null)) |>
+  unnest(params_confi) |>
   mutate(
     form_construct = substr(as.character(form_construct), 1, 9)  
   )
@@ -102,25 +116,25 @@ ggplot(params_all_plot, aes(x = type, y = item, fill = value)) +
         title = "Multi-group Factor Analysis Parameters"
     ) +
     theme(
-        axis.text.x = element_text( hjust = 1),
-        axis.text.y = element_text(size = 9),
+        axis.text.x = element_text( hjust = 1,),
+        axis.text.y = element_text(size = 12),
         strip.text = element_text(face = "bold", size = 14),
         plot.title = element_text(hjust = 0.5, face = "bold", size = 14)
     )
 
-ggsave(here::here("03_summaries/efa/fig/cfa_student.png"), width = 10, height = 10, dpi = 300)
+ggsave(here::here("03_summaries/efa/fig/cfa_student.png"), width = 9, height = 10, dpi = 300)
 ```
 
 
 ### Metric and Scalar Invariance Model
 ```{r}
-student_tidy <- student_tidy  %>%
+student_tidy <- student_tidy  |>
   mutate(fit_metric = pmap(
     list(df_vals, form_construct),
     ~ fit_invariance_model_1f(..1, ..2, group_equal = "loadings")
   ))
 
-student_tidy <- student_tidy %>%
+student_tidy <- student_tidy |>
   mutate(fit_scalar = pmap(
     list(df_vals, form_construct),
     ~ fit_invariance_model_1f(..1, ..2, group_equal = c("loadings", "thresholds"))
@@ -134,7 +148,7 @@ student_tidy <- student_tidy %>%
 
 ```{r}
 # based on cfi
-student_tidy <- student_tidy %>%
+student_tidy <- student_tidy |>
   mutate(
     invariance_cfi = pmap_chr(
       list(fit_configural, fit_metric, fit_scalar),
@@ -158,8 +172,30 @@ student_tidy <- student_tidy %>%
     )
   )
 
+library(dplyr)
+library(purrr)
+library(lavaan)
+
+# helper for extracting CFI safely
+get_cfi <- function(fit) {
+  if (is.null(fit)) return(NA_real_)
+  fitMeasures(fit, "cfi")
+}
+
+# create CFI summary table
+cfi_table <- student_tidy |>
+  mutate(
+    cfi_configural = map_dbl(fit_configural, get_cfi),
+    cfi_metric = map_dbl(fit_metric, get_cfi),
+    cfi_scalar = map_dbl(fit_scalar, get_cfi)
+  ) |>
+  select(form_construct, cfi_configural, cfi_metric, cfi_scalar) 
+
+cfi_table
+
+
 # based on chi-squre test
-student_tidy <- student_tidy %>%
+student_tidy <- student_tidy |>
   mutate(
     invariance_chisq = pmap_chr(
       list(fit_configural, fit_metric, fit_scalar),
@@ -192,7 +228,7 @@ student_tidy <- student_tidy %>%
 
 ### Factor Score
 ```{r}
-student_tidy <- student_tidy %>%
+student_tidy <- student_tidy |>
   mutate(
     fscore_configural = map2(fit_configural, df_vals, extract_fscore_1f),
     fscore_metric     = map2(fit_metric,     df_vals, extract_fscore_1f),
@@ -203,7 +239,7 @@ student_tidy <- student_tidy %>%
 extract_long_fscore_1f <- function(fscore_df, model_name, form_name) {
   if (is.null(fscore_df)) return(NULL)
 
-  fscore_df %>%
+  fscore_df |>
     mutate(
       model = model_name,
       form_construct = form_name
@@ -227,7 +263,7 @@ student_fscore_all <- pmap_dfr(student_tidy, function(form_construct, ..., fscor
 
 ```{r}
 for (formi in as.vector(unique(student_tidy$form_construct))) {
-  row <- student_tidy %>% filter(form_construct == formi)
+  row <- student_tidy |> filter(form_construct == formi)
 
   fs_c <- row$fscore_configural[[1]]
   fs_m <- row$fscore_metric[[1]]
@@ -236,16 +272,16 @@ for (formi in as.vector(unique(student_tidy$form_construct))) {
 
   df <- reduce(
     list(
-      fs_c %>% rename(Configural = fscore),
-      fs_m %>% rename(Metric = fscore),
-      fs_s %>% rename(Scalar = fscore)
+      fs_c |> rename(Configural = fscore),
+      fs_m |> rename(Metric = fscore),
+      fs_s |> rename(Scalar = fscore)
     ),
     full_join,
     by = c("site", "user_id")
-  ) %>%
+  ) |>
     drop_na()
   
-  df <- df %>% select(Configural, Metric, Scalar)
+  df <- df |> select(Configural, Metric, Scalar)
 
   p <- ggpairs(
     df,

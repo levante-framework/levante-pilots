@@ -5,30 +5,81 @@
 source(here::here("03_summaries", "efa", "efa_helpers.R"))
 student_fscore_long <- read_rds(here::here("03_summaries/efa/student_fscore_all.rds"))
   
- 
+ student_fscore_filtered <- student_fscore_long |>
+  filter(
+    (form_construct == "Academic Perception" & model == "metric") |
+    (form_construct == "Growth Mindset"        & model == "scalar") |
+    (!(form_construct %in% c("Academic Perception", "Growth Mindset")) & model == "configural")
+  ) |>
+   select(-model)
 
-student_fscore <- student_fscore_long %>%
+
+student_fscore <- student_fscore_filtered |>
   tidyr::pivot_wider(
     names_from = form_construct,
     values_from = fscore
   )
+```
 
+
+```{r}
 ## cor heatmap between factor scores
-cor_long <- student_fscore %>%
-  group_by(site) %>%
-  nest() %>%
-  mutate(cor = map(data, ~ cor(select(.x, where(is.numeric)), use = "pairwise.complete.obs"))) %>%
-  mutate(cor_melt = map(cor, ~ {
-    m <- melt(.x)
-    m <- m[as.numeric(m$Var1) <= as.numeric(m$Var2), ]  
-    m
-  })) %>%
-  select(site, cor_melt) %>%
-  unnest(cor_melt)
+cor_long_survey <- student_fscore |>
+  group_by(site) |>
+  nest() |>
+  mutate(
+    cor_table = map(data, function(df) {
+      numdf <- select(df, where(is.numeric))
+      vars <- colnames(numdf)
 
-ggplot(cor_long, aes(Var1, Var2, fill = value)) +
+      expand.grid(
+        Var1 = vars,
+        Var2 = vars,
+        stringsAsFactors = FALSE
+      ) |>
+        filter(match(Var1, vars) <= match(Var2, vars)) |>
+        pmap_dfr(function(Var1, Var2) {
+          x <- numdf[[Var1]]
+          y <- numdf[[Var2]]
+          idx <- complete.cases(x, y)
+          n_obs <- sum(idx)
+
+          if (n_obs < 3) {
+            return(tibble(
+              Var1, Var2,
+              value = NA_real_,
+              pval = NA_real_,
+              label = ""
+            ))
+          }
+
+          test <- cor.test(x[idx], y[idx])
+          r <- test$estimate
+          p <- test$p.value
+
+          sig <- ifelse(p < 0.001, "***",
+                 ifelse(p < 0.01, "**",
+                 ifelse(p < 0.05, "*", "")))
+
+          # diagonal r equals 1 shows empty
+          out_label <- ifelse(Var1 == Var2, "1",
+                        paste0(round(r, 2), sig))
+
+          tibble(
+            Var1, Var2,
+            value = r,
+            pval = p,
+            label = out_label
+          )
+        })
+    })
+  ) |>
+  unnest(cor_table)
+
+ggplot(cor_long_survey, aes(Var1, Var2, fill = value)) +
   geom_tile(color = "white") +
-  geom_text(aes(label = round(value, 2)), size = 3, color = "black") +
+  geom_text(aes(label = label), size = 3, color = "black") +
+  #geom_text(aes(label = round(value, 2)), size = 3, color = "black") +
   scale_fill_gradient2(
     low = "blue", high = "red", mid = "white",
     midpoint = 0, limit = c(-1, 1), space = "Lab",
@@ -37,7 +88,7 @@ ggplot(cor_long, aes(Var1, Var2, fill = value)) +
   facet_wrap(~ site) +
   theme_minimal() +
   theme(
-    axis.text.x = element_blank(),
+    axis.text.x = element_text(size = 10, angle = 30, hjust = 1),
     axis.ticks.x = element_blank(),
     axis.text.y = element_text(size = 10),
     panel.grid = element_blank(),
@@ -45,7 +96,7 @@ ggplot(cor_long, aes(Var1, Var2, fill = value)) +
   ) +
   labs(x = NULL, y = NULL)
 
-#ggsave(here::here(paste0("03_summaries/efa/fig/student_compare.png")), width = 8, height = 3, dpi = 300)
+ggsave(here::here(paste0("03_summaries/efa/fig/student_compare.png")), width = 8, height = 3, dpi = 300)
 
 
 ```
@@ -53,61 +104,67 @@ ggplot(cor_long, aes(Var1, Var2, fill = value)) +
 
 ## Relation between task irt scores
 ```{r}
-scores_multigroup <-  read_rds(here::here("02_scoring_outputs/scores/multigroup_scores.rds"))
+scores_multigroup <-  read_rds(here::here("02_scoring_outputs/scores/scores_combined.rds"))
+
+scores_multigroup <- scores_multigroup %>%
+  filter(metric_type == "ability") %>%
+  select(item_task, user_id, run_id, metric_value, site, model, age)
+
 
 # Remove users with two runs until we find a way to utilize it.
-duplicates <- scores_multigroup %>%
-  dplyr::group_by(user_id, item_task) %>%
-  dplyr::filter(dplyr::n_distinct(run_id) > 1) %>%
+duplicates <- scores_multigroup |>
+  dplyr::group_by(user_id, item_task) |>
+  dplyr::filter(dplyr::n_distinct(run_id) > 1) |>
   dplyr::ungroup()
 
 
 # Prepare survey scores and IRT scores
-scores_multigroup2 <- scores_multigroup %>%
+scores_multigroup2 <- scores_multigroup |>
   dplyr::anti_join(
-    duplicates %>% dplyr::distinct(user_id, item_task),
+    duplicates |> dplyr::distinct(user_id, item_task),
     by = c("user_id", "item_task")
-  )%>%
+  )|>
   dplyr::mutate(
-    source = "multigroup"
-  ) %>%
-  dplyr::select(site, user_id, item_task, metric_value, source)
+    source = "task"
+  ) |>
+  dplyr::select(site, user_id, age, item_task, metric_value, source)
 
 
-student_fscore_long2 <- student_fscore_long %>%
-  dplyr::filter(model == "configural") %>%
+student_fscore_long2 <- student_fscore_filtered |>
   dplyr::rename(
     item_task = form_construct,
     metric_value = fscore
-  ) %>%
+  ) |>
   dplyr::mutate(
     source = "survey"
   ) 
 
 # Bind them together
-combined_scores <- dplyr::bind_rows(student_fscore_long2, scores_multigroup2)%>%
-  dplyr::filter(site %in% c("co_pilot", "de_pilot")) %>%
+combined_scores <- dplyr::bind_rows(student_fscore_long2, scores_multigroup2)|>
+  dplyr::filter(site != 'pilot_western_ca') |>
   tidyr::drop_na(metric_value)
 
 
 # Step 1: Pivot wide format
-wide_df <- combined_scores %>%
-  dplyr::filter(site %in% c("co_pilot", "de_pilot")) %>%
+wide_df <- combined_scores |>
+  dplyr::filter(site != 'pilot_western_ca') |>
   tidyr::pivot_wider(
     id_cols = c(site, user_id),
     names_from = item_task,
     values_from = metric_value
-  )
+  ) |>
+  select(-mg) # not enough for co
 
 # Step 2: variable source info
-source_map <- combined_scores %>%
-  dplyr::distinct(item_task, source) %>%
+source_map <- combined_scores |>
+  dplyr::distinct(item_task, source) |>
   tibble::deframe()  
 
 # Step 3: Split columns by source
 col_names <- setdiff(names(wide_df), c("site", "user_id"))
 survey_vars <- col_names[source_map[col_names] == "survey"]
-irt_vars <- col_names[source_map[col_names] == "multigroup"]
+irt_vars <- col_names[source_map[col_names] == "task"]
+
 
 # Step 4: For each site, compute survey × irt correlations
 site_list <- split(wide_df, wide_df$site)
@@ -115,22 +172,39 @@ site_list <- split(wide_df, wide_df$site)
 cor_long <- purrr::map_dfr(names(site_list), function(site_name) {
   df <- site_list[[site_name]]
   df_numeric <- dplyr::select(df, all_of(c(survey_vars, irt_vars)))
-  
+
   cor_pairs <- expand.grid(survey = survey_vars, irt = irt_vars, stringsAsFactors = FALSE)
-  
+
   purrr::pmap_dfr(cor_pairs, function(survey, irt) {
     x <- df[[survey]]
     y <- df[[irt]]
+
     complete_idx <- complete.cases(x, y)
     n_obs <- sum(complete_idx)
-    
+
+    # Not enough data for correlation
+    if (n_obs < 3) {
+      return(
+        tibble::tibble(
+          Var1 = survey,
+          Var2 = irt,
+          value = NA_real_,
+          n_obs = n_obs,
+          site = site_name,
+          label = ""
+        )
+      )
+    }
+
+    # Safe correlation test
     test <- cor.test(x[complete_idx], y[complete_idx])
     cor_val <- test$estimate
     p_val <- test$p.value
+
     sig_label <- ifelse(p_val < 0.001, "***",
                  ifelse(p_val < 0.01, "**",
                  ifelse(p_val < 0.05, "*", "")))
-    
+
     tibble::tibble(
       Var1 = survey,
       Var2 = irt,
@@ -144,10 +218,11 @@ cor_long <- purrr::map_dfr(names(site_list), function(site_name) {
 
 
 
+
 ggplot2::ggplot(cor_long, ggplot2::aes(x = Var1, y = Var2, fill = value)) +
   ggplot2::geom_tile(color = "white") +
-  #geom_text(aes(label = label), size = 3, color = "black")+ # show significance
-  ggplot2::geom_text(ggplot2::aes(label = round(value, 2)), size = 3, color = "black") +
+  geom_text(aes(label = label), size = 3, color = "black")+ # show significance
+  #ggplot2::geom_text(ggplot2::aes(label = round(value, 2)), size = 3, color = "black") +
   ggplot2::scale_fill_gradient2(low = "blue", high = "red", mid = "white",
                                 midpoint = 0, limit = c(-1, 1), space = "Lab", name = "Correlation") +
   ggplot2::facet_wrap(~ site) +
@@ -166,7 +241,76 @@ ggplot2::ggplot(cor_long, ggplot2::aes(x = Var1, y = Var2, fill = value)) +
 
 
 
+```{r}
+plot_one_survey <- function(survey_var) {
 
+  cor_selected <- cor_long |>
+    filter(Var1 == survey_var, Var2 %in% irt_vars) |>
+    transmute(site, task = Var2, label = label)
+
+  plot_df <- wide_df |>
+    tidyr::pivot_longer(irt_vars, names_to = "task", values_to = "score") |>
+    drop_na(score, !!sym(survey_var)) |>
+    left_join(cor_selected, by = c("site", "task"))
+
+  p <- ggplot(plot_df, aes(x = !!sym(survey_var), y = score, color = site)) +
+    geom_point(alpha = .6, size = 2) +
+    geom_smooth(method = "lm", se = FALSE) +
+
+    geom_text(
+      data = plot_df |> distinct(task, site, label) |> filter(site == "pilot_uniandes_co"),
+      aes(x = -2, y = 2, label = paste0("r=", label), color = site),
+      size = 5, hjust = 0
+    ) +
+
+    geom_text(
+      data = plot_df |> distinct(task, site, label) |> filter(site == "pilot_mpieva_de"),
+      aes(x = -2, y = -2, label = paste0("r=", label), color = site),
+      size = 5, hjust = 0
+    ) +
+
+    facet_wrap(~ task, scales = "free_y") +
+    scale_color_manual(values = site_pal[-3])
+  p
+  
+  ggsave(
+    filename = here::here(paste0("03_summaries/efa/fig/task_survey_", gsub(" ", "_", survey_var), ".png")),
+    plot = p,
+    width = 10,
+    height = 6,
+    dpi = 300
+  )
+}
+purrr::walk(survey_vars, plot_one_survey)
+
+```
+
+
+## age
+
+```{r}
+age_lookup <- scores_multigroup %>%
+  group_by(user_id) %>%
+  summarise(age = mean(age, na.rm = TRUE), .groups = "drop")
+
+student_fscore_age <- student_fscore_filtered %>%
+  left_join(age_lookup, by = "user_id")
+
+student_fscore_age %>%
+  drop_na(age) %>%
+  ggplot(aes(x = age, y = fscore, color = site)) +
+  geom_point(alpha = .6, size = 2) +
+  geom_smooth(method = "lm", se = FALSE) +
+  facet_wrap(~ form_construct, scales = "free_y") +
+  scale_color_manual(values = site_pal[-3]) +
+  labs(
+    x = "Age",
+    y = "Survey score",
+    color = "Site"
+  )
+
+ggsave(here::here(paste0("03_summaries/efa/fig/survey_age.png")), width = 10, height = 6, dpi = 300)
+```
 
 
 
@@ -174,16 +318,16 @@ ggplot2::ggplot(cor_long, ggplot2::aes(x = Var1, y = Var2, fill = value)) +
 ```{r}
 
 source(here::here("03_summaries", "efa", "efa_helpers.R"))
-caregiver_fscore_long <- read_rds(here::here("03_summaries/efa/caregiver_fscore_all.rds"))%>%
-  filter(model == "configural") %>%
+caregiver_fscore_long <- read_rds(here::here("03_summaries/efa/caregiver_fscore_all.rds"))|>
+  filter(model == "configural") |>
   filter(!is.na(child_id)) # analyze caregiver wellbeing later
 
 
-caregiver_fscore_nested <- caregiver_fscore_long %>%
-  filter(model == "configural", !is.na(child_id)) %>%
-  select(site, user_id, child_id, form_construct, form_subconstruct, value) %>%
-  group_by(form_construct) %>%
-  group_nest() %>%
+caregiver_fscore_nested <- caregiver_fscore_long |>
+  filter(model == "configural", !is.na(child_id)) |>
+  select(site, user_id, child_id, form_construct, form_subconstruct, value) |>
+  group_by(form_construct) |>
+  group_nest() |>
   mutate(
     data = map(data, ~ pivot_wider(
       .x,
@@ -195,35 +339,37 @@ caregiver_fscore_nested <- caregiver_fscore_long %>%
 ```
 
 
+
+
 ## EF
 
 ```{r}
-ef_score <- caregiver_fscore_long %>%
+ef_score <- caregiver_fscore_long |>
   filter(
     model == "configural",
     form_construct == "Executive Function",
     !is.na(form_subconstruct),
     site %in% c("co_pilot", "de_pilot")
-  ) %>%
-  select(site, user_id = child_id, form_subconstruct, value) %>%
+  ) |>
+  select(site, user_id = child_id, form_subconstruct, value) |>
   mutate(source = "survey")
 
 # Bind them together
-caregiver_combined_scores <- dplyr::bind_rows(ef_score, scores_multigroup2)%>%
-  dplyr::filter(site %in% c("co_pilot", "de_pilot")) %>%
+caregiver_combined_scores <- dplyr::bind_rows(ef_score, scores_multigroup2)|>
+  dplyr::filter(site %in% c("co_pilot", "de_pilot")) |>
   tidyr::drop_na(metric_value)
 
 
 
 sites <- c("co_pilot", "de_pilot")
-ef_score_filtered <- ef_score %>% filter(site %in% sites)
-cg_score_filtered <- caregiver_combined_scores %>% filter(site %in% sites)
+ef_score_filtered <- ef_score |> filter(site %in% sites)
+cg_score_filtered <- caregiver_combined_scores |> filter(site %in% sites)
 
 # Wide-format pivot
-ef_wide <- ef_score_filtered %>%
+ef_wide <- ef_score_filtered |>
   pivot_wider(names_from = form_subconstruct, values_from = value)
 
-irt_wide <- cg_score_filtered %>%
+irt_wide <- cg_score_filtered |>
   pivot_wider(names_from = item_task, values_from = metric_value)
 
 
@@ -231,10 +377,10 @@ merged_scores <- inner_join(ef_wide, irt_wide, by = c("site", "user_id"))
 
 
 cor_result <- map_dfr(sites, function(sitei) {
-  dat <- merged_scores %>% filter(site == sitei)
+  dat <- merged_scores |> filter(site == sitei)
   
-  ef_vars <- ef_score_filtered$form_subconstruct %>% unique()
-  irt_vars <- cg_score_filtered$item_task %>% unique()
+  ef_vars <- ef_score_filtered$form_subconstruct |> unique()
+  irt_vars <- cg_score_filtered$item_task |> unique()
   
   cor_pairs <- expand.grid(survey = ef_vars, task = irt_vars, stringsAsFactors = FALSE)
   
