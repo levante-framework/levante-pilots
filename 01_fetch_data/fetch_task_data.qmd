@@ -29,16 +29,6 @@ run_data <- runs |>
   filter(!(site == "pilot_uniandes_co" & time_started > ymd_hms("2025-07-01 00:00:00")))
 
 write_rds(run_data, here("01_fetched_data/run_data.rds"), compress = "gz")
-
-survey_data <- get_surveys(dataset_spec)
-survey_data_nested <- survey_data |>
-  left_join(dataset_sites) |>
-  relocate(site, dataset_name, ref, version, .before = everything()) |>
-  select(-dataset) |>
-  rename(dataset = dataset_name) |>
-  nest(data = -survey_type)
-write_rds(survey_data_nested, here("01_fetched_data/survey_data_nested.rds"),
-          compress = "gz")
 ```
 
 ```{r}
