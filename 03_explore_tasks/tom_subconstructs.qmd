@@ -552,6 +552,38 @@ tom_ef_plot4
 
 ```
 
+```{r}
+
+# plot
+tom_ef_plot5 =
+  all_scores %>%
+  filter(language == "es") %>%
+  mutate(location = case_when(dataset ==
+                                "pilot_uniandes_co_bogota" ~ "urban",
+                              dataset ==
+                                "pilot_uniandes_co_rural" ~ "rural")) %>%
+  group_by(user_id, task_category, location) %>%
+  slice_tail(n = 1) %>%
+  pivot_wider(id_cols = c(user_id, location),
+              names_from = task_category,
+              values_from = metric_value) %>%
+  ggplot(aes(x = `executive function`,
+             y = `social cognition`)) +
+  geom_point(alpha = .5, size = 1) +
+  facet_wrap(~ location) +
+  geom_smooth(method = "gam", formula = y ~ s(x, k = 4), se = F) +
+  scale_y_continuous(limits = c(-6, 6)) +
+  scale_x_continuous(limits = c(-6, 6)) +
+  labs(title = "EF vs TOM, urban vs rural",
+       subtitle = "CO data only",
+       x = "EF Ability (theta)",
+       y = "TOM Ability (theta)",
+       caption = "Each point = participant; trend = GAM per location")
+
+tom_ef_plot5
+
+```
+
 ### (3) TOM ability by Language ability
 
 Next, let's look at the relationship between TOM and language ability.
@@ -705,6 +737,38 @@ tom_lang_plot4
 
 ```
 
+```{r}
+
+# plot
+tom_lang_plot5 =
+  all_scores %>%
+  filter(language == "es") %>%
+  mutate(location = case_when(dataset ==
+                                "pilot_uniandes_co_bogota" ~ "urban",
+                              dataset ==
+                                "pilot_uniandes_co_rural" ~ "rural")) %>%
+  group_by(user_id, task_category, location) %>%
+  slice_tail(n = 1) %>%
+  pivot_wider(id_cols = c(user_id, location),
+              names_from = task_category,
+              values_from = metric_value) %>%
+  ggplot(aes(x = `language`,
+             y = `social cognition`)) +
+  geom_point(alpha = .4, size = 1) +
+  facet_wrap(~ location) +
+  geom_smooth(method = "gam", formula = y ~ s(x, k = 4), se = F) +
+  scale_y_continuous(limits = c(-6, 6)) +
+  scale_x_continuous(limits = c(-6, 6)) +
+  labs(title = "Language vs TOM, split by urban/rural",
+       subtitle = "CO data only",
+       x = "Language Ability (theta)",
+       y = "TOM Ability (theta)",
+       caption = "Each point = participant; trend = GAM per location")
+
+tom_lang_plot5
+
+```
+
 ### (4) TOM ability by Social competence (caregiver estimate)
 
 Next, let's look at the relationship between Social Competence and TOM.
@@ -819,9 +883,8 @@ tom_item_factors =
 tom_fa =
   tom %>%
   select(user_id, run_id, item, item_uid, item_group, correct) %>%
-  left_join(tom_item_factors %>% select(item_uid, FACTOR),
+  left_join(tom_item_factors %>% select(item_uid, factor),
             by = "item_uid") %>%
-  rename(factor = FACTOR) %>% 
   group_by(user_id, item) %>%
   slice_tail(n = 1) %>%
   ungroup()
@@ -926,8 +989,54 @@ efa =
 
 fa.sort(efa)
 
+```
+
+```{r fig.width = 12, fig.height = 6}
+
 # plot
-fa.diagram(efa)
+fa.diagram(efa, sort = TRUE)
+
+qgraph(efa$loadings, layout = "spring")
+
+```
+
+```{r}
+
+# create tile plot
+loadings_df =
+  efa$loadings[] %>%
+  as.matrix() %>%
+  as.data.frame() %>%
+  rownames_to_column("item") %>%
+  pivot_longer(cols = -item,
+               names_to = "factor",
+               values_to = "loading")
+
+item_order =
+  loadings_df %>%
+  group_by(item) %>%
+  slice_max(abs(loading), n = 1, with_ties = FALSE) %>%
+  ungroup() %>%
+  arrange(factor, desc(abs(loading))) %>%
+  pull(item)
+
+loadings_df =
+  loadings_df %>%
+  mutate(item = factor(item, levels = item_order))
+
+ggplot(loadings_df,
+       aes(x = factor, y = item, fill = loading)) +
+  geom_tile(color = "white") +
+  geom_text(aes(label = round(loading, 2)), size = 3) +
+  scale_fill_gradient2(low = "#d73027",
+                       mid = "white",
+                       high = "#4575b4",
+                       midpoint = 0,
+                       limits = c(-1, 1)) +
+  theme_minimal() +
+  theme(panel.grid = element_blank(),
+        axis.text.y = element_text(size = 10)) +
+  scale_x_discrete(labels = paste("Factor", 1:4))
 
 ```
 
