@@ -59,6 +59,9 @@ And examining the above relationships by dividing TOM into **its subconstructs:*
 
 -   Check TOM relationships before and after item exclusions
 
+-   Big regression:
+    `lmer(cbind(diverse beliefs, emotion reasoning, moral reasoning) ~ age + ef components + language components + social competence scale + (1|site) + (1|subject))`\`
+
 -   Check TOM relationships with other abilities while controlling for remaining factors
 
     -   Using subconstructs as predictors (rather than composite IRT ability estimate)
@@ -85,6 +88,9 @@ library(tidyverse)     # for everything else
 library(psych)
 library(dplyr)
 library(reshape2)
+library(semPlot)
+library(lavaan)
+library(lme4)
 
 # set default code chunk options
 knitr::opts_chunk$set(echo = T, warning = F, message = F)
@@ -197,27 +203,6 @@ Let's also create separate data frames for each task.
 
 ```{r}
 
-# LATER: exclusions as per https://docs.google.com/spreadsheets/d/1c079Z0CxLoM-YeI5GPV1p6-ps_GaWDPUjfNonMroDos/edit?gid=439574247#gid=439574247
-
-# exclusions = c("deception_emotion_reasoning_2",
-#                "deception_false_belief_1",
-#                "deception_reality_check_2",
-#                "deception_reality_check_3",
-#                "moral_reasoning_reality_check_1",
-#                "reality_known_false_belief",
-#                "reference_reference",
-#                "second_order_false_belief_2",
-#                "second_order_false_belief_3",
-#                "second_order_false_belief_4",
-#                "second_order_false_belief_5",
-#                "second_order_reality_check")
-# 
-# pattern = str_c(exclusions, collapse = "|")
-
-```
-
-```{r}
-
 tom =
   all_sum_scores %>%
   filter(item_task == "tom") %>%
@@ -225,16 +210,6 @@ tom =
   unnest(data) %>%
   filter(!is.na(correct)) %>%
   mutate(correct = as.numeric(correct))
-
-# tom_exclusions =
-#   tom_full %>%
-#   filter(str_detect(item_uid, pattern)) %>%
-#   distinct(item_uid)
-# 
-# tom_retained =
-#   tom_full %>%
-#   filter(!str_detect(item_uid, pattern)) %>%
-#   distinct(item_uid)
 
 ```
 
@@ -309,7 +284,7 @@ Let's also summarize the number of responses and users for the parent surveys.
 counts_site =
   df.caregiver %>%
   summarise(n_responses = dplyr::n(),
-            n_users  = dplyr::n_distinct(user_id),
+            n_users  = dplyr::n_distinct(respondent_id),
             .by = site) %>%
   arrange(site)
 
@@ -829,17 +804,89 @@ Comparing WITHIN site (CO only), urban vs rural:
 
 ```{r}
 
+# item overview: There are 19 items total (see grouping per https://airtable.com/appe2p0S3xk4DL2qc/shrSnlS1BwADsrBGq/tblnnFrYQfMOFhIF9):
+
+# categorized by hand in tom_item_factors.csv
+tom_item_factors =
+  read_csv((here::here("03_explore_tasks/tom_item_factors.csv"))) %>%
+  mutate(item_uid = paste0("tom_",
+                           "story", tom_scenario, "_",
+                           group, "_",
+                           entry)) %>%
+  select(corpus_id, tom_scenario, version = item, item_uid,
+         group, entry, factor = FACTOR, prompt)
+
 tom_fa =
   tom %>%
-  select(user_id, run_id, item_uid, item_group, correct) %>%
-  group_by(run_id, item_uid) %>%
+  select(user_id, run_id, item, item_uid, item_group, correct) %>%
+  left_join(tom_item_factors %>% select(item_uid, FACTOR),
+            by = "item_uid") %>%
+  rename(factor = FACTOR) %>% 
+  group_by(user_id, item) %>%
   slice_tail(n = 1) %>%
+  ungroup()
+  # pivot_wider(id_cols = c(user_id),
+  #             names_from = item_uid,
+  #             values_from = correct,
+  #             values_fn = list(correct = ~ as.numeric(.x[1]))) %>%
+  # select(-user_id) %>%
+  # mutate(across(everything(), as.numeric))
+
+unique(tom_fa$item)
+
+tom_fa %>%
+  group_by(item) %>%
+  summarise(n = n (),
+            mean = mean(correct),
+            sd = sd(correct))
+
+```
+
+```{r}
+
+# 15 items excluded as per https://docs.google.com/spreadsheets/d/1c079Z0CxLoM-YeI5GPV1p6-ps_GaWDPUjfNonMroDos/edit?gid=439574247#gid=439574247
+# 
+# tom_exclusions = c("tom_story4_deception_emotion_reasoning_2",
+#                    "tom_story4_deception_false_belief_1",
+#                    "tom_story4_deception_reality_check_2",
+#                    "tom_story4_deception_reality_check_3",
+#                    "tom_story2_moral_reasoning_reality_check_1",
+#                    "tom_story7_reality_known_false_belief",
+#                    "tom_story17_reference_reference",
+#                    "tom_story11_reference_reference",
+#                    "tom_story6_second_order_false_belief_2",
+#                    "tom_story6_second_order_false_belief_3",
+#                    "tom_story6_second_order_false_belief_4",
+#                    "tom_story6_second_order_false_belief_5",
+#                    "tom_story6_second_order_reality_check",
+#                    "tom_story18_second_order_false_belief_2",
+#                    # no var
+#                    "tom_story18_second_order_reality_check_2",
+#                     # no var
+#                    "tom_story15_interpretation_reality_check_2")
+# 
+# tom_fa_filtered =
+#   tom_fa %>%
+#   filter(item_uid %in% tom_exclusions)
+# 
+# unique(tom_fa_filtered$item)
+# 
+# tom_fa_filtered %>%
+#   group_by(item) %>%
+#   summarise(n = n (),
+#             mean = mean(correct),
+#             sd = sd(correct))
+
+```
+
+```{r}
+
+tom_fa_wide =
+  tom_fa %>% 
   pivot_wider(id_cols = c(user_id),
-              names_from = item_uid,
-              values_from = correct,
-              values_fn = list(correct = ~ as.numeric(.x[1]))) %>%
-  select(-user_id) %>%
-  mutate(across(everything(), as.numeric))
+              names_from = item,
+              values_from = correct) %>%
+  select(-user_id)
 
 ```
 
@@ -847,68 +894,140 @@ tom_fa =
 
 ```{r}
 
+tetra =
+  tetrachoric(tom_fa_wide)$rho
+
+# MAP
+map =
+  vss(tetra)
+
+plot(map$map,
+     type = "b",
+     main = "Average partial correlation",
+     xlab = "Number of factors extracted",
+     ylab = "Average partial correlation",
+     cex.lab = 1.5,
+     cex.main = 1.5)
+
+which(map$map == min(map$map)) # The Velicer MAP achieves a minimum with  1 factor
+
+# parallel analysis: 4 factors
+para.analysis =
+  psych::fa.parallel(tetra,
+                     n.iter = 1000)
+
+para.analysis
+
+# efa (default is oblique FA)
 efa =
-  psych::fa(tom_fa,
-            nfactors = 5,
-            rotate = "varimax",
+  psych::fa(tetra,
+            nfactors = 4,
             fm = "ml")
 
 fa.sort(efa)
 
-```
-
-### CFA
-
-```{r}
-
-
+# plot
+fa.diagram(efa)
 
 ```
 
-### (1) False Belief
+```{r fig.width = 10, fig.height = 10}
 
-```{r}
+# Write and plot the measurement model with factor correlations
+tom_sem =
+  tom_fa %>%
+  select(user_id, item, item_uid, factor, correct)
 
-false_belief =
-  tom %>%
-  filter(str_detect(item, "false_belief"))
+# specify measurement model
+tomModel <- " # measurement model
+Emotion Reasoning =~ emotion_reasoning + emotion_reasoning_1 + emotion_reasoning_2 + reality_check_1 + reality_check_2 + reality_check_3 + reference_1 + reference_2 + reference_3 + reference_4 + reference_5
+
+Diverse Beliefs =~ false_belief + false_belief_1 + false_belief_2 + false_belief_5 + reality_check + reference
+
+Reality Check =~ false_belief_3 + false_belief_4
+"
+  
+# Run SEM and show fit indices
+sem =
+  lavaan::sem(tomModel,
+              data = tom_fa_wide,
+              orthogonal = F)
+
+summary(sem,
+        standardized = T,
+        fit.measures = T)
+
+# cor matrix of the factors
+lavInspect(sem,
+           what = "cor.lv") # cor matrix
+
+# plot
+semPaths(sem,
+         whatLabels = "std",
+         exoCov = T,
+         layout = "tree3", style = "lisrel", rotation = 2, layoutSplit = F,
+         subRes = 18, subScale = 0.5,
+         group = "latents", pastel = T,
+         edge.color = "black", sizeMan = 5, sizeLat = 8,
+         residScale = 5,
+         edge.label.cex = 1, label.cex = 1.5, title.cex = 0.5)
 
 ```
 
-### (2) True Belief
-
 ```{r}
 
+# reliability and item analyses
+  
+## omega
+coefficientalpha::omega(tom_fa_wide) # Calculates McDonald's omega
 
+## alpha
+psych::alpha(tom_fa_wide)
 
 ```
 
-### (3) Deception
+## Regression
 
 ```{r}
 
-deception =
-  tom %>%
-  filter(item_group == "deception")
+regressionvars =
+  c("stories", # tom
+    "hearts & flowers", "same & different", "memory", # EF
+    "sentence understanding","vocabulary") # language
+
+df.analysis =
+  all_scores %>%
+  filter(task %in% regressionvars) %>%
+  dplyr::select(user_id, run_id, site_label,
+                task_id, task, task_category,
+                metric_value, age)
+
+df.analysis_wide =
+  df.analysis %>%
+  group_by(user_id, task, site_label) %>%
+  slice_tail(n = 1) %>%
+  ungroup() %>%
+  pivot_wider(id_cols = c(user_id, age, site_label),
+              names_from = task,
+              values_from = metric_value)
 
 ```
 
-### (4) Moral Reasoning
-
 ```{r}
 
-moral_reasoning =
-  tom %>%
-  filter(item_group == "moral_reasoning")
+lm.tom_overall =
+  lmer(stories ~
+         # age
+         age +
+         # ef
+         `hearts & flowers` + memory + `same & different` +
+         # language
+         `sentence understanding` + vocabulary +
+         # insert parent survey
+         # insert random effects
+         # (1 | site_label) + (1 | user_id),
+       data = df.analysis_wide)
 
-```
-
-### (5) Emotion Reasoning
-
-```{r}
-
-emotion_reasoning =
-  tom %>%
-  filter(str_detect(item, "emotion_reasoning"))
+summary(lmer)
 
 ```
