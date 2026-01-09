@@ -388,13 +388,13 @@ ggplot(mg_runs, aes(x = age, y = max_span, col = direction)) +
 We now use the multigroup IRT models. 
 
 ```{r}
-multigroup_scores_mg <- multigroup_scores |>
-  filter(item_task == "mg", site != "us_pilot") |>
-  select(site, item_task, user_id, run_id, metric_type, metric_value ) |>
+multigroup_scores_mg <- registry_scores |>
+  filter(item_task == "mg") |>
+  select(item_task, run_id, metric_type, metric_value, metric_se) |>
   left_join(run_ages)
 
 mg_span_irt<- ggplot(multigroup_scores_mg, aes(x = age, y = metric_value, col = site)) + 
-  geom_point() + 
+  geom_point(alpha=.5) + 
   geom_smooth() +
   labs(
     title = "Developmental trends in Memory Game by site",
@@ -418,22 +418,22 @@ ggsave(
 Look at coefficients. 
 
 ```{r}
-mg_coefs <- best_multigroup_coefs |>
-  filter(item_task == "mg",) |>
-  separate(item, sep = "_", into = c("task", "direction", "size", "span", "number")) |>
+mg_coefs <- best_coefs |>
+  filter(task == "mg") |>
+  separate(item, sep = "_", into = c("task", "direction", "size", "span")) |>
   mutate(span = as.numeric(str_replace(span, "len", ""))) |>
-  select(-task, -number) |>
+  select(-task) |>
   distinct()
 
 mg_spans_irt <- mg_coefs |>
-  group_by(site, span, size, direction) |>
+  group_by(group, span, size, direction) |>
   summarise(mean_difficulty = mean(d, na.rm = TRUE), .groups = "drop")
 
 # Plot
 mg_span_irt <- ggplot(mg_spans_irt, aes(x = span, y = -mean_difficulty, col = direction, pch = size)) +
   geom_point(size = 3) +
   geom_line(aes(lty = size)) +
-  facet_wrap(~site) +
+  facet_wrap(~group) +
   labs(
     title = "Memory Game: IRT difficulty by span length, direction, and grid size",
     x = "Span length",
@@ -453,13 +453,10 @@ ggsave(
 )
 ```
 
-Note that we have used grid3 very little and so it's getting dropped from most analysis. 
-
+Note that we have used grid3 very little and so it's getting dropped from most analysis. (is this still true?)
 
 # SDS
 
-<<<<<<< HEAD
-=======
 ## Rescoring issue
 
 ```{r}
@@ -471,24 +468,22 @@ sds <- ef |>
   mutate(timestamp = as_datetime(timestamp)) |>
   filter(!(site == "ca_pilot" & item_task == "sds" & timestamp < "2025-02-21"))
 
-# filter to runs completed and no straightlining (except for us_pilot)
+# filter to runs completed and no straightlining
 sds_runs_filtered <- runs |>
   filter(task_id == "same-different-selection",
-         site != "us_pilot", 
-         (completed & !str_detect(validation_msg_run, "straightlining"))) 
+         completed, valid_run) 
 
 # filter trials to above runs, filter out too slow/fast RTs
 sds_filtered <- sds |>
   semi_join(sds_runs_filtered) |>
   mutate(slow_rt = rt_numeric > 30000) |>
-  filter(is.na(rt_numeric) | !slow_rt, !str_detect(validation_msg_trial, "fast")) |>
-  select(-slow_rt, -valid_trial, -validation_msg_trial)
+  filter(is.na(rt_numeric) | !slow_rt, rt_numeric > 300) |> # , !str_detect(validation_msg_trial, "fast")
+  select(-slow_rt) #  -valid_trial, -validation_msg_trial
 ```
 
 
 ```{r}
 #| eval: false
-# remove US data
 
 # ----- ODDITIES -----
 # some 3match/4match trials have duplicate item=choice2 (missing choice3 / choice4)
@@ -498,9 +493,7 @@ table(sds$item, sds$item_group) # choice2 in 3match/4match should by <= choice1
 sds |> filter(response=="{}")
 # ----- /ODDITIES -----
 
-
 ```
->>>>>>> 5c91e85636a11aa6c0002343ab94cf406dd4a89e
 
 ## Sumscore
 
@@ -554,13 +547,13 @@ ggplot(sds_runs_block, aes(x = age, y = correct, col = item)) +
 ## IRT
 
 ```{r}
-multigroup_scores_sds <- multigroup_scores |>
-  filter(item_task == "sds", site != "us_pilot") |>
-  select(site, item_task, user_id, run_id, metric_type, metric_value ) |>
+multigroup_scores_sds <- registry_scores |>
+  filter(item_task == "sds") |>
+  select(item_task, run_id, metric_type, metric_value ) |>
   left_join(sds_runs)
 
 ggplot(multigroup_scores_sds, aes(x = age, y = metric_value, col = site)) + 
-  geom_point() + 
+  geom_point(alpha=.5) + 
   geom_smooth() +
  labs(
     title = "SDS: IRT difficulty",
@@ -581,10 +574,16 @@ Look at coefficients.
 ```{r}
 
 #05.05.2025
-sds_coefs <- best_multigroup_coefs |>
-  filter(item_task == "sds", site != "us_pilot") |>
-  separate(item, sep = "_", into = c("task", "block", "trial", "number")) |>
-  filter(block != "3unique") |>
+#sds_coefs <- best_multigroup_coefs |>
+#  filter(item_task == "sds", site != "us_pilot") |>
+#  separate(item, sep = "_", into = c("task", "block", "trial", "number")) |>
+#  filter(block != "3unique") |>
+#  mutate(block = fct_relevel(block, "dimensions", "same")) |>
+#  distinct()
+
+sds_coefs <- best_coefs |>
+  filter(task == "sds") |>
+  separate(item, sep = "_", into = c("task", "block", "trial")) |>
   mutate(block = fct_relevel(block, "dimensions", "same")) |>
   distinct()
 
@@ -600,7 +599,7 @@ sds_coefs_clean <- sds_coefs |>
 
 # Plot: All trials
 ggplot(sds_coefs_clean, aes(x = block, y = -d, colour = trial)) +
-  facet_wrap(~site) +
+  facet_wrap(~group) +
   geom_point() + 
   geom_line(aes(group = trial)) + 
   coord_flip() +
@@ -626,12 +625,11 @@ ggsave(
 
 
 ```{r}
-ef_scores <- filter(multigroup_scores, 
+ef_scores <- filter(registry_scores, 
                     item_task %in% c("hf", "mg", "sds"))
-
-
+# FixMe: continue working from here 1/8/2026
 ef_scores_filtered <- ef_scores |>
-  group_by(site, item_task, user_id) |>
+  group_by(item_task, run_id) |>
   left_join(runs) |>
   filter(completed == TRUE, valid_run == TRUE) |> # be very conservative on validation
   group_by(user_id, item_task) |>
