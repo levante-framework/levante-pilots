@@ -32,11 +32,21 @@ mods_coded <- mods |>
 ```{r}
 #| eval: false
 # anova is slow + not necessary for overall score creation
+source(here("02_score_data/02_fit_irt/anova_mirt.R"))
 
 # reconstruct model objects from model records for overlap_items models
 mods_overlap <- mods_coded |>
   filter(subset == "overlap_items") |>
   mutate(mod = map(mod_rec, model_from_record))
+
+models_multigroup <- tribble(
+  ~nfact, ~itemtype, ~invariance,
+    "f1",   "rasch", "configural",
+    "f1",   "rasch", "scalar",
+    "f1",     "2pl", "configural",
+    "f1",     "2pl", "metric",
+    "f1",     "2pl", "scalar",
+) |> mutate(model_order = 1:n())
 
 # create anova of all multigroup models for each task
 task_anova <- mods_overlap |>
@@ -44,31 +54,33 @@ task_anova <- mods_overlap |>
   left_join(models_multigroup) |>
   arrange(task, model_set, subset, model_order) |>
   select(task, mod, nfact, itemtype, invariance) |>
+  # mutate(logPrior = map_dbl(mod, \(m) m@Fit$logPrior)) |>
   # run anova for each task
   nest(task_mods = -task) |>
   mutate(anova = map(task_mods, \(tm) anova_mirt_wrapper(tm$mod))) |>
   # remove model objects and flatten out anova results
   mutate(mod_info = map(task_mods, \(tm) tm |> select(-mod))) |>
   select(task, mod_info, anova) |>
-  unnest(c(mod_info, anova)) |>
-  # identify each task's best model and compute BIC differences from it
-  group_by(task) |>
-  mutate(delta_bic = BIC - min(BIC),
-         best = delta_bic == 0,
-         X2 = replace_na(X2, 0),
-         model_type = glue("{itemtype}-{invariance}") |> fct_inorder() |> fct_rev()) |>
-  ungroup()
+  unnest(c(mod_info, anova))
+write_rds(task_anova, here("02_scoring_outputs/task_anova.rds"))
 
-ggplot(task_anova, aes(x = model_type, y = delta_bic,
-                       shape = best, color = itemtype, size = as.numeric(best))) +
-  facet_wrap(vars(task), scales = "free", ncol = 3) +
+task_anova |>
+  mutate(model_type = glue("{itemtype}-{invariance}") |> fct_inorder() |> fct_rev()) |>
+  select(task, model_type, itemtype, invariance, logLik, logPost) |>
+  pivot_longer(starts_with("log"), names_to = "stat", values_to = "value") |>
+  group_by(task, stat) |>
+  mutate(best = value == min(value)) |>
+  group_by(task) |>
+  mutate(value = value - min(value)) |>
+ggplot(aes(y = model_type, x = value, color = stat, shape = best)) +
+  facet_grid(vars(stat), vars(task), scales = "free") +
   geom_point() +
-  coord_flip() +
-  scale_size_continuous(guide = FALSE, range = c(1, 2)) +
-  scale_colour_ptol() +
-  theme(axis.text.y = element_text(size = 6),
+  scale_colour_ptol(guide = "none") +
+  scale_shape(guide = FALSE) +
+  labs(x = "Value (difference from min for task)") +
+  theme(panel.grid.major.y = element_line(color = "#EBEBEBFF"),
         axis.title.y = element_blank())
-ggsave("plots/multigroup_anova.png", width = 9, height = 5)
+ggsave(here("02_score_data/plots/multigroup_post.png"), width = 14, height = 3)
 ```
 
 ```{r}
