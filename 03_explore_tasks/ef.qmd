@@ -627,7 +627,7 @@ ggsave(
 ```{r}
 ef_scores <- filter(registry_scores, 
                     item_task %in% c("hf", "mg", "sds"))
-# FixMe: continue working from here 1/8/2026
+
 ef_scores_filtered <- ef_scores |>
   group_by(item_task, run_id) |>
   left_join(runs) |>
@@ -702,12 +702,16 @@ graph_sem(model = fit1, text_size = 3) +
 Note that the MEFS data file appears to have the column names reversed, based on the observation that standard scores have mean 50 and don't change with age. 
 
 ```{r}
-mefs_scores <- read_csv(here("02_scoring_outputs","mefs_data","LEVANTE_20250403_1132.csv")) |>
-  janitor::clean_names() |>
-  select(child_id, a1_total_score, a1_standard_score) |>
-  rename(user_id = child_id, 
-         mefs_total_raw = a1_total_score,
-         mefs_standard_raw = a1_standard_score
+#mefs_scores_old <- read_csv(here("02_scoring_outputs","mefs_data","LEVANTE_20250403_1132.csv")) |>
+#  janitor::clean_names() |>
+#  select(child_id, a1_total_score, a1_standard_score)
+  
+mefs_scores <- readRDS(here("02_scoring_outputs","scores","scores_mefs.rds")) |>
+  select(user_id, metric_type, metric_value) |> # run_id == user_id ?
+  group_by(user_id) |> slice(1) |> # a few kids had 2 runs?
+  pivot_wider(id_cols = user_id, names_from = metric_type, values_from = metric_value) |>
+  rename(mefs_total_raw = total_score,
+         mefs_standard_raw = standard_score
   ) 
 
 ef_scores_wide_mefs <- ef_scores_wide |>
