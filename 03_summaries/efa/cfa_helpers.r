@@ -19,7 +19,7 @@ build_1factor_model_fixvar <- function(formi, item_names) {
 
 # Define a function to fit CFA model for each form_construct
 fit_invariance_model_1f <- function(df_val, formi, group_equal = NULL, estim = "WLSMV") {
-  item_names <- setdiff(colnames(df_val), c("site", "user_id", "child_id"))
+  item_names <- setdiff(colnames(df_val), c("site", "respondent_id", "child_id"))
   if (length(item_names) < 3) return(NULL)
   
   model_syntax <- build_1factor_model_fixvar(formi, item_names)
@@ -118,7 +118,7 @@ extract_fscore_1f <- function(fit, df_val) {
     
     tibble(
       site = df_group$site,
-      user_id = df_group$user_id,
+      respondent_id = df_group$respondent_id,
       fscore = as.numeric(fscore_mat[, 1])
     )
   })
@@ -170,7 +170,7 @@ fit_invariance_model_mf <- function(formi, df_val, data_long, group_equal = NULL
     summarise(items = list(variable), .groups = "drop") %>%
     deframe()
   
-  item_names <- setdiff(colnames(df_val), c("site", "user_id", "child_id"))
+  item_names <- setdiff(colnames(df_val), c("site", "respondent_id", "child_id"))
   if (length(item_names) < 3 || length(var_map) < 2) return(NULL)
   
   model_syntax <- build_multifactor_model_fixvar(var_map)
@@ -251,7 +251,7 @@ extract_fscore_mf <- function(fit, df_val) {
     bind_cols(
       tibble(
         site = df_group$site,
-        user_id = df_group$user_id,
+        respondent_id = df_group$respondent_id,
         child_id = df_group$child_id
       ),
       as.data.frame(fscore_mat)
