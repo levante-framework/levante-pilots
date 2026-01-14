@@ -980,8 +980,8 @@ dev_change_plot <- ggplot(fixed_only, aes(age, metric_value)) +
 # ggsave(
 # filename = here::here("04_papers", "display", "dev_change.png"),
 # plot = dev_change_plot,
-# width = 10,
-# height = 6,
+# width = 8,
+# height = 9,
 # dpi = 300
 # )
 
