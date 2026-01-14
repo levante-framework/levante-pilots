@@ -413,7 +413,7 @@ task_table |>
 
 ## The current study
 
-Here we report on the development and validation of the LEVANTE core tasks. This was an iterative process in which data from 5--12 year old children were collected at three sites: Bogota, Caquetá and Boyacá, Colombia (uniandes-co); Leipzig, Germany (mpieva-de); and Ottawa, Canada (western-ca).^[In the remainder of the manuscript, we refer to these sites by their site designators, uniandes-co, mpieva-de, and western-ca. These designators mark the research group and country of data collection. We make this choice to avoid the inference that these data are particularly representative of Canadian, German, or Colombian children more broadly.] 
+Here we report on the development and validation of the LEVANTE core tasks. This was an iterative process in which data from 5--12 year old children were collected at three sites: Bogota, Caquetá and Boyacá, Colombia (uniandes-co); Leipzig, Germany (mpieva-de); and Ontario, Canada (western-ca).^[In the remainder of the manuscript, we refer to these sites by their site designators, uniandes-co, mpieva-de, and western-ca. These designators mark the research group and country of data collection. We make this choice to avoid the inference that these data are particularly representative of Canadian, German, or Colombian children more broadly.] 
 
 Our practices in this manuscript reflect an evolving set of measures -- in this sense, LEVANTE is a "ship that is being built as we sail." In some cases, we used data gathered during the pilot data collection process to make minor changes to the tasks. We also used data from these three pilot sites to develop efficient, computer adaptive task (CAT) versions of many of the tasks. Thus, our report here reflects progress to date, rather than a single, monolithic process in which tasks were created and then piloted uniformly across all groups.
 
@@ -948,7 +948,7 @@ pred_all <- map_dfr(task_ids, pred_curves_augment) %>%
   left_join(task_meta, by = "item_task") |>
   left_join(select(fixed_only, task_category, site_label, site) |> distinct())
 
-ggplot(fixed_only, aes(age, metric_value)) +
+dev_change_plot <- ggplot(fixed_only, aes(age, metric_value)) +
   ggh4x::facet_nested_wrap(
     vars(task_category, task),
     nest_line = element_line(), solo_line = TRUE,
@@ -976,6 +976,14 @@ ggplot(fixed_only, aes(age, metric_value)) +
     plot.caption = element_text(hjust = 0, size = rel(0.8)),
     plot.caption.position = "plot"
   )
+
+# ggsave(
+# filename = here::here("04_papers", "display", "dev_change.png"),
+# plot = dev_change_plot,
+# width = 10,
+# height = 6,
+# dpi = 300
+# )
 
 ```
 
