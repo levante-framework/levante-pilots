@@ -578,3 +578,76 @@ ggplot(rt_hist, aes(x = rt_s)) +
     y = "Count"
   )
 ```
+
+## Diffusion IRT Model
+
+```{r}
+#mrot |> filter(rt_numeric < 300) |> summarise(mean_acc = mean(correct)) # .47
+#mrot |> filter(rt_numeric > 25000) |> summarise(mean_acc = mean(correct)) # .70
+mrot_tr <- mrot |> 
+  mutate(too_fast = ifelse(rt_numeric < 300, 1, 0)) |>
+  group_by(run_id) |>
+  summarise(n_too_fast = sum(too_fast),
+            n = n()) |>
+  mutate(n_good = n - n_too_fast)
+#median(mrot_tr$n) # 33 trials
+too_short_runs <- mrot_tr |> filter(n_good < 10)
+```
+
+The median run is 33 trials.
+`r sum(mrot_tr$n_too_fast)` trials had too-fast responses (<300 ms; chance accuracy). 
+We remove `r nrow(too_short_runs)` runs with fewer than 10 trials that are not too fast.
+ToDo: should we do any RT filtering for diffusion IRT models?
+
+
+```{r, eval=F}
+require("diffIRT")
+
+# mrot |> group_by(run_id, item_uid) |> count()
+
+mrot_sorted <- mrot |> filter(!run_id %in% too_short_runs, rt_numeric >= 300) |>
+  arrange(site, user_id, run_id, item_original, item_group, angle, item_uid) |>
+  left_join(run_ages) |> 
+  arrange(site, user_id, item_original, run_id) |>
+  group_by(site, user_id, item_original) |>
+  mutate(rep = row_number()) |>
+  ungroup() |>
+  mutate(item_rep = paste0(item_original, "_rep", rep),
+         rt_s = rt_numeric / 1000) 
+
+# item_uid only has 11 unique values; item_original has 66...could try 
+mrot_wide <- mrot_sorted |> 
+  select(site, user_id, age, run_id, item_rep, correct) |> 
+  pivot_wider(
+    id_cols   = c(site, user_id, run_id, age),
+    names_from  = item_rep,
+    values_from = correct
+  )
+
+mrot_wide_rt <- mrot_sorted |>
+  select(site, user_id, age, run_id, item_rep, rt_s) |>
+  pivot_wider(
+    id_cols   = c(site, user_id, run_id, age),
+    names_from  = item_rep,
+    values_from = rt_s
+  )
+
+mrot_demo <- mrot_wide |> select(site, user_id, age, run_id)
+mrot_dat <- mrot_wide |> select(-site, -user_id, -age, -run_id)# |> data.matrix()
+mrot_dat_rt <- mrot_wide_rt |> select(-site, -user_id, -age, -run_id)
+
+one_value_cols <- names(mrot_dat)[sapply(mrot_dat, function(x) {
+  length(unique(na.omit(x))) == 1
+})]
+
+mrot_dat <- data.matrix(mrot_dat |> select(-all_of(one_value_cols)))
+rownames(mrot_dat) = mrot_demo$run_id
+
+mrot_dat_rt <- data.matrix(mrot_dat_rt |> select(-all_of(one_value_cols)))
+rownames(mrot_dat_rt) = mrot_demo$run_id
+
+mod_drt <- diffIRT(mrot_dat_rt, mrot_dat, model="D")
+
+# constrain="ai.equal" # equal item boundaries a[i]
+```
+
