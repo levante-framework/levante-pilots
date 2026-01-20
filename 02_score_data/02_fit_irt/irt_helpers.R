@@ -63,7 +63,7 @@ generate_model_str_numeric <- function(df, df_prepped, item_type, f, priors = NU
   }) |> compact() |> paste_c() # combine into CONSTRAIN statement
   constraint <- if (str_length(constraints) > 1) paste0("CONSTRAIN=", constraints) else ""
   
-  # PRIOR = (2-3, 5, d, norm, 0, 1), (4, d, norm, 0, 0.5)')
+  # e.g. PRIOR = (2-3, 5, d, norm, 0, 1), (4, d, norm, 0, 0.5)')
   prior_terms <- priors |> imap(\(pr, param) glue("(1-{length(items)},{paste(c(param, pr),collapse = ',')})"))
   prior <- if (length(prior_terms) > 0) glue("PRIOR={paste(prior_terms, collapse = ',')}") else ""
   

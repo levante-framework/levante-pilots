@@ -3,6 +3,7 @@ library(rlevante)
 library(here)
 library(readr)
 library(tidyr)
+library(dplyr)
 ```
 
 ```{r}
@@ -12,9 +13,9 @@ dataset_spec <- list(
   list(name = "pilot_mpieva_de_main:6c0n",     version = "current"),
   list(name = "pilot_western_ca_main:97mt",    version = "current"))
 
-surveys <- get_surveys(dataset_spec)
+participants <- process_participants(dataset_spec)
 
-participants <- get_participants(dataset_spec)
+surveys <- process_surveys(dataset_spec)
 survey_data <- link_surveys(surveys, participants)
 
 survey_data_nested <- survey_data |> nest(data = -survey_type)
