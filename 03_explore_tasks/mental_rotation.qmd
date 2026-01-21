@@ -221,9 +221,10 @@ mrot_irt
 
 ```{r subset 2pl scalar item params}
 coefs <- readr::read_rds(here::here("02_scoring_outputs","all_coefs.rds"))
-# colnames(coefs)
+colnames(coefs)
 # table(coefs$invariance)
 # table(coefs$group)
+# table(coefs$d)
 
 # filter to mrot, 2PL, scalar; keep a and d
 mrot_2pl_scalar <- coefs %>%
