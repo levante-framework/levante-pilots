@@ -19,12 +19,19 @@ execute:
 
 -   [TOM
     Airtable](https://airtable.com/appe2p0S3xk4DL2qc/shrSnlS1BwADsrBGq/tblnnFrYQfMOFhIF9)
+    1
+
+-   [TOM Airtable
+    2](https://airtable.com/appe2p0S3xk4DL2qc/tblnnFrYQfMOFhIF9/viwkKX2qgFMYg5J7Q?blocks=hide)
 
 -   [TOM Item
     Exclusions](https://docs.google.com/spreadsheets/d/1c079Z0CxLoM-YeI5GPV1p6-ps_GaWDPUjfNonMroDos/edit?gid=396569398#gid=396569398)
 
 -   [Automated runs through
-    tasks](Automated%20runs%20through%20tasks:%20https://crowdin.com/project/levantetranslations/screenshots)
+    tasks](https://crowdin.com/project/levantetranslations/screenshots)
+
+-   [TOM
+    graphics/assets](https://console.cloud.google.com/storage/browser/levante-assets-prod/visual/theory-of-mind;tab=objects?pageState=(%22StorageObjectListTable%22:(%22f%22:%22%255B%255D%22))&authuser=0&project=hs-levante-admin-prod&pli=1&prefix=&forceOnObjectsSortingFiltering=false)
 
 # Aims
 
@@ -100,7 +107,6 @@ source(here::here("plot_settings.R"))
 
 # fix print width for knitted doc
 options(width = 70)
-
 
 set.seed(1)
 
@@ -996,8 +1002,6 @@ fa.sort(efa)
 # plot
 fa.diagram(efa, sort = TRUE)
 
-qgraph(efa$loadings, layout = "spring")
-
 ```
 
 ```{r}
@@ -1088,10 +1092,10 @@ semPaths(sem,
 # reliability and item analyses
   
 ## omega
-coefficientalpha::omega(tom_fa_wide) # Calculates McDonald's omega
+# coefficientalpha::omega(tom_fa_wide) # Calculates McDonald's omega
 
 ## alpha
-psych::alpha(tom_fa_wide)
+# psych::alpha(tom_fa_wide)
 
 ```
 
@@ -1124,19 +1128,19 @@ df.analysis_wide =
 
 ```{r}
 
-lm.tom_overall =
-  lmer(stories ~
-         # age
-         age +
-         # ef
-         `hearts & flowers` + memory + `same & different` +
-         # language
-         `sentence understanding` + vocabulary +
-         # insert parent survey
-         # insert random effects
-         # (1 | site_label) + (1 | user_id),
-       data = df.analysis_wide)
-
-summary(lmer)
+# lm.tom_overall =
+#   lmer(stories ~
+#          # age
+#          age +
+#          # ef
+#          `hearts & flowers` + memory + `same & different` +
+#          # language
+#          `sentence understanding` + vocabulary +
+#          # insert parent survey
+#          # insert random effects
+#          # (1 | site_label) + (1 | user_id),
+#        data = df.analysis_wide)
+# 
+# summary(lmer)
 
 ```
