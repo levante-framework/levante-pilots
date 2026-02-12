@@ -18,7 +18,7 @@ build_1factor_model_fixvar <- function(formi, item_names) {
 }
 
 # Define a function to fit CFA model for each form_construct
-fit_invariance_model_1f <- function(df_val, formi, group_equal = NULL, estim = "WLSMV") {
+fit_invariance_model_1f <- function(df_val, formi, group_equal = NULL, group_partial = NULL, estim = "WLSMV") {
   item_names <- setdiff(colnames(df_val), c("site", "respondent_id", "child_id"))
   if (length(item_names) < 3) return(NULL)
   
@@ -30,6 +30,7 @@ fit_invariance_model_1f <- function(df_val, formi, group_equal = NULL, estim = "
                 data = df_val,
                 group = "site",
                 group.equal = group_equal,
+                group.partial = group_partial,
                 estimator = estim,
                 ordered = if (estim == "WLSMV") item_names else NULL)
   }, error = function(e) NULL)
