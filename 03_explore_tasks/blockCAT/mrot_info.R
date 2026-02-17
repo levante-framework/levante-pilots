@@ -1,3 +1,5 @@
+library(rlevante)
+
 recode_mrot_items <- \(df) {
   df |>
     separate(item, into = c("task_code", "item_group", "item_entry", "angle")) |>
@@ -65,6 +67,7 @@ param_fits <- coef_mrot |>
   unnest(param_fits)
 
 poly_fits <- poly_items |> left_join(param_fits) |> mutate(interpolated = TRUE)
+write_csv(poly_fits, "mrot_poly_fits.csv")
 
 coef_combined <- coef_mrot |> bind_rows(poly_fits) |>
   mutate(item = item |> fct_relevel("2d rabbit", "2d duck"))

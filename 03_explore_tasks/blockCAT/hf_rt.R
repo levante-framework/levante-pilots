@@ -7,6 +7,7 @@ hf <- task_data_nested |>
 
 hf_rt <- hf |>
   mutate(rt_s = rt_numeric / 1000) |>
+  # filter(correct) |>
   group_by(dataset, run_id, item_group) |>
   summarise(rt_mean = mean(rt_s),
             rt_se = sd(rt_s) / sqrt(n()),
@@ -21,18 +22,20 @@ hf_rt_props <- hf_rt |> select(dataset, run_id, item_group, contains("under")) |
   mutate(cutoff = cutoff |> str_remove("under_") |> paste("second"))
 
 scores <- read_rds(here("02_scoring_outputs/scores/registry_scores.rds"))
+run_data <- read_rds(here("01_fetched_data/run_data.rds"))
 
 hf_scores <- scores |>
   filter(item_task == "hf") |>
-  select(run_id, ability = metric_value, ability_se = metric_se)
+  select(run_id, ability = metric_value, ability_se = metric_se) |>
+  left_join(run_data |> select(run_id, age))
 
 hf_compare <- inner_join(hf_rt_props, hf_scores)
 
 # at what ability do prop_runs have prop_responses faster than cutoff
-prop_responses <- 0.5
-prop_runs <- 0.5
-hf_compare |>
-  filter(item_group == "heartsflowers")
+# prop_responses <- 0.5
+# prop_runs <- 0.5
+# hf_compare |>
+#   filter(item_group == "heartsflowers")
 
 ggplot(hf_compare |> filter(item_group == "heartsflowers"), aes(x = ability, y = prop)) +
   # facet_grid(vars(dataset), vars(cutoff)) +
@@ -42,9 +45,19 @@ ggplot(hf_compare |> filter(item_group == "heartsflowers"), aes(x = ability, y =
   # geom_smooth() +
   labs(x = "Ability", y = "Proportion of mixed block responses faster than cutoff")
 
-rt_cutoffs <- tibble(rt = c(1, 2, 3))
+hist(rt_compare_m$age)
+# rt_cutoffs <- tibble(rt = c(1, 2, 3))
 
 rt_compare_m <- inner_join(hf_rt, hf_scores) |> filter(item_group == "heartsflowers")
+
+rt_tert <- quantile(rt_compare_m$rt_median, probs = seq(0, 1, 1/3))
+rt_mod <- lm(ability ~ rt_median, data = rt_compare_m)
+broom::augment(rt_mod, newdata = tibble(rt_median = rt_tert))
+
+# rt_compare_m |>
+#   mutate(rt_tert = cut(rt_median, breaks = quantile(rt_median, probs = seq(0, 1, 1/3)))) |>
+#   group_by(rt_tert) |>
+#   summarise(ability_min = min(ability), ability_max = max(ability))
 
 rt_vals <- c(0.2, 0.5, 1, 2, 3, 4, 10, 20, 25)
 ggplot(rt_compare_m, aes(x = ability, y = log(rt_median))) +
@@ -57,7 +70,7 @@ ggplot(rt_compare_m, aes(x = ability, y = log(rt_median))) +
   geom_smooth(method = "lm") +
   labs(x = "Ability", y = "Median response time in mixed block (seconds)") +
   theme(panel.grid.major.y = element_line(color = "#EBEBEBFF"))
-ggsave("hf_rt_medians.png", width = 10, height = 6)
+ggsave("hf_rt_medians_accurate.png", width = 10, height = 6)
 
 hf_trial_compare <- hf |>
   filter(item_group == "heartsflowers") |>
