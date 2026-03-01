@@ -8,22 +8,58 @@ library(GGally)
 
 # col <- colorRampPalette(c("red", "white", "blue"))(200) # Red to white to blue
 
-build_1factor_model_fixvar <- function(formi, item_names) {
+build_1factor_model_fixvar <- function(formi, item_names, add_mean = FALSE, n_groups = 3) {
   latent <- gsub("[^[:alnum:]_]", "_", formi)
-  paste0(
+  model <- paste0(
     latent, " =~ NA*", item_names[1], " + ",
     paste(item_names[-1], collapse = " + "), "\n",
     latent, " ~~ 1*", latent # fix variance for identification
   )
+  if (add_mean) {
+    mean_part <- paste0(
+      latent, " ~ c(0",
+      paste(rep(", NA", n_groups - 1), collapse = ""),
+      ")*1"
+    )
+    
+    model <- paste(model, mean_part, sep = "\n")
+  }
+  model
+}
+
+build_1factor_model_fixload <- function(formi, item_names, add_mean = FALSE, n_groups = 3) {
+  latent <- gsub("[^[:alnum:]_]", "_", formi)
+  
+  model <- paste0(
+    latent, " =~ ", item_names[1], " + ",
+    paste(item_names[-1], collapse = " + ")
+  )
+  
+  if (add_mean) {
+    mean_part <- paste0(
+      latent, " ~ c(0",
+      paste(rep(", NA", n_groups - 1), collapse = ""),
+      ")*1"
+    )
+    
+    model <- paste(model, mean_part, sep = "\n")
+  }
+  model
 }
 
 # Define a function to fit CFA model for each form_construct
-fit_invariance_model_1f <- function(df_val, formi, group_equal = NULL, group_partial = NULL, estim = "WLSMV") {
+fit_invariance_model_1f <- function(df_val, formi, group_equal = NULL, group_partial = NULL, estim = "WLSMV", n_groups = 3) {
   item_names <- setdiff(colnames(df_val), c("site", "respondent_id", "child_id"))
   if (length(item_names) < 3) return(NULL)
   
-  model_syntax <- build_1factor_model_fixvar(formi, item_names)
+  add_mean_flag <- FALSE#!is.null(group_equal) && all(c("loadings","thresholds") %in% group_equal)
   
+  model_syntax <- build_1factor_model_fixvar(
+    formi,
+    item_names,
+    add_mean = add_mean_flag,
+    n_groups = n_groups
+  )
   
   tryCatch({
     lavaan::cfa(model_syntax,
@@ -32,7 +68,8 @@ fit_invariance_model_1f <- function(df_val, formi, group_equal = NULL, group_par
                 group.equal = group_equal,
                 group.partial = group_partial,
                 estimator = estim,
-                ordered = if (estim == "WLSMV") item_names else NULL)
+                ordered = if (estim == "WLSMV") item_names else NULL,
+                parameterization = "theta")
   }, error = function(e) NULL)
 }
 
@@ -259,5 +296,3 @@ extract_fscore_mf <- function(fit, df_val) {
     )
   })
 }
-
-
