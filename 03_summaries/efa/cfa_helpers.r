@@ -8,58 +8,22 @@ library(GGally)
 
 # col <- colorRampPalette(c("red", "white", "blue"))(200) # Red to white to blue
 
-build_1factor_model_fixvar <- function(formi, item_names, add_mean = FALSE, n_groups = 3) {
+build_1factor_model_fixvar <- function(formi, item_names) {
   latent <- gsub("[^[:alnum:]_]", "_", formi)
-  model <- paste0(
+  paste0(
     latent, " =~ NA*", item_names[1], " + ",
     paste(item_names[-1], collapse = " + "), "\n",
     latent, " ~~ 1*", latent # fix variance for identification
   )
-  if (add_mean) {
-    mean_part <- paste0(
-      latent, " ~ c(0",
-      paste(rep(", NA", n_groups - 1), collapse = ""),
-      ")*1"
-    )
-    
-    model <- paste(model, mean_part, sep = "\n")
-  }
-  model
-}
-
-build_1factor_model_fixload <- function(formi, item_names, add_mean = FALSE, n_groups = 3) {
-  latent <- gsub("[^[:alnum:]_]", "_", formi)
-  
-  model <- paste0(
-    latent, " =~ ", item_names[1], " + ",
-    paste(item_names[-1], collapse = " + ")
-  )
-  
-  if (add_mean) {
-    mean_part <- paste0(
-      latent, " ~ c(0",
-      paste(rep(", NA", n_groups - 1), collapse = ""),
-      ")*1"
-    )
-    
-    model <- paste(model, mean_part, sep = "\n")
-  }
-  model
 }
 
 # Define a function to fit CFA model for each form_construct
-fit_invariance_model_1f <- function(df_val, formi, group_equal = NULL, group_partial = NULL, estim = "WLSMV", n_groups = 3) {
+fit_invariance_model_1f <- function(df_val, formi, group_equal = NULL, group_partial = NULL, estim = "WLSMV") {
   item_names <- setdiff(colnames(df_val), c("site", "respondent_id", "child_id"))
   if (length(item_names) < 3) return(NULL)
   
-  add_mean_flag <- FALSE#!is.null(group_equal) && all(c("loadings","thresholds") %in% group_equal)
+  model_syntax <- build_1factor_model_fixvar(formi, item_names)
   
-  model_syntax <- build_1factor_model_fixvar(
-    formi,
-    item_names,
-    add_mean = add_mean_flag,
-    n_groups = n_groups
-  )
   
   tryCatch({
     lavaan::cfa(model_syntax,
@@ -68,8 +32,7 @@ fit_invariance_model_1f <- function(df_val, formi, group_equal = NULL, group_par
                 group.equal = group_equal,
                 group.partial = group_partial,
                 estimator = estim,
-                ordered = if (estim == "WLSMV") item_names else NULL,
-                parameterization = "theta")
+                ordered = if (estim == "WLSMV") item_names else NULL)
   }, error = function(e) NULL)
 }
 
@@ -200,54 +163,65 @@ build_multifactor_model_default <- function(subconstruct_map) {
 
 
 
-fit_invariance_model_mf <- function(formi, df_val, data_long, group_equal = NULL, group.partial = NULL, estim="ML") {
-  # map subconstruct → item 
-  var_map <- data_long %>%
-    distinct(form_subconstruct, variable) %>%
-    group_by(form_subconstruct) %>%
-    summarise(items = list(variable), .groups = "drop") %>%
-    deframe()
+fit_invariance_model_mf <- function(
+    formi,
+    df_val,
+    data_long,
+    group_equal = NULL,
+    group.partial = NULL,
+    estim = "ML",
+    ordinalitem_names = NULL
+) {
+  
+  # map subconstruct → item
+  var_map <- data_long |>
+    dplyr::distinct(form_subconstruct, variable) |>
+    dplyr::group_by(form_subconstruct) |>
+    dplyr::summarise(items = list(variable), .groups = "drop") |>
+    tibble::deframe()
   
   item_names <- setdiff(colnames(df_val), c("site", "respondent_id", "child_id"))
+  
   if (length(item_names) < 3 || length(var_map) < 2) return(NULL)
   
   model_syntax <- build_multifactor_model_fixvar(var_map)
   
+  # determine ordered items
+  if (is.null(ordinalitem_names)) {
+    ordinalitem_names <- item_names
+  }
   
   tryCatch({
     lavaan::cfa(
-      model_syntax,
+      model = model_syntax,
       data = df_val,
       group = "site",
       estimator = estim,
       group.equal = group_equal,
       group.partial = group.partial,
-      ordered = if (estim == "WLSMV") item_names else NULL
+      ordered = if (estim == "WLSMV") ordinalitem_names else NULL
     )
   }, error = function(e) NULL)
+  
 }
 
 
 
-
-
-
-
-
-extract_parameters_multiF <- function(fit, data_long, std = F) {
+extract_parameters_multiF <- function(fit, data_long, std = FALSE) {
   if (is.null(fit)) return(NULL)
   
   params <- parameterEstimates(fit, standardized = std)
   group_labels <- lavInspect(fit, "group.label")
-  item_map <- data_long %>%
-    distinct(variable, form_subconstruct) %>%
-    deframe()
   
-  # Loadings
-  load <- params %>%
-    filter(op == "=~") %>%
-    transmute(
-      site = factor(group, labels = group_labels),
+  item_map <- data_long |>
+    dplyr::distinct(variable, form_subconstruct) |>
+    tibble::deframe()
+  
+  ## Loadings
+  load <- params |>
+    dplyr::filter(op == "=~") |>
+    dplyr::transmute(
+      site = group_labels[group],
       factor = lhs,
       item = rhs,
       form_subconstruct = item_map[rhs],
@@ -255,19 +229,38 @@ extract_parameters_multiF <- function(fit, data_long, std = F) {
       type = "loading"
     )
   
-  # Intercepts (for observed variables)
-  intercept <- params %>%
-    filter(op == "~1", lhs %in% names(item_map)) %>%  # only for observed items
-    transmute(
-      site = factor(group, labels = group_labels),
+  ## identify ordinal items (those with thresholds)
+  ordinal_items <- unique(params$lhs[params$op == "|"])
+  
+  ## Intercepts (continuous items only)
+  intercept <- params |>
+    dplyr::filter(
+      op == "~1",
+      lhs %in% names(item_map),
+      !lhs %in% ordinal_items
+    ) |>
+    dplyr::transmute(
+      site = group_labels[group],
       item = lhs,
       form_subconstruct = item_map[lhs],
       value = if (std) std.all else est,
       type = "intercept"
     )
   
-  bind_rows(load, intercept)
+  ## Thresholds (ordinal items)
+  thresh <- params |>
+    dplyr::filter(op == "|") |>
+    dplyr::transmute(
+      site = group_labels[group],
+      item = lhs,
+      form_subconstruct = item_map[lhs],
+      value = est,
+      type = paste0("threshold_", gsub("t", "", rhs))
+    )
+  
+  dplyr::bind_rows(load, intercept, thresh)
 }
+
 
 
 extract_fscore_mf <- function(fit, df_val) {
@@ -296,3 +289,5 @@ extract_fscore_mf <- function(fit, df_val) {
     )
   })
 }
+
+
