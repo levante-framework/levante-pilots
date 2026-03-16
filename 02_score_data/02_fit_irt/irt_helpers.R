@@ -44,21 +44,29 @@ generate_model_str_numeric <- function(df, df_prepped, item_type, f, priors = NU
 
   # F[i] = 1-K statement for each factor
   factors <- map_chr(1:f, \(i) glue("F{i} = 1-{ncol(df_prepped)}"))
-  
+
   params <- "d" # always have difficulty
   if (item_type != "Rasch") {
     # add slopes a[i] based on parameterization
-    s <- as.numeric(str_extract(item_type, "^\\d")) - 1
-    params <- c(params, paste0("a", 1:s))
+    # s <- as.numeric(str_extract(item_type, "^\\d")) - 1
+    # params <- c(params, paste0("a", 1:s))
+    params <- c(params, "a1")
   }
+
+  item_params <- df |>
+    group_by(item_uid) |>
+    summarise(n_cat = n_distinct(correct)) |>
+    mutate(params = map(n_cat, \(nc) if (nc == 2) params else paste0(params, 1:(nc-1)))) |>
+    select(item_uid, params) |>
+    deframe()
   
   constraints <- items |> map(\(item_uid) {
     # get columns with item's instances
-    matched_idx <- which(str_detect(colnames(df_prepped), glue("^{item_uid}{item_sep}")))
-    
+    matched_idx <- which(str_sub(colnames(df_prepped), start = 1, end = str_length(item_uid)) == item_uid)
+
     if (length(matched_idx) > 1) {
       # constraint for item instance: (item_1, item_2, param)
-      map_chr(params, \(p) glue("({paste_c(matched_idx)},{p})")) |> paste_c()
+      map_chr(item_params[[item_uid]], \(p) glue("({paste_c(matched_idx)},{p})")) |> paste_c()
     }
   }) |> compact() |> paste_c() # combine into CONSTRAIN statement
   constraint <- if (str_length(constraints) > 1) paste0("CONSTRAIN=", constraints) else ""

@@ -105,7 +105,7 @@ cluster |>
   cluster_assign_each(task = irt_tasks) |>
   cluster_send(fit_task_models_multigroup(task_data = task_data_irt,
                                           models = models_multigroup,
-                                          prior = priors,
+                                          priors = priors,
                                           task = task,
                                           group = site,
                                           registry_dir = regdir))

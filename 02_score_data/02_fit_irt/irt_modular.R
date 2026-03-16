@@ -14,12 +14,11 @@ fit_task_models_pooled <- \(task_data, models, priors, task, subset_var, subset_
   trials <- task_data |>
     filter(item_task == task) |>
     filter(!!subset_var == subset_val) |>
-    # filter(language == "en") |>
     unnest(data)
   
   # prep data for modeling
-  data_filtered <- trials |> dedupe_items() |> remove_no_var_items()
-  data_prepped <- to_mirt_shape(data_filtered)
+  data_filtered <- trials |> rlevante:::dedupe_items() |> remove_no_var_items()
+  data_prepped <- rlevante:::to_mirt_shape(data_filtered)
   
   # pull out chance values
   guess <- data_filtered |> distinct(item_inst, chance) |> pull(chance)
@@ -80,21 +79,22 @@ fit_task_models_multigroup <- \(task_data, models, priors, task, group = site,
   trials <- task_data |>
     filter(item_task == task) |>
     unnest(data) |>
-    rename(group = !!group)
+    rename(group = !!group) |>
+    mutate(item_uid = as.character(item_uid))
     # rename(group = site)
   
   # prep data for modeling
-  data_filtered_full <- trials |> dedupe_items() |> remove_no_var_items()
-  data_wide_full <- data_filtered_full |> to_mirt_shape_grouped()
+  data_filtered_full <- trials |> rlevante:::dedupe_items() |> rlevante:::remove_no_var_items()
+  data_wide_full <- data_filtered_full |> rlevante:::to_mirt_shape_grouped()
   data_prepped_full <- data_wide_full |> select(-group)
 
   # pull out chance values
   guess_full <- data_filtered_full |> distinct(item_inst, chance) |> pull(chance)
   
   data_filtered_overlap <- data_filtered_full |>
-    remove_nonshared_items() |>
-    remove_no_var_items_bygroup()
-  data_wide_overlap <- data_filtered_overlap |> to_mirt_shape_grouped()
+    rlevante:::remove_nonshared_items() |>
+    rlevante:::remove_no_var_items_bygroup()
+  data_wide_overlap <- data_filtered_overlap |> rlevante:::to_mirt_shape_grouped()
   data_prepped_overlap <- data_wide_overlap |> select(-group)
   guess_overlap <- data_filtered_overlap |> distinct(item_inst, chance) |> pull(chance)
   
@@ -171,6 +171,7 @@ fit_task_models_multigroup <- \(task_data, models, priors, task, group = site,
                est = if_else(!is.na(fixed_est), fixed_est, est),
                const = if_else(!is.na(fixed_const), fixed_const, const)) |>
         select(-fixed_value, -fixed_est, -fixed_const, -item_uid)
+      attr(mod_pars_fixed, "itemtype") <- itemtype
 
       # fit full items model
       mod_full <- multipleGroup(
