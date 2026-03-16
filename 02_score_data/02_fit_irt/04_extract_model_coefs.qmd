@@ -4,6 +4,7 @@ library(here)
 library(glue)
 library(rlang)
 library(mirt)
+library(rlevante)
 
 source(here("02_score_data/02_fit_irt/irt_modular.R"), chdir = TRUE)
 source(here("02_score_data/02_fit_irt/registry_helper.R"))
@@ -29,7 +30,9 @@ mod_coefs <- \(mod_rec) {
     select(group, item, name, value) |>
     pivot_wider(names_from = name, values_from = value) |>
     mutate(item = str_remove(item, glue("{item_sep}[0-9]+$"))) |>
-    distinct()
+    distinct() |>
+    mutate(difficulty = -d / a1) |>
+    arrange(difficulty)
 }
 
 all_coefs <- mods_coded |>
