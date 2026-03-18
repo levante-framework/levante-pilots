@@ -215,7 +215,22 @@ tom =
   dplyr::select(site, language, data) %>%
   unnest(data) %>%
   filter(!is.na(correct)) %>%
-  mutate(correct = as.numeric(correct))
+  mutate(correct = as.numeric(correct)) %>%
+  # add construct by story
+  mutate(tom_construct = case_when(
+    str_detect(item_uid, "story(1|7|13)_") ~ "FalseBelief",
+    str_detect(item_uid, "story(2|6|8|12|14|18)_") ~ "DiverseBelief_RealityKnown",
+    str_detect(item_uid, "story(3|9|15)_") ~ "Interpretation",
+    str_detect(item_uid, "story(4|10|16)_") ~ "FalseBelief_MoralJudgment",
+    str_detect(item_uid, "story(5|11|17)_") ~ "VPT")) %>%
+  # add question type for all items
+  mutate(question_type = case_when(
+    str_detect(item_uid, "reality_check") ~ "ControlQuestion",
+    str_detect(item_uid, "emotion_reasoning") ~ "EmotionQuestion",
+    str_detect(item_uid, "tom_story16_deception_reference_(1|2|3|4|5)") ~ "EmotionQuestion",
+    str_detect(item_uid, "tom_story4_deception_false_belief_(2|3)") ~ "EmotionQuestion",
+    str_detect(item_uid, "tom_story4_deception_reality_check_(1|2|3)") ~ "EmotionQuestion",
+               TRUE ~ "TestQuestion"))
 
 ```
 
@@ -332,9 +347,77 @@ Let's start with % correct by age.
 tom_runs =
   all_tasks %>%
   filter(task_id == "theory-of-mind") %>%
+  # add construct by story
+  mutate(tom_construct = case_when(
+    str_detect(item_uid, "story(1|7|13)_") ~ "FalseBelief",
+    str_detect(item_uid, "story(2|6|8|12|14|18)_") ~ "DiverseBelief_RealityKnown",
+    str_detect(item_uid, "story(3|9|15)_") ~ "Interpretation",
+    str_detect(item_uid, "story(4|10|16)_") ~ "FalseBelief_MoralJudgment",
+    str_detect(item_uid, "story(5|11|17)_") ~ "VPT")) %>%
+  # add question type for all items
+  mutate(question_type = case_when(
+    str_detect(item_uid, "reality_check") ~ "ControlQuestion",
+    str_detect(item_uid, "emotion_reasoning") ~ "EmotionQuestion",
+    str_detect(item_uid, "tom_story16_deception_reference_(1|2|3|4|5)") ~ "EmotionQuestion",
+    str_detect(item_uid, "tom_story4_deception_false_belief_(2|3)") ~ "EmotionQuestion",
+    str_detect(item_uid, "tom_story4_deception_reality_check_(1|2|3)") ~ "EmotionQuestion",
+               TRUE ~ "TestQuestion")) %>%
+  # include only test questions
+  # filter(question_type == "TestQuestion") %>%
   group_by(site, user_id, run_id) %>%
   summarise(correct = mean(correct, na.rm = T),  
             age = first(age),                    
+            n_items  = n_distinct(item_uid),
+            .groups  = "drop")
+
+# summarize performance by question type
+tom_runs_question =
+  all_tasks %>%
+  filter(task_id == "theory-of-mind") %>%
+  # add construct by story
+  mutate(tom_construct = case_when(
+    str_detect(item_uid, "story(1|7|13)_") ~ "FalseBelief",
+    str_detect(item_uid, "story(2|6|8|12|14|18)_") ~ "DiverseBelief_RealityKnown",
+    str_detect(item_uid, "story(3|9|15)_") ~ "Interpretation",
+    str_detect(item_uid, "story(4|10|16)_") ~ "FalseBelief_MoralJudgment",
+    str_detect(item_uid, "story(5|11|17)_") ~ "VPT")) %>%
+  # add question type for all items
+  mutate(question_type = case_when(
+    str_detect(item_uid, "reality_check") ~ "ControlQuestion",
+    str_detect(item_uid, "emotion_reasoning") ~ "EmotionQuestion",
+    str_detect(item_uid, "tom_story16_deception_reference_(1|2|3|4|5)") ~ "EmotionQuestion",
+    str_detect(item_uid, "tom_story4_deception_false_belief_(2|3)") ~ "EmotionQuestion",
+    str_detect(item_uid, "tom_story4_deception_reality_check_(1|2|3)") ~ "EmotionQuestion",
+               TRUE ~ "TestQuestion")) %>%
+  group_by(site, user_id, run_id, question_type) %>%
+  summarise(correct = mean(correct, na.rm = T),  
+            age = first(age),
+            n_items  = n_distinct(item_uid),
+            .groups  = "drop")
+
+# summarize performance by construct, TEST QUESTIONS ONLY
+tom_runs_construct =
+  all_tasks %>%
+  filter(task_id == "theory-of-mind") %>%
+  # add construct by story
+  mutate(tom_construct = case_when(
+    str_detect(item_uid, "story(1|7|13)_") ~ "FalseBelief",
+    str_detect(item_uid, "story(2|6|8|12|14|18)_") ~ "DiverseBelief_RealityKnown",
+    str_detect(item_uid, "story(3|9|15)_") ~ "Interpretation",
+    str_detect(item_uid, "story(4|10|16)_") ~ "FalseBelief_MoralJudgment",
+    str_detect(item_uid, "story(5|11|17)_") ~ "VPT")) %>%
+  # add question type for all items
+  mutate(question_type = case_when(
+    str_detect(item_uid, "reality_check") ~ "ControlQuestion",
+    str_detect(item_uid, "emotion_reasoning") ~ "EmotionQuestion",
+    str_detect(item_uid, "tom_story16_deception_reference_(1|2|3|4|5)") ~ "EmotionQuestion",
+    str_detect(item_uid, "tom_story4_deception_false_belief_(2|3)") ~ "EmotionQuestion",
+    str_detect(item_uid, "tom_story4_deception_reality_check_(1|2|3)") ~ "EmotionQuestion",
+               TRUE ~ "TestQuestion")) %>%
+  filter(question_type == "TestQuestion") %>%
+  group_by(site, user_id, run_id, tom_construct) %>%
+  summarise(correct = mean(correct, na.rm = T),  
+            age = first(age),
             n_items  = n_distinct(item_uid),
             .groups  = "drop")
 
@@ -359,6 +442,46 @@ tom_sum_scores =
        caption = "Each point = participant run; trend = GAM per site")
 
 tom_sum_scores
+
+```
+
+```{r}
+
+# plot
+tom_questiontype_scores =
+  ggplot(tom_runs_question, aes(x = age, y = correct*100)) +
+  geom_point(alpha = .2, size = 1) +
+  geom_smooth(method = "gam", formula = y ~ s(x, k = 4), se = T) +
+  coord_cartesian(ylim = c(0, 100)) +
+  scale_x_continuous(limits = c(5, 14),
+                     breaks = seq(5, 14, 1)) +
+  facet_wrap(~ question_type) +
+  labs(title = "Accuracy across ages by question type",
+       x = "Age (years)",
+       y = "% correct",
+       caption = "Each point = within-participant item average; trend = GAM per site")
+
+tom_questiontype_scores
+
+```
+
+```{r}
+
+# plot
+tom_construct_scores =
+  ggplot(tom_runs_construct, aes(x = age, y = correct*100)) +
+  geom_point(alpha = .2, size = 1) +
+  geom_smooth(method = "gam", formula = y ~ s(x, k = 4), se = T) +
+  coord_cartesian(ylim = c(0, 100)) +
+  scale_x_continuous(limits = c(5, 14),
+                     breaks = seq(5, 14, 1)) +
+  facet_wrap(~ tom_construct) +
+  labs(title = "Accuracy across ages by construct (test questions only)",
+       x = "Age (years)",
+       y = "% correct",
+       caption = "Each point = within-participant item average; trend = GAM per site")
+
+tom_construct_scores
 
 ```
 
