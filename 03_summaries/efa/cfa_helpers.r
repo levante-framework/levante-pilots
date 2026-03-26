@@ -10,18 +10,20 @@ library(GGally)
 
 build_1factor_model_fixvar <- function(formi, item_names, latentmean) {
   latent <- gsub("[^[:alnum:]_]", "_", formi)
-  paste0(
-    latent, " =~ NA*", item_names[1], " + ",
-    paste(item_names[-1], collapse = " + "), "\n",
-    latent, " ~~ 1*", latent # fix variance for identification
-  )
-  
+
   if(latentmean){
     paste0(
       latent, " =~ NA*", item_names[1], " + ",
       paste(item_names[-1], collapse = " + "), "\n",
       latent, " ~~ 1*", latent, "\n", # fix variance for identification
       latent, " ~ c(NA, 0, NA)*1"
+    )
+    
+  }else{
+    paste0(
+      latent, " =~ NA*", item_names[1], " + ",
+      paste(item_names[-1], collapse = " + "), "\n",
+      latent, " ~~ 1*", latent # fix variance for identification
     )
     
   }
