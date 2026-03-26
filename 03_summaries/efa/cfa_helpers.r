@@ -8,21 +8,31 @@ library(GGally)
 
 # col <- colorRampPalette(c("red", "white", "blue"))(200) # Red to white to blue
 
-build_1factor_model_fixvar <- function(formi, item_names) {
+build_1factor_model_fixvar <- function(formi, item_names, latentmean) {
   latent <- gsub("[^[:alnum:]_]", "_", formi)
   paste0(
     latent, " =~ NA*", item_names[1], " + ",
     paste(item_names[-1], collapse = " + "), "\n",
     latent, " ~~ 1*", latent # fix variance for identification
   )
+  
+  if(latentmean){
+    paste0(
+      latent, " =~ NA*", item_names[1], " + ",
+      paste(item_names[-1], collapse = " + "), "\n",
+      latent, " ~~ 1*", latent, "\n", # fix variance for identification
+      latent, " ~ c(NA, 0, NA)*1"
+    )
+    
+  }
 }
 
 # Define a function to fit CFA model for each form_construct
-fit_invariance_model_1f <- function(df_val, formi, group_equal = NULL, group_partial = NULL, estim = "WLSMV") {
+fit_invariance_model_1f <- function(df_val, formi, group_equal = NULL, group_partial = NULL, estim = "WLSMV", latentmean = FALSE) {
   item_names <- setdiff(colnames(df_val), c("site", "respondent_id", "child_id"))
   if (length(item_names) < 3) return(NULL)
   
-  model_syntax <- build_1factor_model_fixvar(formi, item_names)
+  model_syntax <- build_1factor_model_fixvar(formi, item_names, latentmean)
   
   
   tryCatch({
