@@ -708,7 +708,7 @@ Note that the MEFS data file appears to have the column names reversed, based on
   
 mefs_scores <- readRDS(here("02_scoring_outputs","scores","scores_mefs.rds")) |>
   select(user_id, metric_type, metric_value) |> # run_id == user_id ?
-  group_by(user_id) |> slice(1) |> # a few kids had 2 runs?
+  group_by(user_id, metric_type) |> slice(1) |> # a few kids had 2 runs?
   pivot_wider(id_cols = user_id, names_from = metric_type, values_from = metric_value) |>
   rename(mefs_total_raw = total_score,
          mefs_standard_raw = standard_score

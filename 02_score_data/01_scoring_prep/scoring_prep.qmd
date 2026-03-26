@@ -3,9 +3,9 @@ library(tidyverse)
 library(glue)
 library(here)
 library(redivis)
+library(rlevante)
 
 source(here("plot_settings.R"))
-source(here("02_score_data/01_scoring_prep/scoring_prep_helpers.R"), chdir = TRUE)
 
 run_data <- read_rds(here(glue("01_fetched_data/run_data.rds")))
 trial_data <- read_rds(here(glue("01_fetched_data/trial_data.rds")))
