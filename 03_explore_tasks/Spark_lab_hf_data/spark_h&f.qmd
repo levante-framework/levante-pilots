@@ -1,0 +1,50 @@
+---
+title: "Spark_h&f"
+format: html
+editor: visual
+---
+
+```{r}
+#| label: load-data
+
+plus_hf_merged <- readRDS("03_explore_tasks/Spark_lab_hf_data/plus_hf_merged.rds")
+kimochis_hf <- readRDS("03_explore_tasks/Spark_lab_hf_data/kimochis_hf.rds")
+
+colnames(plus_hf_merged)
+colnames(kimochis_hf)
+
+View(plus_hf_merged)
+View(kimochis_hf)
+
+```
+
+```{r}
+#| label: explore-data
+
+head(plus_hf_merged, 3)
+head(kimochis_hf, 3)
+
+unique(plus_hf_merged$block)
+unique(plus_hf_merged$stim_shape)
+
+unique(kimochis_hf$block)
+unique(kimochis_hf$stim_shape)
+
+colnames(plus_hf_merged)
+
+```
+
+```{r}
+# checking scoring
+library(dplyr)
+plus_hf_merged %>%
+  filter(block == "flowers test") %>%
+  summarise(mean_acc = mean(acc, na.rm = TRUE))
+mean(plus_hf_merged$acc, na.rm = TRUE)
+mean(kimochis_hf$acc[kimochis_hf$block == "flowers test"], na.rm = TRUE)
+
+
+```
+
+```{r}
+```
