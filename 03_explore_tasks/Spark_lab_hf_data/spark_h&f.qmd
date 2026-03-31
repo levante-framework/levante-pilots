@@ -3,23 +3,29 @@ title: "Spark_h&f"
 format: html
 editor: visual
 ---
+# Applying the Levante IRT Model to the PLUS Dataset
+The goal of this analysis is to evaluate the Levante Hearts and Flowers (H&F) IRT model's performance on an external dataset collected by Spark Lab, as a test of the model's generalizability. The Spark Lab data consists of two studies: PLUS (3rd–5th graders, group-based tablet assessment) and Kimochis (preschoolers, 1:1 assessment). 
+```{r}
+#| label: packages
+#| include: false
+library(tidyverse)   
+library(mirt)        
+library(here)
+library(glue)
+```
 
 ```{r}
 #| label: load-data
-
-plus_hf_merged <- readRDS("03_explore_tasks/Spark_lab_hf_data/plus_hf_merged.rds")
-kimochis_hf <- readRDS("03_explore_tasks/Spark_lab_hf_data/kimochis_hf.rds")
-
-colnames(plus_hf_merged)
-colnames(kimochis_hf)
-
-View(plus_hf_merged)
-View(kimochis_hf)
-
+#| include: false
+plus_hf_merged <- readRDS("plus_hf_merged.rds")
+kimochis_hf <- readRDS("kimochis_hf.rds")
+# colnames(plus_hf_merged)
+# colnames(kimochis_hf)
 ```
 
 ```{r}
 #| label: explore-data
+#| include: false
 
 head(plus_hf_merged, 3)
 head(kimochis_hf, 3)
@@ -30,21 +36,400 @@ unique(plus_hf_merged$stim_shape)
 unique(kimochis_hf$block)
 unique(kimochis_hf$stim_shape)
 
-colnames(plus_hf_merged)
+# check structure
+glimpse(plus_hf_merged)
+glimpse(kimochis_hf)
 
+# ccount of what blocks are present
+plus_hf_merged |> count(block) 
+kimochis_hf |> count(block)
+
+# check shape of PLUS
+plus_hf_merged |> 
+  filter(block == "flowers test") |>
+  count(stim_shape, resp_side, stim_side) |>
+  head(20)
 ```
 
 ```{r}
-# checking scoring
-library(dplyr)
-plus_hf_merged %>%
-  filter(block == "flowers test") %>%
-  summarise(mean_acc = mean(acc, na.rm = TRUE))
-mean(plus_hf_merged$acc, na.rm = TRUE)
-mean(kimochis_hf$acc[kimochis_hf$block == "flowers test"], na.rm = TRUE)
+#| label: levante-scores
+#| include: false
 
+# install remotes
+# install.packages("remotes")
+# install rlevante 
+# remotes::install_github("levante-framework/rlevante")
 
+best_coefs <- read_rds(here("02_scoring_outputs/best_coefs.rds"))
+mods_best  <- read_rds(here("02_scoring_outputs/mods_best.rds"))
+
+# inspect
+glimpse(best_coefs)
+glimpse(mods_best)
+best_coefs |> distinct(task)
+
+# get hf item parameters 
+hf_coefs <- best_coefs |> filter(task == "hf")
+
+# see all item names
+hf_coefs |> distinct(item)
+
+# pull the hf model record
+hf_mod_rec <- mods_best |> filter(task == "hf") |> pull(mod_rec) |> pluck(1)
+
+# inspect the model record slots
+isVirtualClass("ModelRecord")
+slotNames(hf_mod_rec)
+
+# look at items slot specifically
+hf_mod_rec@items
 ```
 
 ```{r}
+#| label: prep-plus-hf-items
+#| include: false
+
+# compute accuracy and filter PLUS to test blocks only
+plus_hf_prepped <- plus_hf_merged |>
+  filter(block %in% c("hearts test", "flowers test", "mixed test")) |>
+  mutate(
+    # accuracy rule depends on stimulus type
+    correct = case_when(
+      stim_shape == "heart"  ~ resp_side == stim_side, # congruent
+      stim_shape == "flower" ~ resp_side != stim_side, # incongruent
+      TRUE ~ NA
+    ),
+    # treat timeouts (NA resp_side) as incorrect
+    correct = if_else(is.na(resp_side), FALSE, correct),
+    correct = as.integer(correct),
+    # recode block to match levante naming
+    block_clean = case_when(
+      block == "hearts test"  ~ "hearts",
+      block == "flowers test" ~ "flowers",
+      block == "mixed test"   ~ "heartsflowers"
+    )
+  )
+
+# derive trial type (start / stay / switch) within each person x block
+plus_hf_items <- plus_hf_prepped |>
+  arrange(stud_id, time, block_clean, trial_num) |>
+  group_by(stud_id, time, block_clean) |>
+  mutate(
+    prev_shape = lag(stim_shape),
+    trial_type = case_when(
+      trial_num == min(trial_num) ~ "start",
+      stim_shape == prev_shape   ~ "stay",
+      stim_shape != prev_shape   ~ "switch"
+    )
+  ) |>
+  # number trials sequentially within each type
+  group_by(stud_id, time, block_clean, stim_shape, trial_type) |>
+  mutate(trial_type_num = row_number()) |>
+  ungroup() |>
+  # construct item name matching levante format
+  mutate(
+    item = glue("{block_clean}_{stim_shape}_{trial_type}-{trial_type_num}")
+  )
+
+# check if names match with levante?
+plus_hf_items |> distinct(item) |> arrange(item)
+
+# check overlap with levante items
+levante_items <- hf_mod_rec@items
+plus_items <- plus_hf_items |> distinct(item) |> pull(item)
+
+# items in both
+intersect(plus_items, levante_items)
+
+# items in PLUS but not levante
+setdiff(plus_items, levante_items)
+
+# items in levante but not in PLUS (these will be NA in scoring)
+setdiff(levante_items, plus_items)
+# 57 out of 74 Levante items are present in PLUS. 
+
+mean_timeout_pct <- plus_hf_items |>
+  filter(block_clean != "hearts") |>
+  group_by(stud_id, time) |>
+  summarise(prop_timeout = mean(is.na(resp_side)), .groups = "drop") |>
+  summarise(mean_timeout = mean(prop_timeout)) |>
+  mutate(mean_timeout = round(mean_timeout * 100, 1)) |>
+  pull(mean_timeout)
+
+# flag and remove kids failing hearts attention check
+plus_hearts_check <- plus_hf_items |>
+  filter(block_clean == "hearts") |>
+  group_by(stud_id, time) |>
+  summarise(hearts_acc = mean(correct, na.rm = TRUE), .groups = "drop") |>
+  filter(hearts_acc >= 0.5)
+
+# pivot to wide format (one row per person, one col per item)
+plus_hf_wide <- plus_hf_items |>
+  semi_join(plus_hearts_check, by = c("stud_id", "time")) |>
+  select(stud_id, time, item, correct) |>
+  pivot_wider(names_from = item, values_from = correct)
 ```
+
+```{r}
+#| label: score-plus-hf
+
+# items shared between PLUS and Levante
+shared_items <- intersect(levante_items, plus_items)
+
+# matrix with only shared items
+plus_hf_matrix <- plus_hf_wide |>
+  select(all_of(shared_items)) |>
+  as.matrix()
+
+# use mirt's own parameter structure, filled in with Levante values
+levante_lookup <- hf_mod_rec@model_vals |>
+  filter(group == "pilot_mpieva_de",
+         item %in% shared_items) |>
+  select(item, name, value)
+
+fixed_pars <- mirt(
+  data     = plus_hf_matrix,
+  model    = 1,
+  itemtype = rep("3PL", ncol(plus_hf_matrix)),
+  pars     = "values"
+) |>
+  left_join(levante_lookup, by = c("item", "name"), suffix = c("", "_levante")) |>
+  mutate(
+    value = if_else(!is.na(value_levante), value_levante, value),
+    est   = FALSE
+  ) |>
+  select(-value_levante)
+
+# fit with all parameters fixed to Levante values
+hf_mod_plus <- mirt(
+  data      = plus_hf_matrix,
+  model     = 1,
+  itemtype  = rep("3PL", ncol(plus_hf_matrix)),
+  pars      = fixed_pars,
+  technical = list(NCYCLES = 1)
+)
+
+# score with SEs
+plus_scores_full <- fscores(hf_mod_plus, method = "EAP", full.scores.SE = TRUE)
+plus_hf_scored <- plus_hf_wide |>
+  select(stud_id, time) |>
+  mutate(
+    theta = plus_scores_full[, "F1"],
+    se    = plus_scores_full[, "SE_F1"]
+  )
+
+# marginal reliability
+plus_reliability <- round(1 - mean(plus_hf_scored$se^2) / var(plus_hf_scored$theta), 3)
+
+# grade summary for inline reporting
+grade_summary <- plus_hf_scored |>
+  left_join(plus_hf_merged |> distinct(stud_id, pl_grade), by = "stud_id") |>
+  group_by(pl_grade) |>
+  summarise(m  = round(mean(theta, na.rm = TRUE), 2),
+            sd = round(sd(theta, na.rm = TRUE), 2),
+            .groups = "drop")
+
+g3_m  <- grade_summary |> filter(pl_grade == 3) |> pull(m)
+g3_sd <- grade_summary |> filter(pl_grade == 3) |> pull(sd)
+g4_m  <- grade_summary |> filter(pl_grade == 4) |> pull(m)
+g4_sd <- grade_summary |> filter(pl_grade == 4) |> pull(sd)
+g5_m  <- grade_summary |> filter(pl_grade == 5) |> pull(m)
+g5_sd <- grade_summary |> filter(pl_grade == 5) |> pull(sd)
+```
+## Data preparation - PLUS 
+Trial-level data from PLUS were filtered to test blocks only (hearts test, flowers test, mixed test), excluding practice trials. Accuracy was derived from the stimulus-response pairing: trials with a heart stimulus were scored correct if the response matched the stimulus side (congruent rule), and trials with a flower stimulus were scored correct if the response was on the opposite side (incongruent rule). Trials with no response (NA) were initially coded as incorrect. Children were excluded if they scored below 50% on the hearts block, treating this as an attention check consistent with standard Levante scoring practice. This yielded a final analytic sample of 1,430 children across fall and spring timepoints.
+
+Each trial was then assigned an item label following the Levante naming convention: `{block}_{stimulus}_{trial_type}-{trial_number}`, where trial type was classified as start (first trial in block), stay (same stimulus type as previous trial), or switch (different stimulus type from previous trial). Of the 74 items in the Levante H&F model, 57 were present in PLUS. The 17 missing items were primarily later trials in the flowers block and later switch/stay trials in the mixed block, reflecting the shorter block lengths in PLUS relative to Levante.
+
+## Scoring
+Theta scores showed a monotonically increasing pattern across grades (3rd grade: M = `r g3_m`, SD = `r g3_sd`; 
+4th grade: M = `r g4_m`, SD = `r g4_sd`; 5th grade: M = `r g5_m`, SD = `r g5_sd`), consistent with the expected developmental trajectory and supporting the construct validity of the scoring approach in this sample.
+
+Note, all grade-level means are negative relative to the Levante scale origin. This may be becuase the PLUS task imposed a 750ms response time limit, compared to 2,500ms in Levante. Approximately `r mean_timeout_pct`% of PLUS trials resulted in timeouts, which were coded as incorrect responses. This systematically depresses accuracy relative to Levante scoring conventions, and likely accounts for a meaningful portion of the downward shift in thetas. 
+```{r}
+#| label: prep-kimochis-hf-items
+#| include: false
+
+# Initial checks
+# check stim_shape values (we saw these may be capitalized)
+kimochis_hf |> count(stim_shape)
+
+# check acc vs acc_to 
+kimochis_hf |>
+  filter(str_detect(block, "test")) |>
+  summarise(
+    mean_acc    = mean(acc, na.rm = TRUE),
+    mean_acc_to = mean(acc_to, na.rm = TRUE),
+    prop_timeout = mean(to, na.rm = TRUE)
+  )
+
+# check trial_num range per block
+kimochis_hf |>
+  filter(str_detect(block, "test")) |>
+  group_by(block) |>
+  summarise(max_trial = max(trial_num), min_trial = min(trial_num))
+####################
+
+kimochis_hf_items <- kimochis_hf |>
+  filter(str_detect(block, "test")) |>
+  mutate(
+    # recode stim_shape to lowercase to match levante
+    stim_shape  = str_to_lower(stim_shape),
+    block_clean = case_when(
+      block == "hearts test"  ~ "hearts",
+      block == "flowers test" ~ "flowers"
+    )
+  ) |>
+  arrange(id, time, block_clean, trial_num) |>
+  group_by(id, time, block_clean) |>
+  mutate(
+    # within each block all stimuli are the same shape, so no switches
+    trial_type     = if_else(trial_num == min(trial_num), "start", "stay"),
+    trial_type_num = if_else(trial_type == "start", 1L, row_number() - 1L)
+  ) |>
+  ungroup() |>
+  mutate(
+    item = paste0(block_clean, "_", stim_shape, "_", trial_type, "-", trial_type_num)
+  )
+
+# check item overlap with levante
+kimochis_items  <- kimochis_hf_items |> distinct(item) |> pull(item)
+intersect(kimochis_items, levante_items)
+setdiff(kimochis_items, levante_items)   # kimochis items not in levante
+setdiff(levante_items, kimochis_items)   # levante items not in kimochis
+```
+
+```{r}
+#| label: score-kimochis-hf
+
+# attention check - exclude kids scoring <50% on hearts
+kimochis_hearts_check <- kimochis_hf_items |>
+  filter(block_clean == "hearts") |>
+  group_by(id, time) |>
+  summarise(hearts_acc = mean(acc, na.rm = TRUE), .groups = "drop") |>
+  filter(hearts_acc >= 0.5)
+
+# shared items only
+kimochis_shared_items <- intersect(kimochis_items, levante_items)
+
+# pivot to wide format using acc (not acc_to)
+kimochis_hf_wide <- kimochis_hf_items |>
+  semi_join(kimochis_hearts_check, by = c("id", "time")) |>
+  filter(item %in% kimochis_shared_items) |>
+  select(id, time, item, acc) |>
+  pivot_wider(names_from = item, values_from = acc)
+
+# matrix of responses
+kimochis_hf_matrix <- kimochis_hf_wide |>
+  select(all_of(kimochis_shared_items)) |>
+  as.matrix()
+
+# fixed parameters from levante for shared items only
+levante_lookup_kimochis <- hf_mod_rec@model_vals |>
+  filter(group == "pilot_mpieva_de",
+         item %in% kimochis_shared_items) |>
+  select(item, name, value)
+
+fixed_pars_kimochis <- mirt(
+  data     = kimochis_hf_matrix,
+  model    = 1,
+  itemtype = rep("3PL", ncol(kimochis_hf_matrix)),
+  pars     = "values"
+) |>
+  left_join(levante_lookup_kimochis, by = c("item", "name"), suffix = c("", "_levante")) |>
+  mutate(
+    value = if_else(!is.na(value_levante), value_levante, value),
+    est   = FALSE
+  ) |>
+  select(-value_levante)
+
+# fit with fixed parameters
+hf_mod_kimochis <- mirt(
+  data      = kimochis_hf_matrix,
+  model     = 1,
+  itemtype  = rep("3PL", ncol(kimochis_hf_matrix)),
+  pars      = fixed_pars_kimochis,
+  technical = list(NCYCLES = 1)
+)
+
+# score with SEs
+kimochis_scores_full <- fscores(hf_mod_kimochis, method = "EAP", full.scores.SE = TRUE)
+kimochis_hf_scored <- kimochis_hf_wide |>
+  select(id, time) |>
+  mutate(
+    theta = kimochis_scores_full[, "F1"],
+    se    = kimochis_scores_full[, "SE_F1"]
+  )
+
+# marginal reliability
+kimochis_reliability <- round(1 - mean(kimochis_hf_scored$se^2) / var(kimochis_hf_scored$theta), 3)
+
+# age summary for inline reporting
+kimochis_age_summary <- kimochis_hf_scored |>
+  left_join(kimochis_hf |> distinct(id, time, age), by = c("id", "time")) |>
+  mutate(age_group = cut(age, breaks = c(2, 3, 4, 5, 6),
+                         labels = c("2-3", "3-4", "4-5", "5-6"))) |>
+  group_by(age_group) |>
+  summarise(m  = round(mean(theta, na.rm = TRUE), 2),
+            sd = round(sd(theta, na.rm = TRUE), 2),
+            .groups = "drop")
+
+a23_m  <- kimochis_age_summary |> filter(age_group == "2-3") |> pull(m)
+a23_sd <- kimochis_age_summary |> filter(age_group == "2-3") |> pull(sd)
+a34_m  <- kimochis_age_summary |> filter(age_group == "3-4") |> pull(m)
+a34_sd <- kimochis_age_summary |> filter(age_group == "3-4") |> pull(sd)
+a45_m  <- kimochis_age_summary |> filter(age_group == "4-5") |> pull(m)
+a45_sd <- kimochis_age_summary |> filter(age_group == "4-5") |> pull(sd)
+```
+## Data preparation - Kimochis
+Trial-level data from Kimochis were filtered to test blocks only (hearts test, flowers test), excluding practice trials. Unlike PLUS, the Kimochis dataset did not include a mixed block, as the children were considered too young for the task-switching demands it requires. Accuracy was taken from the pre-computed "acc" column rather than derived from stimulus-response pairings. Timeouts were treated as missing rather than incorrect, consistent with the 1:1 assessment context in which no strict response time limit was imposed. Children were excluded if they scored below 50% on the hearts block as an attention check, consistent with standard Levante scoring practice.
+
+Each trial was assigned an item label following the Levante naming convention. Of the 74 items in the Levante H&F model, 27 were present in Kimochis — all from the hearts and flowers blocks. The 8 additional flowers trials in Kimochis (stay-16 through stay-23) exceeded the length of the Levante flowers block and were excluded from scoring. All 46 mixed block items were absent by design.
+
+Theta scores showed a monotonically increasing pattern across age groups (2–3 years: M = `r a23_m`, SD = `r a23_sd`; 
+3–4 years: M = `r a34_m`, SD = `r a34_sd`; 4–5 years: M = `r a45_m`, SD = `r a45_sd`), consistent with the expected developmental trajectory.
+
+As with PLUS, all age-group means are negative relative to the Levante scale origin. This is expected given that Kimochis children (ages 2–5) fall below the Levante calibration age range of 5–12, and the scoring is based on only 27 of the 74 Levante items, with no mixed block trials contributing to the theta estimates.
+```{r}
+
+task_rxx <- read_rds(here("02_scoring_outputs/task_rxx.rds"))
+colnames(task_rxx)
+task_rxx |> filter(task == "hf")
+
+# how many items in the levante hf model per site?
+best_coefs |> 
+  filter(task == "hf") |> 
+  group_by(group) |> 
+  distinct(item) |> 
+  count()
+
+# Load data
+task_data_nested <- read_rds(here("01_fetched_data/task_data_nested.rds"))
+glimpse(task_data_nested$data)
+
+# look at the data structure for hf in levante
+task_data_nested |>
+  filter(item_task == "hf") |>
+  unnest(data) |>
+  group_by(site, user_id, run_id) |>
+  summarise(n_trials = n(), .groups = "drop") |>
+  group_by(site) |>
+  summarise(mean_trials   = mean(n_trials),
+            sd_trials     = sd(n_trials),
+            median_trials = median(n_trials))
+
+task_data_nested |>
+  filter(item_task == "hf") |>
+  unnest(data) |>
+  group_by(site, user_id, run_id) |>
+  summarise(n_unique_items = n_distinct(item_uid), .groups = "drop") |>
+  group_by(site) |>
+  summarise(mean_unique = mean(n_unique_items),
+            median_unique = median(n_unique_items))
+```
+## Reliability
+Marginal reliability was computed for each sample as 1 − mean(SE²) / var(θ), where SE is the standard error of each child's EAP theta estimate. Reliability was highest in PLUS (r = r plus_reliability) and intermediate in Kimochis (r = r kimochis_reliability), both exceeding the Levante calibration estimates, which ranged from 0.54 (Germany) to 0.66 (Colombia) across the three reference sites.
+
+This pattern is explained by differences in the effective number of items contributing to each child's theta estimate. In Levante, the H&F task is scored using 10 item types (e.g., hearts_heart_stay, flowers_flower_start), with CAT selecting adaptively among them. Despite completing a median of 60 trials per session, Levante children encountered a median of only 9 unique item types, meaning theta estimates are effectively based on 9 items. In contrast, the Spark analysis treated each trial position as a distinct item following the Levante naming convention, yielding 57 scored items in PLUS and 27 in Kimochis. The monotonic relationship between effective item count and reliability (9 → 27 → 57 items; 0.54–0.66 → 0.735 → 0.883) is consistent with classical measurement theory, which predicts reliability increases with test length.
+
+These findings suggest that the Levante H&F IRT model can generate reliable scores when applied to fixed-format assessments with sufficient item coverage, but that the CAT-based scoring used in Levante itself yields more modest reliability due to the small number of effective item types. This has implications for how the model is deployed: fixed-format administrations with trial-level item distinctions may produce more precise ability estimates than the current CAT implementation.
