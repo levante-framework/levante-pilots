@@ -172,6 +172,7 @@ plus_hf_wide <- plus_hf_items |>
 
 ```{r}
 #| label: score-plus-hf
+#| include: false
 
 # items shared between PLUS and Levante
 shared_items <- intersect(levante_items, plus_items)
@@ -301,6 +302,7 @@ setdiff(levante_items, kimochis_items)   # levante items not in kimochis
 
 ```{r}
 #| label: score-kimochis-hf
+#| include: false
 
 # attention check - exclude kids scoring <50% on hearts
 kimochis_hearts_check <- kimochis_hf_items |>
@@ -391,6 +393,8 @@ Theta scores showed a monotonically increasing pattern across age groups (2–3 
 
 As with PLUS, all age-group means are negative relative to the Levante scale origin. This is expected given that Kimochis children (ages 2–5) fall below the Levante calibration age range of 5–12, and the scoring is based on only 27 of the 74 Levante items, with no mixed block trials contributing to the theta estimates.
 ```{r}
+#| label: levante-hf-structure
+#| include: false
 
 task_rxx <- read_rds(here("02_scoring_outputs/task_rxx.rds"))
 colnames(task_rxx)
@@ -428,7 +432,7 @@ task_data_nested |>
             median_unique = median(n_unique_items))
 ```
 ## Reliability
-Marginal reliability was computed for each sample as 1 − mean(SE²) / var(θ), where SE is the standard error of each child's EAP theta estimate. Reliability was highest in PLUS (r = r plus_reliability) and intermediate in Kimochis (r = r kimochis_reliability), both exceeding the Levante calibration estimates, which ranged from 0.54 (Germany) to 0.66 (Colombia) across the three reference sites.
+Marginal reliability was computed for each sample as 1 − mean(SE²) / var(θ), where SE is the standard error of each child's EAP theta estimate. Reliability was highest in PLUS (r = `r plus_reliability`) and intermediate in Kimochis (r = `r kimochis_reliability`), both exceeding the Levante calibration estimates, which ranged from 0.54 (Germany) to 0.66 (Colombia) across the three reference sites.
 
 This pattern is explained by differences in the effective number of items contributing to each child's theta estimate. In Levante, the H&F task is scored using 10 item types (e.g., hearts_heart_stay, flowers_flower_start), with CAT selecting adaptively among them. Despite completing a median of 60 trials per session, Levante children encountered a median of only 9 unique item types, meaning theta estimates are effectively based on 9 items. In contrast, the Spark analysis treated each trial position as a distinct item following the Levante naming convention, yielding 57 scored items in PLUS and 27 in Kimochis. The monotonic relationship between effective item count and reliability (9 → 27 → 57 items; 0.54–0.66 → 0.735 → 0.883) is consistent with classical measurement theory, which predicts reliability increases with test length.
 
