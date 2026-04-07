@@ -12,43 +12,429 @@ library(tidyverse)
 library(mirt)        
 library(here)
 library(glue)
+library(flextable)
+library(tidyverse)
+library(patchwork)
+library(janitor)
+library(haven)
+
 ```
 
 ```{r}
 #| label: load-data
 #| include: false
-plus_hf_merged <- readRDS("plus_hf_merged.rds")
-kimochis_hf <- readRDS("kimochis_hf.rds")
-# colnames(plus_hf_merged)
-# colnames(kimochis_hf)
+plus <- readRDS("plus_hf_merged.rds")
+kimochis <- readRDS("kimochis_hf.rds")
+# colnames(plus)
+# colnames(kimochis)
 ```
 
 ```{r}
 #| label: explore-data
 #| include: false
 
-head(plus_hf_merged, 3)
-head(kimochis_hf, 3)
+head(plus, 3)
+head(kimochis, 3)
 
-unique(plus_hf_merged$block)
-unique(plus_hf_merged$stim_shape)
+unique(plus$block)
+unique(plus$stim_shape)
 
-unique(kimochis_hf$block)
-unique(kimochis_hf$stim_shape)
+unique(kimochis$block)
+unique(kimochis$stim_shape)
 
 # check structure
-glimpse(plus_hf_merged)
-glimpse(kimochis_hf)
+glimpse(plus)
+glimpse(kimochis)
 
 # ccount of what blocks are present
-plus_hf_merged |> count(block) 
-kimochis_hf |> count(block)
+plus |> count(block) 
+kimochis |> count(block)
 
 # check shape of PLUS
-plus_hf_merged |> 
+plus |> 
   filter(block == "flowers test") |>
   count(stim_shape, resp_side, stim_side) |>
   head(20)
+```
+
+# Descriptive stats
+```{r}
+#| label: descriptive-stats
+#| include: false
+
+library(haven)
+
+# plus cleaning
+plus <- plus |>
+  mutate(
+    dataset    = "plus",
+    pl_fem     = as_factor(pl_fem),
+    stim_shape = str_to_lower(stim_shape),
+    stim_side  = str_to_lower(stim_side),
+    resp_side  = str_to_lower(resp_side),
+    acc        = case_when(
+      stim_shape == "heart"  ~ as.numeric(resp_side == stim_side),
+      stim_shape == "flower" ~ as.numeric(resp_side != stim_side),
+      TRUE                   ~ NA_real_
+    ),
+    acc = if_else(is.na(resp_side), 0, acc)
+  ) |>
+  filter(
+    !block %in% c("hearts practice", "flowers practice"),
+    rt > 0,
+    !is.na(rt)
+  )
+
+# kimochis cleaning
+kimochis <- kimochis |>
+  mutate(
+    dataset    = "kimochis",
+    stim_shape = str_to_lower(stim_shape),
+    stim_side  = str_to_lower(stim_side),
+    resp_side  = str_to_lower(resp_side),
+    rt         = rt_all * 1000
+  ) |>
+  filter(!block %in% c("hearts practice", "flowers practice"))
+
+# both
+both_descriptive <- bind_rows(
+  plus     |> mutate(time = as.character(time)),
+  kimochis |> mutate(time = as.character(time))
+)
+
+# structure
+glimpse(plus)
+glimpse(kimochis)
+
+# numeric summary
+plus     |> select(where(is.numeric)) |> summary()
+kimochis |> select(where(is.numeric)) |> summary()
+
+# trial count by block
+both_descriptive |>
+  count(dataset, block) |>
+  pivot_wider(names_from = dataset, values_from = n)
+
+# accuracy by block
+both_descriptive |>
+  group_by(dataset, block) |>
+  summarise(
+    n        = n(),
+    acc_mean = mean(acc, na.rm = TRUE),
+    acc_sd   = sd(acc,  na.rm = TRUE),
+    .groups  = "drop"
+  )
+
+```
+
+```{r}
+#| label: descriptive-table
+#| echo: false
+
+both_descriptive |>
+  filter(!is.na(rt)) |>
+  group_by(dataset, block) |>
+  summarise(
+    n_trials = n(),
+    acc_mean = mean(acc, na.rm = TRUE),
+    acc_sd   = sd(acc,  na.rm = TRUE),
+    rt_mean  = mean(rt),
+    rt_med   = median(rt),
+    rt_sd    = sd(rt),
+    rt_min   = min(rt),
+    rt_max   = max(rt),
+    .groups  = "drop"
+  ) |>
+  arrange(dataset, block) |>
+  rename(
+    Dataset    = dataset,
+    Block      = block,
+    `N Trials` = n_trials,
+    `Acc Mean` = acc_mean,
+    `Acc SD`   = acc_sd,
+    `RT Mean`  = rt_mean,
+    `RT Median` = rt_med,
+    `RT SD`    = rt_sd,
+    `RT Min`   = rt_min,
+    `RT Max`   = rt_max
+  ) |>
+  flextable() |>
+  colformat_double(digits = 2) |>
+  merge_v(j = "Dataset") |>
+  theme_vanilla() |>
+  autofit()
+
+```
+
+```{r}
+#| label: plots
+#| echo: false
+
+# RT distributions by block
+p_rt_dist <- both_descriptive |>
+  filter(!is.na(rt)) |>
+  ggplot(aes(x = rt, fill = dataset)) +
+  geom_histogram(bins = 60, alpha = 0.7, position = "identity") +
+  facet_wrap(~block, scales = "free_y") +
+  labs(title = "RT distributions by block", x = "RT (ms)", y = "count") +
+  theme_minimal()
+
+# accuracy by block x stim_shape
+p_acc <- both_descriptive |>
+  group_by(dataset, block, stim_shape) |>
+  summarise(acc = mean(acc, na.rm = TRUE), .groups = "drop") |>
+  ggplot(aes(x = block, y = acc, fill = stim_shape)) +
+  geom_col(position = "dodge") +
+  facet_wrap(~dataset) +
+  scale_y_continuous(limits = c(0, 1)) +
+  labs(title = "Accuracy by block × stim_shape", y = "proportion correct") +
+  theme_minimal() +
+  theme(axis.text.x = element_text(angle = 30, hjust = 1))
+
+# RT boxplots by block x stim_shape
+p_rt_box <- both_descriptive |>
+  filter(!is.na(rt)) |>
+  ggplot(aes(x = block, y = rt, fill = stim_shape)) +
+  geom_boxplot(outlier.size = 0.5, alpha = 0.8) +
+  facet_wrap(~dataset) +
+  labs(title = "RT by block × stim_shape", y = "RT (ms)") +
+  theme_minimal() +
+  theme(axis.text.x = element_text(angle = 30, hjust = 1))
+
+print(p_rt_dist)
+print(p_acc)
+print(p_rt_box)
+
+```
+
+```{r}
+#| label: sample-descriptives
+#| include: false
+
+# plus - sample size and age by timepoint
+plus |>
+  group_by(time) |>
+  summarise(
+    n_students  = n_distinct(stud_id),
+    n_schools   = n_distinct(sch_id),
+    age_mean    = mean(pl_age, na.rm = TRUE),
+    age_sd      = sd(pl_age,  na.rm = TRUE),
+    age_min     = min(pl_age, na.rm = TRUE),
+    age_max     = max(pl_age, na.rm = TRUE),
+    pct_female = mean(pl_fem == "Female", na.rm = TRUE),
+    .groups     = "drop"
+  )
+
+# plus: grade distribution by timepoint
+plus |>
+  group_by(time, pl_grade) |>
+  summarise(n = n_distinct(stud_id), .groups = "drop") |>
+  pivot_wider(names_from = pl_grade, values_from = n)
+
+# kimochis: sample size and age by timepoint
+kimochis |>
+  group_by(time) |>
+  summarise(
+    n_children  = n_distinct(id),
+    age_mean    = mean(age, na.rm = TRUE),
+    age_sd      = sd(age,  na.rm = TRUE),
+    age_min     = min(age, na.rm = TRUE),
+    age_max     = max(age, na.rm = TRUE),
+    pct_female  = mean(female, na.rm = TRUE),
+    .groups     = "drop"
+  )
+
+# kimochis: grade distribution by timepoint
+kimochis |>
+  group_by(time, grade) |>
+  summarise(n = n_distinct(id), .groups = "drop") |>
+  pivot_wider(names_from = grade, values_from = n)
+```
+
+```{r}
+#| label: kimochis-age-check
+#| include: false
+
+# are the exact same children appearing across timepoints?
+kimochis |>
+  group_by(id) |>
+  summarise(n_timepoints = n_distinct(time)) |>
+  count(n_timepoints)
+
+# do the min/max age children appear at multiple timepoints with the same age?
+kimochis |>
+  filter(age == min(age, na.rm = TRUE) | age == max(age, na.rm = TRUE)) |>
+  distinct(id, time, age, grade) |>
+  arrange(id, time)
+
+# is age time-varying within a child, or fixed at enrolment?
+kimochis |>
+  group_by(id) |>
+  summarise(n_distinct_ages = n_distinct(age)) |>
+  count(n_distinct_ages)
+
+# distribution of age at each timepoint
+kimochis |>
+  ggplot(aes(x = age, fill = time)) +
+  geom_histogram(bins = 30, alpha = 0.7, position = "identity") +
+  facet_wrap(~time) +
+  theme_minimal() +
+  labs(title = "Age distribution by timepoint")
+
+```
+
+## Sample Descriptives
+```{r}
+#| label: sample-reporting-plus
+#| include: false
+
+plus_n_total <- n_distinct(plus$stud_id)
+plus_n_schools <- n_distinct(plus$sch_id)
+
+plus_summary <- plus |>
+  group_by(time) |>
+  summarise(
+    n = n_distinct(stud_id),
+    age_mean = mean(pl_age, na.rm = TRUE) |> round(2),
+    age_sd   = sd(pl_age,  na.rm = TRUE)  |> round(2),
+    .groups  = "drop"
+  )
+
+plus_n_fall   <- plus_summary |> filter(time == "PLUS Fall")   |> pull(n)
+plus_n_spring <- plus_summary |> filter(time == "PLUS Spring") |> pull(n)
+plus_age_mean <- plus_summary |> pull(age_mean) |> mean() |> round(2)
+plus_age_sd   <- plus_summary |> pull(age_sd)   |> mean() |> round(2)
+```
+### Plus
+The Plus dataset includes `r plus_n_total` unique students across two timepoints (PLUS Fall and PLUS Spring) drawn from `r plus_n_schools` schools. Sample sizes were stable across timepoints (Fall: n = `r plus_n_fall`, Spring: n = `r plus_n_spring`). Mean age was approximately `r plus_age_mean` years (SD ~`r plus_age_sd`) at both timepoints, with students in grades 3, 4, and 5 roughly evenly distributed. The sample was approximately 49% female at both timepoints.
+
+```{r}
+#| label: sample-reporting-kimochis
+#| include: false
+
+kimo_n_total <- n_distinct(kimochis$id)
+kimo_n_t1 <- kimochis |> filter(time == "2021-2022 Fall")   |> summarise(n = n_distinct(id)) |> pull(n)
+kimo_n_t4 <- kimochis |> filter(time == "2022-2023 Spring") |> summarise(n = n_distinct(id)) |> pull(n)
+
+# from the sample descriptives summary table
+kimo_summary <- kimochis |>
+  group_by(time) |>
+  summarise(
+    n        = n_distinct(id),
+    age_mean = mean(age, na.rm = TRUE) |> round(2),
+    age_sd   = sd(age,  na.rm = TRUE)  |> round(2),
+    .groups  = "drop"
+  )
+
+kimo_age_min <- kimo_summary |> summarise(m = min(age_mean)) |> pull(m)
+kimo_age_max <- kimo_summary |> summarise(m = max(age_mean)) |> pull(m)
+
+kimo_retention <- kimochis |>
+  group_by(id) |>
+  summarise(n_timepoints = n_distinct(time)) |>
+  count(n_timepoints)
+
+kimo_n_1tp  <- kimo_retention |> filter(n_timepoints == 1) |> pull(n)
+kimo_n_2tp  <- kimo_retention |> filter(n_timepoints == 2) |> pull(n)
+kimo_n_3tp  <- kimo_retention |> filter(n_timepoints == 3) |> pull(n)
+kimo_n_4tp  <- kimo_retention |> filter(n_timepoints == 4) |> pull(n)
+
+kimo_n_fixed_age <- kimochis |>
+  group_by(id) |>
+  summarise(n_distinct_ages = n_distinct(age)) |>
+  filter(n_distinct_ages == 1) |>
+  nrow()
+```
+### Kimochis
+The Kimochis dataset includes `r kimo_n_total` unique children across four timepoints spanning two academic years (2021-2022 and 2022-2023, Fall and Spring). Sample sizes ranged from `r kimo_n_t1` children at the first timepoint to `r kimo_n_t4` at the last. The sample was approximately evenly split by sex (~46-51% female) across timepoints, with mean age ranging from `r kimo_age_min` to `r kimo_age_max` years. Children were enrolled in Pre-K and, from 2021-2022 Spring onwards, Transitional Kindergarten (TK).
+
+Longitudinal retention was limited: the majority of children appeared at only one timepoint 
+(n = `r kimo_n_1tp`), with `r kimo_n_2tp` appearing at two, `r kimo_n_3tp` at three, and 
+`r kimo_n_4tp` at all four timepoints. The dataset is therefore better characterised as largely cross-sectional with limited repeated measures.
+
+Age in the Kimochis dataset should be interpreted with caution. For the majority of children
+(n = `r kimo_n_fixed_age`), age did not vary across timepoints, suggesting it reflects 
+approximate age at enrolment rather than age at time of assessment. Age values also appear to be rounded to the nearest month rather than recorded as a continuous measure. These features should be considered when using age as a covariate in models.
+
+```{r}
+#| label: data-quality-checks
+#| include: false
+
+# plus RT distribution checks
+plus |>
+  summarise(
+    p95         = quantile(rt, 0.95),
+    p99         = quantile(rt, 0.99),
+    n_over_3000 = sum(rt > 3000),
+    n_over_5000 = sum(rt > 5000)
+  )
+
+# kimochis: extreme RTs
+kimochis |>
+  filter(rt > 10000) |>
+  select(id, block, trial_num, rt, acc, to) |>
+  arrange(desc(rt))
+
+# kimochis: timeout flag alignment 
+# check whether to, rt NA, and acc NA are consistent
+kimochis |>
+  mutate(rt_na     = is.na(rt),
+         acc_na    = is.na(acc),
+         timed_out = to == 1) |>
+  count(rt_na, acc_na, timed_out)
+
+# plus: NA resp_side breakdown 
+plus |>
+  filter(is.na(resp_side)) |>
+  count(block)
+
+# kimochis: ft_stim NAs by block
+kimochis |>
+  filter(is.na(ft_stim)) |>
+  count(block)
+
+# kimochis: ar NAs vs acc NAs
+kimochis |>
+  mutate(ar_na  = is.na(ar),
+         acc_na = is.na(acc)) |>
+  count(ar_na, acc_na)
+
+# missing values per column 
+map_df(
+  list(plus = plus, kimochis = kimochis),
+  ~summarise(.x, across(everything(), ~sum(is.na(.)))),
+  .id = "dataset"
+)
+
+# cell balance 
+both_descriptive |>
+  count(dataset, block, stim_shape, stim_side) |>
+  group_by(dataset, block) |>
+  mutate(expected  = mean(n),
+         deviation = n - expected) |>
+  filter(abs(deviation) > 5)
+
+# duplicate rows
+both_descriptive |>
+  group_by(dataset) |>
+  summarise(n_total    = n(),
+            n_distinct = n_distinct(across(everything())),
+            n_dupes    = n_total - n_distinct)
+
+# congruency rule violations 
+# for mixed test, rule is determined by stim_shape within trial
+both_descriptive |>
+  mutate(
+    congruent          = stim_side == resp_side,
+    expected_congruent = case_when(
+      stim_shape == "heart"  ~ TRUE,
+      stim_shape == "flower" ~ FALSE,
+      TRUE                   ~ NA
+    ),
+    rule_violation = !is.na(expected_congruent) & (congruent != expected_congruent)
+  ) |>
+  count(dataset, block, rule_violation)
+
 ```
 
 ```{r}
@@ -129,20 +515,16 @@ task_data_nested |>
 #| label: prep-plus-hf-items
 #| include: false
 
-# compute accuracy and filter PLUS to test blocks only
-plus_hf_prepped <- plus_hf_merged |>
+plus_hf_prepped <- plus |>
   filter(block %in% c("hearts test", "flowers test", "mixed test")) |>
   mutate(
-    # accuracy rule depends on stimulus type
     correct = case_when(
-      stim_shape == "heart"  ~ resp_side == stim_side, # congruent
-      stim_shape == "flower" ~ resp_side != stim_side, # incongruent
+      stim_shape == "heart"  ~ resp_side == stim_side,
+      stim_shape == "flower" ~ resp_side != stim_side,
       TRUE ~ NA
     ),
-    # treat timeouts (NA resp_side) as incorrect
-    correct = if_else(is.na(resp_side), FALSE, correct),
-    correct = as.integer(correct),
-    # recode block to match levante naming
+    correct     = if_else(is.na(resp_side), FALSE, correct),
+    correct     = as.integer(correct),
     block_clean = case_when(
       block == "hearts test"  ~ "hearts",
       block == "flowers test" ~ "flowers",
@@ -150,7 +532,7 @@ plus_hf_prepped <- plus_hf_merged |>
     )
   )
 
-# derive trial type (start / stay / switch) within each person x block
+# classify trials as start / stay / switch within each person x block
 plus_hf_items <- plus_hf_prepped |>
   arrange(stud_id, time, block_clean, trial_num) |>
   group_by(stud_id, time, block_clean) |>
@@ -162,61 +544,32 @@ plus_hf_items <- plus_hf_prepped |>
       stim_shape != prev_shape   ~ "switch"
     )
   ) |>
-  # number trials sequentially within each type
   group_by(stud_id, time, block_clean, stim_shape, trial_type) |>
   mutate(trial_type_num = row_number()) |>
   ungroup() |>
-  # construct item name matching levante format
-  mutate(
-    item = glue("{block_clean}_{stim_shape}_{trial_type}-{trial_type_num}")
-  )
+  mutate(item = glue("{block_clean}_{stim_shape}_{trial_type}-{trial_type_num}"))
 
-# check if names match with levante?
-plus_hf_items |> distinct(item) |> arrange(item)
-
-# check overlap with levante items
-levante_items <- hf_mod_rec@items
-plus_items <- plus_hf_items |> distinct(item) |> pull(item)
-
-# items in both
-intersect(plus_items, levante_items)
-
-# items in PLUS but not levante
-setdiff(plus_items, levante_items)
-
-# items in levante but not in PLUS (these will be NA in scoring)
-setdiff(levante_items, plus_items)
-# 57 out of 74 Levante items are present in PLUS. 
-
+# timeout rate (flowers and mixed blocks only)
 mean_timeout_pct <- plus_hf_items |>
   filter(block_clean != "hearts") |>
   group_by(stud_id, time) |>
   summarise(prop_timeout = mean(is.na(resp_side)), .groups = "drop") |>
-  summarise(mean_timeout = mean(prop_timeout)) |>
-  mutate(mean_timeout = round(mean_timeout * 100, 1)) |>
+  summarise(mean_timeout = round(mean(prop_timeout) * 100, 1)) |>
   pull(mean_timeout)
 
-# flag and remove kids failing hearts attention check
+# attention check: exclude children scoring below 50% on hearts block
 plus_hearts_check <- plus_hf_items |>
   filter(block_clean == "hearts") |>
   group_by(stud_id, time) |>
   summarise(hearts_acc = mean(correct, na.rm = TRUE), .groups = "drop") |>
   filter(hearts_acc >= 0.5)
-
-# pivot to wide format (one row per person, one col per item)
-plus_hf_wide <- plus_hf_items |>
-  semi_join(plus_hearts_check, by = c("stud_id", "time")) |>
-  select(stud_id, time, item, correct) |>
-  pivot_wider(names_from = item, values_from = correct)
-
 ```
 
 ```{r}
 #| label: plus-hf-levante-equivalent
 #| include: false
 
-# collapse trial positions: strip position number from item label
-# and take proportion correct per person x item_uid type
+# collapse repeated trials of same type into single binary item
 plus_hf_collapsed <- plus_hf_items |>
   semi_join(plus_hearts_check, by = c("stud_id", "time")) |>
   mutate(item_uid = str_remove(item, "-\\d+$")) |>
@@ -224,7 +577,7 @@ plus_hf_collapsed <- plus_hf_items |>
   summarise(prop_correct = mean(correct, na.rm = TRUE), .groups = "drop") |>
   mutate(correct_collapsed = as.integer(prop_correct >= 0.5))
 
-# define levante item_uid types
+# levante item_uid types
 levante_uid_types <- c(
   "hearts_heart_start", "hearts_heart_stay",
   "flowers_flower_start", "flowers_flower_stay",
@@ -233,16 +586,16 @@ levante_uid_types <- c(
   "heartsflowers_heart_switch", "heartsflowers_flower_switch"
 )
 
-# shared item_uid types between PLUS and levante
-plus_uid_types <- plus_hf_collapsed |> distinct(item_uid) |> pull(item_uid)
-shared_uid_types <- intersect(plus_uid_types, levante_uid_types)
+shared_uid_types <- intersect(
+  plus_hf_collapsed |> distinct(item_uid) |> pull(item_uid),
+  levante_uid_types
+)
 
-# pivot to wide
+# pivot to wide and build response matrix
 plus_hf_collapsed_wide <- plus_hf_collapsed |>
   select(stud_id, time, item_uid, correct_collapsed) |>
   pivot_wider(names_from = item_uid, values_from = correct_collapsed)
 
-# response matrix
 plus_collapsed_matrix <- plus_hf_collapsed_wide |>
   select(all_of(shared_uid_types)) |>
   as.matrix()
@@ -252,24 +605,17 @@ plus_collapsed_matrix <- plus_hf_collapsed_wide |>
 #| label: plus-hf-levante-equivalent-rasch
 #| include: false
 
-# verify g and u values first
-hf_mod_rec@model_vals |>
-  filter(group == "pilot_mpieva_de", name %in% c("g", "u")) |>
-  group_by(name) |>
-  summarise(mean = mean(value), min = min(value), max = max(value))
-
-# levante lookup for collapsed items - d parameter only
+# pull levante d parameters (identical across sites under scalar invariance)
 levante_lookup_collapsed <- hf_mod_rec@model_vals |>
-  filter(group == "pilot_mpieva_de",
-         name == "d") |>  # Rasch only needs d
+  filter(name == "d") |>
   mutate(item_uid = str_remove(item, "-\\d+$")) |>
   filter(item_uid %in% levante_uid_types) |>
   group_by(item_uid, name) |>
-  slice_min(item, n = 1) |>  # use position-1 difficulty as representative
+  slice_min(item, n = 1) |>
   ungroup() |>
-  select(item = item_uid, name, value)
+  distinct(item = item_uid, name, value)
 
-# fix parameters - Rasch
+# fix item parameters to levante values
 fixed_pars_collapsed <- mirt(
   data     = plus_collapsed_matrix,
   model    = 1,
@@ -283,7 +629,7 @@ fixed_pars_collapsed <- mirt(
   ) |>
   select(-value_levante)
 
-# fit model
+# fit model with fixed parameters and estimate EAP scores
 hf_mod_plus_collapsed <- mirt(
   data      = plus_collapsed_matrix,
   model     = 1,
@@ -292,8 +638,8 @@ hf_mod_plus_collapsed <- mirt(
   technical = list(NCYCLES = 1)
 )
 
-# score
 plus_scores_collapsed <- fscores(hf_mod_plus_collapsed, method = "EAP", full.scores.SE = TRUE)
+
 plus_hf_scored_collapsed <- plus_hf_collapsed_wide |>
   select(stud_id, time) |>
   mutate(
@@ -305,15 +651,16 @@ plus_reliability_collapsed <- round(
   1 - mean(plus_hf_scored_collapsed$se_collapsed^2) / var(plus_hf_scored_collapsed$theta_collapsed),
   3
 )
-plus_reliability_collapsed
 
-# grade summary using collapsed theta
+# grade-level theta summary
 grade_summary <- plus_hf_scored_collapsed |>
-  left_join(plus_hf_merged |> distinct(stud_id, pl_grade), by = "stud_id") |>
+  left_join(plus |> distinct(stud_id, pl_grade), by = "stud_id") |>
   group_by(pl_grade) |>
-  summarise(m  = round(mean(theta_collapsed, na.rm = TRUE), 2),
-            sd = round(sd(theta_collapsed, na.rm = TRUE), 2),
-            .groups = "drop")
+  summarise(
+    m  = round(mean(theta_collapsed, na.rm = TRUE), 2),
+    sd = round(sd(theta_collapsed, na.rm = TRUE), 2),
+    .groups = "drop"
+  )
 
 g3_m  <- grade_summary |> filter(pl_grade == 3) |> pull(m)
 g3_sd <- grade_summary |> filter(pl_grade == 3) |> pull(sd)
@@ -322,24 +669,21 @@ g4_sd <- grade_summary |> filter(pl_grade == 4) |> pull(sd)
 g5_m  <- grade_summary |> filter(pl_grade == 5) |> pull(m)
 g5_sd <- grade_summary |> filter(pl_grade == 5) |> pull(sd)
 ```
-
 ## Data preparation and scoring - PLUS 
-Trial-level data from PLUS were filtered to test blocks only (hearts test, flowers test, mixed test), excluding practice trials. Accuracy was derived from the stimulus-response pairing: trials with a heart stimulus were scored correct if the response matched the stimulus side (congruent rule), and trials with a flower stimulus were scored correct if the response was on the opposite side (incongruent rule). Trials with no response (NA) were coded as incorrect. Children were excluded if they scored below 50% on the hearts block, treating this as an attention check consistent with standard Levante scoring practice. This yielded a final analytic sample of 1,430 children across fall and spring timepoints.
+Trial-level data from PLUS were filtered to test blocks only (hearts test, flowers test, mixed test), excluding practice trials. Accuracy was derived from the stimulus-response pairing: trials with a heart stimulus were scored correct if the response matched the stimulus side (congruent rule), and trials with a flower stimulus were scored correct if the response was on the opposite side (incongruent rule). Trials with no response (NA) were coded as incorrect. Children were excluded if they scored below 50% on the hearts block, treating this as an attention check consistent with standard Levante scoring practice. This yielded a final analytic sample of 805 children (1,430 observations across fall and spring timepoints).
 
-Each trial was assigned an item label following the Levante naming convention: `{block}_{stimulus}_{trial_type}-{trial_number}`, where trial type was classified as start (first trial in block), stay (same stimulus type as previous trial), or switch (different stimulus type from previous trial). Repeated trials of the same 
-block-stimulus-trial_type combination were aggregated into a single analytic unit by taking the proportion correct across all trials of that type and binarising at a 0.5 threshold. This yielded 9 IRT items in PLUS out of the 10 analytic units used in Levante scoring. The missing item type (heartsflowers_heart_start) was absent from PLUS due to differences in block structure between the two assessments.
+Each trial was assigned an item label following the Levante naming convention: `{block}_{stimulus}_{trial_type}-{trial_number}`, where trial type was classified as start (first trial in block), stay (same stimulus type as previous trial), or switch (different stimulus type from previous trial). Repeated trials of the same block-stimulus-trial_type combination were aggregated into a single analytic unit by taking the proportion correct across all trials of that type and binarizing at a 0.5 threshold. Item difficulty parameters were taken from the Levante H&F Rasch model, which was estimated under scalar invariance across sites; parameters are therefore identical across all three Levante sites. This yielded 9 IRT items in PLUS out of the 10 analytic units used in Levante scoring. The missing item type (heartsflowers_heart_start) was absent from PLUS due to differences in block structure between the two assessments.
 
 Ability scores (θ) showed an increasing pattern across grades (3rd grade: M = `r g3_m`, SD = `r g3_sd`; 4th grade: M = `r g4_m`, SD = `r g4_sd`; 5th grade: M = `r g5_m`, SD = `r g5_sd`), consistent with the expected developmental trajectory and supporting the construct validity of the scoring approach in this sample. Grade-level means are close to the Levante scale origin and slightly positive, suggesting that 3rd–5th graders in PLUS perform at a broadly similar level to the Levante sample. 
 ```{r}
 #| label: prep-kimochis-hf-items
 #| include: false
 
-# Initial checks
 # check stim_shape values (we saw these may be capitalized)
-kimochis_hf |> count(stim_shape)
+kimochis |> count(stim_shape)
 
 # check acc vs acc_to 
-kimochis_hf |>
+kimochis |>
   filter(str_detect(block, "test")) |>
   summarise(
     mean_acc    = mean(acc, na.rm = TRUE),
@@ -348,16 +692,15 @@ kimochis_hf |>
   )
 
 # check trial_num range per block
-kimochis_hf |>
+kimochis |>
   filter(str_detect(block, "test")) |>
   group_by(block) |>
   summarise(max_trial = max(trial_num), min_trial = min(trial_num))
 ####################
 
-kimochis_hf_items <- kimochis_hf |>
+kimochis_hf_items <- kimochis |>
   filter(str_detect(block, "test")) |>
   mutate(
-    # recode stim_shape to lowercase to match levante
     stim_shape  = str_to_lower(stim_shape),
     block_clean = case_when(
       block == "hearts test"  ~ "hearts",
@@ -367,22 +710,14 @@ kimochis_hf_items <- kimochis_hf |>
   arrange(id, time, block_clean, trial_num) |>
   group_by(id, time, block_clean) |>
   mutate(
-    # within each block all stimuli are the same shape, so no switches
+    # no switches within block — all stimuli are the same shape
     trial_type     = if_else(trial_num == min(trial_num), "start", "stay"),
     trial_type_num = if_else(trial_type == "start", 1L, row_number() - 1L)
   ) |>
   ungroup() |>
-  mutate(
-    item = paste0(block_clean, "_", stim_shape, "_", trial_type, "-", trial_type_num)
-  )
+  mutate(item = paste0(block_clean, "_", stim_shape, "_", trial_type, "-", trial_type_num))
 
-# check item overlap with levante
-kimochis_items  <- kimochis_hf_items |> distinct(item) |> pull(item)
-intersect(kimochis_items, levante_items)
-setdiff(kimochis_items, levante_items)   # kimochis items not in levante
-setdiff(levante_items, kimochis_items)   # levante items not in kimochis
-
-# attention check - exclude kids scoring <50% on hearts
+# exclude children scoring below 50% on hearts block
 kimochis_hearts_check <- kimochis_hf_items |>
   filter(block_clean == "hearts") |>
   group_by(id, time) |>
@@ -394,7 +729,7 @@ kimochis_hearts_check <- kimochis_hf_items |>
 #| label: kimochis-hf-levante-equivalent
 #| include: false
 
-# collapse trial positions
+# collapse repeated trials of same type into single binary item
 kimochis_hf_collapsed <- kimochis_hf_items |>
   semi_join(kimochis_hearts_check, by = c("id", "time")) |>
   mutate(item_uid = str_remove(item, "-\\d+$")) |>
@@ -402,34 +737,37 @@ kimochis_hf_collapsed <- kimochis_hf_items |>
   summarise(prop_correct = mean(acc, na.rm = TRUE), .groups = "drop") |>
   mutate(correct_collapsed = as.integer(prop_correct >= 0.5))
 
-# shared item_uid types between Kimochis and levante
-kimochis_uid_types <- kimochis_hf_collapsed |> distinct(item_uid) |> pull(item_uid)
-shared_uid_kimochis <- intersect(kimochis_uid_types, levante_uid_types)
+shared_uid_kimochis <- intersect(
+  kimochis_hf_collapsed |> distinct(item_uid) |> pull(item_uid),
+  levante_uid_types
+)
 
-# pivot to wide
+# pivot to wide and build response matrix
 kimochis_hf_collapsed_wide <- kimochis_hf_collapsed |>
   select(id, time, item_uid, correct_collapsed) |>
   pivot_wider(names_from = item_uid, values_from = correct_collapsed)
 
-# response matrix
 kimochis_collapsed_matrix <- kimochis_hf_collapsed_wide |>
   select(all_of(shared_uid_kimochis)) |>
   as.matrix()
+
 ```
 
 ```{r}
 #| label: kimochis-hf-levante-equivalent-rasch
 #| include: false
 
+# pull levante d parameters (identical across sites under scalar invariance)
 levante_lookup_collapsed_kimochis <- hf_mod_rec@model_vals |>
-  filter(group == "pilot_mpieva_de", name == "d") |>
+  filter(name == "d") |>
   mutate(item_uid = str_remove(item, "-\\d+$")) |>
-  filter(item_uid %in% shared_uid_kimochis) |>
+  filter(item_uid %in% levante_uid_types) |>
   group_by(item_uid, name) |>
   slice_min(item, n = 1) |>
   ungroup() |>
-  select(item = item_uid, name, value)
+  distinct(item = item_uid, name, value)
 
+# fix item parameters to levante values
 fixed_pars_collapsed_kimochis <- mirt(
   data     = kimochis_collapsed_matrix,
   model    = 1,
@@ -443,6 +781,7 @@ fixed_pars_collapsed_kimochis <- mirt(
   ) |>
   select(-value_levante)
 
+# fit model with fixed parameters and estimate EAP scores
 hf_mod_kimochis_collapsed <- mirt(
   data      = kimochis_collapsed_matrix,
   model     = 1,
@@ -452,6 +791,7 @@ hf_mod_kimochis_collapsed <- mirt(
 )
 
 kimochis_scores_collapsed <- fscores(hf_mod_kimochis_collapsed, method = "EAP", full.scores.SE = TRUE)
+
 kimochis_hf_scored_collapsed <- kimochis_hf_collapsed_wide |>
   select(id, time) |>
   mutate(
@@ -463,17 +803,18 @@ kimochis_reliability_collapsed <- round(
   1 - mean(kimochis_hf_scored_collapsed$se_collapsed^2) / var(kimochis_hf_scored_collapsed$theta_collapsed),
   3
 )
-kimochis_reliability_collapsed
 
-# age summary using collapsed theta
+# age-group theta summary
 kimochis_age_summary <- kimochis_hf_scored_collapsed |>
-  left_join(kimochis_hf |> distinct(id, time, age), by = c("id", "time")) |>
+  left_join(kimochis |> distinct(id, time, age), by = c("id", "time")) |>
   mutate(age_group = cut(age, breaks = c(2, 3, 4, 5, 6),
                          labels = c("2-3", "3-4", "4-5", "5-6"))) |>
   group_by(age_group) |>
-  summarise(m  = round(mean(theta_collapsed, na.rm = TRUE), 2),
-            sd = round(sd(theta_collapsed, na.rm = TRUE), 2),
-            .groups = "drop")
+  summarise(
+    m  = round(mean(theta_collapsed, na.rm = TRUE), 2),
+    sd = round(sd(theta_collapsed, na.rm = TRUE), 2),
+    .groups = "drop"
+  )
 
 a23_m  <- kimochis_age_summary |> filter(age_group == "2-3") |> pull(m)
 a23_sd <- kimochis_age_summary |> filter(age_group == "2-3") |> pull(sd)
@@ -483,15 +824,35 @@ a45_m  <- kimochis_age_summary |> filter(age_group == "4-5") |> pull(m)
 a45_sd <- kimochis_age_summary |> filter(age_group == "4-5") |> pull(sd)
 ```
 
+```{r}
+#| label: sample-size-table
+#| include: false
+
+sample_sizes <- plus_hf_scored_collapsed |>
+  count(time) |>
+  mutate(sample = "PLUS", time = as.character(time)) |>
+  bind_rows(
+    kimochis_hf_scored_collapsed |>
+      count(time) |>
+      mutate(sample = "Kimochis", time = as.character(time))
+  ) |>
+  select(Sample = sample, Timepoint = time, N = n)
+
+flextable(sample_sizes) |>
+  merge_v(j = "Sample") |>
+  theme_vanilla() |>
+  autofit()
+```
 ## Data preparation and scoring - Kimochis
-Trial-level data from Kimochis were filtered to test blocks only (hearts test, flowers test), excluding practice trials. Unlike PLUS, the Kimochis dataset did not include a mixed block, as the children were considered too young for the task-switching demands it requires. Accuracy was taken from the pre-computed "acc" column rather than derived from stimulus-response pairings. Timeouts were treated as missing rather than incorrect, consistent with the 1:1 assessment context in which no strict response time limit was imposed. Children were excluded if they scored below 50% on the hearts block as an attention check, consistent with standard Levante scoring practice.
+Trial-level data from Kimochis were filtered to test blocks only (hearts test, flowers test), excluding practice trials. Unlike PLUS, the Kimochis dataset did not include a mixed block, as the children were considered too young for the task-switching demands it requires. Accuracy was taken from the pre-computed "acc" column rather than derived from stimulus-response pairings. Timeouts were treated as missing rather than incorrect, consistent with the 1:1 assessment context in which no strict response time limit was imposed. Children were excluded if they scored below 50% on the hearts block as an attention check. This yielded a final analytic sample of 1,622 children (2,540 observations) across two academic year cohorts (2021–2022 and 2022–2023), each with fall and spring timepoints.
 
-Each trial was assigned an item label following the Levante naming convention. Of the 74 items in the Levante H&F model, 27 were present in Kimochis — all from the hearts and flowers blocks. The 8 additional flowers trials in Kimochis (stay-16 through stay-23) exceeded the length of the Levante flowers block and were excluded from scoring. All 46 mixed block items were absent by design. Repeated trials of the same block-stimulus-trial_type combination were aggregated into a single analytic unit by taking the proportion correct across all trials of that type and binarising at a 0.5 threshold, yielding 4 IRT items 
-(hearts_heart_start, hearts_heart_stay, flowers_flower_start, flowers_flower_stay).
+Each trial was assigned an item label following the Levante naming convention. Of the 74 items in the Levante H&F model, 27 were present in Kimochis — all from the hearts and flowers blocks. The 8 additional flowers trials in Kimochis (stay-16 through stay-23) exceeded the length of the Levante flowers block and were excluded from scoring. All 46 mixed block items were absent by design. Repeated trials of the same block-stimulus-trial_type combination were aggregated into a single analytic unit by taking the proportion correct across all trials of that type and binarising at a 0.5 threshold, yielding 4 IRT items (hearts_heart_start, hearts_heart_stay, flowers_flower_start, flowers_flower_stay).
 
-Ability scores (θ) showed an increasing pattern across age groups (2–3 years: M = `r a23_m`, SD = `r a23_sd`; 3–4 years: M = `r a34_m`, SD = `r a34_sd`; 4–5 years: M = `r a45_m`, SD = `r a45_sd`), consistent with the expected developmental trajectory.
+Ability scores (θ) showed an increasing pattern across age groups (2–3 years: M = `r a23_m`, SD = `r a23_sd`; 3–4 years: M = `r a34_m`, SD = `r a34_sd`; 4–5 years: M = `r a45_m`, SD = `r a45_sd`) consistent with the expected developmental trajectory.
 
 All age-group means are negative relative to the Levante scale origin. This is expected given that Kimochis children (ages 2–5) fall below the Levante calibration age range of 5–12, and θ estimates are based on only 4 IRT items covering the hearts and flowers blocks only, with no mixed block items contributing to scoring.
+
+## Reliability
 ```{r}
 #| label: reliability-comparison
 #| include: false
@@ -501,7 +862,7 @@ levante_rxx <- task_rxx |>
   filter(task == "hf") |>
   select(site, rxx) |>
   mutate(
-    sample  = case_when(
+    sample = case_when(
       site == "pilot_mpieva_de"   ~ "Levante (Germany)",
       site == "pilot_uniandes_co" ~ "Levante (Colombia)",
       site == "pilot_western_ca"  ~ "Levante (Canada)"
@@ -511,30 +872,136 @@ levante_rxx <- task_rxx |>
   ) |>
   select(sample, n_items, rxx, scoring)
 
-# spark - levante-equivalent collapsed scoring
-spark_rxx_collapsed <- tibble(
-  sample  = c("PLUS", "Kimochis"),
-  n_items = c(length(shared_uid_types), length(shared_uid_kimochis)),
-  rxx     = c(plus_reliability_collapsed, kimochis_reliability_collapsed),
-  scoring = "levante-equivalent"
-)
+# reliability by timepoint
+plus_rxx_by_time <- plus_hf_scored_collapsed |>
+  group_by(time) |>
+  summarise(
+    n   = n(),
+    rxx = round(1 - mean(se_collapsed^2) / var(theta_collapsed), 3),
+    .groups = "drop"
+  ) |>
+  mutate(sample = "PLUS", time = as.character(time))
 
-# combined table
-reliability_comparison <- bind_rows(
-  levante_rxx,
-  spark_rxx_collapsed
-) |>
-  arrange(sample)
-
-reliability_comparison
+kimochis_rxx_by_time <- kimochis_hf_scored_collapsed |>
+  group_by(time) |>
+  summarise(
+    n   = n(),
+    rxx = round(1 - mean(se_collapsed^2) / var(theta_collapsed), 3),
+    .groups = "drop"
+  ) |>
+  mutate(sample = "Kimochis", time = as.character(time))
 ```
 
-## Reliability
-Marginal reliability was computed for each sample as 1 − mean(SE²) / var(θ), where SE is the standard error of each child's EAP θ estimate. Repeated trials of the same block-stimulus-trial_type combination were aggregated into a single 
-analytic unit, yielding 9 IRT items for PLUS and 4 IRT items for Kimochis. All 768 Levante H&F runs used fixed-form administration.
+```{r}
+#| label: reliability-by-timepoint-table
+#| echo: false
 
-Reliability for PLUS under this scoring approach was `r plus_reliability_collapsed`, which is lower than the Levante calibration estimates ranging from 0.54 (Germany) to 0.66 (Colombia). Kimochis reliability could not be meaningfully estimated under the collapsed approach, as only 4 item types were available — insufficient for stable EAP estimation.
+# build full reliability table with pooled + by-timepoint rows
+rxx_full_table <- bind_rows(
+  tibble(sample = "PLUS",     time = "Pooled", n = nrow(plus_hf_scored_collapsed),     rxx = plus_reliability_collapsed),
+  plus_rxx_by_time,
+  tibble(sample = "Kimochis", time = "Pooled", n = nrow(kimochis_hf_scored_collapsed),  rxx = kimochis_reliability_collapsed),
+  kimochis_rxx_by_time
+) |>
+  select(sample, time, n, rxx)
 
-The lower reliability in PLUS relative to Levante, despite PLUS being scored on 9 of Levante's 10 IRT items, likely reflects two factors. First, the PLUS task imposed a 750ms response time limit compared to 2,500ms in Levante, resulting in approximately `r mean_timeout_pct`% of trials being coded as incorrect due to timeouts. This systematically depresses accuracy and introduces noise into the collapsed item scores. Second, the Levante item parameters were calibrated on a sample of 5–12 year old children across three international sites, and may not transfer optimally to the PLUS population of 8-11 year-olds (3rd–5th graders) assessed under different administration conditions.
+flextable(rxx_full_table) |>
+  set_header_labels(sample = "Sample", time = "Timepoint", n = "N", rxx = "Reliability") |>
+  merge_v(j = "sample") |>
+  theme_vanilla() |>
+  autofit()
 
-These findings suggest that the Levante H&F IRT model can be applied to external fixed-format datasets using the same collapsed scoring approach, but that reliability is sensitive to administration differences — particularly response time constraints — that affect the quality of individual item responses.
+```
+
+### Proportion correct by timepoint
+```{r}
+#| label: plus-spring-ceiling-check
+#| echo: false
+#| tbl-cap: "Item-level proportion correct by timepoint (PLUS)"
+
+# item-level proportion correct by timepoint
+plus_item_props <- plus_hf_collapsed |>
+  semi_join(plus_hearts_check, by = c("stud_id", "time")) |>
+  filter(item_uid %in% shared_uid_types) |>
+  group_by(time, item_uid) |>
+  summarise(prop_correct = mean(correct_collapsed, na.rm = TRUE), .groups = "drop") |>
+  mutate(time = as.character(time))
+
+plus_item_props |>
+  pivot_wider(names_from = time, values_from = prop_correct) |>
+  rename(Item = item_uid) |>
+  flextable() |>
+  colformat_double(digits = 3) |>
+  theme_vanilla() |>
+  autofit()
+
+```
+
+```{r}
+#| label: distribution-by-timepoint
+#| echo: false
+#| fig-cap: "Distribution of ability estimates (θ) by timepoint in PLUS, illustrating the ceiling effect in Spring"
+
+plus_hf_scored_collapsed |>
+  mutate(time = as.character(time)) |>
+  ggplot(aes(x = theta_collapsed, fill = time)) +
+  geom_density(alpha = 0.5) +
+  labs(
+    x = "Ability (θ)",
+    y = "Density",
+    fill = "Timepoint"
+  ) +
+  theme_minimal()
+  
+```
+
+### Check item fit
+```{r}
+#| label: plus-fall-item-fit
+#| tbl-cap: "Item-level fit statistics for PLUS Fall (S-X2 test)"
+#| echo: false
+
+# refit model on Fall only 
+plus_fall_wide <- plus_hf_collapsed_wide |>
+  filter(as.character(time) == "PLUS Fall") |>
+  select(all_of(shared_uid_types)) |>
+  as.matrix()
+
+# rebuild fixed parameters for fall only matrix
+fixed_pars_fall <- mirt(
+  data     = plus_fall_wide,
+  model    = 1,
+  itemtype = rep("Rasch", ncol(plus_fall_wide)),
+  pars     = "values"
+) |>
+  left_join(levante_lookup_collapsed, by = c("item", "name"), suffix = c("", "_levante")) |>
+  mutate(
+    value = if_else(!is.na(value_levante), value_levante, value),
+    est   = FALSE
+  ) |>
+  select(-value_levante)
+
+# fit model
+hf_mod_plus_fall <- mirt(
+  data      = plus_fall_wide,
+  model     = 1,
+  itemtype  = rep("Rasch", ncol(plus_fall_wide)),
+  pars      = fixed_pars_fall,
+  technical = list(NCYCLES = 1)
+)
+
+# item fit statistics
+#| label: plus-fall-item-fit-table
+#| echo: false
+
+itemfit(hf_mod_plus_fall, fit_stats = "S_X2", na.rm = TRUE) |>  
+  as_tibble() |>
+  arrange(p.S_X2) |>
+  mutate(p.S_X2 = format(p.S_X2, scientific = TRUE, digits = 3)) |>
+  rename(Item = item, RMSEA = RMSEA.S_X2, p = p.S_X2) |>
+  flextable() |>
+  colformat_double(digits = 3) |>
+  theme_vanilla() |>
+  autofit()
+
+```
