@@ -4,7 +4,7 @@ format: html
 editor: visual
 ---
 # Applying the Levante IRT Model to the PLUS and Kimochis datasets
-The goal of this analysis is to evaluate the Levante Hearts and Flowers (H&F) IRT model's performance on an external dataset collected by Spark Lab, as a test of the model's generalizability. The Spark Lab data consists of two studies: PLUS (3rd–5th graders, group-based tablet assessment) and Kimochis (preschoolers, 1:1 assessment). 
+The goal of this analysis is to evaluate the Levante Hearts and Flowers (H&F) IRT model's performance on an external dataset collected by Spark Lab, as a test of the model's generalizability. The Spark Lab data consists of two datasets: PLUS (3rd–5th graders, group-based tablet assessment) and Kimochis (preschoolers, 1:1 assessment). 
 ```{r}
 #| label: packages
 #| include: false
@@ -226,11 +226,10 @@ The Kimochis dataset includes `r kimo_n_total` unique children across four timep
 
 Longitudinal retention was limited: the majority of children appeared at only one timepoint
 (n = `r kimo_n_1tp`), with `r kimo_n_2tp` appearing at two, `r kimo_n_3tp` at three, and 
-`r kimo_n_4tp` at all four timepoints. The dataset is therefore better characterised as largely cross-sectional with limited repeated measures.
+`r kimo_n_4tp` at all four timepoints. 
 
-Age in the Kimochis dataset should be interpreted with caution. For the majority of children
-(n = `r kimo_n_fixed_age`), age did not vary across timepoints, suggesting it reflects 
-approximate age at enrolment rather than age at time of assessment. Age values also appear to be rounded to the nearest month rather than recorded as a continuous measure. These features should be considered when using age as a covariate in models.
+For the majority of children (n = `r kimo_n_fixed_age`), age did not vary across timepoints, suggesting it reflects 
+approximate age at enrolment rather than age at time of assessment. Age values also appear to be rounded to the nearest month rather than recorded as a continuous measure. 
 
 ## Trial-level descriptive statistics by dataset and block
 ```{r}
@@ -700,9 +699,11 @@ g5_m  <- grade_summary |> filter(pl_grade == 5) |> pull(m)
 g5_sd <- grade_summary |> filter(pl_grade == 5) |> pull(sd)
 ```
 ## Data preparation and scoring - PLUS 
-Trial-level data from PLUS were filtered to test blocks only (hearts test, flowers test, mixed test), excluding practice trials. Accuracy was derived from the stimulus-response pairing: trials with a heart stimulus were scored correct if the response matched the stimulus side (congruent rule), and trials with a flower stimulus were scored correct if the response was on the opposite side (incongruent rule). Trials with no response (NA) were coded as incorrect. Children were excluded if they scored below 50% on the hearts block, treating this as an attention check consistent with standard Levante scoring practice. AAmong children retained after the attention check, `r mean_timeout_pct`% of trials in the flowers and mixed blocks had no response recorded and were coded as incorrect. This yielded a final analytic sample of `r n_distinct(plus_hf_scored_collapsed$stud_id)` children (`r format(nrow(plus_hf_scored_collapsed), big.mark = ",")` observations across fall and spring timepoints).
+Trial-level data from PLUS were filtered to test blocks only (hearts test, flowers test, mixed test), excluding practice trials. Accuracy was derived from the stimulus-response pairing: trials with a heart stimulus were scored correct if the response matched the stimulus side (congruent rule), and trials with a flower stimulus were scored correct if the response was on the opposite side (incongruent rule). Trials with no response (NA) were coded as incorrect. Children were excluded if they scored below 50% on the hearts block, treating this as an attention check. Among children retained after the attention check, `r mean_timeout_pct`% of trials 
+in the flowers and mixed blocks had no response recorded and were coded as incorrect. This yielded a final analytic sample of `r n_distinct(plus_hf_scored_collapsed$stud_id)` children (`r format(nrow(plus_hf_scored_collapsed), big.mark = ",")` observations across fall and spring timepoints).
 
-Each trial was assigned an item label following the Levante naming convention: `{block}_{stimulus}_{trial_type}-{trial_number}`, where trial type was classified as start (first trial in block), stay (same stimulus type as previous trial), or switch (different stimulus type from previous trial). Repeated trials of the same block-stimulus-trial_type combination were aggregated into a single analytic unit by taking the proportion correct across all trials of that type and binarizing at a 0.5 threshold. Item difficulty parameters were taken from the Levante H&F Rasch model, which was estimated under scalar invariance across sites; parameters are therefore identical across all three Levante sites. This yielded 9 IRT items in PLUS out of the 10 analytic units used in Levante scoring. The missing item type (heartsflowers_heart_start) was absent from PLUS due to differences in block structure between the two assessments.
+Each trial was assigned an item label following the Levante naming convention: `{block}_{stimulus}_{trial_type}-{trial_number}`, where trial type was classified as start (first trial in block), stay (same stimulus type as previous trial), or switch (different stimulus type from previous trial). Repeated trials of the same type (e.g., multiple heart stay trials) were collapsed into a single score per trial type. A child was scored as correct on that trial type if they got more than half of those trials right, and incorrect otherwise, giving one binary score per trial type per child to enter into the IRT model. Item difficulty parameters were taken from the Levante H&F Rasch model, which was estimated under scalar invariance across sites; parameters are therefore identical across all three Levante sites. This yielded `r length(shared_uid_types)` IRT items in PLUS out of the `r length(levante_uid_types)` analytic units used in Levante scoring. The missing item type (`r paste(setdiff(levante_uid_types, shared_uid_types), collapse = ", ")`) was absent from PLUS because the mixed block always began with a flower stimulus in this assessment (n = `r plus_hf_items |> filter(block_clean == "heartsflowers", trial_type == "start") |> nrow()` start trials, all flower), whereas the Levante mixed block begins with a heart 
+stimulus. As a result, no child contributed a heartsflowers_heart_start trial and this analytic unit could not be scored.
 
 Ability scores (θ) showed an increasing pattern across grades (3rd grade: M = `r g3_m`, SD = `r g3_sd`; 4th grade: M = `r g4_m`, SD = `r g4_sd`; 5th grade: M = `r g5_m`, SD = `r g5_sd`), consistent with the expected developmental trajectory and supporting the construct validity of the scoring approach in this sample. Grade-level means are close to the Levante scale origin and slightly positive, suggesting that 3rd–5th graders in PLUS perform at a broadly similar level to the Levante sample. 
 ```{r}
@@ -863,16 +864,118 @@ flextable(sample_sizes) |>
   theme_vanilla() |>
   autofit()
 ```
-## Data preparation and scoring - Kimochis
-Trial-level data from Kimochis were filtered to test blocks only (hearts test, flowers test), excluding practice trials. Unlike PLUS, the Kimochis dataset did not include a mixed block, as the children were considered too young for the task-switching demands it requires. Accuracy was taken from the pre-computed "acc" column rather than derived from stimulus-response pairings. Timeouts were treated as missing rather than incorrect, consistent with the 1:1 assessment context in which no strict response time limit was imposed. Children were excluded if they scored below 50% on the hearts block as an attention check. This yielded a final analytic sample of 1,622 children (2,540 observations) across two academic year cohorts (2021–2022 and 2022–2023), each with fall and spring timepoints.
 
-Each trial was assigned an item label following the Levante naming convention. Of the 74 items in the Levante H&F model, 27 were present in Kimochis — all from the hearts and flowers blocks. The 8 additional flowers trials in Kimochis (stay-16 through stay-23) exceeded the length of the Levante flowers block and were excluded from scoring. All 46 mixed block items were absent by design. Repeated trials of the same block-stimulus-trial_type combination were aggregated into a single analytic unit by taking the proportion correct across all trials of that type and binarising at a 0.5 threshold, yielding 4 IRT items (hearts_heart_start, hearts_heart_stay, flowers_flower_start, flowers_flower_stay).
+```{r}
+#| label: item-overlap-table
+#| echo: false
+#| tbl-cap: "Item coverage across Levante, PLUS, and Kimochis"
+
+# total levante items
+n_levante_total <- hf_mod_rec@model_vals |>
+  filter(name == "d") |>
+  distinct(item) |>
+  nrow()
+
+# levante items by block
+n_levante_hearts  <- hf_mod_rec@model_vals |>
+  filter(name == "d") |>
+  distinct(item) |>
+  filter(str_detect(item, "^hearts_")) |>
+  nrow()
+
+n_levante_flowers <- hf_mod_rec@model_vals |>
+  filter(name == "d") |>
+  distinct(item) |>
+  filter(str_detect(item, "^flowers_")) |>
+  nrow()
+
+n_levante_mixed <- hf_mod_rec@model_vals |>
+  filter(name == "d") |>
+  distinct(item) |>
+  filter(str_detect(item, "^heartsflowers_")) |>
+  nrow()
+
+# PLUS: levante-side raw item count matching shared uid types
+n_plus_raw <- hf_mod_rec@model_vals |>
+  filter(name == "d") |>
+  distinct(item) |>
+  mutate(item_uid = str_remove(item, "-\\d+$")) |>
+  filter(item_uid %in% shared_uid_types) |>
+  nrow()
+
+# Kimochis: levante-side raw item count matching shared uid types
+n_kimo_raw <- hf_mod_rec@model_vals |>
+  filter(name == "d") |>
+  distinct(item) |>
+  filter(!str_detect(item, "^heartsflowers_")) |>
+  mutate(item_uid = str_remove(item, "-\\d+$")) |>
+  filter(item_uid %in% shared_uid_kimochis) |>
+  nrow()
+
+# missing IRT unit types
+missing_plus <- setdiff(levante_uid_types, shared_uid_types)
+missing_kimo <- setdiff(levante_uid_types, shared_uid_kimochis)
+
+tibble(
+  ` ` = c(
+    "Total raw items",
+    "  — Hearts block",
+    "  — Flowers block",
+    "  — Mixed block",
+    "Raw items matched to dataset",
+    "Reason(s) for non-overlap",
+    "IRT analytic units"
+  ),
+  `Levante` = c(
+    n_levante_total,
+    n_levante_hearts,
+    n_levante_flowers,
+    n_levante_mixed,
+    n_levante_total,
+    "—",
+    length(levante_uid_types)
+  ),
+  `PLUS` = c(
+    n_levante_total,
+    n_levante_hearts,
+    n_levante_flowers,
+    n_levante_mixed,
+    n_plus_raw,
+    paste0("Missing unit type: ", paste(missing_plus, collapse = ", ")),
+    length(shared_uid_types)
+  ),
+  `Kimochis` = c(
+    n_levante_total,
+    n_levante_hearts,
+    n_levante_flowers,
+    n_levante_mixed,
+    n_kimo_raw,
+    paste0("No mixed block (", n_levante_mixed, " items); ",
+           "8 flowers trials exceed Levante block length (stay-16 to stay-23)"),
+    length(shared_uid_kimochis)
+  )
+) |>
+  flextable() |>
+  theme_vanilla() |>
+  autofit() |>
+  bold(part = "header") |>
+  bold(i = c(1, 7), part = "body") |>
+  italic(i = c(2, 3, 4), part = "body") |>
+  hline(i = c(4, 5, 6), part = "body") |>
+  fontsize(size = 11, part = "all")
+```
+
+### Data preparation and scoring - Kimochis
+Trial-level data from Kimochis were filtered to test blocks only (hearts test, flowers test), excluding practice trials. The Kimochis dataset did not include a mixed block, as the children were considered too young for the task-switching demands it requires. Accuracy was taken from the pre-computed "acc" column rather than derived from stimulus-response pairings. Timeouts were treated as missing rather than incorrect, consistent with the 1:1 assessment context in which no strict response time limit was imposed. Children were excluded if they scored below 50% on the hearts block as an attention check. This yielded a final analytic sample of `r n_distinct(kimochis_hf_scored_collapsed$id)` children (`r format(nrow(kimochis_hf_scored_collapsed), big.mark = ",")` observations) across two academic year cohorts (2021–2022 and 2022–2023), each with fall and spring timepoints.
+
+Each trial was assigned an item label following the Levante naming convention. Of the `r n_levante_total` items in the Levante H&F model, `r n_kimo_raw` were present in Kimochis — all from the hearts and flowers blocks. The 8 additional flowers trials in Kimochis (stay-16 through stay-23) exceeded the length of the Levante flowers block and were excluded from scoring. All `r n_levante_mixed` mixed block items were absent by design. Repeated trials of the same block-stimulus-trial_type combination were aggregated into a single analytic unit: a child was scored as correct on that trial type if they got more than half of those trials right, and incorrect otherwise. This yielded
+`r length(shared_uid_kimochis)` IRT items (`r paste(shared_uid_kimochis, collapse = ", ")`).
 
 Ability scores (θ) showed an increasing pattern across age groups (2–3 years: M = `r a23_m`, SD = `r a23_sd`; 3–4 years: M = `r a34_m`, SD = `r a34_sd`; 4–5 years: M = `r a45_m`, SD = `r a45_sd`) consistent with the expected developmental trajectory.
 
 All age-group means are negative relative to the Levante scale origin. This is expected given that Kimochis children (ages 2–5) fall below the Levante calibration age range of 5–12, and θ estimates are based on only 4 IRT items covering the hearts and flowers blocks only, with no mixed block items contributing to scoring.
 
-## Comparing reliability estimates with LEVANTE
+### Comparing reliability estimates with LEVANTE
 ```{r}
 #| label: reliability-comparison
 #| include: false
@@ -941,7 +1044,7 @@ flextable(rxx_full_table) |>
 
 ```
 
-### Proportion correct by timepoint
+
 ```{r}
 #| label: plus-spring-ceiling-check
 #| echo: false
@@ -964,6 +1067,13 @@ plus_item_props |>
 
 ```
 
+Reliability estimates are reported as marginal reliability, computed as 1 minus the ratio of mean error variance to total score variance. Levante reliability ranged from `r levante_rxx |> pull(rxx) |> min() |> round(2)` 
+to `r levante_rxx |> pull(rxx) |> max() |> round(2)` across the three sites, reflecting moderate reliability.
+
+For PLUS Fall, reliability was acceptable (r = `r plus_rxx_by_time |> filter(time == "PLUS Fall") |> pull(rxx)`), but the PLUS Spring estimate was severely negative (r = `r plus_rxx_by_time |> filter(time == "PLUS Spring") |> pull(rxx)`). Negative reliability occurs when measurement error variance exceeds total score variance — that is, when scores show very little spread. This is consistent with the pronounced ceiling effect observed in PLUS Spring, where item-level proportion correct ranged from `r min(plus_item_props |> filter(time == "PLUS Spring") |> pull(prop_correct)) |> round(3)` to `r max(plus_item_props |> filter(time == "PLUS Spring") |> pull(prop_correct)) |> round(3)`. When nearly all children answer nearly all items correctly, the items no longer meaningfully differentiate between individuals, and the reliability estimate becomes unstable.
+
+Kimochis reliability estimates were consistently negative across all timepoints (range: `r kimochis_rxx_by_time |> pull(rxx) |> min()` to `r kimochis_rxx_by_time |> pull(rxx) |> max()`). These values should not be interpreted as evidence of poor measurement quality per se, but rather reflect two fundamental limitations of applying this scoring approach to the Kimochis sample. First, scoring is based on only 4 IRT items — far fewer than the 9–10 used in PLUS and Levante — providing very limited information per child. Second, the Levante item parameters were calibrated on children aged 5–12, whereas Kimochis children are aged 2–5. The fixed difficulty parameters are therefore misaligned with the ability range of this sample, meaning the items do not function as intended for this age group.
+
 ```{r}
 #| label: distribution-by-timepoint
 #| echo: false
@@ -981,7 +1091,6 @@ plus_hf_scored_collapsed |>
   theme_minimal()
   
 ```
-Reliability estimates varied substantially across timepoints. For PLUS Fall, reliability was acceptable (r = `r plus_rxx_by_time |> filter(time == "PLUS Fall") |> pull(rxx)`), but the PLUS Spring estimate was severely negative (r = `r plus_rxx_by_time |> filter(time == "PLUS Spring") |> pull(rxx)`). Negative reliability occurs when measurement error variance exceeds total score variance — that is, when scores show very little spread. This is consistent with the pronounced ceiling effect observed in PLUS Spring, where item-level proportion correct ranged from `r min(plus_item_props |> filter(time == "PLUS Spring") |> pull(prop_correct)) |> round(3)` to `r max(plus_item_props |> filter(time == "PLUS Spring") |> pull(prop_correct)) |> round(3)`. When nearly all children answer nearly all items correctly, the items no longer meaningfully differentiate between individuals, and the reliability estimate becomes unstable. The PLUS Spring scores should therefore be interpreted with caution, and the pooled reliability estimate (r = `r plus_reliability_collapsed`) is also likely deflated by this effect.
 
 ### Check item fit
 ```{r}
@@ -1037,4 +1146,5 @@ plus_fall_itemfit |>
   autofit()
 
 ```
-Item fit was evaluated using the S-X2 statistic for the PLUS Fall sample (N = `r nrow(plus_fall_wide)`. All items showed significant misfit (all p < .001), with RMSEA values ranging from `r itemfit(hf_mod_plus_fall, fit_stats = "S_X2", na.rm = TRUE) |> pull(RMSEA.S_X2) |> min() |> round(3)` to `r itemfit(hf_mod_plus_fall, fit_stats = "S_X2", na.rm = TRUE) |> pull(RMSEA.S_X2) |> max() |> round(3)`. The worst-fitting item was `heartsflowers_flower_start`, which showed substantially higher misfit than the remaining items. This pattern of uniform misfit is not unexpected when item parameters are fixed from an external calibration sample rather than freely estimated: the Levante parameters were derived from children aged 5–12 assessed in a different context, and some degree of parameter drift is anticipated when these are applied to the PLUS sample. The misfit does not invalidate the scores but suggests that the fixed-parameter model fits these data less well than a freely estimated model would, and that ability estimates carry additional uncertainty beyond what the standard errors reflect.
+Item fit was evaluated using the S-X2 statistic for the PLUS Fall sample (N = `r nrow(plus_fall_wide)`). All items showed significant misfit (all p < .001), with RMSEA values ranging from `r plus_fall_rmsea_min` to `r plus_fall_rmsea_max`. The worst-fitting item was `heartsflowers_flower_start`, which showed substantially higher misfit than the remaining items.
+
