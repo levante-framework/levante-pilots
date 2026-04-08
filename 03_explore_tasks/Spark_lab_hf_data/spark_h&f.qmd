@@ -1,7 +1,8 @@
 ---
 title: "Spark_h&f"
-format: html
-editor: visual
+format: 
+  html:
+    fig-cap-location: top
 ---
 # Applying the Levante IRT Model to the PLUS and Kimochis Datasets
 The Levante Hearts and Flowers (H&F) task is a computerized measure of inhibitory control and cognitive flexibility based on the Hearts and Flowers paradigm (Davidson et al., 2006), modelled after the AMES tablet version which has been validated across diverse global settings (Ahmed et al., 2022; Khan et al., 2024). Participants respond according to stimulus type: pressing a key on the same side as a heart (congruent rule) and on the opposite side for a flower (incongruent rule). The task includes three blocks — congruent (hearts only), incongruent (flowers only), and mixed (hearts and flowers) — with the congruent block serving as a baseline with minimal executive demands. Participants are encouraged to respond as quickly as possible; no hard time limit is imposed per trial, though responses slower than 3000ms are scored as incorrect. The task is scored using a Rasch IRT model calibrated on a cross-national sample of children aged 5–12 years.
@@ -39,6 +40,12 @@ library(haven)
 
 plus <- readRDS("plus_hf_merged.rds") |> mutate(pl_fem = as_factor(pl_fem))
 kimochis <- readRDS("kimochis_hf.rds")
+
+# run data for raw scores
+run_data <- readr::read_rds(here::here("..", "levante-pilots", "01_fetched_data/run_data.rds"))
+# colnames(run_data)
+
+
 ```
 
 ```{r}
@@ -63,8 +70,9 @@ plus <- plus |>
   ) |>
   filter(
     !block %in% c("hearts practice", "flowers practice"),
-    rt > 0,
-    !is.na(rt)
+    rt >= 100, # replaces rt > 0, excludes sub-100ms trials to align with levante
+    !is.na(rt),
+    age <= 12 # remove children older than 11
   )
 
 # kimochis cleaning
@@ -535,7 +543,8 @@ levante_uid_types <- c(
 shared_uid_types <- intersect(
   plus_hf_collapsed |> distinct(item_uid) |> pull(item_uid),
   levante_uid_types
-)
+) |>
+  setdiff("heartsflowers_heart_start")
 
 # pivot to wide and build response matrix
 plus_hf_collapsed_wide <- plus_hf_collapsed |>
@@ -893,11 +902,166 @@ flextable(sample_sizes) |>
 ```
 
 ## Section 3: How comparable are item difficulties across datasets?
+
 ```{r}
-# NEW CHUNK: item-difficulty-comparison — to be added later
+#| label: item-difficulty-comparison
+#| fig-cap: "Age-related proportion correct on the Hearts and Flowers task across datasets. Each point represents one participant run; the blue line shows a GAM-smoothed trend with 95% confidence interval. PLUS data are split by timepoint (Fall and Spring). Note that PLUS proportion correct reflects the stricter 750ms response window applied during data collection."
+#| message: false
+#| echo: false
+
+# levante: proportion correct per child per run
+levante_acc <- task_data_nested |>
+  filter(item_task == "hf") |>
+  unnest(data) |>
+  group_by(site, user_id, run_id) |>
+  summarise(
+    prop_correct = mean(correct, na.rm = TRUE),
+    .groups = "drop"
+  ) |>
+  left_join(
+    run_data |> select(user_id, run_id, age) |> mutate(age = as.numeric(age)),
+    by = c("user_id", "run_id")
+  ) |>
+  mutate(dataset = case_when(
+    site == "pilot_mpieva_de"   ~ "Levante (Germany)",
+    site == "pilot_uniandes_co" ~ "Levante (Colombia)",
+    site == "pilot_western_ca"  ~ "Levante (Canada)"
+  ))
+
+# plus: proportion correct per child per timepoint
+plus_acc <- plus_hf_items |>
+  group_by(stud_id, time) |>
+  summarise(
+    prop_correct = mean(correct, na.rm = TRUE),
+    age = mean(age, na.rm = TRUE),
+    .groups = "drop"
+  ) |>
+  mutate(dataset = as.character(time))
+
+# combine and plot
+bind_rows(
+  levante_acc |> select(dataset, age, prop_correct),
+  plus_acc    |> select(dataset, age, prop_correct)
+) |>
+  filter(!is.na(age)) |>
+  mutate(dataset = factor(dataset, levels = c(
+    "Levante (Germany)", "Levante (Colombia)", "Levante (Canada)",
+    "PLUS Fall", "PLUS Spring"
+  ))) |>
+  ggplot(aes(x = age, y = prop_correct)) +
+  geom_point(alpha = 0.3, size = 0.8, colour = "grey40") +
+  geom_smooth(method = "gam", colour = "blue", se = TRUE) +
+  facet_wrap(~dataset, nrow = 1) +
+  scale_y_continuous(limits = c(0, 1), labels = scales::percent) +
+  labs(
+    x = "Age (years)",
+    y = "Proportion correct",
+    caption = "Each point = participant run; trend = GAM per dataset"
+  ) +
+  theme_minimal()
 
 ```
 
+
+```{r}
+#| label: item-difficulty-raw-scores-prep
+#| echo: false
+#| fig-width: 9
+#| fig-height: 6
+
+# levante: raw trial-level accuracy per item_uid
+levante_item_props <- task_data_nested |>
+  filter(item_task == "hf") |>
+  unnest(data) |>
+  mutate(item_uid = str_remove(item_uid, "-\\d+$")) |>
+  filter(item_uid %in% levante_uid_types) |>
+  group_by(site, item_uid) |>
+  summarise(
+    prop_correct = mean(correct, na.rm = TRUE),
+    .groups = "drop"
+  ) |>
+  mutate(
+    dataset = case_when(
+      site == "pilot_mpieva_de"   ~ "Levante (Germany)",
+      site == "pilot_uniandes_co" ~ "Levante (Colombia)",
+      site == "pilot_western_ca"  ~ "Levante (Canada)"
+    )
+  ) |>
+  select(dataset, item_uid, prop_correct)
+
+# plus: raw trial-level accuracy per item_uid type (no collapsing)
+plus_item_props_raw <- plus_hf_items |>
+  mutate(item_uid = str_remove(item, "-\\d+$")) |>
+  filter(item_uid %in% levante_uid_types) |>
+  filter(item_uid != "heartsflowers_heart_start") |>  # exclude anomalous item
+  group_by(time, item_uid) |>
+  summarise(
+    prop_correct = mean(correct, na.rm = TRUE),
+    .groups = "drop"
+  ) |>
+  mutate(dataset = case_when(
+    as.character(time) == "PLUS Fall"   ~ "PLUS Fall",
+    as.character(time) == "PLUS Spring" ~ "PLUS Spring"
+  )) |>
+  select(dataset, item_uid, prop_correct)
+
+# combine and plot
+item_props_combined <- bind_rows(levante_item_props, plus_item_props_raw)
+
+item_order <- levante_item_props |>
+  group_by(item_uid) |>
+  summarise(mean_prop = mean(prop_correct), .groups = "drop") |>
+  arrange(mean_prop) |>
+  pull(item_uid)
+
+```
+
+```{r}
+#| label: item-difficulty-raw-scores-plot
+#| fig-cap: "Raw proportion correct per item type across datasets, computed from trial-level data prior to IRT scoring. Items are ordered by mean proportion correct across Levante sites (easiest at top). Note that heartsflowers_heart_start is shown for Levante only, as this item does not exist in the PLUS assessment design."
+#| echo: false
+#| fig-width: 9
+#| fig-height: 6
+
+item_props_combined |>
+  mutate(
+    item_uid = factor(item_uid, levels = item_order),
+    dataset  = factor(dataset, levels = c(
+      "Levante (Germany)", "Levante (Colombia)", "Levante (Canada)",
+      "PLUS Fall", "PLUS Spring"
+    ))
+  ) |>
+  ggplot(aes(x = prop_correct, y = item_uid, colour = dataset, shape = dataset)) +
+  geom_point(size = 3, alpha = 0.8) +
+  scale_x_continuous(limits = c(0, 1), labels = scales::percent) +
+  scale_colour_manual(values = c(
+    "Levante (Germany)"  = "#E41A1C",
+    "Levante (Colombia)" = "#377EB8",
+    "Levante (Canada)"   = "#4DAF4A",
+    "PLUS Fall"          = "#FF7F00",
+    "PLUS Spring"        = "#984EA3"
+  )) +
+  scale_shape_manual(values = c(
+    "Levante (Germany)"  = 16,
+    "Levante (Colombia)" = 17,
+    "Levante (Canada)"   = 15,
+    "PLUS Fall"          = 3,
+    "PLUS Spring"        = 4
+  )) +
+  labs(
+    x      = "Proportion correct",
+    y      = NULL,
+    colour = "Dataset",
+    shape  = "Dataset",
+    title  = "Item-level proportion correct across datasets"
+  ) +
+  theme_minimal() +
+  theme(
+    legend.position = "bottom",
+    plot.margin = margin(l = 20, unit = "mm")
+  )
+
+```
 ## Section 4: How well do Levante's item parameters transfer to PLUS?
 ```{r}
 #| label: reliability-comparison
