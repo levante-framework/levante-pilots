@@ -1,10 +1,25 @@
 ---
-title: "Spark_h&f"
-format: 
+title: "Applying the Levante IRT Model to the PLUS and Kimochis Datasets"
+author: "Fionnuala O'Reilly"
+date: "`r lubridate::today()`"
+format:
   html:
+    toc: true
+    toc-depth: 3
+    toc-float: true
+    number-sections: true
+    code-folding: hide
+    theme: readable
     fig-cap-location: top
+    embed-resources: true
+execute:
+  echo: false
+  warning: false
+  message: false
+  cache: true
 ---
-# Applying the Levante IRT Model to the PLUS and Kimochis Datasets
+
+## Introduction
 The Levante Hearts and Flowers (H&F) task is a computerized measure of inhibitory control and cognitive flexibility based on the Hearts and Flowers paradigm (Davidson et al., 2006), modelled after the AMES tablet version which has been validated across diverse global settings (Ahmed et al., 2022; Khan et al., 2024). Participants respond according to stimulus type: pressing a key on the same side as a heart (congruent rule) and on the opposite side for a flower (incongruent rule). The task includes three blocks — congruent (hearts only), incongruent (flowers only), and mixed (hearts and flowers) — with the congruent block serving as a baseline with minimal executive demands. Participants are encouraged to respond as quickly as possible; no hard time limit is imposed per trial, though responses slower than 3000ms are scored as incorrect. The task is scored using a Rasch IRT model calibrated on a cross-national sample of children aged 5–12 years.
 
 The goal of this analysis is to evaluate the generalizability of the Levante H&F IRT model by applying it to two external datasets collected by Spark Lab. The PLUS dataset was collected from students in grades 3–5 (approximately 8–11 years) in a large urban school district in the United States, who completed the task on individual digital devices during the school day in a classroom setting. The Kimochis dataset was collected from preschool-aged children (2–5 years) in a one-to-one assessment context.
@@ -31,6 +46,7 @@ library(flextable)
 library(patchwork)
 library(janitor)
 library(haven)
+library(dplyr)
 
 ```
 
@@ -44,8 +60,6 @@ kimochis <- readRDS("kimochis_hf.rds")
 # run data for raw scores
 run_data <- readr::read_rds(here::here("..", "levante-pilots", "01_fetched_data/run_data.rds"))
 # colnames(run_data)
-
-
 ```
 
 ```{r}
@@ -133,7 +147,7 @@ plus |>
   head(20)
 ```
 
-## Section 1: Participants?
+## Participants
 ```{r}
 #| label: sample-descriptives-table
 #| echo: false
@@ -309,7 +323,7 @@ Longitudinal retention was limited: the majority of children appeared at only on
 For the majority of children (n = `r kimo_n_fixed_age`), age did not vary across timepoints, suggesting it reflects 
 approximate age at enrolment rather than age at time of assessment. Age values also appear to be rounded to the nearest month rather than recorded as a continuous measure. 
 
-## Section 2: Data processing
+## Data processing
 ```{r}
 #| label: data-quality-checks
 #| include: false
@@ -518,6 +532,10 @@ plus_hearts_check <- plus_hf_items |>
   group_by(stud_id, time) |>
   summarise(hearts_acc = mean(correct, na.rm = TRUE), .groups = "drop") |>
   filter(hearts_acc >= 0.5)
+
+n_hf_start_trials <- plus_hf_items |> 
+  filter(block_clean == "heartsflowers", trial_type == "start") |> 
+  nrow()
 ```
 
 ```{r}
@@ -625,10 +643,10 @@ g5_m  <- grade_summary |> filter(pl_grade == 5) |> pull(m)
 g5_sd <- grade_summary |> filter(pl_grade == 5) |> pull(sd)
 ```
 
-## Data preparation and scoring - PLUS 
-Trial-level data from PLUS were filtered to test blocks only (hearts test, flowers test, mixed test), excluding practice trials. Trials with RT < 100ms were excluded as likely accidental key presses (n = 842). Accuracy was derived from the stimulus-response pairing: trials with a heart stimulus were scored correct if the response matched the stimulus side (congruent rule), and trials with a flower stimulus were scored correct if the response was on the opposite side (incongruent rule). Trials with no response (NA) were scored as incorrect, consistent with the Levante scoring approach. Additionally, consistent with the 750ms response window enforced during PLUS data collection, trials with RT > 750ms were scored as incorrect (19.8% of trials). This yielded a final analytic sample of `r n_distinct(plus_hf_scored_collapsed$stud_id)` children (`r format(nrow(plus_hf_scored_collapsed), big.mark = ",")` observations across fall and spring timepoints).
+### Data preparation and scoring - PLUS 
+Trial-level data from PLUS were filtered to test blocks only (hearts test, flowers test, mixed test), excluding practice trials. Trials with RT < 100ms were excluded as likely accidental key presses (n = 842). Accuracy was derived from the stimulus-response pairing: trials with a heart stimulus were scored correct if the response matched the stimulus side (congruent rule), and trials with a flower stimulus were scored correct if the response was on the opposite side (incongruent rule). Trials with no response (NA) were scored as incorrect, consistent with the Levante scoring approach. Additionally, consistent with the 750ms response window enforced during PLUS data collection, trials with RT > 750ms were scored as incorrect (19.8% of trials). This yielded a final analytic sample of `r length(unique(plus_hf_scored_collapsed$stud_id))` children (`r format(nrow(plus_hf_scored_collapsed), big.mark = ",")` observations across fall and spring timepoints).
 
-Each trial was assigned an item label following the Levante naming convention: `{block}_{stimulus}_{trial_type}-{trial_number}`, where trial type was classified as start (first trial in block), stay (same stimulus type as previous trial), or switch (different stimulus type from previous trial). Repeated trials of the same type (e.g., multiple heart stay trials) were collapsed into a single score per trial type. A child was scored as correct on that trial type if they got more than half of those trials right, and incorrect otherwise, giving one binary score per trial type per child to enter into the IRT model. Item difficulty parameters were taken from the Levante H&F Rasch model, which was estimated under scalar invariance across sites; parameters are therefore identical across all three Levante sites. This yielded `r length(shared_uid_types)` IRT items in PLUS out of the `r length(levante_uid_types)` analytic units used in Levante scoring. The missing item type (`r paste(setdiff(levante_uid_types, shared_uid_types), collapse = ", ")`) was absent from PLUS because the mixed block always began with a flower stimulus in this assessment (n = `r plus_hf_items |> filter(block_clean == "heartsflowers", trial_type == "start") |> nrow()` start trials, all flower), whereas the Levante mixed block begins with a heart stimulus. As a result, no child contributed a heartsflowers_heart_start trial and this analytic unit could not be scored.
+Each trial was assigned an item label following the Levante naming convention: `{block}_{stimulus}_{trial_type}-{trial_number}`, where trial type was classified as start (first trial in block), stay (same stimulus type as previous trial), or switch (different stimulus type from previous trial). Repeated trials of the same type (e.g., multiple heart stay trials) were collapsed into a single score per trial type. A child was scored as correct on that trial type if they got more than half of those trials right, and incorrect otherwise, giving one binary score per trial type per child to enter into the IRT model. Item difficulty parameters were taken from the Levante H&F Rasch model, which was estimated under scalar invariance across sites; parameters are therefore identical across all three Levante sites. This yielded `r length(shared_uid_types)` IRT items in PLUS out of the `r length(levante_uid_types)` analytic units used in Levante scoring. The missing item type (`r paste(setdiff(levante_uid_types, shared_uid_types), collapse = ", ")`) was absent from PLUS because the mixed block always began with a flower stimulus in this assessment (n = `r n_hf_start_trials` start trials, all flower), whereas the Levante mixed block begins with a heart stimulus. As a result, no child contributed a heartsflowers_heart_start trial and this analytic unit could not be scored.
 
 Ability scores (θ) showed an increasing pattern across grades (3rd grade: M = `r g3_m`, SD = `r g3_sd`; 4th grade: M = `r g4_m`, SD = `r g4_sd`; 5th grade: M = `r g5_m`, SD = `r g5_sd`), consistent with the expected developmental trajectory and supporting the construct validity of the scoring approach in this sample. Grade-level means are negative relative to the Levante scale origin, likely reflecting the stricter 750ms response window applied in PLUS scoring, which results in a higher proportion of trials scored as incorrect compared to Levante's 3000ms rule.
 
@@ -873,7 +891,7 @@ tibble(
 ```
 
 ### Data preparation and scoring - Kimochis
-Trial-level data from Kimochis were filtered to test blocks only (hearts test, flowers test), excluding practice trials. The Kimochis dataset did not include a mixed block, as the children were considered too young for the task-switching demands it requires. Accuracy was taken from the pre-computed "acc" column rather than derived from stimulus-response pairings. Timeout trials (14.5% of test trials) were scored as incorrect, consistent with the Levante scoring approach. This yielded a final analytic sample of `r n_distinct(kimochis_hf_scored_collapsed$id)` children (`r format(nrow(kimochis_hf_scored_collapsed), big.mark = ",")` observations) across two academic year cohorts (2021–2022 and 2022–2023), each with fall and spring timepoints.
+Trial-level data from Kimochis were filtered to test blocks only (hearts test, flowers test), excluding practice trials. The Kimochis dataset did not include a mixed block, as the children were considered too young for the task-switching demands it requires. Accuracy was taken from the pre-computed "acc" column rather than derived from stimulus-response pairings. Timeout trials (14.5% of test trials) were scored as incorrect, consistent with the Levante scoring approach. This yielded a final analytic sample of `r length(unique(kimochis_hf_scored_collapsed$id))` children (`r format(nrow(kimochis_hf_scored_collapsed), big.mark = ",")` observations) across two academic year cohorts (2021–2022 and 2022–2023), each with fall and spring timepoints.
 
 Each trial was assigned an item label following the Levante naming convention. Of the `r n_levante_total` items in the Levante H&F model, `r n_kimo_raw` were present in Kimochis — all from the hearts and flowers blocks. The 8 additional flowers trials in Kimochis (stay-16 through stay-23) exceeded the length of the Levante flowers block and were excluded from scoring. All `r n_levante_mixed` mixed block items were absent by design. Repeated trials of the same block-stimulus-trial_type combination were aggregated into a single analytic unit: a child was scored as correct on that trial type if they got more than half of those trials right, and incorrect otherwise. This yielded `r length(shared_uid_kimochis)` IRT items (`r paste(shared_uid_kimochis, collapse = ", ")`).
 
@@ -901,13 +919,10 @@ flextable(sample_sizes) |>
   autofit()
 ```
 
-## Section 3: How comparable are item difficulties across datasets?
-
+## How does raw performance compare across datasets?
 ```{r}
-#| label: item-difficulty-comparison
-#| fig-cap: "Age-related proportion correct on the Hearts and Flowers task across datasets. Each point represents one participant run; the blue line shows a GAM-smoothed trend with 95% confidence interval. PLUS data are split by timepoint (Fall and Spring). Note that PLUS proportion correct reflects the stricter 750ms response window applied during data collection."
-#| message: false
-#| echo: false
+#| label: age-raw-accuracy-prep
+#| include: false
 
 # levante: proportion correct per child per run
 levante_acc <- task_data_nested |>
@@ -937,6 +952,13 @@ plus_acc <- plus_hf_items |>
     .groups = "drop"
   ) |>
   mutate(dataset = as.character(time))
+```
+
+```{r}
+#| label: fig-age-raw-accuracy-plot
+#| echo: false
+#| message: false
+#| fig-cap: "Age-related raw proportion correct on the Hearts and Flowers task across datasets. Each point represents one participant run; the blue line shows a GAM-smoothed trend with 95% confidence interval. PLUS data are split by timepoint (Fall and Spring). Note that PLUS proportion correct reflects the stricter 750ms response window applied during data collection."
 
 # combine and plot
 bind_rows(
@@ -965,9 +987,7 @@ bind_rows(
 
 ```{r}
 #| label: item-difficulty-raw-scores-prep
-#| echo: false
-#| fig-width: 9
-#| fig-height: 6
+#| include: false
 
 # levante: raw trial-level accuracy per item_uid
 levante_item_props <- task_data_nested |>
@@ -1017,11 +1037,11 @@ item_order <- levante_item_props |>
 ```
 
 ```{r}
-#| label: item-difficulty-raw-scores-plot
-#| fig-cap: "Raw proportion correct per item type across datasets, computed from trial-level data prior to IRT scoring. Items are ordered by mean proportion correct across Levante sites (easiest at top). Note that heartsflowers_heart_start is shown for Levante only, as this item does not exist in the PLUS assessment design."
+#| label: fig-item-difficulty-raw-scores-plot
 #| echo: false
-#| fig-width: 9
+#| fig-width: 10
 #| fig-height: 6
+#| fig-cap: "Raw proportion correct per item type across datasets, computed from trial-level data prior to IRT scoring. Items are ordered by mean proportion correct across Levante sites (easiest at top). Note that heartsflowers_heart_start is shown for Levante only, as this item does not exist in the PLUS assessment design."
 
 item_props_combined |>
   mutate(
@@ -1062,7 +1082,12 @@ item_props_combined |>
   )
 
 ```
-## Section 4: How well do Levante's item parameters transfer to PLUS?
+
+We first examined raw proportion correct across datasets as an index of item difficulty, prior to any IRT modelling. @fig-age-raw-accuracy-plot shows overall accuracy as a function of age for each dataset. Across all three Levante sites, accuracy increased markedly with age, rising from approximately 50–60% at age 5 to 90–100% by age 12. PLUS Fall showed a similar upward trend across the grade 3–5 age range, though at a lower overall level than comparable Levante ages, consistent with the stricter 750ms response window applied during PLUS data collection. 
+
+@fig-item-difficulty-raw-scores-plot shows raw proportion correct broken down by item type. The item difficulty ordering was broadly consistent across datasets — hearts and flowers block items were easiest across all datasets, while mixed block items were harder, consistent with the greater executive demands of task-switching. PLUS Fall was systematically lower than all three Levante sites on mixed block items, again likely reflecting the 750ms scoring rule, which disproportionately affects slower mixed block trials. One exception was `heartsflowers_flower_start`, where PLUS Fall showed substantially lower accuracy (~35%) relative to Levante sites (~75–85%), suggesting this item may function differently in the PLUS assessment context. This item is examined further in the item fit analysis in Section 4.
+
+## How well do Levante's item parameters transfer to PLUS?
 ```{r}
 #| label: reliability-comparison
 #| include: false
@@ -1092,14 +1117,6 @@ plus_rxx_by_time <- plus_hf_scored_collapsed |>
   ) |>
   mutate(sample = "PLUS", time = as.character(time))
 
-kimochis_rxx_by_time <- kimochis_hf_scored_collapsed |>
-  group_by(time) |>
-  summarise(
-    n   = n(),
-    rxx = round(1 - mean(se_collapsed^2) / var(theta_collapsed), 3),
-    .groups = "drop"
-  ) |>
-  mutate(sample = "Kimochis", time = as.character(time))
 ```
 
 ```{r}
@@ -1112,14 +1129,9 @@ rxx_full_table <- bind_rows(
   levante_rxx |>
     mutate(time = NA_character_, n = NA_integer_) |>
     select(sample, time, n, rxx),
-
   # PLUS rows
   tibble(sample = "PLUS", time = "Pooled", n = nrow(plus_hf_scored_collapsed), rxx = plus_reliability_collapsed),
-  plus_rxx_by_time |> select(sample, time, n, rxx),
-
-  # Kimochis rows
-  tibble(sample = "Kimochis", time = "Pooled", n = nrow(kimochis_hf_scored_collapsed), rxx = kimochis_reliability_collapsed),
-  kimochis_rxx_by_time |> select(sample, time, n, rxx)
+  plus_rxx_by_time |> select(sample, time, n, rxx)
 )
 
 flextable(rxx_full_table) |>
@@ -1132,7 +1144,7 @@ flextable(rxx_full_table) |>
 ```
 
 ```{r}
-#| label: plus-spring-ceiling-check
+#| label: plus-spring-check
 #| echo: false
 #| tbl-cap: "Item-level proportion correct by timepoint (PLUS)"
 
@@ -1153,17 +1165,12 @@ plus_item_props |>
 
 ```
 
-Reliability estimates are reported as marginal reliability, computed as 1 minus the ratio of mean error variance to total score variance. Levante reliability ranged from `r levante_rxx |> pull(rxx) |> min() |> round(2)` 
-to `r levante_rxx |> pull(rxx) |> max() |> round(2)` across the three sites, reflecting moderate reliability.
-
-For PLUS Fall, reliability was acceptable (r = `r plus_rxx_by_time |> filter(time == "PLUS Fall") |> pull(rxx)`), but the PLUS Spring estimate was severely negative (r = `r plus_rxx_by_time |> filter(time == "PLUS Spring") |> pull(rxx)`). Negative reliability occurs when measurement error variance exceeds total score variance — that is, when scores show very little spread. This is consistent with the pronounced ceiling effect observed in PLUS Spring, where item-level proportion correct ranged from `r min(plus_item_props |> filter(time == "PLUS Spring") |> pull(prop_correct)) |> round(3)` to `r max(plus_item_props |> filter(time == "PLUS Spring") |> pull(prop_correct)) |> round(3)`. When nearly all children answer nearly all items correctly, the items no longer meaningfully differentiate between individuals, and the reliability estimate becomes unstable.
-
-Kimochis reliability estimates were consistently negative across all timepoints (range: `r kimochis_rxx_by_time |> pull(rxx) |> min()` to `r kimochis_rxx_by_time |> pull(rxx) |> max()`). These values should not be interpreted as evidence of poor measurement quality per se, but rather reflect two fundamental limitations of applying this scoring approach to the Kimochis sample. First, scoring is based on only 4 IRT items — far fewer than the 9–10 used in PLUS and Levante — providing very limited information per child. Second, the Levante item parameters were calibrated on children aged 5–12, whereas Kimochis children are aged 2–5. The fixed difficulty parameters are therefore misaligned with the ability range of this sample, meaning the items do not function as intended for this age group.
+Reliability estimates are reported as marginal reliability, computed as 1 minus the ratio of mean error variance to total score variance. Levante reliability ranged from `r levante_rxx |> pull(rxx) |> min() |> round(2)` to `r levante_rxx |> pull(rxx) |> max() |> round(2)` across the three sites, reflecting moderate reliability. PLUS reliability was modest but positive at both timepoints (Fall: r = `r plus_rxx_by_time |> filter(time == "PLUS Fall") |> pull(rxx)`, Spring: r = `r plus_rxx_by_time |> filter(time == "PLUS Spring") |> pull(rxx)`), and notably lower than Levante.  The lower reliability relative to Levante likely reflects the stricter 750ms response window and the group-based assessment format rather than a fundamental problem with the IRT model.
 
 ```{r}
 #| label: distribution-by-timepoint
 #| echo: false
-#| fig-cap: "Distribution of ability estimates (θ) by timepoint in PLUS, illustrating the ceiling effect in Spring"
+#| fig-cap: "Distribution of ability estimates (θ) by timepoint in PLUS"
 
 plus_hf_scored_collapsed |>
   mutate(time = as.character(time)) |>
@@ -1234,13 +1241,13 @@ plus_fall_itemfit |>
 ```
 Item fit was evaluated using the S-X2 statistic for the PLUS Fall sample (N = `r nrow(plus_fall_wide)`). All items showed significant misfit (all p < .001), with RMSEA values ranging from `r plus_fall_rmsea_min` to `r plus_fall_rmsea_max`. The worst-fitting item was `heartsflowers_flower_start`, which showed substantially higher misfit than the remaining items.
 
-## Section 5: What happens when we re-estimate item parameters from PLUS?
+## What happens when we re-estimate item parameters from PLUS?
 ```{r}
 
 # New chunk - to be added later
 ```
 
-## Section 6: How do RTs change with age across datasets?
+## How do RTs change with age across datasets?
 ```{r}
 #| label: trial-descriptive-stats
 #| include: false
@@ -1355,14 +1362,22 @@ print(p_acc)
 
 ```
 
-## Section 7: Boundary condition — Kimochis
-
+## Boundary condition — Kimochis
 ```{r}
-# To be added later.
+kimochis_rxx_by_time <- kimochis_hf_scored_collapsed |>
+  group_by(time) |>
+  summarise(
+    n   = n(),
+    rxx = round(1 - mean(se_collapsed^2) / var(theta_collapsed), 3),
+    .groups = "drop"
+  ) |>
+  mutate(sample = "Kimochis", time = as.character(time))
+
+
 ```
-
-
-
+<!--
+Kimochis reliability estimates were consistently negative across all timepoints (range: `r kimochis_rxx_by_time |> pull(rxx) |> min()` to `r kimochis_rxx_by_time |> pull(rxx) |> max()`). These values should not be interpreted as evidence of poor measurement quality per se, but rather reflect two fundamental limitations of applying this scoring approach to the Kimochis sample. First, scoring is based on only 4 IRT items — far fewer than the 9–10 used in PLUS and Levante — providing very limited information per child. Second, the Levante item parameters were calibrated on children aged 5–12, whereas Kimochis children are aged 2–5. The fixed difficulty parameters are therefore misaligned with the ability range of this sample, meaning the items do not function as intended for this age group.
+-->
 
 
 
