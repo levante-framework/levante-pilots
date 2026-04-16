@@ -20,21 +20,17 @@ execute:
 ---
 
 ## Introduction
-The Levante Hearts and Flowers (H&F) task is a computerized measure of inhibitory control and cognitive flexibility based on the Hearts and Flowers paradigm (Davidson et al., 2006), modelled after the AMES tablet version which has been validated across diverse global settings (Ahmed et al., 2022; Khan et al., 2024). Participants respond according to stimulus type: pressing a key on the same side as a heart (congruent rule) and on the opposite side for a flower (incongruent rule). The task includes three blocks — congruent (hearts only), incongruent (flowers only), and mixed (hearts and flowers) — with the congruent block serving as a baseline with minimal executive demands. Participants are encouraged to respond as quickly as possible; no hard time limit is imposed per trial, though responses slower than 3000ms are scored as incorrect. The task is scored using a Rasch IRT model calibrated on a cross-national sample of children aged 5–12 years.
+The Levante Hearts and Flowers (H&F) task is a computerized measure of inhibitory control and cognitive flexibility based on the Hearts and Flowers paradigm (Davidson et al., 2006), modelled after the AMES tablet version which has been validated across diverse global settings (Ahmed et al., 2022; Khan et al., 2024). Participants respond according to stimulus type: pressing a key on the same side as a heart (congruent rule) and on the opposite side for a flower (incongruent rule). The task includes three blocks — congruent (hearts only), incongruent (flowers only), and mixed (hearts and flowers) — with the congruent block serving as a baseline with minimal executive demands. Participants are encouraged to respond as quickly as possible; no hard time limit is imposed per trial, though responses slower than 2000ms are scored as incorrect. The task is scored using a Rasch IRT model calibrated on a cross-national sample of children aged 5–12 years.
 
-The goal of this analysis is to evaluate the generalizability of the Levante H&F IRT model by applying it to two external datasets collected by Spark Lab. The PLUS dataset was collected from students in grades 3–5 (approximately 8–11 years) in a large urban school district in the US, who completed the task on individual digital devices during the school day in a classroom setting. The Kimochis dataset was collected from preschool-aged children (2–5 years) in a one-to-one assessment context.
+The goal of this analysis is to evaluate the generalizability of the Levante H&F IRT model by applying it to two external datasets collected by Spark Lab. The PLUS dataset was collected from students in grades 3–5 (approximately 8–11 years) in a large urban school district in the US, who completed the task on individual digital devices during the school day in a classroom setting. The Kimochis dataset was collected from preschool-aged children (2–5 years) in a one-to-one assessment context. Although both datasets are described in the participants and data processing sections below, the primary generalizability analysis focuses on PLUS only. Kimochis children fall below the Levante calibration age range of 5–12 years, and the Kimochis assessment did not include a mixed block — the component of the task that places the greatest demands on executive function and contributes most of the IRT model's discriminating power. For these reasons, meaningful generalizability testing is not feasible for Kimochis, and we do not pursue further analysis of that dataset beyond the descriptive sections.
 
-The primary generalizability test uses the PLUS dataset, which falls within the Levante calibration age range. We address this through three research questions:
+The generalizability analysis of PLUS addresses three research questions:
 
 1. How comparable are item difficulties across datasets? We examine whether the Levante items rank in the same order of difficulty in PLUS as in the original Levante calibration sample, using raw percent correct as a format-neutral index of item difficulty.
-
 2. How well do Levante's item parameters transfer to PLUS? We apply fixed Levante item parameters to score PLUS children and evaluate model fit, reliability, and the plausibility of the resulting ability estimates.
-
 3. What happens when we re-estimate item parameters from PLUS? We re-estimate item difficulty parameters freely from the PLUS Fall sample using the Levante pipeline, and compare these to the original Levante parameters to quantify how much the parameters shift and what this means for measurement quality.
 
 We additionally examine reaction time profiles across datasets as a descriptive check on construct validity, asking whether the expected patterns of faster RTs with age and greater difficulty for incongruent trials are present in PLUS as in Levante.
-
-Finally, we apply the model to the Kimochis dataset as a boundary condition analysis. At ages 2–5, Kimochis children fall below the Levante calibration range, and the dataset lacks a mixed block entirely. We do not expect the model to generalize to this sample, but examine how and where it breaks down as a way of characterising the limits of the model's applicability.
 ```{r}
 #| label: packages
 #| include: false
@@ -114,13 +110,13 @@ kimochis |> mutate(time = as.character(time))
 plus |>
 summarise(
 n_under_100  = sum(rt < 100, na.rm = TRUE),
-n_over_30000 = sum(rt > 30000, na.rm = TRUE)
+n_over_20000 = sum(rt > 20000, na.rm = TRUE)
 )
 
 kimochis |>
 summarise(
 n_under_100  = sum(rt < 100, na.rm = TRUE),
-n_over_30000 = sum(rt > 30000, na.rm = TRUE)
+n_over_20000 = sum(rt > 20000, na.rm = TRUE)
 )
 
 head(plus, 3)
@@ -319,8 +315,7 @@ The Kimochis dataset includes `r kimo_n_total` unique children across four timep
 
 Longitudinal retention was limited: the majority of children appeared at only one timepoint (n = `r kimo_n_1tp`), with `r kimo_n_2tp` appearing at two, `r kimo_n_3tp` at three, and `r kimo_n_4tp` at all four timepoints. 
 
-For the majority of children (n = `r kimo_n_fixed_age`), age did not vary across timepoints, suggesting it reflects 
-approximate age at enrolment rather than age at time of assessment. Age values also appear to be rounded to the nearest month rather than recorded as a continuous measure. 
+For the majority of children (n = `r kimo_n_fixed_age`), age did not vary across timepoints, suggesting it reflects approximate age at enrolment rather than age at time of assessment. Age values also appear to be rounded to the nearest month rather than recorded as a continuous measure. 
 
 ## Data processing
 ```{r}
@@ -332,7 +327,7 @@ plus |>
 summarise(
 p95         = quantile(rt, 0.95),
 p99         = quantile(rt, 0.99),
-n_over_3000 = sum(rt > 3000),
+n_over_2000 = sum(rt > 2000),
 n_over_5000 = sum(rt > 5000)
 )
 
@@ -456,6 +451,7 @@ count()
 # Load data
 task_data_nested <- read_rds(here("01_fetched_data/task_data_nested.rds"))
 glimpse(task_data_nested$data)
+colnames(task_data_nested)
 
 # look at the data structure for hf in levante
 task_data_nested |>
@@ -641,13 +637,12 @@ g4_sd <- grade_summary |> filter(pl_grade == 4) |> pull(sd)
 g5_m  <- grade_summary |> filter(pl_grade == 5) |> pull(m)
 g5_sd <- grade_summary |> filter(pl_grade == 5) |> pull(sd)
 ```
-
 ### Data preparation and scoring - PLUS 
 Trial-level data from PLUS were filtered to test blocks only (hearts test, flowers test, mixed test), excluding practice trials. Trials with RT < 100ms were excluded as likely accidental key presses (n = 842). Accuracy was derived from the stimulus-response pairing: trials with a heart stimulus were scored correct if the response matched the stimulus side (congruent rule), and trials with a flower stimulus were scored correct if the response was on the opposite side (incongruent rule). Trials with no response (NA) were scored as incorrect, consistent with the Levante scoring approach. Additionally, consistent with the 750ms response window enforced during PLUS data collection, trials with RT > 750ms were scored as incorrect (19.8% of trials). This yielded a final analytic sample of `r length(unique(plus_hf_scored_collapsed$stud_id))` children (`r format(nrow(plus_hf_scored_collapsed), big.mark = ",")` observations across fall and spring timepoints).
 
 Each trial was assigned an item label following the Levante naming convention: `{block}_{stimulus}_{trial_type}-{trial_number}`, where trial type was classified as start (first trial in block), stay (same stimulus type as previous trial), or switch (different stimulus type from previous trial). Repeated trials of the same type (e.g., multiple heart stay trials) were collapsed into a single score per trial type. A child was scored as correct on that trial type if they got more than half of those trials right, and incorrect otherwise, giving one binary score per trial type per child to enter into the IRT model. Item difficulty parameters were taken from the Levante H&F Rasch model, which was estimated under scalar invariance across sites; parameters are therefore identical across all three Levante sites. This yielded `r length(shared_uid_types)` IRT items in PLUS out of the `r length(levante_uid_types)` analytic units used in Levante scoring (see @tbl-item-overlap-table). The missing item type (`r paste(setdiff(levante_uid_types, shared_uid_types), collapse = ", ")`) was absent from PLUS because the mixed block always began with a flower stimulus in this assessment (n = `r n_hf_start_trials` start trials, all flower), whereas the Levante mixed block begins with a heart stimulus. As a result, no child contributed a heartsflowers_heart_start trial and this analytic unit could not be scored.
 
-Ability scores (θ) showed an increasing pattern across grades (3rd grade: M = `r g3_m`, SD = `r g3_sd`; 4th grade: M = `r g4_m`, SD = `r g4_sd`; 5th grade: M = `r g5_m`, SD = `r g5_sd`), consistent with the expected developmental trajectory and supporting the construct validity of the scoring approach in this sample. Grade-level means are negative relative to the Levante scale origin, likely reflecting the stricter 750ms response window applied in PLUS scoring, which results in a higher proportion of trials scored as incorrect compared to Levante's 3000ms rule.
+Ability scores (θ) showed an increasing pattern across grades (3rd grade: M = `r g3_m`, SD = `r g3_sd`; 4th grade: M = `r g4_m`, SD = `r g4_sd`; 5th grade: M = `r g5_m`, SD = `r g5_sd`), consistent with the expected developmental trajectory and supporting the construct validity of the scoring approach in this sample. Grade-level means are negative relative to the Levante scale origin, likely reflecting the stricter 750ms response window applied in PLUS scoring, which results in a higher proportion of trials scored as incorrect compared to Levante's 2000ms rule.
 
 ```{r}
 #| label: prep-kimochis-hf-items
@@ -699,7 +694,6 @@ group_by(id, time) |>
 summarise(hearts_acc = mean(acc, na.rm = TRUE), .groups = "drop") |>
 filter(hearts_acc >= 0.5)
 ```
-
 
 ```{r}
 #| label: kimochis-hf-levante-equivalent
@@ -906,16 +900,14 @@ tibble(
   hline(i = c(4, 5, 6), part = "body") |>
   fontsize(size = 11, part = "all")
 ```
-
 ### Data preparation and scoring - Kimochis
-Trial-level data from Kimochis were filtered to test blocks only (hearts test, flowers test), excluding practice trials. The Kimochis dataset did not include a mixed block, as the children were considered too young for the task-switching demands it requires. Accuracy was taken from the pre-computed "acc" column rather than derived from stimulus-response pairings. Timeout trials (14.5% of test trials) were scored as incorrect, consistent with the Levante scoring approach. This yielded a final analytic sample of `r length(unique(kimochis_hf_scored_collapsed$id))` children (`r format(nrow(kimochis_hf_scored_collapsed), big.mark = ",")` observations) across two academic year cohorts (2021–2022 and 2022–2023), each with fall and spring timepoints.
+Trial-level data from Kimochis were filtered to test blocks only (hearts test, flowers test), excluding practice trials. The dataset did not include a mixed block, as the children were considered too young for its task-switching demands. Accuracy was taken from the pre-computed "acc" column rather than derived from stimulus-response pairings. Timeout trials (14.5% of test trials) were scored as incorrect, consistent with the Levante scoring approach. This yielded a final analytic sample of `r length(unique(kimochis_hf_scored_collapsed$id))` children (`r format(nrow(kimochis_hf_scored_collapsed), big.mark = ",")` observations) across two academic year cohorts (2021–2022 and 2022–2023), each with fall and spring timepoints.
 
-Each trial was assigned an item label following the Levante naming convention. Of the `r n_levante_total` items in the Levante H&F model, `r n_kimo_raw` were present in Kimochis — all from the hearts and flowers blocks. The 8 additional flowers trials in Kimochis (stay-16 through stay-23) exceeded the length of the Levante flowers block and were excluded from scoring. All `r n_levante_mixed` mixed block items were absent by design. Repeated trials of the same block-stimulus-trial_type combination were aggregated into a single analytic unit: a child was scored as correct on that trial type if they got more than half of those trials right, and incorrect otherwise. This yielded `r length(shared_uid_kimochis)` IRT items (`r paste(shared_uid_kimochis, collapse = ", ")`) (see @tbl-item-overlap-table).
+Each trial was assigned an item label following the Levante naming convention. Of the `r n_levante_total` items in the Levante H&F model, `r n_kimo_raw` were present in Kimochis, all from the hearts and flowers blocks; all `r n_levante_mixed` mixed block items were absent by design. The 8 additional flowers trials in Kimochis (stay-16 through stay-23) exceeded the length of the Levante flowers block and were excluded from scoring. Repeated trials of the same type were aggregated into a single analytic unit scored as correct if the child got more than half right, yielding `r length(shared_uid_kimochis)` IRT items (`r paste(shared_uid_kimochis, collapse = ", ")`) (see @tbl-item-overlap-table).
 
-Ability scores (θ) showed an increasing pattern across age groups (2–3 years: M = `r a23_m`, SD = `r a23_sd`; 3–4 years: M = `r a34_m`, SD = `r a34_sd`; 4–5 years: M = `r a45_m`, SD = `r a45_sd`) consistent with the expected developmental trajectory.
+Ability scores (θ) showed an increasing pattern across age groups (2–3 years: M = `r a23_m`, SD = `r a23_sd`; 3–4 years: M = `r a34_m`, SD = `r a34_sd`; 4–5 years: M = `r a45_m`, SD = `r a45_sd`), consistent with the expected developmental trajectory. All means were negative relative to the Levante scale origin, which is expected given that Kimochis children fall below the Levante calibration age range of 5–12 years and scores are based on only 4 items with no mixed block contribution.
 
-All age-group means are negative relative to the Levante scale origin. This is expected given that Kimochis children (ages 2–5) fall below the Levante calibration age range of 5–12, and θ estimates are based on only 4 IRT items covering the hearts and flowers blocks only, with no mixed block items contributing to scoring.
-
+Given these limitations, the structural differences between the two assessments are too great to support meaningful generalizability testing. The remaining sections focus exclusively on PLUS.
 ```{r}
 #| label: sample-size-table
 #| include: false
@@ -975,7 +967,7 @@ mutate(dataset = as.character(time))
 #| label: fig-age-raw-accuracy-plot
 #| echo: false
 #| message: false
-#| fig-cap: "Age-relatedproportion correct (raw scores) on the Hearts and Flowers task across datasets. Each point represents one participant run; the blue line shows a GAM-smoothed trend with 95% confidence interval. PLUS data are split by timepoint (Fall and Spring). Note that PLUS proportion correct reflects the stricter 750ms response window applied during data collection."
+#| fig-cap: "Age-related proportion correct (raw scores) on the Hearts and Flowers task across datasets. Each point represents one participant run; the blue line shows a GAM-smoothed trend with 95% confidence interval. PLUS data are split by timepoint (Fall and Spring). Note that PLUS proportion correct reflects the stricter 750ms response window applied during data collection."
 
 # combine and plot
 bind_rows(
@@ -1099,8 +1091,7 @@ plot.margin = margin(l = 20, unit = "mm")
 )
 
 ```
-
-We first examined raw proportion correct across datasets as an index of item difficulty, prior to any IRT modelling. @fig-age-raw-accuracy-plot shows overall accuracy as a function of age for each dataset. Across all three Levante sites, accuracy increased markedly with age, rising from approximately 50–60% at age 5 to 90–100% by age 12. PLUS Fall showed a similar upward trend across the grade 3–5 age range, though at a lower overall level than comparable Levante ages, consistent with the stricter 750ms response window applied during PLUS data collection. 
+We first examined raw proportion correct across datasets as an index of item difficulty, prior to any IRT modelling. @fig-age-raw-accuracy-plot shows overall accuracy as a function of age for each dataset. Across all three Levante sites, accuracy increased with age, rising from approximately 50–60% at age 5 to 90–100% by age 12. PLUS Fall showed a similar upward trend for 8-11 year olds, though at a lower overall level than comparable Levante ages, consistent with the stricter 750ms response window applied during PLUS data collection. 
 
 @fig-item-difficulty-raw-scores-plot shows raw proportion correct broken down by item type. The item difficulty ordering was broadly consistent across datasets — hearts and flowers block items were easiest across all datasets, while mixed block items were harder, consistent with the greater executive demands of task-switching. PLUS Fall was systematically lower than all three Levante sites on mixed block items, again likely reflecting the 750ms scoring rule, which disproportionately affects slower mixed block trials. One exception was `heartsflowers_flower_start`, where PLUS Fall showed substantially lower accuracy (~35%) relative to Levante sites (~75–85%), suggesting this item may function differently in the PLUS assessment context. This item is examined further in the item fit analysis in Section 5.1.
 
@@ -1201,10 +1192,9 @@ theme_vanilla() |>
 autofit()
 
 ```
+Reliability estimates are reported as marginal reliability, computed as 1 minus the ratio of mean error variance to total score variance (see @tbl-reliability-by-timepoint). Levante reliability ranged from `r levante_rxx |> pull(rxx) |> min() |> round(2)` to `r levante_rxx |> pull(rxx) |> max() |> round(2)` across the three sites, reflecting moderate reliability. PLUS reliability was modest but positive at both timepoints (Fall: r = `r plus_rxx_by_time |> filter(time == "PLUS Fall") |> pull(rxx)`, Spring: r = `r plus_rxx_by_time |> filter(time == "PLUS Spring") |> pull(rxx)`), and notably lower than Levante.  The lower reliability relative to Levante likely reflects the stricter 750ms response window rather than a fundamental problem with the IRT model.
 
-Reliability estimates are reported as marginal reliability, computed as 1 minus the ratio of mean error variance to total score variance (see @tbl-reliability-by-timepoint). Levante reliability ranged from `r levante_rxx |> pull(rxx) |> min() |> round(2)` to `r levante_rxx |> pull(rxx) |> max() |> round(2)` across the three sites, reflecting moderate reliability. PLUS reliability was modest but positive at both timepoints (Fall: r = `r plus_rxx_by_time |> filter(time == "PLUS Fall") |> pull(rxx)`, Spring: r = `r plus_rxx_by_time |> filter(time == "PLUS Spring") |> pull(rxx)`), and notably lower than Levante.  The lower reliability relative to Levante likely reflects the stricter 750ms response window and the group-based assessment format rather than a fundamental problem with the IRT model.
-
-The distribution of θ estimates (@fig-distribution-by-timepoint) shows a rightward shift from Fall to Spring, consistent with expected growth over the academic year. The Spring distribution is multimodal, with distinct peaks around θ = −1, 0.3, and 0.9 (see @tbl-plus-spring-check). This pattern likely reflects ceiling effects on the simpler items (hearts and flowers block items showed near-perfect accuracy at Spring; see item proportion-correct table above), which compress score separation at the upper end of the ability range.
+The distribution of θ estimates (@fig-distribution-by-timepoint) shows a rightward shift from Fall to Spring, consistent with expected growth over the academic year. The Spring distribution is multimodal, with distinct peaks around θ = −1, 0.3, and 0.9. This likely reflects ceiling effects on the simpler items: by Spring, hearts and flowers block items showed near-perfect pass rates (see @tbl-plus-spring-check), leaving little variance to separate children at the upper end of the ability range, and producing the clustering visible in the distribution.
 
 ```{r}
 #| label: fig-distribution-by-timepoint
@@ -1278,10 +1268,9 @@ theme_vanilla() |>
 autofit()
 
 ```
-Item level fit statistics are presented in @tbl-plus-fall-item-fit. Item fit was evaluated using the S-X2 statistic for the PLUS Fall sample (N = `r nrow(plus_fall_wide)`). All items showed significant misfit (all p < .001), with RMSEA values ranging from 
-`r plus_fall_rmsea_min` to `r plus_fall_rmsea_max`. Most items showed moderate misfit (RMSEA = 0.07–0.16), but `heartsflowers_flower_start` stood out as the worst (RMSEA = `r plus_fall_rmsea_max`). This pattern is consistent with the 750ms response window applied during PLUS data collection. Mixed block items require task-switching, which is cognitively demanding and inherently slower, meaning that correct responses are more likely to exceed the 750ms cutoff and be scored as incorrect. The first trial of the mixed block is particularly affected: regardless of ability, children tend to respond slowly on the initial switch into the mixed context. The Levante model, calibrated with a 3000ms window, expects this item to be easier than PLUS children's scores suggest, producing the severe misfit observed. By contrast, hearts and flowers block items — where median RTs fall well below 750ms — are less affected by the cutoff and show comparatively better fit.
+Item level fit statistics are presented in @tbl-plus-fall-item-fit. Item fit was evaluated using the S-X2 statistic for the PLUS Fall sample (N = `r nrow(plus_fall_wide)`). All items showed significant misfit (all p < .001), with RMSEA values ranging from `r plus_fall_rmsea_min` to `r plus_fall_rmsea_max`. Most items showed moderate misfit (RMSEA = 0.07–0.16), but `heartsflowers_flower_start` stood out as the worst (RMSEA = `r plus_fall_rmsea_max`). This pattern is consistent with the 750ms response window applied during PLUS data collection. Mixed block items require task-switching, which is cognitively demanding and inherently slower, meaning that correct responses are more likely to exceed the 750ms cutoff and be scored as incorrect. The first trial of the mixed block is particularly affected: regardless of ability, children tend to respond slowly on the initial switch into the mixed context. The Levante model, calibrated with a 2000ms window, expects this item to be easier than PLUS children's scores suggest, producing the severe misfit observed. By contrast, hearts and flowers block items — where median RTs fall well below 750ms — are less affected by the cutoff and show comparatively better fit.
 
-Together, the low reliability and level of item misfit suggest the Levante model does not generalize well to the PLUS assessment context. The misfit pattern is interpretable as a measurement artefact of the stricter response window rather than a fundamental failure of the model, but it does mean that mixed block item scores should be interpreted with caution.
+Together, the low reliability and level of item misfit suggest the Levante model does not generalize well to the PLUS assessment context. The misfit pattern is interpretable as a measurement artefact of the stricter response window rather than a fundamental failure of the model.
 
 ## What happens when we re-estimate item parameters from PLUS?
 ```{r}
@@ -1367,9 +1356,8 @@ list.files(plus_regdir, recursive = TRUE)
 ```
 
 ```{r}
-#| label: tbl-param-comparison
-#| echo: false
-#| tbl-cap: "Re-estimated PLUS Fall item difficulty parameters compared to original Levante values. Positive d_diff indicates the item was estimated as easier in PLUS; negative d_diff indicates harder."
+#| label: param-comparison-prep
+#| include: false
 
 plus_mod_rec <- read_rds(
   file.path(plus_regdir, "hf/multigroup_site/overlap_items/hf_rasch_f1_scalar.rds")
@@ -1389,13 +1377,19 @@ levante_coefs <- hf_mod_rec@model_vals |>
 param_comparison <- plus_coefs |>
   left_join(levante_coefs, by = "item") |>
   mutate(d_diff = plus_d - levante_d)
+```
+
+```{r}
+#| label: tbl-param-comparison
+#| tbl-cap: "Re-estimated PLUS Fall item difficulty parameters compared to original Levante values. Positive d_diff indicates the item was estimated as easier in PLUS; negative d_diff indicates harder."
+#| echo: false
 
 param_comparison |>
   arrange(d_diff) |>
   rename(
-    Item       = item,
-    `PLUS d`   = plus_d,
-    `Levante d` = levante_d,
+    Item                          = item,
+    `PLUS d`                      = plus_d,
+    `Levante d`                   = levante_d,
     `Difference (PLUS - Levante)` = d_diff
   ) |>
   flextable() |>
@@ -1435,6 +1429,7 @@ param_comparison |>
   theme_minimal() +
   theme(legend.position = "bottom")
 ```
+
 ```{r}
 #| label: param-comparison-reporting
 #| include: false
@@ -1463,7 +1458,6 @@ hfs_flower_start_diff <- param_comparison |>
 hfs_flower_start_plus_d    <- param_comparison |> filter(item == "heartsflowers_flower_start") |> pull(plus_d) |> round(2)
 hfs_flower_start_levante_d <- param_comparison |> filter(item == "heartsflowers_flower_start") |> pull(levante_d) |> round(2)
 ```
-
 Item difficulty parameters were re-estimated freely from the PLUS Fall sample (N = `r nrow(plus_fall_wide)`) using the Levante pipeline, fitting a Rasch model with scalar invariance across the three Levante sites and PLUS Fall. Parameters were estimated on the `r length(shared_uid_types)` items present in all four groups (i.e., excluding `heartsflowers_heart_start`, which was absent from PLUS by design). @fig-param-comparison shows the re-estimated PLUS parameters plotted against the original Levante values.
 
 Hearts and flowers block items were estimated as easier in PLUS than in Levante (positive d_diff, range: `r hf_diff_min` to `r hf_diff_max`), while mixed block items were estimated as harder (negative d_diff, range: `r mixed_diff_min` to `r mixed_diff_max`, excluding `heartsflowers_flower_start`). This is consistent with the differential impact of the 750ms response window across blocks: hearts and flowers trials are fast enough that the cutoff rarely affects scoring, whereas mixed block trials — which require task-switching and are inherently slower — are more affected as items appear harder than they would under a lenient time limit.
@@ -1501,89 +1495,277 @@ acc_sd   = sd(acc,  na.rm = TRUE),
 ```
 
 ```{r}
-#| label: descriptive-table
+#| label: levante-rt-prep
+#| include: false
+
+levante_rt <- task_data_nested |>
+  filter(item_task == "hf") |>
+  unnest(data) |>
+  left_join(
+    run_data |> select(user_id, run_id, age) |> mutate(age = as.numeric(age)),
+    by = c("user_id", "run_id")
+  ) |>
+  mutate(
+    dataset = case_when(
+      site == "pilot_mpieva_de"   ~ "Levante (Germany)",
+      site == "pilot_uniandes_co" ~ "Levante (Colombia)",
+      site == "pilot_western_ca"  ~ "Levante (Canada)"
+    ),
+    block = case_when(
+      str_detect(item_uid, "^hearts_")        ~ "hearts test",
+      str_detect(item_uid, "^flowers_")       ~ "flowers test",
+      str_detect(item_uid, "^heartsflowers_") ~ "mixed test"
+    ),
+    stim_shape = case_when(
+      str_detect(item_uid, "_heart_")  ~ "heart",
+      str_detect(item_uid, "_flower_") ~ "flower"
+    ),
+    acc = as.numeric(correct)
+  ) |>
+  filter(!is.na(rt_numeric), rt_numeric >= 100) |>
+  select(dataset, age, block, stim_shape, rt = rt_numeric, acc)
+
+all_descriptive_rt <- bind_rows(
+  plus |>
+    filter(!block %in% c("hearts practice", "flowers practice")) |>
+    mutate(
+      dataset    = as.character(time),
+      stim_shape = str_to_lower(stim_shape),
+      acc        = as.numeric(acc)
+    ) |>
+    select(dataset, age, block, stim_shape, rt, acc),
+
+  levante_rt
+) |>
+  filter(!is.na(rt))
+
+dataset_levels <- c(
+  "Levante (Germany)", "Levante (Colombia)", "Levante (Canada)",
+  "PLUS Fall", "PLUS Spring"
+)
+```
+
+```{r}
+#| label: tbl-rt-descriptives
+#| tbl-cap: "Descriptive statistics for RT and accuracy by dataset and block. RT values are in milliseconds."
 #| echo: false
 
-both_descriptive |>
-filter(!is.na(rt)) |>
-group_by(dataset, block) |>
-summarise(
-n_trials = n(),
-age_mean = mean(age, na.rm = TRUE),
-age_sd   = sd(age,  na.rm = TRUE),
-acc_mean = mean(acc, na.rm = TRUE),
-acc_sd   = sd(acc,  na.rm = TRUE),
-rt_mean  = mean(rt),
-rt_med   = median(rt),
-rt_sd    = sd(rt),
-rt_min   = min(rt),
-rt_max   = max(rt),
-.groups  = "drop"
-) |>
-mutate(age_m_sd = glue("{round(age_mean, 2)} ({round(age_sd, 2)})")) |>
-select(-age_mean, -age_sd) |>
-arrange(dataset, block) |>
-rename(
-Dataset     = dataset,
-Block       = block,
-`N Trials`  = n_trials,
-`Age M (SD)` = age_m_sd,
-`Acc Mean`  = acc_mean,
-`Acc SD`    = acc_sd,
-`RT Mean`   = rt_mean,
-`RT Median` = rt_med,
-`RT SD`     = rt_sd,
-`RT Min`    = rt_min,
-`RT Max`    = rt_max
-) |>
-flextable() |>
-colformat_double(digits = 2) |>
-merge_v(j = "Dataset") |>
-theme_vanilla() |>
-autofit()
+all_descriptive_rt |>
+  filter(!is.na(rt)) |>
+  group_by(dataset, block) |>
+  summarise(
+    n_trials = n(),
+    age_mean = mean(age, na.rm = TRUE),
+    age_sd   = sd(age,  na.rm = TRUE),
+    acc_mean = mean(acc, na.rm = TRUE),
+    acc_sd   = sd(acc,  na.rm = TRUE),
+    rt_mean  = mean(rt),
+    rt_med   = median(rt),
+    rt_sd    = sd(rt),
+    rt_min   = min(rt),
+    rt_max   = max(rt),
+    .groups  = "drop"
+  ) |>
+  mutate(
+    dataset    = factor(dataset, levels = dataset_levels),
+    age_m_sd   = glue("{round(age_mean, 2)} ({round(age_sd, 2)})")
+  ) |>
+  arrange(dataset, block) |>
+  select(-age_mean, -age_sd) |>
+  rename(
+    Dataset      = dataset,
+    Block        = block,
+    `N Trials`   = n_trials,
+    `Age M (SD)` = age_m_sd,
+    `Acc Mean`   = acc_mean,
+    `Acc SD`     = acc_sd,
+    `RT Mean`    = rt_mean,
+    `RT Median`  = rt_med,
+    `RT SD`      = rt_sd,
+    `RT Min`     = rt_min,
+    `RT Max`     = rt_max
+  ) |>
+  flextable() |>
+  colformat_double(digits = 2) |>
+  merge_v(j = "Dataset") |>
+  theme_vanilla() |>
+  autofit() |>
+  add_footer_lines("Note: PLUS Fall trials were scored incorrect if RT exceeded 750ms. PLUS Spring appears to have applied a longer cutoff of approximately 1250ms, which is understood to reflect an error in task administration.")
 
 ```
 
 ```{r}
-#| label: plots
+#| label: fig-rt-dist-all
 #| echo: false
+#| fig-width: 10
+#| fig-height: 6
+#| fig-cap: "RT distributions by block and dataset. X-axis capped at 2000ms, reflecting the analytic RT ceiling applied in Levante; the 750ms cutoff applied in PLUS is marked by a dashed vertical line. Levante distributions show the expected right skew; PLUS distributions are truncated at the cutoff."
 
-# RT distributions by block
-p_rt_dist <- both_descriptive |>
-filter(!is.na(rt)) |>
-ggplot(aes(x = rt, fill = dataset)) +
-geom_histogram(bins = 60, alpha = 0.7, position = "identity") +
-facet_wrap(~block, scales = "free_y") +
-labs(title = "RT distributions by block", x = "RT (ms)", y = "count") +
-theme_minimal()
+library(ggridges)
 
-# RT boxplots by block x stim_shape
-p_rt_box <- both_descriptive |>
-filter(!is.na(rt)) |>
-ggplot(aes(x = block, y = rt, fill = stim_shape)) +
-geom_boxplot(outlier.size = 0.5, alpha = 0.8) +
-facet_wrap(~dataset) +
-labs(title = "RT by block × stim_shape", y = "RT (ms)") +
-theme_minimal() +
-theme(axis.text.x = element_text(angle = 30, hjust = 1))
-
-# accuracy by block x stim_shape
-p_acc <- both_descriptive |>
-group_by(dataset, block, stim_shape) |>
-summarise(acc = mean(acc, na.rm = TRUE), .groups = "drop") |>
-ggplot(aes(x = block, y = acc, fill = stim_shape)) +
-geom_col(position = "dodge") +
-facet_wrap(~dataset) +
-scale_y_continuous(limits = c(0, 1)) +
-labs(title = "Accuracy by block × stim_shape", y = "proportion correct") +
-theme_minimal() +
-theme(axis.text.x = element_text(angle = 30, hjust = 1))
-
-print(p_rt_dist)
-print(p_rt_box)
-print(p_acc)
-
+all_descriptive_rt |>
+  filter(!is.na(block)) |>
+  mutate(
+    dataset = factor(dataset, levels = rev(dataset_levels)),
+    block   = factor(block, levels = c("hearts test", "flowers test", "mixed test"))
+  ) |>
+  ggplot(aes(x = rt, y = dataset, fill = dataset)) +
+  geom_density_ridges(
+    alpha          = 0.7,
+    scale          = 0.9,
+    rel_min_height = 0.01
+  ) +
+  geom_vline(xintercept = 750, linetype = "dashed", colour = "grey30", linewidth = 0.5) +
+  facet_wrap(~block, nrow = 1) +
+  coord_cartesian(xlim = c(0, 2000)) +
+  scale_fill_manual(values = c(
+    "Levante (Germany)"  = "#E41A1C",
+    "Levante (Colombia)" = "#A6A600",
+    "Levante (Canada)"   = "#4DAF4A",
+    "PLUS Fall"          = "#377EB8",
+    "PLUS Spring"        = "#984EA3"
+  )) +
+  labs(
+    x = "RT (ms)",
+    y = NULL
+  ) +
+  theme_minimal() +
+  theme(legend.position = "none")
 ```
+
+
+```{r}
+#| label: fig-rt-by-age-all
+#| echo: false
+#| fig-width: 12
+#| fig-height: 4
+#| fig-cap: "GAM-smoothed RT as a function of age by block across datasets, with 95% CI. Y-axis capped at 2000ms to match the Levante response window; a small number of extreme trials above this threshold are excluded from the plot but not the model. Levante sites show the expected developmental decrease in RT across all three blocks. PLUS replicates this trend within the narrower 8–11 year range, though RTs are compressed by the 750ms response window (dashed line)."
+
+all_descriptive_rt |>
+  filter(!is.na(age), !is.na(block)) |>
+  mutate(
+    dataset = factor(dataset, levels = dataset_levels),
+    block   = factor(block, levels = c("hearts test", "flowers test", "mixed test"))
+  ) |>
+  ggplot(aes(x = age, y = rt, colour = block, fill = block)) +
+  geom_hline(yintercept = 750, linetype = "dashed", colour = "grey40", linewidth = 0.4) +
+  geom_smooth(method = "gam", se = TRUE, linewidth = 0.9, alpha = 0.15) +
+  facet_wrap(~dataset, nrow = 1) +
+  coord_cartesian(ylim = c(0, 2000)) +
+  scale_colour_manual(values = c(
+    "hearts test"  = "#4DAF4A",
+    "flowers test" = "#377EB8",
+    "mixed test"   = "#E41A1C"
+  )) +
+  scale_fill_manual(values = c(
+    "hearts test"  = "#4DAF4A",
+    "flowers test" = "#377EB8",
+    "mixed test"   = "#E41A1C"
+  )) +
+  labs(
+    x      = "Age (years)",
+    y      = "RT (ms)",
+    colour = "Block",
+    fill   = "Block"
+  ) +
+  theme_minimal() +
+  theme(legend.position = "bottom")
+```
+
+```{r}
+#| label: rt-write-up-stats
+#| include: false
+
+# median RTs by dataset and block for inline reporting
+rt_medians <- all_descriptive_rt |>
+  filter(!is.na(block)) |>
+  mutate(dataset = factor(dataset, levels = dataset_levels)) |>
+  group_by(dataset, block) |>
+  summarise(rt_med = round(median(rt), 0), .groups = "drop")
+
+# convenience pull function
+rt_med <- function(d, b) {
+  rt_medians |> filter(dataset == d, block == b) |> pull(rt_med)
+}
+
+# proportion of levante trials exceeding 750ms (i.e., what PLUS would have cut off)
+levante_pct_over_750 <- all_descriptive_rt |>
+  filter(str_detect(dataset, "Levante")) |>
+  group_by(block) |>
+  summarise(
+    pct_over_750 = round(mean(rt > 750) * 100, 1),
+    .groups = "drop"
+  )
+
+lev_pct_hearts <- levante_pct_over_750 |> filter(block == "hearts test")  |> pull(pct_over_750)
+lev_pct_flowers <- levante_pct_over_750 |> filter(block == "flowers test") |> pull(pct_over_750)
+lev_pct_mixed  <- levante_pct_over_750 |> filter(block == "mixed test")   |> pull(pct_over_750)
+
+# RT SD comparison to show compression
+rt_sds <- all_descriptive_rt |>
+  filter(!is.na(block)) |>
+  group_by(dataset, block) |>
+  summarise(rt_sd = round(sd(rt), 0), .groups = "drop")
+
+# levante mean SD across sites for each block
+lev_sd_hearts <- rt_sds |> 
+  filter(str_detect(dataset, "Levante"), block == "hearts test") |> 
+  summarise(m = round(mean(rt_sd), 0)) |> pull(m)
+lev_sd_mixed <- rt_sds |> 
+  filter(str_detect(dataset, "Levante"), block == "mixed test") |> 
+  summarise(m = round(mean(rt_sd), 0)) |> pull(m)
+
+plus_fall_sd_hearts <- rt_sds |> filter(dataset == "PLUS Fall", block == "hearts test") |> pull(rt_sd)
+plus_fall_sd_mixed  <- rt_sds |> filter(dataset == "PLUS Fall", block == "mixed test")  |> pull(rt_sd)
+```
+We examined RT profiles across datasets as a descriptive check on construct validity, asking whether the expected patterns — faster RTs with age and greater difficulty for incongruent and mixed trials — are present in PLUS as in Levante.
+
+@fig-rt-dist-all shows the RT distributions by block and dataset. Across all three Levante sites, distributions had the expected right-skewed shape, with median RTs ranging from `r rt_med("Levante (Germany)", "hearts test")`ms (hearts, Germany) to `r rt_med("Levante (Germany)", "mixed test")`ms (mixed, Germany). In contrast, PLUS distributions were narrow and sharply truncated at the 750ms response window, with median RTs of `r rt_med("PLUS Fall", "hearts test")`ms (hearts), `r rt_med("PLUS Fall", "flowers test")`ms (flowers), and `r rt_med("PLUS Fall", "mixed test")`ms (mixed) at Fall. The practical impact of this cutoff is substantial: across Levante sites, `r lev_pct_hearts`%, `r lev_pct_flowers`%, and `r lev_pct_mixed`% of hearts, flowers, and mixed block trials respectively exceeded 750ms. The effect is largest for the mixed block, where task-switching demands produce inherently slower responses, and is reflected in RT standard deviations: Levante sites showed a mean SD of `r lev_sd_mixed`ms on the mixed block versus `r plus_fall_sd_mixed`ms in PLUS Fall.
+
+Despite this compression, PLUS preserved the expected ordering of block difficulty. As shown in @fig-rt-by-age-all, RTs were fastest for the hearts block and slowest for the mixed block in both datasets, consistent with the greater executive demands of task-switching. The developmental decrease in RT with age was clearly visible across all three Levante sites, with RTs declining steeply from age 5 to approximately age 10 before levelling off. PLUS replicated the direction of this trend within its narrower 8–11 year range, though the absolute RT level and developmental slope were both compressed by the response window, with all three block lines falling below the 750ms cutoff. Together these patterns suggest that while the 750ms window substantially alters the RT distribution in PLUS, the ordinal structure of the task — hearts easier than flowers easier than mixed, and faster responding with age — is preserved.
+
+<!--
+```{r}
+#| label: fig-rt-by-block-shape-all
+#| echo: false
+#| fig-width: 12
+#| fig-height: 5
+#| fig-cap: "Median RT by block and stimulus type across datasets. Error bars show interquartile range. Hearts block is fastest across all datasets; mixed block is slowest, reflecting task-switching demands. PLUS RTs are substantially lower than Levante, consistent with the 750ms response window."
+
+all_descriptive_rt |>
+  filter(!is.na(block), !is.na(stim_shape)) |>
+  mutate(
+    dataset = factor(dataset, levels = dataset_levels),
+    block   = factor(block, levels = c("hearts test", "flowers test", "mixed test"))
+  ) |>
+  group_by(dataset, block, stim_shape) |>
+  summarise(
+    rt_med = median(rt),
+    rt_q25 = quantile(rt, 0.25),
+    rt_q75 = quantile(rt, 0.75),
+    .groups = "drop"
+  ) |>
+  ggplot(aes(x = block, y = rt_med, colour = stim_shape, group = stim_shape)) +
+  geom_line() +
+  geom_point(size = 2.5) +
+  geom_errorbar(aes(ymin = rt_q25, ymax = rt_q75), width = 0.2, alpha = 0.6) +
+  facet_wrap(~dataset, nrow = 1) +
+  scale_colour_manual(
+    values = c("heart" = "#E41A1C", "flower" = "#377EB8"),
+    labels = c("heart" = "Heart", "flower" = "Flower")
+  ) +
+  labs(
+    x      = "Block",
+    y      = "Median RT (ms)",
+    colour = "Stimulus"
+  ) +
+  theme_minimal() +
+  theme(
+    axis.text.x     = element_text(angle = 30, hjust = 1),
+    legend.position = "bottom"
+  )
+```
+
 
 ## Boundary condition — Kimochis
 ```{r}
@@ -1596,18 +1778,6 @@ rxx = round(1 - mean(se_collapsed^2) / var(theta_collapsed), 3),
 ) |>
 mutate(sample = "Kimochis", time = as.character(time))
 
-
 ```
-<!--
 Kimochis reliability estimates were consistently negative across all timepoints (range: `r kimochis_rxx_by_time |> pull(rxx) |> min()` to `r kimochis_rxx_by_time |> pull(rxx) |> max()`). These values should not be interpreted as evidence of poor measurement quality per se, but rather reflect two fundamental limitations of applying this scoring approach to the Kimochis sample. First, scoring is based on only 4 IRT items — far fewer than the 9–10 used in PLUS and Levante — providing very limited information per child. Second, the Levante item parameters were calibrated on children aged 5–12, whereas Kimochis children are aged 2–5. The fixed difficulty parameters are therefore misaligned with the ability range of this sample, meaning the items do not function as intended for this age group.
 -->
-
-
-
-
-
-
-
-
-
-
