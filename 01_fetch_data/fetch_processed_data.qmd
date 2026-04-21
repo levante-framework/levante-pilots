@@ -1,0 +1,44 @@
+```{r setup}
+library(rlevante)
+library(dplyr)
+library(here)
+library(readr)
+library(stringr)
+library(tidyr)
+```
+
+```{r}
+dataset_spec <- list(
+  list(name = "pilot_uniandes_co_bogota_processed:d0c5", version = "v3.0"),
+  list(name = "pilot_uniandes_co_rural_processed:bxgv",  version = "v4.0"),
+  list(name = "pilot_mpieva_de_main_processed:8wjx",     version = "v2.0"),
+  list(name = "pilot_western_ca_main_processed:bgcj",    version = "v2.0"))
+
+# fetch processed runs
+runs <- map(dataset_spec, \(ds) get_scores(ds$name, ds$version))
+
+run_data <- runs |>
+  list_rbind() |>
+  arrange(task_id, redivis_source)
+
+write_rds(run_data, here("01_fetched_data/run_data.rds"), compress = "gz")
+```
+
+```{r}
+# fetch processed trials
+trials <- map(dataset_spec, \(ds) get_trials(ds$name, ds$version))
+
+task_data_nested <- task_data_nested |> unnest(data) |>
+#   left_join(run_data |> select(run_id, language)) |>
+  nest(data = -c(item_task, language))
+
+# nest by site and dataset
+task_data_nested <- trials |>
+  list_rbind() |>
+  left_join(run_data |> select(run_id, language)) |>
+  nest(data = -c(item_task, language, site, dataset)) |>
+  filter(item_task != "ha") |>
+  arrange(item_task, dataset)
+
+write_rds(task_data_nested, here("01_fetched_data/task_data_nested.rds"), compress = "gz")
+```

@@ -61,6 +61,7 @@ trial_data_included <- trial_data_coded |> anti_join(exclusions)
 
 ```{r}
 task_data_nested <- trial_data_included |>
+  mutate(site = dataset |> str_remove("_[^_]*?$")) |>
   nest(data = -c(item_task, site, language))
 
 write_rds(task_data_nested, here("01_fetched_data/task_data_nested.rds"),
