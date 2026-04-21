@@ -43,8 +43,8 @@ task_metrics <- tribble(
 cat_tasks <- c("swr")
 
 run_info <- read_rds(here(glue("01_fetched_data/run_data.rds"))) |>
-  select(site, dataset, language, task_id, variant_id, variant_name,
-         user_id, run_id, adaptive, age, time_started)
+  select(site, dataset, language, task_id, #variant_id, variant_name,
+         user_id, run_id, adaptive, age) #, time_started)
 
 score_files <- c("registry_scores.rds", "sumscores.rds", "roar_thetas.rds", "scores_custom.rds")
 ref_sites <- c("pilot_uniandes_co", "pilot_mpieva_de", "pilot_western_ca")
@@ -55,12 +55,12 @@ scores <- score_files |>
   left_join(run_info) |>
   filter(site %in% ref_sites)
 
-mefs <- read_rds(here("02_scoring_outputs", "scores", "scores_mefs.rds"))
+# mefs <- read_rds(here("02_scoring_outputs", "scores", "scores_mefs.rds"))
 
 scores_combined <- scores |>
-  bind_rows(mefs) |>
+  # bind_rows(mefs) |>
   filter(!is.na(age)) |>
-  filter(item_task != "ha") |>
+  # filter(item_task != "ha") |>
   left_join(task_info)
 
 task_scores <- scores_combined |>

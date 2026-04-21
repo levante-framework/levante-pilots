@@ -9,8 +9,8 @@ task_data_combined <- task_data_nested |> unnest(data)
 
 task_map <- task_data_combined |> distinct(task_id, item_task)
 
-# run_data <- read_rds(here("01_fetched_data/run_data.rds"))
-runs_filtered <- read_rds(here("01_fetched_data/runs_filtered.rds"))
+run_data <- read_rds(here("01_fetched_data/run_data.rds"))
+# runs_filtered <- read_rds(here("01_fetched_data/runs_filtered.rds"))
 ```
 
 Sumscores for all tasks
@@ -34,13 +34,14 @@ write_rds(sumscores, here("02_scoring_outputs", "scores", "sumscores.rds"),
 Thetas for tasks that have them, and score
 
 ```{r thetas}
-thetas <- runs_filtered |>
-  filter(!is.na(test_comp_theta_estimate)) |>
+thetas <- run_data |>
+  filter(score_type == "ability_cat") |>
+  # filter(!is.na(test_comp_theta_estimate)) |>
   left_join(task_map) |>
   mutate(metric_type = "ability", model_class = "CAT", model = "cat_irt") |>
   select(item_task, run_id, metric_type,
-         metric_value = test_comp_theta_estimate,
-         metric_se = test_comp_theta_se,
+         metric_value = score,
+         metric_se = score_se,
          model_class, model)
 
 write_rds(thetas, here("02_scoring_outputs", "scores", "roar_thetas.rds"),
@@ -101,6 +102,9 @@ sre <- sre_all |>
   filter(site != "ca_pilot" | timestamp < timestamp[min(trial_number)] + 180) |>
   summarise(metric_value = (sum(correct) - sum(!correct))/180) |>
   ungroup() |>
+  group_by(site) |>
+  mutate(metric_value = scale(metric_value)[,1]) |>
+  ungroup() |>
   mutate(metric_type = "guessing_adjusted_number_correct")
 ```
 
@@ -115,25 +119,26 @@ ggplot(sre, aes(x = metric_value)) +
 # PA
 
 ```{r}
-pa <- task_data_combined |>
-  filter(str_detect(task_id,"pa")) |>
-  group_by(site, item_task, user_id, run_id) |>
-  summarise(total_correct = sum(correct),
-            n_trials = n()) |>
-  filter(n_trials > 3) |>
-  mutate(max_trials = case_when(site == "pilot_western_ca" ~ 57,
-                                site == "pilot_uniandes_co" ~ 20), 
-         prop_correct = total_correct / max_trials) |>
-  ungroup() |>
-  select(-max_trials,-total_correct,-n_trials) |>
-  pivot_longer(-c("site", ends_with("_id"), "item_task"),
-               names_to = "metric_type", values_to = "metric_value")
+# pa <- task_data_combined |>
+#   filter(str_detect(task_id,"pa")) |>
+#   group_by(site, item_task, user_id, run_id) |>
+#   summarise(total_correct = sum(correct),
+#             n_trials = n()) |>
+#   filter(n_trials > 3) |>
+#   mutate(max_trials = case_when(site == "pilot_western_ca" ~ 57,
+#                                 site == "pilot_uniandes_co" ~ 20), 
+#          prop_correct = total_correct / max_trials) |>
+#   ungroup() |>
+#   select(-max_trials,-total_correct,-n_trials) |>
+#   pivot_longer(-c("site", ends_with("_id"), "item_task"),
+#                names_to = "metric_type", values_to = "metric_value")
 ```
 
 #  Combine scores
 
 ```{r}
-scores_custom <- bind_rows(sre, pa) |>
+# scores_custom <- bind_rows(sre, pa) |>
+scores_custom <- sre |>
   select(item_task, run_id, metric_type, metric_value)
 
 write_rds(scores_custom, here("02_scoring_outputs/scores/scores_custom.rds"))

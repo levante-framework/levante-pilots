@@ -80,7 +80,7 @@ ggplot(aes(y = model_type, x = value, color = stat, shape = best)) +
   labs(x = "Value (difference from min for task)") +
   theme(panel.grid.major.y = element_line(color = "#EBEBEBFF"),
         axis.title.y = element_blank())
-ggsave(here("02_score_data/plots/multigroup_post.png"), width = 14, height = 3)
+ggsave(here("02_scoring_outputs/plots/multigroup_post.png"), width = 14, height = 3)
 ```
 
 ```{r}
@@ -106,9 +106,11 @@ mods_overlap |>
 ggplot(aes(x = delta_bic, y = paste(itemtype, invariance))) +
   facet_wrap(vars(task), scales = "free") +
   geom_vline(xintercept = 0, color = "grey") +
-  geom_point() +
+  geom_crossbar(aes(xmin = delta_bic, xmax = delta_bic, colour = itemtype), width = 0.7,
+                middle.linewidth = 0.5) +
+  scale_colour_brewer(palette = "Set1", guide = "none") +
   labs(x = "BIC difference from lowest", y = "Model")
-ggsave(here("02_score_data/plots/bic_comparison.png"), width = 9, height = 6)
+ggsave(here("02_scoring_outputs/plots/bic_comparison.png"), width = 9, height = 6)
 
 mods_best_overlap <- mods_overlap |>
   group_by(task, subset) |>
@@ -125,7 +127,8 @@ mods_best_multigroup <- mods_coded |>
 
 configural_tasks <- mods_best_overlap |>
   filter(invariance == "configural") |>
-  select(task)
+  select(task) |>
+  bind_rows(tibble(task = setdiff(mods_best_language$task, mods_best_overlap$task)))
 
 # best by language model for each task for which overlap winner is configural
 mods_best_configural <- mods_best_language |>
@@ -144,7 +147,9 @@ mod_coefs <- \(mod_rec) {
     select(group, item, name, value) |>
     pivot_wider(names_from = name, values_from = value) |>
     mutate(item = str_remove(item, glue("{item_sep}[0-9]+$"))) |>
-    distinct()
+    distinct() |>
+    mutate(difficulty = -d / a1) |>
+    arrange(difficulty)
 }
 
 best_coefs <- mods_best |>
@@ -157,10 +162,12 @@ write_rds(best_coefs, here("02_scoring_outputs/best_coefs.rds"),
 ```
 
 ```{r}
-mods_best_objs <- mods_best |> mutate(mod = map(mod_rec, model_from_record))
+mods_objs <- mods_coded |> mutate(mod = map(mod_rec, model_from_record))
 
-mods_group <- mods_best_objs |>
-  filter(model_set == "multigroup_site") |>
+mods_group <- mods_objs |>
+  filter(model_set == "multigroup_site", subset == "all_items") |>
+  filter(invariance == "scalar") |> # extract.group not working for metric/configural
+  semi_join(mods_best_multigroup, by = "task") |>
   mutate(site = map(mod, \(m) m@Data$groupNames),
          group_models = map(mod, multigroup_extract_groups))
 
@@ -170,16 +177,16 @@ mods_group_rxx <- mods_group |>
   mutate(rxx = map_dbl(group_models, marginal_rxx)) |>
   select(site, task, itemtype, nfact, invariance, rxx)
 
-mods_lang_rxx <- mods_best_objs |>
+mods_lang_rxx <- mods_objs |>
   filter(model_set == "by_language") |>
-  mutate(site = subset |> fct_recode("pilot_mpieva_de" = "de",
-                                     "pilot_uniandes_co" = "es",
-                                     "pilot_western_ca" = "en")) |>
-  mutate(rxx = map_dbl(mod, marginal_rxx)) |>
+  semi_join(mods_best_configural, by = "task") |>
+  mutate(site = subset |> fct_recode("pilot_mpieva_de" = "de-DE",
+                                     "pilot_uniandes_co" = "es-CO",
+                                     "pilot_western_ca" = "en-US")) |>
+  mutate(rxx = map_dbl(mod, marginal_rxx),
+         invariance = "by_language") |>
   select(site, task, itemtype, nfact, invariance, rxx)
 
 task_rxx <- bind_rows(mods_group_rxx, mods_lang_rxx)
-# pivot_wider(names_from = "site", values_from = "rxx")
-# write_rds(task_rxx_wide, here("02_scoring_outputs", "task_rxx_wide.rds"))
 write_rds(task_rxx, here("02_scoring_outputs", "task_rxx.rds"))
 ```
