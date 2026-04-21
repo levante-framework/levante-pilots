@@ -8,7 +8,6 @@ library(ggh4x)
 
 source(here("plot_settings.R"))
 source(here("03_summaries/plotting_helper.R"))
-source(here("03_summaries/scores_helper.R"))
 ```
 
 Combine all task scores into one plot!
@@ -18,6 +17,7 @@ task_scores <- read_rds(here("02_scoring_outputs/scores/scores_combined.rds"))
 site_labels <- c("uniandes-co" = "pilot_uniandes_co",
                  "mpieva-de" = "pilot_mpieva_de",
                  "western-ca" = "pilot_western_ca")
+site_pal <- set_names(site_pal, names(site_pal) |> fct_recode(!!!site_labels))
 
 task_scores_labeled <- task_scores |>
   mutate(task = task |> str_to_title() |> fct_inorder(),
@@ -30,7 +30,8 @@ task_scores_labeled <- task_scores |>
   mutate(site = site |> fct_recode(!!!site_labels)) |>
   group_by(site) |>
   mutate(site_label = glue("{site} (n = {n_distinct(run_id)})")) |>
-  ungroup()
+  ungroup() |>
+  filter(age >= 5, age < 13)
 ```
 
 With just the LEVANTE original tasks. 
