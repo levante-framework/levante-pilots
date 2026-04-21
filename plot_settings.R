@@ -39,3 +39,8 @@ pal <- list(
   red  = RColorBrewer::brewer.pal(3, "Set1")[1],
   blue = RColorBrewer::brewer.pal(3, "Set1")[2]
 )
+
+# For mrot paper specifically
+stimuli <- c("duck", "rabbit", "shape")
+stimulus_pal <- RColorBrewer::brewer.pal(3, "Set1") |> rlang::set_names(stimuli)
+.scale_colour_stimulus <- \(...) scale_colour_manual(values = stimulus_pal, ...)

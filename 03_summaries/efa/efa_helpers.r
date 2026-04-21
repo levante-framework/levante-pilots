@@ -202,7 +202,7 @@ run_efa_plot <- function(caregiver_tidy, formi, remove_items=NULL, sites, nfacto
         ) +
         coord_cartesian(clip = "off") +
         theme(
-          plot.margin = margin(r = 50)
+          plot.margin = margin(r = 120)
         )
       
       
