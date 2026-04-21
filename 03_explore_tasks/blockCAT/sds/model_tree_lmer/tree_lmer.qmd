@@ -1,0 +1,117 @@
+
+```{r}
+# # base model -- no node effect
+# mod_tree_base <- glmer(
+#   value ~ 0 + (1 | item:item_group) + (1 | item_group) + (1 | run_id) + (1 | group),
+#   family = "binomial", data = sds_tree
+# )
+
+# unidimensional model -- node effect by item
+mod_tree_uni <- glmer(
+  value ~ 0 + (0 + node | item) + (1 | item_group) + (1 | run_id) + (1 | group),
+  family = "binomial", data = sds_tree
+)
+
+# multidimensional model -- node effect by item and run
+mod_tree_multi <- glmer(
+  value ~ 0 + (0 + node | item) + (1 | item_group) + (0 + node | run_id) + (1 | group),
+  family = "binomial", data = sds_tree
+)
+
+anova(mod_tree_uni, mod_tree_multi)
+# anova(mod_tree_base, mod_tree_uni, mod_tree_multi)
+```
+
+```{r}
+sds_tree_str <- sds_tree |> select(group, item_group, item_choice, item_status, item, node, chance) |> distinct()
+sds_tree_preds <- sds_tree_str |>
+  mutate(#fit_base = predict(mod_tree_base, newdata = sds_tree_str, re.form = ~(1|group) + (1 | item) + (1|item_group), type = "response"),
+         fit_uni = predict(mod_tree_uni, newdata = sds_tree_str, re.form = ~(1|group) + (0 + node | item) + (1|item_group), type = "response")) |>
+         # fit_multi = predict(mod_tree_multi, newdata = sds_tree_str, re.form = ~(1|group) + (0 + node | item) + (1|item_group), type = "response")) |>
+  pivot_longer(cols = starts_with("fit"), names_to = "model", values_to = "fitted")
+
+sds_tree_preds |>
+  filter(model == "fit_multi") |>
+  filter(!str_detect(group, "rural")) |>
+  # mutate(item = item |> fct_inorder() |> fct_rev()) |>
+  mutate(item_label = paste(item_choice, item_status, sep = "_") |> factor() |> fct_rev()) |>
+ggplot(aes(x = fitted, y = item_label)) +
+  facet_grid(rows = vars(item_group), cols = vars(group), scales = "free_y", space = "free_y", switch = "y") +
+  # geom_point(aes(colour = node)) +
+  geom_crossbar(aes(xmin = fitted, xmax = fitted, colour = node), middle.linewidth = 0.2, width = 0.5) +
+  scale_colour_ptol() +
+  xlim(0, 1) +
+  labs(x = "P(correct)", colour = "Node") +
+  theme(axis.title.y = element_blank(),
+        strip.placement = "outside",
+        legend.position = "top",
+        panel.grid.major.y = element_line(colour = "#EBEBEBFF"))
+
+sds_tree_str |>
+  mutate(fitted = predict(mod_tree_multi, newdata = sds_tree_str, re.form = ~(0 + node | item:item_group) + (1|item_group), type = "response")) |>
+  # arrange(item_group, item_status, item_choice) |>
+  mutate(item_label = paste(item_status, item_choice, sep = "_") |> factor() |> fct_rev()) |> #pull(item_label) |> levels()
+  ggplot(aes(x = fitted, y = item_label)) +
+    facet_grid(rows = vars(item_group), scales = "free_y", space = "free_y", switch = "y") +
+    # geom_point(aes(colour = node)) +
+    geom_crossbar(aes(xmin = chance, xmax = chance), colour = "lightgrey", middle.linewidth = 0.2, width = 0.5) +
+    geom_crossbar(aes(xmin = fitted, xmax = fitted, colour = node), middle.linewidth = 0.2, width = 0.5) +
+    scale_colour_ptol() +
+    xlim(0, 1) +
+    labs(x = "P(correct)", colour = "Node") +
+    theme(axis.title.y = element_blank(),
+          strip.placement = "outside",
+          legend.position = "top",
+          panel.grid.major.y = element_line(colour = "#EBEBEBFF"))
+```
+
+```{r}
+tree_uni_fits <- augment(mod_tree_uni, type.predict = "response", type.residuals = "response") |>
+  left_join(sds_tree |> distinct(item, node, chance))
+
+tree_uni_floor <- tree_uni_fits |>
+  group_by(item, node, chance) |>
+  summarise(min_fitted = min(.fitted)) |>
+  ungroup() |>
+  mutate(floor_gap = chance - min_fitted) |>
+  arrange(desc(floor_gap))
+
+ggplot(tree_uni_floor, aes(x = chance, y = min_fitted)) +
+  facet_wrap(vars(node)) +
+  geom_point()
+```
+
+```{r}
+ranef_uni <- ranef(mod_tree_uni)
+item_effects <- ranef_uni$item |> as_tibble(rownames = "item") |>
+  pivot_longer(cols = starts_with("node"), names_to = "node", values_to = "estimate", names_prefix = "node") |>
+  left_join(sds_tree |> distinct(item, node, chance))
+
+item_effects |>
+  group_by(node) |>
+  summarise(cor = cor(estimate, chance))
+
+ggplot(item_effects, aes(x = chance, y = estimate)) +
+  facet_wrap(vars(node)) +
+  geom_point()
+```
+
+```{r}
+# ranef_multi <- ranef(mod_tree_multi)
+# abilities_multi <- ranef_multi$`run_id:group` |>
+#   as_tibble(rownames = "id") |>
+#   separate(id, c("run_id", "group"), sep = ":") |>
+#   pivot_longer(cols = -c(run_id, group), names_to = "node", values_to = "value", names_prefix = "node") |>
+#   mutate(model = "multidimensional")
+# 
+# ranef_uni <- ranef(mod_tree_uni)
+# abilities_uni <- ranef_uni$`run_id:group` |>
+#   as_tibble(rownames = "id") |>
+#   separate(id, c("run_id", "group"), sep = ":") |>
+#   rename(value = `(Intercept)`) |>
+#   mutate(node = "none", model = "unidimensional")
+# 
+# abilities <- bind_rows(abilities_multi, abilities_uni) |>
+#   left_join(run_data |> select(run_id, age)) |>
+#   mutate(model = model |> fct_relevel("unidimensional"))
+```

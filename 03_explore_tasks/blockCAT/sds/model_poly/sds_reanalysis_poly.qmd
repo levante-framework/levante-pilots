@@ -1,0 +1,1031 @@
+```{r}
+library(readr)
+library(here)
+library(dplyr)
+library(purrr)
+library(tidyr)
+library(glue)
+library(forcats)
+
+trial_data_filtered <- read_rds(here("01_fetched_data/trial_data_filtered.rds"))
+
+df <- trial_data_filtered |>
+    mutate(original_correct = .data$correct, .after = "correct")
+source("recode_sds.R")
+```
+
+Two different ways of slicing up SDS match trials into responses:
+A. each response (choice1/choice2/etc) is an observation (correct/incorrect)
+B. each stimulus is an observation, with the sequence of choice1/choice2/etc responses summed (resulting in a 0 to k scale for a k-match stimulus)
+
+Within each trial slicing, different ways of grouping trials into items:
+A1. group + choice [2match_choice1, 2match_choice2]
+A2. group + choice + status [2match_choice1_0r, 2match_choice2_0r, 2match_choice2_1r]
+A3. group + stimulus + choice [2match_Ly^1)-Sb^1)-Sro1_choice1, 2match_Ly^1)-Sb^1)-Sro1)_choice2] x18
+A4. group + stimulus + choice + status [2match_Ly^1)-Sb^1)-Sro1_choice1_0r, 2match_Ly^1)-Sb^1)-Sro1)_choice2_0r, 2match_Ly^1)-Sb^1)-Sro1)_choice2_1r] x18
+B1. group [2match]
+B2. group + stimulus [2match_Ly^1)-Sb^1)-Sro1] x18
+
+Method A: Response counts 
+
+```{r}
+sds_trials_summary <- sds_trials |>
+  count(item_group, item_stimulus, item_choice, item_status, correct) |>
+  # count(dataset, item_group, item_choice, item_stimulus, item_status, correct) |>
+  # group_by(dataset, item_group, item_choice, item_stimulus, item_status) |>
+  group_by(item_group, item_stimulus, item_choice, item_status) |>
+  mutate(prop = n / sum(n)) |>
+  ungroup() |>
+  mutate(correct = if_else(correct, 1, 0) |> as_factor()) |>
+  # arrange(n) |>
+  mutate(item_stimulus = item_stimulus |> fct_infreq() |> fct_rev())
+
+ggplot(sds_trials_summary |> filter(item_group == "2match"),
+       aes(x = n, y = item_stimulus)) +
+  facet_grid(cols = vars(item_choice, item_status),
+             scales = "free_y", space = "free_y") +
+  geom_col(aes(fill = correct)) +
+  scale_fill_brewer(palette = "Set1") +
+  labs(x = "Count", y = "Stimulus", fill = "Correct", subtitle = "2match")
+
+ggplot(sds_trials_summary |> filter(item_group == "2match"),
+       aes(x = prop, y = item_stimulus)) +
+  facet_grid(cols = vars(item_choice, item_status),
+             scales = "free_y", space = "free_y") +
+  geom_col(aes(fill = correct)) +
+  scale_fill_brewer(palette = "Set1") +
+  labs(x = "Proportion", y = "Stimulus", fill = "Correct", subtitle = "2match")
+
+ggplot(sds_trials_summary |> filter(item_group == "3match"),
+       aes(x = n, y = item_stimulus)) +
+  facet_grid(cols = vars(item_choice, item_status),
+             scales = "free_y", space = "free_y") +
+  geom_col(aes(fill = correct)) +
+  scale_fill_brewer(palette = "Set1") +
+  labs(x = "Count", y = "Stimulus", fill = "Correct", subtitle = "3match")
+
+ggplot(sds_trials_summary |> filter(item_group == "3match"),
+       aes(x = prop, y = item_stimulus)) +
+  facet_grid(cols = vars(item_choice, item_status),
+             scales = "free_y", space = "free_y") +
+  geom_col(aes(fill = correct)) +
+  scale_fill_brewer(palette = "Set1") +
+  labs(x = "Proportion", y = "Stimulus", fill = "Correct", subtitle = "3match")
+
+ggplot(sds_trials_summary |> filter(item_group == "4match"),
+       aes(x = n, y = item_stimulus)) +
+  facet_grid(cols = vars(item_choice, item_status),
+             scales = "free_y", space = "free_y") +
+  geom_col(aes(fill = correct)) +
+  scale_fill_brewer(palette = "Set1") +
+  labs(x = "Count", y = "Stimulus", fill = "Correct", subtitle = "4match")
+
+ggplot(sds_trials_summary |> filter(item_group == "4match"),
+       aes(x = prop, y = item_stimulus)) +
+  facet_grid(cols = vars(item_choice, item_status),
+             scales = "free_y", space = "free_y") +
+  geom_col(aes(fill = correct)) +
+  scale_fill_brewer(palette = "Set1") +
+  labs(x = "Proportion", y = "Stimulus", fill = "Correct", subtitle = "4match")
+```
+
+Method B: Response counts 
+
+```{r}
+sds_trials_collapsed_summary <- sds_trials_collapsed |>
+  count(item_group, item_stimulus, correct) |>
+  group_by(item_group, item_stimulus) |>
+  mutate(prop = n / sum(n)) |>
+  ungroup() |>
+  mutate(correct = correct |> as_factor()) |>
+  # arrange(n) |>
+  mutate(item_stimulus = item_stimulus |>
+           factor(levels = levels(sds_trials_summary$item_stimulus)))
+
+ggplot(sds_trials_collapsed_summary, aes(x = n, y = item_stimulus)) +
+  facet_wrap(vars(item_group), scales = "free") +
+  # facet_grid(cols = vars(item_choice, item_status),
+  #            scales = "free_y", space = "free_y") +
+  geom_col(aes(fill = correct)) +
+  scale_fill_brewer(palette = "Set1") +
+  labs(x = "Count", y = "Stimulus", fill = "Correct")
+
+ggplot(sds_trials_collapsed_summary, aes(x = prop, y = item_stimulus)) +
+  facet_wrap(vars(item_group), scales = "free") +
+  # facet_grid(cols = vars(item_choice, item_status),
+  #            scales = "free_y", space = "free_y") +
+  geom_col(aes(fill = correct)) +
+  scale_fill_brewer(palette = "Set1") +
+  labs(x = "Count", y = "Stimulus", fill = "Correct")
+```
+
+Create all A1-A4 and B1-B2 structures.
+
+```{r}
+sds_nested <- bind_rows(
+  sds_trials |>
+    mutate(item_task = "sds_group_choice",
+           item_uid = glue("sds_{item_group}_{item_choice}")) |>
+    select(-chance) |> rename(chance = chance_original),
+  sds_trials |>
+    mutate(item_task = "sds_group_stim_choice",
+           item_uid = glue("sds_{item_group}_{item_stimulus}_{item_choice}")) |>
+    select(-chance) |> rename(chance = chance_original),
+  sds_trials |>
+    mutate(item_task = "sds_group_choice_status",
+           item_uid = glue("sds_{item_group}_{item_choice}_{item_status}")),
+  sds_trials |>
+    mutate(item_task = "sds_group_stim_choice_status",
+           item_uid = glue("sds_{item_group}_{item_stimulus}_{item_choice}_{item_status}"))
+) |>
+  mutate(item_uid = item_uid |> as.character()) |>
+  nest(data = -c(item_task, dataset, language)) |>
+  mutate(site = dataset |> str_remove("_main|_bogota|_rural"), .before = everything())
+
+sds_collapsed_nested <- bind_rows(
+  sds_trials_collapsed |>
+    mutate(item_task = "sds_group",
+           item_uid = glue("sds_{item_group}")),
+  sds_trials_collapsed |>
+    mutate(item_task = "sds_group_stim",
+           item_uid = glue("sds_{item_group}_{item_stimulus}"))
+) |>
+  mutate(item_uid = item_uid |> as.character()) |>
+  nest(data = -c(item_task, dataset, language)) |>
+  mutate(site = dataset |> str_remove("_main|_bogota|_rural"), .before = everything())
+```
+
+Fit B models
+
+```{r}
+models_pooled_poly <- tribble(
+  ~nfact, ~itemtype,
+       1,   "Rasch",
+       1,   "gpcm"
+)
+
+models_multigroup_poly <- tribble(
+  ~nfact, ~itemtype, ~invariance,
+       # 1,   "Rasch", "configural",
+       1,   "Rasch", "scalar",
+       # 1,    "gpcm", "configural",
+       1,    "gpcm", "metric",
+       1,    "gpcm", "scalar",
+)
+
+regdir <- here("02_scoring_outputs/sds_models")
+
+# COLLAPSED - POOLED
+fit_bylanguage_task(task_data = sds_collapsed_nested,
+                    models = models_pooled_poly,
+                    prior = NULL,
+                    task = "sds_group",
+                    registry_dir = regdir)
+# doesn't work -- item instances need to all have the same number of possible
+# response values for constrain statement to work
+
+fit_bylanguage_task(task_data = sds_collapsed_nested,
+                    models = models_pooled_poly,
+                    prior = NULL,
+                    task = "sds_group_stim",
+                    registry_dir = regdir)
+
+# COLLAPSED - MULTIGROUP
+fit_task_models_multigroup(task_data = sds_collapsed_nested,
+                           models = models_multigroup_poly,
+                           prior = NULL,
+                           task = "sds_group_stim",
+                           group = site,
+                           registry_dir = regdir)
+# configural can't fit because all items need to same set of possible response
+# values across groups
+# metric + scalar fit
+```
+
+Fit A models
+
+```{r}
+models_pooled <- tribble(
+  ~nfact, ~itemtype,
+       1,   "Rasch",
+       1,   "2PL"
+)
+
+models_multigroup <- tribble(
+  ~nfact, ~itemtype, ~invariance,
+       1,   "Rasch", "configural",
+       1,   "Rasch", "scalar",
+       1,     "2PL", "configural",
+       1,     "2PL", "metric",
+       1,     "2PL", "scalar",
+)
+
+models_multigroup_constrained <- tribble(
+  ~nfact, ~itemtype, ~invariance,
+       1,   "Rasch", "scalar",
+       1,     "2PL", "metric",
+       1,     "2PL", "scalar",
+)
+
+# POOLED
+fit_bylanguage_task(task_data = sds_nested,
+                    models = models_pooled,
+                    prior = NULL,
+                    task = "sds_group_choice",
+                    registry_dir = regdir)
+fit_bylanguage_task(task_data = sds_nested,
+                    models = models_pooled,
+                    prior = NULL,
+                    task = "sds_group_stim_choice",
+                    registry_dir = regdir)
+fit_bylanguage_task(task_data = sds_nested,
+                    models = models_pooled,
+                    prior = NULL,
+                    task = "sds_group_choice_status",
+                    registry_dir = regdir)
+fit_bylanguage_task(task_data = sds_nested,
+                    models = models_pooled,
+                    prior = NULL,
+                    task = "sds_group_stim_choice_status",
+                    registry_dir = regdir)
+
+# MULTIGROUP
+fit_task_models_multigroup(task_data = sds_nested,
+                           models = models_multigroup,
+                           prior = NULL,
+                           task = "sds_group_choice",
+                           group = site,
+                           registry_dir = regdir)
+fit_task_models_multigroup(task_data = sds_nested,
+                           models = models_multigroup_constrained,
+                           prior = NULL,
+                           task = "sds_group_stim_choice",
+                           group = site,
+                           registry_dir = regdir)
+fit_task_models_multigroup(task_data = sds_nested,
+                           models = models_multigroup,
+                           prior = NULL,
+                           task = "sds_group_choice_status",
+                           group = site,
+                           registry_dir = regdir)
+fit_task_models_multigroup(task_data = sds_nested,
+                           models = models_multigroup_constrained,
+                           prior = NULL,
+                           task = "sds_group_stim_choice_status",
+                           group = site,
+                           registry_dir = regdir)
+```
+
+```{r}
+mods <- list_models() |> load_models() |>
+  mutate(BIC = map_dbl(mod_rec, \(rec) rec@fit$BIC))
+```
+
+```{r}
+mods_coded <- mods |>
+  mutate(file = str_remove(filename, "\\.rds$")) |>
+  mutate(itemtype = str_extract(file, "rasch|2pl|gpcm"),
+         invariance = str_extract(file, paste(names(invariances), collapse = "|"))) |>
+  mutate(invariance = invariance |> replace_na(""))
+
+mods_coded |> count(model_set, itemtype, invariance)
+```
+
+```{r}
+sds_scores <- mods_coded |>
+  mutate(scores = map(mod_rec, \(mr) mr@scores)) |>
+  select(task, model_set, subset, itemtype, invariance, scores) |>
+  unnest(scores) |>
+  left_join(run_data |> select(run_id, dataset, age)) |>
+  filter(!is.na(age))
+
+sds_cors <- sds_scores |>
+  group_by(task, model_set, subset, dataset, itemtype, invariance) |>
+  summarise(cor = cor(ability, age), n = n()) |>
+  ungroup()
+
+sds_cors |> arrange(desc(cor))
+sds_cors |>
+  filter(task == "sds_group_choice", itemtype == "2pl",
+         model_set == "multigroup_site", subset == "all_items", invariance == "scalar")
+sds_scores |>
+  filter(task == "sds_group_choice", itemtype == "2pl",
+         model_set == "multigroup_site", subset == "all_items", invariance == "scalar") |>
+  summarise(cor = cor(ability, age), n = n())
+  
+sds_cors |>
+  filter(subset != "overlap_items") |>
+  filter(dataset != "pilot_uniandes_co_rural") |>
+  group_by(task, itemtype, model_set, invariance) |>
+  summarise(mean_cor = mean(cor), n_cor = n()) |>
+  ungroup() |>
+  arrange(desc(mean_cor)) |> pull(mean_cor)
+
+scores_combined |> as_tibble() |> filter(item_task == "sds") |> group_by(dataset) |> summarise(cor = cor(age, metric_value), n = n())
+scores_combined |> as_tibble() |> filter(item_task == "sds") |> group_by(item_task) |> summarise(cor = cor(age, metric_value), n = n())
+```
+
+
+```{r}
+recon_mod <- \(mod_rec) {
+  if (mod_rec@model_class == "SingleGroupClass") {
+    mirt(data = mod_rec@data,
+                  pars = mod_rec@model_vals,
+                  TOL = NaN)
+    
+  } else if (mod_rec@model_class == "MultipleGroupClass") {
+    multipleGroup(data = mod_rec@data,
+                  pars = mod_rec@model_vals,
+                  group = mod_rec@groups,
+                  TOL = NaN)
+  }
+}
+
+mods_recon <- mods_coded |>
+  mutate(mod = map(mod_rec, recon_mod)) |>
+  select(-filename, -path, -file)
+
+extract_mods <- \(mod) {
+  if (class(mod) == "SingleGroupClass") {
+    list("all" = mod)
+  } else if (class(mod) == "MultipleGroupClass") {
+    mod_groups <- extract.mirt(mod, "groupNames")
+    mod_mods <- map(mod_groups, \(g) extract.group(mod, g))
+    mod_groups |> set_names() |> map(\(g) extract.group(mod, g))
+    # tibble(group = mod_groups, mod = list(mod_mods))
+  }
+}
+
+mr <- mods_recon |>
+  filter(invariance == "scalar") |>
+  mutate(mod_list = map(mod, extract_mods))
+
+group_mods <- mr |>
+  mutate(mods = map(mod_list, enframe)) |>
+  select(-mod, -mod_list) |>
+  unnest(mods) |>
+  rename(group = name, mod = value)
+
+get_probtrace <- \(mod, theta) {
+  if (class(mod) == "SingleGroupClass") {
+    mod_list <- list("all" = mod)
+  } else if (class(mod) == "MultipleGroupClass") {
+    mod_groups <- extract.mirt(mod, "groupNames")
+    mod_list <- mod_groups |> set_names() |> map(\(g) extract.group(mod, g))
+  }
+  imap(mod_list, \(mod, grp) {
+    probtrace(mod, theta) |> as_tibble() |>
+      mutate(theta = theta[,1], .before = everything()) |>
+      pivot_longer(cols = -theta, names_to = c("item", "category"),
+                   names_pattern = "(.*?)\\.(.*)", values_to = "p") |>
+      mutate(group = grp)
+  }) |> bind_rows()
+}
+
+theta <- matrix(seq(-6, 6, length.out=1000))
+mod_probs <- mods_recon |>
+  filter(invariance == "scalar" |  invariance == "") |>
+  mutate(probs = map(mod, \(m) get_probtrace(m, theta)))
+
+mod_probtrace <- mod_probs |>
+  select(-mod_rec, -mod) |>
+  unnest(probs)
+```
+
+```{r}
+get_testinfo <- \(mod, theta) {
+  tibble(testinfo = testinfo(mod, theta), theta = theta[,1])
+}
+
+mods_testinfo <- group_mods |>
+  mutate(testinfo = map(mod, \(m) get_testinfo(m, theta)))
+
+testinfo_df <- mods_testinfo |>
+  select(-mod_rec, -mod) |>
+  unnest(testinfo) |>
+  mutate(task = task |> factor() |> fct_relevel("sds_group_stim", after = Inf),
+         itemtype = itemtype |>
+           fct_recode("Rasch/PCM" = "rasch",
+                      "2PL/GPCM" = "2pl",
+                      "2PL/GPCM" = "gpcm") |>
+           fct_relevel("Rasch/PCM"))
+
+testinfo_df |>
+  filter(subset == "all_items") |>
+  select(-group) |>
+  distinct() |> #filter(task == "sds_group_stim")
+ggplot(aes(x = theta, y = testinfo)) +
+  facet_wrap(vars(task), scales = "free", nrow = 1) +
+  geom_line(aes(colour = itemtype), linewidth = 0.5) +
+  scale_colour_ptol() +
+  labs(x = "Theta", y = "Test information", colour = "Model")
+ggsave("sds_testinfo_allitems_byset.png", width = 14, height = 3)
+
+testinfo_df |>
+  filter(subset == "overlap_items") |>
+  select(-group) |>
+  distinct() |> #filter(task == "sds_group_stim")
+ggplot(aes(x = theta, y = testinfo)) +
+  facet_wrap(vars(task), scales = "free", nrow = 1) +
+  geom_line(aes(colour = itemtype), linewidth = 0.5) +
+  scale_colour_ptol() +
+  labs(x = "Theta", y = "Test information", colour = "Model")
+ggsave("sds_testinfo_overlapitems_byset.png", width = 14, height = 3)
+
+# testinfo_df |>
+#   filter(subset == "all_items", str_detect(itemtype, "Rasch")) |>
+#   select(-group) |>
+#   distinct() |> #filter(task == "sds_group_stim")
+# ggplot(aes(x = theta, y = testinfo)) +
+#   # facet_wrap(vars(task), scales = "free", nrow = 1) +
+#   geom_line(aes(colour = task), linewidth = 0.5, alpha = 0.75) +
+#   scale_colour_ptol() +
+#   labs(x = "Theta", y = "Test information", colour = "Item set")
+# ggsave("sds_testinfo_rasch.png", width = 8, height = 4)
+
+testinfo_df |>
+  filter(subset == "all_items") |>
+  select(-group) |>
+  distinct() |> #filter(task == "sds_group_stim")
+ggplot(aes(x = theta, y = testinfo)) +
+  facet_wrap(vars(itemtype), scales = "free", nrow = 1) +
+  geom_line(aes(colour = task), linewidth = 0.5, alpha = 0.75) +
+  scale_colour_ptol() +
+  labs(x = "Theta", y = "Test information", colour = "Item set")
+ggsave("sds_testinfo_allitems_bymodel.png", width = 10, height = 3.5)
+
+testinfo_df |>
+  filter(subset == "overlap_items") |>
+  select(-group) |>
+  distinct() |> #filter(task == "sds_group_stim")
+ggplot(aes(x = theta, y = testinfo)) +
+  facet_wrap(vars(itemtype), scales = "free", nrow = 1) +
+  geom_line(aes(colour = task), linewidth = 0.5, alpha = 0.75) +
+  scale_colour_ptol() +
+  labs(x = "Theta", y = "Test information", colour = "Item set")
+ggsave("sds_testinfo_overlapitems_bymodel.png", width = 10, height = 3.5)
+```
+
+```{r}
+testinfo_singlegroup <- mods_recon |>
+  filter(model_set == "by_language") |>
+  mutate(testinfo = map(mod, \(m) get_testinfo(m, theta))) |>
+  select(-mod_rec, -mod) |>
+  unnest(testinfo) |>
+  mutate(task = task |> factor() |> fct_relevel("sds_group_stim", after = Inf),
+         itemtype = itemtype |>
+           fct_recode("Rasch/PCM" = "rasch",
+                      "2PL/GPCM" = "2pl",
+                      "2PL/GPCM" = "gpcm") |>
+           fct_relevel("Rasch/PCM"))
+
+testinfo_singlegroup |>
+  filter(str_detect(itemtype, "Rasch")) |>
+ggplot(aes(x = theta, y = testinfo)) +
+  facet_wrap(vars(subset)) +
+  geom_line(aes(colour = task), linewidth = 0.5) +
+  scale_colour_ptol() +
+  labs(x = "Theta", y = "Test information", colour = "Item set")
+ggsave("sds_testinfo_language_rasch.png", width = 10, height = 3)
+
+testinfo_singlegroup |>
+  filter(str_detect(itemtype, "2PL")) |>
+ggplot(aes(x = theta, y = testinfo)) +
+  facet_wrap(vars(subset)) +
+  geom_line(aes(colour = task), linewidth = 0.5) +
+  scale_colour_ptol() +
+  labs(x = "Theta", y = "Test information", colour = "Item set")
+ggsave("sds_testinfo_language_2pl.png", width = 10, height = 3)
+```
+
+```{r}
+get_iteminfo <- \(mod, theta) {
+  extract.mirt(mod, "itemnames") |>
+    map(\(item) tibble(theta = theta[,1],
+                       info = iteminfo(extract.item(mod, item), theta),
+                       item = item)) |>
+    list_rbind()
+}
+
+iteminfo_singlegroup <- mods_recon |>
+  filter(model_set == "by_language") |>
+  mutate(iteminfo = map(mod, \(m) get_iteminfo(m, theta))) |>
+  select(-mod_rec, -mod) |>
+  unnest(iteminfo) |>
+  mutate(task = task |> factor() |> fct_relevel("sds_group_stim", after = Inf),
+         itemtype = itemtype |>
+           fct_recode("Rasch/PCM" = "rasch",
+                      "2PL/GPCM" = "2pl",
+                      "2PL/GPCM" = "gpcm") |>
+           fct_relevel("Rasch/PCM")) |>
+  mutate(item_group = str_extract(item, "[0-9]match"))
+
+iteminfo_singlegroup |>
+  filter(str_detect(itemtype, "Rasch")) |>
+ggplot(aes(x = theta, y = info)) +
+  facet_grid(vars(subset), vars(task), scales = "free") +
+  geom_line(aes(group = item, colour = item_group), linewidth = 0.5, alpha = 0.5) +
+  scale_colour_ptol() +
+  labs(x = "Theta", y = "Item information", colour = "Item group")
+ggsave("sds_iteminfo_language_rasch.png", width = 11, height = 7)
+
+iteminfo_singlegroup |>
+  filter(str_detect(itemtype, "2PL")) |>
+ggplot(aes(x = theta, y = info)) +
+  facet_grid(vars(subset), vars(task), scales = "free") +
+  geom_line(aes(group = item, colour = item_group), linewidth = 0.5, alpha = 0.5) +
+  scale_colour_ptol() +
+  labs(x = "Theta", y = "Item information", colour = "Item group")
+ggsave("sds_iteminfo_language_2pl.png", width = 11, height = 7)
+```
+
+```{r}
+groupmods_iteminfo <- group_mods |>
+  mutate(iteminfo = map(mod, \(m) get_iteminfo(m, theta)))
+
+iteminfo_multigroup <- groupmods_iteminfo |>
+  select(-mod_rec, -mod) |>
+  unnest(iteminfo) |>
+  mutate(task = task |> factor() |> fct_relevel("sds_group_stim", after = Inf),
+         itemtype = itemtype |>
+           fct_recode("Rasch/PCM" = "rasch",
+                      "2PL/GPCM" = "2pl",
+                      "2PL/GPCM" = "gpcm") |>
+           fct_relevel("Rasch/PCM")) |>
+  mutate(item_group = str_extract(item, "[0-9]match")) |>
+  select(-group) |> distinct()
+
+iteminfo_multigroup |>
+  filter(str_detect(itemtype, "Rasch"), subset == "all_items") |>
+ggplot(aes(x = theta, y = info)) +
+  facet_wrap(vars(task), nrow = 1, scales = "free") +
+  geom_line(aes(group = item, colour = item_group), linewidth = 0.5, alpha = 0.5) +
+  scale_colour_ptol() +
+  labs(x = "Theta", y = "Item information", colour = "Item group")
+ggsave("sds_iteminfo_allitem_rasch.png", width = 14, height = 3)
+
+iteminfo_multigroup |>
+  filter(str_detect(itemtype, "Rasch"), subset == "overlap_items") |>
+ggplot(aes(x = theta, y = info)) +
+  facet_wrap(vars(task), nrow = 1, scales = "free") +
+  geom_line(aes(group = item, colour = item_group), linewidth = 0.5, alpha = 0.5) +
+  scale_colour_ptol() +
+  labs(x = "Theta", y = "Item information", colour = "Item group")
+ggsave("sds_iteminfo_overlapitem_rasch.png", width = 14, height = 3)
+
+iteminfo_multigroup |>
+  filter(str_detect(itemtype, "2PL"), subset == "all_items") |>
+ggplot(aes(x = theta, y = info)) +
+  facet_wrap(vars(task), nrow = 1, scales = "free") +
+  geom_line(aes(group = item, colour = item_group), linewidth = 0.5, alpha = 0.5) +
+  scale_colour_ptol() +
+  labs(x = "Theta", y = "Item information", colour = "Item group")
+ggsave("sds_iteminfo_allitem_2pl.png", width = 14, height = 3)
+
+iteminfo_multigroup |>
+  filter(str_detect(itemtype, "2PL"), subset == "overlap_items") |>
+ggplot(aes(x = theta, y = info)) +
+  facet_wrap(vars(task), nrow = 1, scales = "free") +
+  geom_line(aes(group = item, colour = item_group), linewidth = 0.5, alpha = 0.5) +
+  scale_colour_ptol() +
+  labs(x = "Theta", y = "Item information", colour = "Item group")
+ggsave("sds_iteminfo_overlapitem_2pl.png", width = 14, height = 3)
+```
+
+```{r}
+iteminfo_groups <- iteminfo_multigroup |>
+  group_by(task, subset, itemtype, item_group, theta) |>
+  summarise(info = mean(info), n = n()) |>
+  ungroup()
+
+iteminfo_groups |>
+  filter(subset == "all_items") |>
+ggplot(aes(x = theta, y = info)) +
+  facet_grid(vars(itemtype), vars(task), scales = "free") +
+  geom_line(aes(colour = item_group), linewidth = 0.5, alpha = 0.5) +
+  scale_colour_ptol() +
+  labs(x = "Theta", y = "Item information (group mean)", colour = "Item group")
+ggsave("sds_groupinfo_allitem.png", width = 14, height = 5)
+
+iteminfo_groups |>
+  filter(subset == "overlap_items") |>
+ggplot(aes(x = theta, y = info)) +
+  facet_grid(vars(itemtype), vars(task), scales = "free") +
+  geom_line(aes(colour = item_group), linewidth = 0.5, alpha = 0.5) +
+  scale_colour_ptol() +
+  labs(x = "Theta", y = "Item information (group mean)", colour = "Item group")
+ggsave("sds_groupinfo_overlapitem.png", width = 14, height = 5)
+```
+
+```{r}
+get_coefs <- \(mod) {
+  coef(mod, IRTpars = TRUE) |>
+    discard_at("GroupPars") |>
+    map(as_tibble) |>
+    bind_rows(.id = "item")
+    # select(item, starts_with("b"))
+}
+
+groupmods_coefs <- group_mods |>
+  mutate(coefs = map(mod, get_coefs)) |>
+  select(-mod_rec, -mod) |>
+  unnest(coefs)
+
+groupmods_coefs_tidy <- groupmods_coefs |>
+  select(-g, -u, -BIC) |>
+  pivot_longer(cols = c("a", starts_with("b")), names_to = "par", values_to = "val") |>
+  filter(!is.na(val)) |>
+  # mutate(item_uid = str_remove(item, "-[0-9]+$")) |>
+  # left_join(item_key) |>
+  select(-group) |> distinct() |>
+  mutate(item_group = str_extract(item, "[0-9]match")) |>
+  mutate(task = task |> factor() |> fct_relevel("sds_group_stim", after = Inf),
+         itemtype = itemtype |>
+           fct_recode("Rasch/PCM" = "rasch",
+                      "2PL/GPCM" = "2pl",
+                      "2PL/GPCM" = "gpcm") |>
+           fct_relevel("Rasch/PCM"))
+  # arrange(item_group, par, val) |>
+  # mutate(item = item |> fct_inorder())
+
+groupmods_coefs_tidy |>
+  filter(str_detect(itemtype, "Rasch"), subset == "all_items") |>
+  filter(par != "a") |>
+  filter(task == "sds_group_stim") |>
+ggplot(aes(x = val, y = item)) +
+  facet_wrap(vars(item_group), scales = "free_y") +
+  geom_crossbar(aes(xmin = val, xmax = val, colour = par), middle.linewidth = 1) +
+  scale_colour_ptol() +
+  labs(x = "Value", y = "Stimulus", colour = "Parameter") +
+  theme(axis.text.y = element_text(size = rel(0.7)),
+        panel.grid.major.y = element_line(colour = "#EBEBEBFF"),
+        legend.position = "top")
+ggsave("sds_coefs_group_stim.png", width = 16, height = 6)
+```
+
+```{r}
+singlegroup_coefs <- mods_recon |>
+  filter(model_set == "by_language") |>
+  mutate(coefs = map(mod, get_coefs)) |>
+  select(-mod_rec, -mod) |>
+  unnest(coefs)
+
+singlegroup_coefs_tidy <- singlegroup_coefs |>
+  select(-g, -u, -BIC) |>
+  pivot_longer(cols = c("a", starts_with("b")), names_to = "par", values_to = "val") |>
+  filter(!is.na(val)) |>
+  mutate(item_group = str_extract(item, "[0-9]match")) |>
+  mutate(task = task |> factor() |> fct_relevel("sds_group_stim", after = Inf),
+         itemtype = itemtype |>
+           fct_recode("Rasch/PCM" = "rasch",
+                      "2PL/GPCM" = "2pl",
+                      "2PL/GPCM" = "gpcm") |>
+           fct_relevel("Rasch/PCM"))
+```
+
+
+
+
+
+
+
+
+```{r}
+sds_group_stim_rasch_f1_scalar <- read_rds("02_scoring_outputs/sds_models/sds_group_stim/multigroup_site/all_items/sds_group_stim_rasch_f1_scalar.rds")
+sds_rasch_multi <- multipleGroup(data = sds_group_stim_rasch_f1_scalar@data,
+                                 pars = sds_group_stim_rasch_f1_scalar@model_vals,
+                                 group = sds_group_stim_rasch_f1_scalar@groups,
+                                 TOL = NaN)
+sds_rasch <- extract.group(sds_rasch_multi, sds_group_stim_rasch_f1_scalar@groups[[1]])
+
+sds_group_stim_gpcm_f1_scalar <- read_rds("02_scoring_outputs/sds_models/sds_group_stim/multigroup_site/all_items/sds_group_stim_gpcm_f1_scalar.rds")
+sds_gpcm_multi <- multipleGroup(data = sds_group_stim_gpcm_f1_scalar@data,
+                                pars = sds_group_stim_gpcm_f1_scalar@model_vals,
+                                group = sds_group_stim_gpcm_f1_scalar@groups,
+                                TOL = NaN)
+sds_gpcm <- extract.group(sds_gpcm_multi, sds_group_stim_gpcm_f1_scalar@groups[[1]])
+```
+
+```{r}
+sds_coefs_rasch <- coef(sds_rasch, IRTpars = TRUE) |>
+  discard_at("GroupPars") |>
+  map(as_tibble) |>
+  # map(\(co) co |> as_tibble(rownames = "stat")) |>
+  bind_rows(.id = "item") |>
+  # select(item, starts_with("d"))
+  select(item, starts_with("b"))
+
+sds_coefs_rasch_tidy <- sds_coefs_rasch |>
+  pivot_longer(cols = -item, names_to = "par", values_to = "val") |>
+  filter(!is.na(val)) |>
+  mutate(item_uid = str_remove(item, "-[0-9]+$")) |>
+  left_join(item_key) |>
+  arrange(item_group, par, val) |>
+  mutate(item_stimulus = item_stimulus |> fct_inorder())
+
+ggplot(sds_coefs_rasch_tidy, aes(x = val, y = item_stimulus)) +
+  facet_wrap(vars(item_group), scales = "free_y") +
+  geom_crossbar(aes(xmin = val, xmax = val, colour = par), middle.linewidth = 1) +
+  scale_colour_ptol() +
+  labs(x = "Value", y = "Stimulus", colour = "Parameter") +
+  theme(axis.text.y = element_text(size = rel(0.7)),
+        panel.grid.major.y = element_line(colour = "#EBEBEBFF"),
+        legend.position = "top")
+ggsave("sds_collapsed_coef.png", width = 10, height = 4)
+
+sds_coefs_rasch_cats <- sds_coefs_rasch_tidy |>
+  group_by(item) |>
+  mutate(n_cat = n_distinct(par)) |>
+  group_by(item_group) |>
+  add_count(n_cat) |>
+  filter(n == max(n)) |>
+  ungroup()
+
+demo_items <- sds_coefs_rasch_cats |>
+  filter(par == "b1") |>
+  group_by(item_group) |>
+  mutate(label = case_when(val == min(val) ~ "easiest", val == max(val) ~ "hardest")) |>
+  # filter(val == min(val) | val == max(val)) |>
+  filter(!is.na(label)) |>
+  ungroup() |>
+  arrange(label, item_group) |>
+  mutate(label = glue("{item_group} ({label})") |> fct_inorder()) |>
+  select(item_uid, label)
+```
+
+```{r}
+theta <- matrix(seq(-6, 6, by = .1))
+sds_rasch_prob <- probtrace(sds_rasch, theta) |> as_tibble() |>
+  mutate(theta = theta[,1], .before = everything()) |>
+  pivot_longer(cols = -theta, names_to = c("item", "category"),
+               names_pattern = "(.*?)\\.(.*)", values_to = "p") |>
+  mutate(itemtype = "Rasch")
+
+sds_gpcm_prob <- probtrace(sds_gpcm, theta) |> as_tibble() |>
+  mutate(theta = theta[,1], .before = everything()) |>
+  pivot_longer(cols = -theta, names_to = c("item", "category"),
+               names_pattern = "(.*?)\\.(.*)", values_to = "p") |>
+  mutate(itemtype = "gpcm")
+
+item_key <- sds_collapsed_nested |>
+  filter(item_task == "sds_group_stim") |>
+  unnest(data) |>
+  distinct(item_group, item_stimulus, item_uid)
+  # select(contains("item")) |>
+  # group_by(item_task, item_group, item_stimulus, item_uid) |>
+  # tally()
+  # count(item_task, item_group, item_stimulus, item_uid, correct)
+
+sds_prob <- bind_rows(sds_rasch_prob, sds_gpcm_prob) |>
+  mutate(item_uid = str_remove(item, "-[0-9]+$")) |>
+  left_join(item_key) |>
+  arrange(item_group, category, theta, p) |>
+  mutate(item_stimulus = item_stimulus |> fct_inorder())
+
+# demo_items <- sds_trials_collapsed |>
+#   count(item_group, item_stimulus, correct) |>
+#   mutate(match_k = as.integer(str_extract(item_group, "^[0-9]"))) |>
+#          # target_cats = if_else(match_k == 4, 3, match_k)) |>
+#   group_by(item_group, item_stimulus) |>
+#   filter(n_distinct(correct) == match_k + 1) |>
+#   group_by(item_group, item_stimulus) |>
+#   summarise(n = sum(n)) |>
+#   group_by(item_group) |>
+#   filter(n == max(n)) |>
+#   pull(item_stimulus)
+
+# demo_items <- item_key |>
+#   group_by(item_group) |>
+#   filter(n == max(n)) |>
+#   ungroup() |>
+#   pull(item_uid)
+sds_prob |>
+  filter(itemtype == "Rasch") |>
+  inner_join(demo_items) |>
+ggplot(aes(x = theta, y = p, colour = category)) +
+  facet_wrap(vars(label), nrow = 2) +
+  geom_line(aes(group = category)) +
+  scale_colour_ptol() +
+  labs(x = "Theta", y = "Probability", colour = "Response") +
+  theme(legend.position = "top")
+ggsave("sds_collapsed_prob_ex.png", width = 9, height = 6)
+
+sds_prob |>
+  filter(item_group == "2match",
+         itemtype == "Rasch") |>
+ggplot(aes(x = theta, y = p, colour = category)) +
+  facet_wrap(vars(paste(item_group, item_stimulus))) +
+  geom_line(aes(group = category)) +
+  scale_colour_ptol() +
+  labs(x = "Theta", y = "Probability", colour = "Response") +
+  theme(legend.position = "top")
+ggsave("sds_collapsed_prob_2match.png", width = 10, height = 8)
+
+sds_prob |>
+  filter(item_group == "3match",
+         itemtype == "Rasch") |>
+ggplot(aes(x = theta, y = p, colour = category)) +
+  facet_wrap(vars(paste(item_group, item_stimulus))) +
+  geom_line(aes(group = category)) +
+  scale_colour_ptol() +
+  labs(x = "Theta", y = "Probability", colour = "Response") +
+  theme(legend.position = "top")
+ggsave("sds_collapsed_prob_3match.png", width = 10, height = 8)
+
+
+sds_prob |>
+  filter(item_group == "4match",
+         itemtype == "Rasch") |>
+ggplot(aes(x = theta, y = p, colour = category)) +
+  facet_wrap(vars(paste(item_group, item_stimulus))) +
+  geom_line(aes(group = category)) +
+  scale_colour_ptol() +
+  labs(x = "Theta", y = "Probability", colour = "Response") +
+  theme(legend.position = "top")
+ggsave("sds_collapsed_prob_4match.png", width = 10, height = 8)
+
+sds_rasch_info <- extract.mirt(sds_rasch, "itemnames") |>
+  map(\(item) tibble(theta = theta[,1],
+                     info = iteminfo(extract.item(sds_rasch, item), theta), item = item)) |>
+  list_rbind() |>
+  # mutate(itemtype = "Rasch")
+  mutate(item_uid = str_remove(item, "-[0-9]+$")) |>
+  left_join(item_key)
+
+# sds_gpcm_info <- extract.mirt(sds_gpcm, "itemnames") |>
+#   map(\(item) tibble(theta = theta[,1],
+#                      info = iteminfo(extract.item(sds_gpcm, item), theta), item = item)) |>
+#   list_rbind() |>
+#   mutate(itemtype = "gpcm")
+
+# sds_info <- bind_rows(sds_rasch_info, sds_gpcm_info) |>
+sds_rasch_info |>
+ggplot(aes(x = theta, y = info, colour = item_group)) +
+  facet_wrap(vars(item_group)) +
+  geom_line(aes(group = item_stimulus)) +
+  scale_colour_ptol(guide = FALSE) +
+  labs(x = "Theta", y = "Item information")
+
+sds_rasch_info |>
+ggplot(aes(x = theta, y = info, colour = item_group)) +
+  # facet_wrap(vars(item_group)) +
+  geom_line(aes(group = item_stimulus), alpha = 0.5) +
+  scale_colour_ptol(guide = FALSE) +
+  labs(x = "Theta", y = "Item information")
+
+sds_block_info <- sds_rasch_info |>
+  mutate(item_uid = str_remove(item, "-[0-9]+$")) |>
+  left_join(item_key) |>
+  group_by(item_group, theta) |>
+  summarise(group_info = mean(info)) |>
+  ungroup()
+ggplot(sds_block_info, aes(x = theta, y = group_info, colour = item_group)) +
+  # facet_wrap(vars(item_group)) +
+  # geom_line(aes(group = item_stimulus)) +
+  geom_line() +
+  scale_colour_ptol() +
+  labs(x = "Theta", y = "Item information")
+
+# ggsave("sds_gpcm_occ.png", width = 10, height = 6)
+```
+
+```{r}
+library(lme4)
+
+sds_tree <- sds_trials |>
+  # filter(item_group == "2match") |> filter(run_id == "03GPO4ItKzDaEoUWYzfr", trial_index == 1) |>
+  select(group = dataset, run_id, trial_index, item_group, item_stimulus, item_choice, match, new) |>
+  pivot_longer(cols = c(match, new), names_to = "node", values_to = "value") |>
+  filter_out(item_choice == "choice1" & node == "new") |>
+  mutate(item = glue("{item_group}_{item_choice}") |> as.character())
+# mutate(item = glue("{item_group}_{item_stimulus}_{item_choice}") |> as.character())
+
+sds_tree_runs <- sds_tree |>
+  group_by(group, run_id, node) |>
+  summarise(prop = mean(value)) |>
+  ungroup()
+
+# sds_tree_summary <- sds_tree |> group_by(group, item_group, item_choice, node) |> summarise(prop = mean(value)) |> ungroup()
+# sds_tree_2match <- sds_tree |> filter(item_group == "2match")
+# sds_tree_2match_co <- sds_tree |> filter(item_group == "2match", group == "pilot_uniandes_co_bogota")
+# sds_tree_4match_co <- sds_tree |> filter(item_group == "4match", group == "pilot_uniandes_co_bogota")
+# sds_tree_co <- sds_tree |> filter(group == "pilot_uniandes_co_bogota")
+
+mod_tree_base <- glmer(value ~ 0 + (1 | item:item_group) + (1 | item_group) + (1 | run_id:group) + (1 | group), family = "binomial", data = sds_tree)
+mod_tree_uni <- glmer(value ~ 0 + (0 + node | item:item_group) + (1 | item_group) + (1 | run_id:group) + (1 | group), family = "binomial", data = sds_tree)
+mod_tree_multi <- glmer(value ~ 0 + (0 + node | item:item_group) + (1 | item_group) + (0 + node | run_id:group) + (1 | group), family = "binomial", data = sds_tree)
+
+anova(mod_tree_base, mod_tree_uni, mod_tree_multi)
+
+sds_tree_str <- sds_tree |> select(group, item_group, item_choice, item, node) |> distinct()
+sds_tree_preds <- sds_tree_str |>
+  mutate(fit_base = predict(mod_tree_base, newdata = sds_tree_str, re.form = ~(1|group) + (1 | item:item_group) + (1|item_group), type = "response"),
+         fit_uni = predict(mod_tree_uni, newdata = sds_tree_str, re.form = ~(1|group) + (0 + node | item:item_group) + (1|item_group), type = "response"),
+         fit_multi = predict(mod_tree_multi, newdata = sds_tree_str, re.form = ~(1|group) + (0 + node | item:item_group) + (1|item_group), type = "response")) |>
+  pivot_longer(cols = starts_with("fit"), names_to = "model", values_to = "fitted")
+
+sds_tree_preds |>
+  filter(model == "fit_multi") |>
+  mutate(item_choice = item_choice |> fct_inorder() |> fct_rev()) |>
+ggplot(aes(x = fitted, y = item_choice)) +
+  facet_grid(rows = vars(item_group), cols = vars(group), scales = "free_y", space = "free_y", switch = "y") +
+  # geom_point(aes(colour = node)) +
+  geom_crossbar(aes(xmin = fitted, xmax = fitted, colour = node), middle.linewidth = 0.2, width = 0.5) +
+  scale_colour_ptol() +
+  xlim(0, 1) +
+  labs(x = "P(correct)", colour = "Node") +
+  theme(axis.title.y = element_blank(),
+        strip.placement = "outside",
+        panel.grid.major.y = element_line(colour = "#EBEBEBFF"))
+ggsave("sds_tree_items.png", width = 11, height = 4)
+
+
+
+run_data <- read_rds(here("01_fetched_data/run_data.rds"))
+
+ranef_multi <- ranef(mod_tree_multi)
+abilities_multi <- ranef_multi$`run_id:group` |>
+  as_tibble(rownames = "id") |>
+  separate(id, c("run_id", "group"), sep = ":") |>
+  pivot_longer(cols = -c(run_id, group), names_to = "node", values_to = "value", names_prefix = "node") |>
+  mutate(model = "multidimensional")
+
+ranef_uni <- ranef(mod_tree_uni)
+abilities_uni <- ranef_uni$`run_id:group` |>
+  as_tibble(rownames = "id") |>
+  separate(id, c("run_id", "group"), sep = ":") |>
+  rename(value = `(Intercept)`) |>
+  mutate(node = "none", model = "unidimensional")
+
+abilities <- bind_rows(abilities_multi, abilities_uni) |>
+  left_join(run_data |> select(run_id, age)) |>
+  mutate(model = model |> fct_relevel("unidimensional"))
+
+ggplot(abilities, aes(x = value, colour = node)) +
+  facet_grid(vars(model), vars(group)) +
+  geom_density() +
+  scale_colour_ptol() +
+  labs(x = "Ability", y = "", colour = "Node")
+ggsave("sds_tree_abilities.png", width = 11, height = 5)
+
+abilities |> pivot_wider(names_from = "node", values_from = "value")
+# ggplot(abilities |> pivot_wider(names_from = "node", values_from = "value"),
+#        aes(x = match, y = new, colour = group)) +
+#   facet_wrap(vars(group), nrow = 1) +
+#   geom_point(alpha = 0.5) +
+#   geom_smooth(method = "lm") +
+#   scale_colour_ptol(guide = "none") +
+#   labs(x = "Ability (match node)", y = "Ability (new node)", colour = "")
+# ggsave("sds_tree_abilities.png", width = 11, height = 3)
+
+ggplot(abilities, aes(x = age, y = value, colour = node)) +
+  facet_grid(vars(model), vars(group)) +
+  geom_point(alpha = 0.5, size = 0.5) +
+  geom_smooth(method = "lm") +
+  scale_colour_ptol() +
+  labs(x = "Age (years)", y = "Ability", colour = "Node")
+ggsave("sds_tree_abilities_age.png", width = 12, height = 5)
+```
+
+```{r}
+ability_prop_compare <- abilities |>
+  filter(model == "multidimensional") |>
+  left_join(sds_tree_runs) |>
+  filter(!is.na(age)) |>
+  rename(score = value)
+
+ability_prop_cors <- ability_prop_compare |>
+  group_by(group, node) |>
+  summarise(cor_prop_age = cor(prop, age),
+            cor_score_age = cor(score, age),
+            cor_prop_score = cor(prop, score))
+
+ability_prop_compare |>
+  pivot_wider(names_from = node, values_from = c(prop, score)) |>
+  select(-run_id, -model) |>
+ggpairs(aes(colour = group),
+        columns = c("age", "prop_match", "prop_new", "score_match", "score_new"),
+        upper = list(continuous = wrap("cor", size = 3.5)),
+        lower = list(continuous = wrap("points", alpha = 0.3, size = 0.8)),
+        diag = list(continuous = wrap("densityDiag", alpha = 0.3))) +
+  scale_colour_ptol() +
+  scale_fill_ptol()
+ggsave("sds_tree_pairs.png", width = 12, height = 8)
+```
+
+```{r}
+
+abilities_uni |>
+  group_by(group) |>
+  summarise(cor = cor(value, age, use = "complete.obs"))
+
+abilities |>
+  filter(!is.na(age)) |>
+  group_by(model, group, node) |>
+  summarise(cor = cor(value, age), n = n()) |>
+  arrange(model, node) |>
+  select(model, node, dataset = group, cor, n)
+  # filter(group != "pilot_uniandes_co_rural")
+
+```
+

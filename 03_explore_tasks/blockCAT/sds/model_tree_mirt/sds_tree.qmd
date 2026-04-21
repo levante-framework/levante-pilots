@@ -1,0 +1,1132 @@
+```{r}
+# library(lme4)
+# library(irtrees)
+library(dplyr)
+library(readr)
+library(tidyr)
+library(glue)
+library(ggplot2)
+library(ggthemes)
+library(forcats)
+library(stringr)
+library(purrr)
+library(tibble)
+library(mirt)
+
+source("../../plot_settings.R")
+```
+
+```{r}
+sds_trials <- read_rds("../data/trials_sds_coded.rds")
+run_data <- read_rds("../data/runs_sds.rds")
+
+# prep trial data into for tree model
+sds_tree <- sds_trials |>
+  # make values for new nodes conditioned on match node
+  mutate(value_newM = if_else(match, new, NA),
+         value_newN = if_else(!match, new, NA)) |>
+  rename(value_match = match) |>
+  select(-new, -chance_new) |>
+  # pivot match and new columns into node + value
+  pivot_longer(cols = c(starts_with("chance"), starts_with("value")),
+               names_to = c(".value", "node"), names_sep = "_") |>
+  # remove NA values (i.e. only keep new node conditioned on match)
+  filter_out(is.na(value)) |>
+  # remove uninformative nodes (value guaranteed to be TRUE, e.g. new on choice1)
+  filter_out(chance == 1) |>
+  # remove impossible nodes (specifically newN for 2match_choice2_0m1n)
+  filter_out(chance == 0) |>
+  # construct item out of group + status
+  mutate(item = glue("{item_group}_{item_status}") |> as.character()) |>
+  arrange(group, run_id, item_group, trial_index, node)
+
+# compute accuracies for later comparison
+sds_tree_runs <- sds_tree |>
+  summarise(prop = mean(value), n = n(), .by = c(group, run_id, node))
+
+# compute item proportions for later comparison
+sds_tree_props <- sds_tree |>
+  summarise(prop = mean(value), n = n(), n_runs = n_distinct(run_id), .by = c(node, item, chance))
+
+sds_trials |>
+  summarise(n = n(), n_runs = n_distinct(run_id), .by = item_group)
+sds_trials |>
+  summarise(n = n(), n_runs = n_distinct(run_id))
+
+# flag items where prop correct below chance
+sds_tree_props |> filter(prop < chance) |> arrange(desc(n))
+```
+
+```{r}
+# # if no previous responses
+# sds_tree_1 = 'graph TB
+#   Match((Match)) --1--> L1[Match]
+#   Match((Match)) --0--> L2[Non-match]'
+# DiagrammeR::mermaid(sds_tree_1)
+
+# if at least one previous response, two New nodes
+sds_tree_k = 'graph TB
+  Match((Match)) --1--> NewM((New_M))
+  Match((Match)) --0--> NewN((New_N))
+  NewM((New)) --1--> L1[New match]
+  NewM((New)) --0--> L2[Repeated match]
+  NewN((New)) --1--> L3[New non-match]
+  NewN((New)) --0--> L4[Repeated non-match]'
+DiagrammeR::mermaid(sds_tree_k)
+ggsave("plots/diagram/sds_tree_graph.png", width = 6, height = 4)
+```
+
+```{r}
+item_sep <- "-"
+paste_c <- partial(paste, collapse = ",")
+
+generate_model_str_tree <- function(df, df_prepped, item_type, priors = NULL, by_node = FALSE) {
+
+  default_factor <- "F1"
+  items <- df |> pull(item_uid) |> unique() # item ids
+
+  if (by_node) {
+    nodes <- df |> pull(node) |> unique()
+    factors <- nodes |> set_names() |> map(\(nd) {
+      idx <- which(str_detect(colnames(df_prepped), glue("^{nd}\\.[^-]+-\\d+$")))
+      paste(idx, collapse = ',')
+    })
+  } else {
+    # F[i] = 1-K statement for each factor
+    factors <- list(glue("1-{ncol(df_prepped)}")) |> set_names(default_factor)
+  }
+  
+  slopes <- paste0("a", 1:length(factors)) |> set_names(names(factors))
+  item_params <- items |> set_names() |> map(\(item_uid) {
+    params <- "d" # always have difficulty
+    if (item_type != "Rasch") { # add slopes if 2PL
+      if (by_node) { # node-specific slopes
+        node <- str_extract(item_uid, "^[A-z]+(?=\\.)")
+        params <- c(params, slopes[[node]])
+      } else { # single factor slopes
+        params <- c(params, slopes[[default_factor]])
+      }
+    }
+    params
+  })
+
+  constraints <- items |> map(\(item_uid) {
+    # get columns with item's instances
+    matched_idx <- which(str_sub(colnames(df_prepped), start = 1, end = str_length(item_uid)) == item_uid)
+
+    if (length(matched_idx) > 1) {
+      # constraint for item instance: (item_1, item_2, param)
+      map_chr(item_params[[item_uid]], \(p) glue("({paste_c(matched_idx)},{p})")) |> paste_c()
+    }
+  }) |> compact() |> paste_c() # combine into CONSTRAIN statement
+  constraint <- if (str_length(constraints) > 1) paste0("CONSTRAIN=", constraints) else ""
+  
+  # e.g. PRIOR = (2-3, 5, d, norm, 0, 1), (4, d, norm, 0, 0.5)')
+  prior_terms <- priors |>
+    imap(\(pr, param) glue("(1-{ncol(df_prepped)},{paste(c(param, pr),collapse = ',')})"))
+  prior <- if (length(prior_terms) > 0) glue("PRIOR={paste(prior_terms, collapse = ',')}") else ""
+  
+  # combine statements
+  factor_str <- imap_chr(factors, \(idx, nm) glue("{nm} = {idx}")) |> unname()
+  paste(c(factor_str, constraint, prior), collapse = "\n")
+}
+```
+
+```{r}
+data_filtered <- sds_tree |>
+  mutate(item_uid = paste(node, item, sep = ".")) |>
+  rename(correct = value) |>
+  rlevante:::dedupe_items() |>
+  rlevante:::remove_no_var_items()
+data_prepped <- rlevante:::to_mirt_shape(data_filtered)
+guess <- data_filtered |> distinct(item_inst, chance) |> pull(chance)
+
+# priors <- list(d = c("norm", 0, 3))
+model_str_1node_rasch <- generate_model_str_tree(
+  data_filtered, data_prepped,
+  item_type = "Rasch",
+  priors = list(d = c("norm", 0, 3)),
+  by_node = FALSE)
+model_str_3node_rasch <- generate_model_str_tree(
+  data_filtered, data_prepped,
+  item_type = "Rasch",
+  priors = list(d = c("norm", 0, 3)),
+  by_node = TRUE)
+
+# (in slightly hacky way) create model string for "new" nodes collapsed together
+data_filtered_2node <- data_filtered |>
+  mutate(node = node |> replace_values(from = c("newM", "newN"), to = "new")) |>
+  mutate(item_uid = paste(node, item, sep = "."))
+data_prepped_2node <- data_prepped
+colnames(data_prepped_2node) <- str_replace(colnames(data_prepped), "new.", "new")
+model_str_2node_rasch <- generate_model_str_tree(
+  data_filtered_2node, data_prepped_2node,
+  item_type = "Rasch",
+  priors = list(d = c("norm", 0, 3)),
+  by_node = TRUE)
+
+fit_tree_mod <- \(itemtype, model_str) {
+  mirt(
+    data = data_prepped,
+    itemtype = itemtype,
+    model = mirt.model(model_str),
+    guess = guess,
+    SE = TRUE,
+    verbose = TRUE,
+    technical = list(NCYCLES = 5000)
+  )
+}
+
+mod_1node_rasch <- fit_tree_mod("Rasch", model_str_1node_rasch)
+mod_2node_rasch <- fit_tree_mod("Rasch", model_str_2node_rasch)
+# mod_3node_rasch <- fit_tree_mod("Rasch", model_str_3node_rasch)
+# 3node slow to fit and has warning:
+# Could not invert information matrix; model may not be (empirically) identified.
+
+model_str_1node_2pl <- generate_model_str_tree(
+  data_filtered, data_prepped, "2PL",
+  priors = list(d = c("norm", 0, 3),
+                a1 = c("norm", 1, 0.3)),
+  by_node = FALSE
+)
+model_str_2node_2pl <- generate_model_str_tree(
+  data_filtered_2node, data_prepped_2node, "2PL",
+  priors = list(d = c("norm", 0, 3),
+                a1 = c("norm", 1, 0.3),
+                a2 = c("norm", 1, 0.3)),
+  by_node = TRUE)
+model_str_3node_2pl <- generate_model_str_tree(
+  data_filtered, data_prepped, "2PL",
+  priors = list(d = c("norm", 0, 3),
+                a1 = c("norm", 1, 0.3),
+                a2 = c("norm", 1, 0.3),
+                a3 = c("norm", 1, 0.3)),
+  by_node = TRUE)
+
+mod_1node_2pl <- fit_tree_mod("2PL", model_str_1node_2pl)
+mod_2node_2pl <- fit_tree_mod("2PL", model_str_2node_2pl)
+# mod_3node_2pl <- fit_tree_mod("2PL", model_str_3node_2pl)
+```
+
+```{r}
+data_wide <- data_filtered |> rlevante:::to_mirt_shape_grouped()
+
+fit_tree_gmod <- \(itemtype, invariance, model_str) {
+  multipleGroup(
+    data = data_prepped,
+    itemtype = itemtype,
+    model = mirt.model(model_str),
+    group = data_wide$group,
+    invariance = invariance,
+    guess = guess,
+    verbose = TRUE,
+    technical = list(NCYCLES = 5000)
+  )
+}
+
+gmod_1node_rasch_config <- fit_tree_gmod("Rasch", invariances[["configural"]], model_str_1node_rasch)
+gmod_1node_rasch_scalar <- fit_tree_gmod("Rasch", invariances[["scalar"]], model_str_1node_rasch)
+gmod_1node_2pl_config <- fit_tree_gmod("2PL", invariances[["configural"]], model_str_1node_2pl)
+gmod_1node_2pl_metric <- fit_tree_gmod("2PL", invariances[["metric"]], model_str_1node_2pl)
+gmod_1node_2pl_scalar <- fit_tree_gmod("2PL", invariances[["scalar"]], model_str_1node_2pl)
+
+gmod_2node_rasch_config <- fit_tree_gmod("Rasch", invariances[["configural"]], model_str_2node_rasch)
+gmod_2node_rasch_scalar <- fit_tree_gmod("Rasch", invariances[["scalar"]], model_str_2node_rasch)
+gmod_2node_2pl_config <- fit_tree_gmod("2PL", invariances[["configural"]], model_str_2node_2pl)
+gmod_2node_2pl_metric <- fit_tree_gmod("2PL", invariances[["metric"]], model_str_2node_2pl)
+gmod_2node_2pl_scalar <- fit_tree_gmod("2PL", invariances[["scalar"]], model_str_2node_2pl)
+
+tree_gmods <- list(
+  # "1node_rasch_config" = gmod_1node_rasch_config,
+  "1node_rasch_scalar" = gmod_1node_rasch_scalar,
+  # "1node_2pl_config"   = gmod_1node_2pl_config,
+  # "1node_2pl_metric"   = gmod_1node_2pl_metric,
+  "1node_2pl_scalar"   = gmod_1node_2pl_scalar
+  # "2node_rasch_config" = gmod_2node_rasch_config,
+  # "2node_rasch_scalar" = gmod_2node_rasch_scalar
+  # "2node_2pl_config"   = gmod_2node_2pl_config,
+  # "2node_2pl_metric"   = gmod_2node_2pl_metric,
+  # "2node_2pl_scalar"   = gmod_2node_2pl_scalar
+)
+
+extract_mods <- \(mod) {
+  if (class(mod) == "SingleGroupClass") {
+    list("all" = mod)
+  } else if (class(mod) == "MultipleGroupClass") {
+    mod_groups <- extract.mirt(mod, "groupNames")
+    # mod_mods <- map(mod_groups, \(g) extract.group(mod, g))
+    mod_groups |> set_names() |> map(\(g) extract.group(mod, g))
+    # tibble(group = mod_groups, mod = list(mod_mods))
+  }
+}
+
+tree_gmods <- list(
+  "1node_rasch_scalar" = gmod_1node_rasch_scalar,
+  "1node_2pl_scalar"   = gmod_1node_2pl_scalar
+) |> map(extract_mods) |> list_flatten(name_spec = "{outer}-{inner}")
+```
+
+
+```{r}
+# sds_nested <- sds_tree |>
+#   mutate(item_uid = paste(node, item, sep = ".")) |>
+#   rename(correct = value) |>
+#   mutate(item_task = "sds_tree") |>
+#   nest(data = -item_task)
+# 
+# source("../../02_score_data/02_fit_irt/irt_modular.R")
+# library(rlang)
+# 
+# models_multigroup <- tribble(
+#   ~nfact, ~itemtype, ~invariance,
+#        1,   "Rasch", "configural",
+#        1,   "Rasch", "scalar",
+#        1,     "2PL", "configural",
+#        1,     "2PL", "metric",
+#        1,     "2PL", "scalar",
+# )
+# 
+# fit_task_models_multigroup(task_data = sds_nested,
+#                            models = models_multigroup,
+#                            priors = NULL,
+#                            task = "sds_tree",
+#                            group = group,
+#                            registry_dir = "models")
+```
+
+```{r}
+item_map <- data_filtered |> distinct(item_inst, node, item)
+item_meta <- data_filtered |>
+  count(item_group, item_status, node, item, item_uid, chance, name = "n_trials") |>
+  mutate(node_label = node |> fct_recode("match/non-match" = "match",
+                                         "new | match" = "newM",
+                                         "new | non-match" = "newN") |> fct_inorder(),
+         prev_m = str_extract(item_status, "[0-9](?=m)") |> as.integer(),
+         prev_n = str_extract(item_status, "[0-9](?=n)") |> as.integer(),
+         prev = factor(prev_m + prev_n))
+
+mirt_tree_coefs <- \(mod) {
+  coef(mod, simplify = TRUE)$items |>
+    as_tibble(rownames = "item_inst")
+}
+
+                  # "rasch_3node" = mod_3node_rasch,
+                  # "2pl_3node"   = mod_3node_2pl)
+tree_mods <- list("1node_rasch_pooled" = mod_1node_rasch,
+                  "2node_rasch_pooled" = mod_2node_rasch,
+                  "1node_2pl_pooled"   = mod_1node_2pl,
+                  "2node_2pl_pooled"   = mod_2node_2pl)
+
+# tree_coefs <- tree_mods |>
+tree_coefs <- list(tree_mods, tree_gmods) |> list_flatten() |>
+  map(mirt_tree_coefs) |>
+  list_rbind(names_to = "model") |>
+  left_join(item_map) |>
+  left_join(item_meta) |>
+  select(-item_inst) |>
+  mutate(d = round(d, 4), g = round(g, 4)) |>
+  distinct() #|>
+
+tree_coef_long <- tree_coefs |>
+  select(-g, -u) |>
+  pivot_longer(cols = c("d", matches("a[0-9]")), names_to = "param", values_to = "value") |>
+  mutate(param = param |> str_replace("a[0-9]", "a")) |>
+  filter_out(is.na(value)) |>
+  filter_out(param == "a" & value %in% c(0, 1)) |>
+  separate_wider_delim(model, names = c("model", "group"), delim = "-", too_few = "align_start") |>
+  mutate(group = replace_na(group, "all")) |>
+  separate_wider_delim(model, names = c("dims", "itemtype", "invariance"), delim = "_", cols_remove = FALSE) |>
+  arrange(desc(itemtype), dims, node, desc(item_group), desc(param), desc(value)) |>
+  mutate(item = item |> fct_inorder(),
+         model = model |> fct_inorder(),
+         param = param |> fct_inorder())
+
+tree_coef_long |>
+  filter(group == "all") |>
+  # filter(str_detect(model, "rasch")) |>
+ggplot(aes(x = value, y = item)) +
+  # facet_grid(rows = vars(item_group), scales = "free_y", space = "free_y", switch = "y") +
+  facet_grid(vars(model), vars(param),
+             scales = "free_y", space = "free_y", switch = "y") +
+  geom_crossbar(aes(xmin = value, xmax = value, colour = node),
+                middle.linewidth = 0.2, width = 0.5) +
+  scale_colour_ptol() +
+  labs(x = "Parameter value", colour = "Node") +
+  theme(axis.title.y = element_blank(),
+        strip.placement = "outside",
+        legend.position = "top",
+        panel.grid.major.y = element_line(colour = "#EBEBEBFF"))
+
+tree_coef_long |>
+  filter(group == "all") |>
+  filter(param == "d") |>
+ggplot(aes(x = value, y = item)) +
+  # facet_grid(rows = vars(item_group), scales = "free_y", space = "free_y", switch = "y") +
+  facet_grid(vars(item_group), vars(model),
+             scales = "free_y", space = "free_y", switch = "y") +
+  geom_crossbar(aes(xmin = value, xmax = value, colour = node),
+                middle.linewidth = 0.2, width = 0.5) +
+  scale_colour_ptol() +
+  labs(x = "Easiness", colour = "Node") +
+  theme(axis.title.y = element_blank(),
+        strip.placement = "outside",
+        legend.position = "top",
+        panel.grid.major.y = element_line(colour = "#EBEBEBFF"))
+
+tree_coef_rasch_1node <- tree_coef_long |>
+  filter(model == "1node_rasch_pooled") |>
+  # filter(dims == "1node", itemtype == "rasch") |>
+  # select(-group) |>
+  # distinct() |>
+  mutate(value = -value) |>
+  arrange(node, desc(value)) |>
+  mutate(item = item |> fct_inorder())
+
+ggplot(tree_coef_rasch_1node, aes(x = value, y = item)) +
+  facet_grid(vars(item_group), vars(invariance),
+             scales = "free_y", space = "free_y", switch = "y") +
+  geom_crossbar(aes(xmin = value, xmax = value, colour = node),
+                middle.linewidth = 0.2, width = 0.5) +
+  scale_colour_ptol() +
+  labs(x = "Difficulty", colour = "Node") +
+  theme(axis.title.y = element_blank(),
+        strip.placement = "outside",
+        legend.position = "top",
+        panel.grid.major.y = element_line(colour = "#EBEBEBFF"))
+ggsave("sds_tree_1node_rasch_coef.png", width = 10, height = 7)
+
+ggplot(tree_coef_rasch_1node, aes(x = value, y = chance, colour = node)) +
+  facet_wrap(vars(item_group)) +
+  geom_point() +
+  geom_text_repel(aes(label = item_status), size = 2) +
+  scale_colour_ptol() +
+  labs(x = "Difficulty", y = "Chance")
+```
+
+```{r}
+theta <- seq(-6, 6, length.out = 100)
+get_iteminfo_uni <- \(mod, theta) {
+  extract.mirt(mod, "itemnames") |>
+    map(\(item) {
+      it <- extract.item(mod, item)
+      tibble(theta = theta) |>
+        mutate(item_inst = item,
+               info = iteminfo(it, as.matrix(theta)))
+    }) |>
+    list_rbind() |>
+    relocate(item_inst, .before = everything())
+}
+
+# info_1node_2pl <- get_iteminfo_uni(mod_1node_2pl, theta)
+
+info_1node_rasch <- get_iteminfo_uni(mod_1node_rasch, theta) |>
+  left_join(item_map) |>
+  select(-item_inst) |>
+  distinct() |>
+  left_join(item_meta)
+
+ggplot(info_1node_rasch, aes(x = theta, y = info)) +
+  facet_grid(vars(item_group), vars(node_label)) +
+  geom_line(aes(group = item, colour = prev)) +
+  scale_colour_viridis_d(direction = -1) +
+  labs(x = "Ability", y = "Item information",
+       colour = "Previous unique responses", caption = "rasch, 1node") +
+  theme(legend.position = "top")
+ggsave("plots/sds_tree_info_combined.png", width = 10, height = 7)
+
+info_1node_rasch |>
+  filter(item_group == "2match") |>
+ggplot(aes(x = theta, y = info)) +
+  # facet_wrap(vars(item)) +
+  # facet_grid(vars(item_choice), vars(item_status)) +
+  facet_grid(vars(prev_n), vars(prev_m), labeller = label_both) +
+  # geom_line(aes(group = item_uid, colour = node, y = chance),
+  #           alpha = 0.5, linetype = "dashed") +
+  geom_line(aes(group = item_uid, colour = node)) +
+  # ylim(c(0, 1)) +
+  scale_colour_ptol() +
+  labs(x = "Ability", y = "Item information", colour = "Node",
+       subtitle = "2match")
+ggsave("plots/sds_tree_info_2match.png", width = 8, height = 5)
+
+info_1node_rasch |>
+  filter(item_group == "3match") |>
+ggplot(aes(x = theta, y = info)) +
+  # facet_wrap(vars(item)) +
+  # facet_grid(vars(item_choice), vars(item_status)) +
+  facet_grid(vars(prev_n), vars(prev_m), labeller = label_both) +
+  # geom_line(aes(group = item_uid, colour = node, y = chance),
+  #           alpha = 0.5, linetype = "dashed") +
+  geom_line(aes(group = item_uid, colour = node)) +
+  # ylim(c(0, 1)) +
+  scale_colour_ptol() +
+  labs(x = "Ability", y = "Item information", colour = "Node",
+       subtitle = "3match")
+ggsave("sds_tree_info_3match.png", width = 10, height = 6)
+
+info_1node_rasch |>
+  filter(item_group == "4match") |>
+ggplot(aes(x = theta, y = info)) +
+  # facet_wrap(vars(item)) +
+  # facet_grid(vars(item_choice), vars(item_status)) +
+  facet_grid(vars(prev_n), vars(prev_m), labeller = label_both) +
+  # geom_line(aes(group = item_uid, colour = node, y = chance),
+  #           alpha = 0.5, linetype = "dashed") +
+  geom_line(aes(group = item_uid, colour = node)) +
+  # ylim(c(0, 1)) +
+  scale_colour_ptol() +
+  labs(x = "Ability", y = "Item information", colour = "Node",
+       subtitle = "4match")
+ggsave("sds_tree_info_4match.png", width = 11, height = 6)
+
+group_node_info <- info_1node_rasch |>
+  group_by(item_group, node_label, theta) |>
+  summarise(info = mean(info), n_items = n())
+
+ggplot(group_node_info, aes(x = theta, y = info)) +
+  facet_wrap(vars(node_label)) +
+  geom_line(aes(group = item_group, colour = item_group)) +
+  scale_colour_ptol() +
+  labs(x = "Ability", y = "Average item information", colour = "Item group")
+ggsave("sds_tree_info_group_node.png", width = 11, height = 3)
+
+group_node_info <- info_1node_rasch |>
+  # filter_out(node == "newN") |>
+  group_by(item_group, node_label, node, theta) |>
+  summarise(n_items = n(),
+            info_w = weighted.mean(info, n_trials),
+            info = mean(info)) |>
+  ungroup()
+
+ggplot(group_node_info, aes(x = theta, y = info_w)) +
+  facet_wrap(vars(node_label)) +
+  geom_line(aes(group = item_group, colour = item_group)) +
+  scale_colour_ptol() +
+  labs(x = "Ability", y = "Average item information", colour = "Item group")
+ggsave("sds_tree_info_group_node.png", width = 8, height = 4)
+
+group_node_info |>
+  mutate(group_node = paste(item_group, node)) |>
+ggplot(aes(x = theta, y = info_w)) +
+  # facet_wrap(vars(node_label)) +
+  geom_line(aes(group = group_node, colour = item_group)) +
+  scale_colour_ptol() +
+  labs(x = "Ability", y = "Average item information", colour = "Item group")
+
+group_info <- info_1node_rasch |>
+  # filter_out(node == "newN") |>
+  group_by(item_group, theta) |>
+  summarise(n_items = n(),
+            info_w = weighted.mean(info, n_trials),
+            info = mean(info)) |>
+  ungroup()
+
+ggplot(group_info, aes(x = theta, y = info_w)) +
+  geom_line(aes(group = item_group, colour = item_group)) +
+  scale_colour_ptol() +
+  labs(x = "Ability", y = "Average item information", colour = "Item group")
+ggsave("sds_tree_info_group.png", width = 8, height = 4)
+```
+
+```{r}
+info_1node_rasch_scalar <- extract.group(gmod_1node_rasch_scalar, extract.mirt(mod, "groupNames")[[1]]) |>
+  get_iteminfo_uni(theta) |>
+  left_join(item_map) |>
+  select(-item_inst) |>
+  distinct() |>
+  left_join(item_meta)
+
+group_node_info_scalar <- info_1node_rasch_scalar |>
+  # filter_out(node == "newN") |>
+  group_by(item_group, node_label, node, theta) |>
+  summarise(n_items = n(),
+            info_w = weighted.mean(info, n_trials),
+            info = mean(info)) |>
+  ungroup()
+
+ggplot(group_node_info_scalar, aes(x = theta, y = info_w)) +
+  facet_wrap(vars(node_label)) +
+  geom_line(aes(group = item_group, colour = item_group)) +
+  scale_colour_ptol() +
+  labs(x = "Ability", y = "Average item information", colour = "Item group")
+
+group_info_scalar <- info_1node_rasch_scalar |>
+  # filter_out(node == "newN") |>
+  group_by(item_group, theta) |>
+  summarise(n_items = n(),
+            info_w = weighted.mean(info, n_trials),
+            info = mean(info)) |>
+  ungroup()
+
+ggplot(group_info_scalar, aes(x = theta, y = info_w)) +
+  geom_line(aes(group = item_group, colour = item_group)) +
+  scale_colour_ptol() +
+  labs(x = "Ability", y = "Average item information", colour = "Item group")
+```
+
+```{r}
+group_node_info_compare <- group_node_info |>
+  filter(node == "newM") |>
+  select(item_group, theta, info_w) |>
+  pivot_wider(names_from = item_group, values_from = info_w)
+cross_2_3 <- group_node_info_compare |> filter(`3match` >= `2match`) |> pull(theta) |> min()
+cross_3_4 <- group_node_info_compare |> filter(`4match` >= `3match`) |> pull(theta) |> min()
+thresholds <- tibble(theta = c(cross_2_3, cross_3_4))
+
+tree_scores_tidy |>
+  mutate(score_bin = cut(value, breaks = c(-6, thresholds$theta, 6))) |>
+  count(score_bin)
+```
+
+
+```{r}
+probtrace_1node_rasch <- probtrace(mod_1node_rasch, theta) |> as_tibble() |>
+  mutate(theta = theta) |>
+  pivot_longer(cols = -theta, names_to = "item_cat", values_to = "p") |>
+  filter(str_detect(item_cat, "P.1$")) |>
+  mutate(item_inst = item_cat |> str_remove(".P.[0-9]$")) |>
+  # separate_wider_delim(item, names = c("node", "item_inst", NA, "response"), delim = ".") |>
+  # filter(response == 1) |>
+  left_join(item_map) |>
+  left_join(item_meta) |>
+  select(-item_cat, -item_inst) |>
+  distinct()
+
+ggplot(probtrace_1node_rasch, aes(x = theta, y = p)) +
+  facet_grid(vars(item_group), vars(node_label)) +
+  geom_line(aes(group = item, colour = prev)) +
+  ylim(c(0, 1)) +
+  scale_colour_viridis_d(direction = -1) +
+  labs(x = "Ability", y = "Probability correct",
+       colour = "Previous unique responses", caption = "rasch, 1node") +
+  theme(legend.position = "top")
+ggsave("sds_tree_icc_combined.png", width = 10, height = 7)
+
+probtrace_1node_rasch |>
+  filter(item_group == "2match") |>
+ggplot(aes(x = theta, y = p)) +
+  # facet_wrap(vars(item)) +
+  # facet_grid(vars(item_choice), vars(item_status)) +
+  facet_grid(vars(prev_n), vars(prev_m), labeller = label_both) +
+  geom_line(aes(group = item_uid, colour = node, y = chance),
+            alpha = 0.5, linetype = "dashed") +
+  geom_line(aes(group = item_uid, colour = node)) +
+  ylim(c(0, 1)) +
+  scale_colour_ptol() +
+  labs(x = "Ability", y = "Probability correct", colour = "Node",
+       subtitle = "2match")
+ggsave("sds_tree_icc_2match.png", width = 8, height = 5)
+
+probtrace_1node_rasch |>
+  filter(item_group == "3match") |>
+ggplot(aes(x = theta, y = p)) +
+  # facet_wrap(vars(item)) +
+  # facet_grid(vars(item_choice), vars(item_status)) +
+  facet_grid(vars(prev_n), vars(prev_m), labeller = label_both) +
+  geom_line(aes(group = item_uid, colour = node, y = chance),
+            alpha = 0.5, linetype = "dashed") +
+  geom_line(aes(group = item_uid, colour = node)) +
+  ylim(c(0, 1)) +
+  scale_colour_ptol() +
+  labs(x = "Ability", y = "Probability correct", colour = "Node",
+       subtitle = "3match")
+ggsave("sds_tree_icc_3match.png", width = 8, height = 5)
+
+probtrace_1node_rasch |>
+  filter(item_group == "4match") |>
+ggplot(aes(x = theta, y = p)) +
+  # facet_wrap(vars(item)) +
+  # facet_grid(vars(item_choice), vars(item_status)) +
+  facet_grid(vars(prev_n), vars(prev_m), labeller = label_both) +
+  geom_line(aes(group = item_uid, colour = node, y = chance),
+            alpha = 0.5, linetype = "dashed") +
+  geom_line(aes(group = item_uid, colour = node)) +
+  ylim(c(0, 1)) +
+  scale_colour_ptol() +
+  labs(x = "Ability", y = "Probability correct", colour = "Node",
+       subtitle = "4match")
+ggsave("sds_tree_icc_4match.png", width = 8, height = 5)
+```
+
+```{r}
+group_probtrace_1node_rasch <- probtrace_1node_rasch |>
+  group_by(item_group, node_label, node, theta) |>
+  summarise(n_item = n(),
+            p = mean(p)) |>
+  ungroup()
+
+ggplot(group_probtrace_1node_rasch, aes(x = theta, y = p)) +
+  # facet_grid(vars(item_group), vars(node_label)) +
+  # geom_line(aes(colour = prev)) +
+  facet_wrap(vars(node_label)) +
+  geom_line(aes(color = item_group)) +
+  ylim(c(0, 1)) +
+  scale_colour_ptol() +
+  # scale_colour_viridis_d(direction = -1) +
+  labs(x = "Ability", y = "Mean probability correct") +
+  theme(legend.position = "top")
+```
+
+
+```{r}
+get_tree_scores <- \(mod) {
+  fscores(mod, method = "EAP", verbose = FALSE) |> as_tibble() |>
+    mutate(run_id = rownames(data_prepped), .before = everything())
+}
+
+tree_scores <- tree_mods |> map(get_tree_scores) |>
+  list_rbind(names_to = "model")
+
+tree_scores_tidy <- tree_scores |>
+  rename(ability = F1) |>
+  pivot_longer(cols = -c(model, run_id), names_to = "score_type",  values_to = "value") |>
+  filter(!is.na(value)) |>
+  left_join(run_data |> select(dataset, run_id, age)) |>
+  separate(model, into = c("itemtype", "dims"), remove = FALSE) |>
+  mutate(itemtype = itemtype |> fct_rev())
+  # arrange(desc(itemtype), dims, node, desc(item_group), desc(param), desc(value)) |>
+  # mutate(item = item |> fct_inorder(),
+  #        model = model |> fct_inorder(),
+  #        param = param |> fct_inorder())
+  # left_join(sds_tree_runs)
+
+tree_scores_tidy |>
+  group_by(model, score_type) |>
+  summarise(cor = cor(value, age, use = "complete.obs"))
+# highest age cor: rasch_1node ability 0.329
+
+ggplot(tree_scores_tidy, aes(x = age, y = value)) +
+  facet_wrap(vars(itemtype, dims)) +
+  geom_point(aes(colour = score_type), size = 0.7, alpha = 0.7) +
+  geom_smooth(aes(colour = score_type), method = "lm") +
+  scale_colour_ptol() +
+  labs(x = "Age (years)", y = "Ability")
+
+tree_scores_tidy |>
+  filter(itemtype == "rasch", score_type != "newN") |>
+  unite("model_score", dims, score_type) |>
+  select(-model, -itemtype) |>
+  pivot_wider(names_from = model_score, values_from = value) |>
+  select(-run_id, -dataset) |>
+  ggpairs(
+    upper = list(continuous = wrap("cor", size = 3.5)),
+    lower = list(continuous = wrap("points", alpha = 0.3, size = 0.8)),
+    diag = list(continuous = wrap("densityDiag", alpha = 0.3))
+  )
+ggsave("sds_tree_pairs_dims_rasch.png", width = 11, height = 8)
+
+tree_scores_tidy |>
+  filter(itemtype == "2pl", score_type != "newN") |>
+  unite("model_score", dims, score_type) |>
+  select(-model, -itemtype) |>
+  pivot_wider(names_from = model_score, values_from = value) |>
+  select(-run_id, -dataset) |>
+  ggpairs(
+    upper = list(continuous = wrap("cor", size = 3.5)),
+    lower = list(continuous = wrap("points", alpha = 0.3, size = 0.8)),
+    diag = list(continuous = wrap("densityDiag", alpha = 0.3))
+  )
+ggsave("sds_tree_pairs_dims_2pl.png", width = 11, height = 8)
+
+tree_scores_tidy |>
+  filter(dims != "3node") |>
+  unite("model_score", model, score_type) |>
+  select(-itemtype, -dims) |>
+  pivot_wider(names_from = model_score, values_from = value) |>
+  select(-run_id, -dataset) |>
+  ggpairs(
+    upper = list(continuous = wrap("cor", size = 3.5)),
+    lower = list(continuous = wrap("points", alpha = 0.3, size = 0.8)),
+    diag = list(continuous = wrap("densityDiag", alpha = 0.3))
+  )
+ggsave("sds_tree_pairs_1_2.png", width = 11, height = 8)
+
+tree_scores_tidy |>
+  filter(dims != "3node", itemtype == "rasch", !str_detect(dataset, "rural")) |>
+  unite("model_score", dims, score_type) |>
+  select(-itemtype, -model) |>
+  pivot_wider(names_from = model_score, values_from = value) |>
+  select(-run_id, -dataset) |>
+  ggpairs(
+    upper = list(continuous = wrap("cor", size = 3.5)),
+    lower = list(continuous = wrap("points", alpha = 0.3, size = 0.8)),
+    diag = list(continuous = wrap("densityDiag", alpha = 0.3))
+  )
+ggsave("sds_tree_pairs_rasch_1_2.png", width = 8, height = 6)
+
+tree_scores_tidy |>
+  filter(dims != "3node", itemtype == "rasch") |>
+  unite("model_score", dims, score_type) |>
+  select(-itemtype, -model) |>
+  pivot_wider(names_from = model_score, values_from = value) |>
+  select(-run_id) |>
+  ggpairs(
+    aes(colour = dataset),
+    columns = c("age", "1node_ability", "2node_match", "2node_new"),
+    upper = list(continuous = wrap("cor", size = 3.5)),
+    lower = list(continuous = wrap("points", alpha = 0.3, size = 0.8)),
+    diag = list(continuous = wrap("densityDiag", alpha = 0.3))
+  ) +
+  scale_colour_ptol() +
+  scale_fill_ptol()
+ggsave("sds_tree_pairs_rasch_1_2_datasets.png", width = 10, height = 7)
+
+tree_scores_tidy |>
+  group_by(model, score_type, dataset) |>
+  summarise(cor = cor(age, value, use = "complete.obs"), n_cor = n()) |>
+  filter(model == "rasch_1node")
+  # arrange(desc(cor))
+```
+
+
+
+
+
+
+
+
+
+```{r}
+mirt_tree_coefs <- coef(mod_uni, simplify = TRUE, IRTpars = TRUE)$items |>
+  as_tibble(rownames = "item_inst") |>
+  left_join(item_map) |>
+  left_join(item_meta) |>
+  select(-item_inst) |>
+  mutate(b = round(b, 4), g = round(g, 4)) |>
+  distinct() |>
+  rename(d = b) |>
+  # arrange(item_group, desc(item_choice), desc(item_status)) |>
+  arrange(node, item_group, desc(d)) |>
+  mutate(#item_label = if_else(item_choice == "choice1", item_choice,
+         #                     glue("{item_choice}_{item_status}")) |> fct_inorder())
+         item = item |> fct_inorder(),
+         n_bin = cut(n, breaks = 10^(0:4)))
+
+d_items <- mirt_tree_coefs |>
+  filter(d > 6) |>
+  arrange(desc(d)) |>
+  select(node, item, d, n)
+
+ggplot(mirt_tree_coefs, aes(x = d, y = item)) +
+  facet_grid(rows = vars(item_group), scales = "free_y", space = "free_y", switch = "y") +
+  geom_crossbar(aes(xmin = d, xmax = d, colour = node),
+                middle.linewidth = 0.2, width = 0.5) +
+  scale_colour_ptol() +
+  labs(x = "Difficulty", colour = "Node") +
+  theme(axis.title.y = element_blank(),
+        strip.placement = "outside",
+        legend.position = "top",
+        panel.grid.major.y = element_line(colour = "#EBEBEBFF"))
+ggsave("sds_tree_coefs.png", width = 8, height = 6)
+```
+
+```{r}
+get_iteminfo <- \(mod, theta) {
+  extract.mirt(mod, "itemnames") |>
+    map(\(item) tibble(theta = theta[,1],
+                       info = iteminfo(extract.item(mod, item), theta),
+                       item = item)) |>
+    list_rbind()
+}
+
+get_iteminfo_uni <- \(mod, theta) {
+  extract.mirt(mod, "itemnames") |>
+    map(\(item) {
+      it <- extract.item(mod_uni, item)
+      tibble(theta = theta_uni) |>
+        mutate(item = item,
+               info = iteminfo(it, as.matrix(theta_uni)))
+    }) |>
+    list_rbind() |>
+    relocate(item, .before = everything())
+}
+
+theta_uni <- seq(-6, 6, length.out = 100)
+mod_uni_iteminfo <- extract.mirt(mod_uni, "itemnames") |>
+  map(\(item) {
+    it <- extract.item(mod_uni, item)
+    tibble(theta = theta_uni) |>
+      mutate(item = item,
+             info = iteminfo(it, as.matrix(theta_uni)))
+  }) |>
+  list_rbind() |>
+  relocate(item, .before = everything())
+
+mod_uni_info <- mod_uni_iteminfo |>
+  rename(item_inst = item) |>
+  left_join(item_map) |>
+  left_join(item_meta) |>
+  select(-item_inst) |>
+  distinct() |>
+  mutate(node = node |> fct_recode("match/non-match" = "match",
+                                   "new | match" = "newM",
+                                   "new | non-match" = "newN") |> fct_inorder(),
+         prev_m = str_extract(item_status, "[0-9](?=m)") |> as.integer(),
+         prev_n = str_extract(item_status, "[0-9](?=n)") |> as.integer())
+
+ggplot(mod_uni_info, aes(x = theta, y = info)) +
+  facet_grid(vars(item_group), vars(node)) +
+  geom_line(aes(group = item, colour = item_status)) +
+  scale_colour_ptol() +
+  labs(x = "Ability", y = "Information", colour = "Item status")
+
+mod_uni_info |>
+  filter(item_group == "2match") |>
+ggplot(aes(x = theta, y = info)) +
+  facet_grid(vars(prev_n), vars(prev_m), labeller = label_both) +
+  geom_line(aes(group = item_uid, colour = node)) +
+  scale_colour_ptol() +
+  labs(x = "Ability", y = "Information", colour = "Node", subtitle = "2match")
+
+mod_uni_info |>
+  filter(item_group == "3match") |>
+ggplot(aes(x = theta, y = info)) +
+  facet_grid(vars(prev_n), vars(prev_m), labeller = label_both) +
+  geom_line(aes(group = item_uid, colour = node)) +
+  scale_colour_ptol() +
+  labs(x = "Ability", y = "Information", colour = "Node", subtitle = "3match")
+
+mod_uni_info |>
+  filter(item_group == "4match") |>
+ggplot(aes(x = theta, y = info)) +
+  facet_grid(vars(prev_n), vars(prev_m), labeller = label_both) +
+  geom_line(aes(group = item_uid, colour = node)) +
+  scale_colour_ptol() +
+  labs(x = "Ability", y = "Information", colour = "Node", subtitle = "4match")
+
+mod_uni_info_groups <- mod_uni_info |>
+  summarise(info = mean(info), n_items = n(), .by = c(item_group, node, theta))
+
+ggplot(mod_uni_info_groups, aes(x = theta, y = info)) +
+  # facet_grid(vars(item_group), vars(node)) +
+  facet_wrap(vars(node)) +
+  geom_line(aes(group = item_group, colour = item_group)) +
+  scale_colour_ptol() +
+  labs(x = "Ability", y = "Information")
+```
+
+```{r}
+# theta <- matrix(seq(-6, 6, length.out=1000))
+# theta_uni <- seq(-4, 4, length.out = 20)
+theta_uni <- c(seq(-4, 0, length.out = 10), seq(0, 4, length.out = 10)) |> unique()
+theta_multi <- as.matrix(expand.grid(theta_uni, theta_uni, theta_uni))
+# theta_multi <- as.matrix(expand.grid(theta_uni, theta_uni))
+
+mod_iteminfo <- extract.mirt(mod, "itemnames") |>
+  map(\(item) {
+    it <- extract.item(mod, item)
+    as_tibble(theta_multi) |> set_names(paste0("theta_", 1:3)) |>
+      mutate(item = item,
+             info_1 = iteminfo(it, theta_multi, degrees = c(90,  0,  0)),
+             info_2 = iteminfo(it, theta_multi, degrees = c( 0, 90,  0)),
+             info_3 = iteminfo(it, theta_multi, degrees = c( 0,  0, 90)))
+  }) |>
+  list_rbind() |>
+  relocate(item, .before = everything())
+
+mod_iteminfo_long <- mod_iteminfo |>
+  pivot_longer(cols = -item, names_to = c(".value", "dim"), names_sep = "_") |>
+  rename(item_inst = item) |>
+  left_join(item_map) |>
+  mutate(dim = dim |> as.character() |>
+           # replace_values(from = c("1", "2"), to = c("match", "new"))) |>
+           replace_values(from = c("1", "2", "3"), to = c("match", "newM", "newN"))) |>
+  filter(node == dim) |>
+  select(-dim)
+
+
+ggplot(mod_iteminfo_long, aes(x = theta, y = info)) +
+  facet_wrap(vars(node)) +
+  # facet_grid(vars(dim), vars(node)) +
+  geom_line(aes(group = item))
+# 
+# mod_iteminfo |>
+#   ggplot(aes(x = theta_1, y = info_1)) +
+#     # facet_wrap(vars(dim)) +
+#     geom_line(aes(group = interaction(theta_2, theta_3)))
+
+theta_multi_df <- as_tibble(theta_multi) |> set_names(paste0("theta_", 1:3))
+# theta_multi_df <- as_tibble(theta_multi) |> set_names(paste0("theta_", 1:2))
+mod_probtrace <- probtrace(mod, theta_multi) |> as_tibble() |> bind_cols(theta_multi_df) |>
+  pivot_longer(cols = -starts_with("theta"), names_to = c("node", "item", "inst", "category"),
+               names_pattern = "(.*?)\\.(.*?)-([0-9]+)\\.(.*)", values_to = "p") |>
+  select(-inst) |>
+  distinct() |>
+  filter(category == "P.1") |>
+  select(-category) |>
+  pivot_longer(cols = starts_with("theta"), names_to = c(".value", "dim"), names_sep = "_") |>
+  mutate(dim = dim |> as.character() |>
+           # replace_values(from = c("1", "2"), to = c("match", "new"))) |>
+           replace_values(from = c("1", "2", "3"), to = c("match", "newM", "newN"))) |>
+  filter(node == dim) |>
+  select(-dim) |>
+  left_join(item_meta) |>
+  mutate(mn = str_extract_all(item_status, "[0-9]") |>
+           map_dbl(\(x) sum(as.numeric(x)))) |>
+  arrange(item_group, mn, item_status) |>
+  mutate(item = item |> fct_inorder(),
+         item_status = item_status |> fct_inorder(),
+         node = node |> fct_recode("match/non-match" = "match",
+                                   "new | match" = "newM",
+                                   "new | non-match" = "newN"),
+         prev_m = str_extract(item_status, "[0-9](?=m)") |> as.integer(),
+         prev_n = str_extract(item_status, "[0-9](?=n)") |> as.integer())
+
+ggplot(mod_probtrace, aes(x = theta, y = p)) +
+  facet_grid(vars(item_group), vars(node)) +
+  geom_line(aes(group = item, colour = factor(mn))) +
+  scale_colour_ptol() +
+  labs(x = "Node-specific theta", y = "Model fit probability", colour = "")
+ggsave("sds_tree_icc_combined.png", width = 10, height = 7)
+
+flat_items <- mod_probtrace |>
+  mutate(p = round(p, 3)) |>
+  distinct(node, item, p) |>
+  count(node, item, name = "n_probs") |>
+  # left_join(item_meta |> select(node, item, n)) |>
+  filter(n_probs == 1)
+
+mod_probtrace |>
+  filter(item_group == "2match") |>
+ggplot(aes(x = theta, y = p)) +
+  # facet_wrap(vars(item)) +
+  # facet_grid(vars(item_choice), vars(item_status)) +
+  facet_grid(vars(prev_n), vars(prev_m), labeller = label_both) +
+  geom_line(aes(group = item_uid, colour = node, y = chance),
+            alpha = 0.5, linetype = "dashed") +
+  geom_line(aes(group = item_uid, colour = node)) +
+  ylim(c(0, 1)) +
+  scale_colour_ptol() +
+  labs(x = "Node-specific theta", y = "Model fit probability", colour = "Node",
+       subtitle = "2match")
+ggsave("sds_tree_icc_2match.png", width = 8, height = 5)
+
+mod_probtrace |>
+  filter(item_group == "3match") |>
+ggplot(aes(x = theta, y = p)) +
+  # facet_wrap(vars(item_status)) +
+  facet_grid(vars(prev_n), vars(prev_m), labeller = label_both) +
+  geom_line(aes(group = item_uid, colour = node, y = chance),
+            alpha = 0.5, linetype = "dashed") +
+  geom_line(aes(group = item_uid, colour = node)) +
+  ylim(c(0, 1)) +
+  scale_colour_ptol() +
+  labs(x = "Node-specific theta", y = "Model fit probability", colour = "Node",
+       subtitle = "3match")
+ggsave("sds_tree_icc_3match.png", width = 10, height = 6)
+
+mod_probtrace |>
+  filter(item_group == "4match") |>
+ggplot(aes(x = theta, y = p)) +
+  # facet_wrap(vars(item)) +
+  # facet_grid(vars(item_choice), vars(item_status)) +
+  facet_grid(vars(prev_n), vars(prev_m), labeller = label_both) +
+  geom_line(aes(group = item_uid, colour = node, y = chance),
+            alpha = 0.5, linetype = "dashed") +
+  geom_line(aes(group = item_uid, colour = node)) +
+  ylim(c(0, 1)) +
+  scale_colour_ptol() +
+  labs(x = "Node-specific theta", y = "Model fit probability", colour = "Node",
+       subtitle = "4match")
+ggsave("sds_tree_icc_4match.png", width = 11, height = 7)
+
+# mod_probtrace |>
+#   filter(theta == 0) |>
+#   left_join(sds_tree_props) |>
+#   ggplot(aes(x = prop, y = p)) +
+#   facet_grid(vars(item_group), vars(node)) +
+#   geom_point()
+```
+
+```{r}
+tree_scores_uni <- fscores(mod_uni, method = "EAP", verbose = FALSE)
+tree_scores_tidy_uni <- tibble(score = tree_scores_uni[,1]) |>
+  mutate(run_id = rownames(data_prepped), .before = everything()) |>
+  # pivot_longer(cols = -run_id, names_to = "node", values_to = "score") |>
+  left_join(run_data |> select(run_id, user_id, age)) |>
+  left_join(sds_tree_runs)
+  # mutate(prop_correct = num_correct / num_attempted) |>
+  # select(-starts_with("num"))
+  # pivot_longer(cols = c(match, newM, newN), names_to = "node", values_to = "ability")
+
+tree_scores_tidy_uni |>
+  pivot_wider(names_from = node, values_from = c(score, prop)) |>
+  mutate(group = group |> str_remove("pilot_")) |>
+# select(-run_id, -user_id, -group) |>
+ggpairs(aes(colour = group),
+        columns = c("age", "prop_match", "prop_newM", "prop_newN", "score_match", "score_newM", "score_newN"),
+        upper = list(continuous = wrap("cor", size = 3.5)),
+        lower = list(continuous = wrap("points", alpha = 0.3, size = 0.8)),
+        diag = list(continuous = wrap("densityDiag", alpha = 0.3))) +
+  scale_colour_ptol() +
+  scale_fill_ptol()
+
+tree_scores_tidy_uni |>
+  mutate(node = node |> fct_recode("match/non-match" = "match",
+                                   "new | match" = "newM",
+                                   "new | non-match" = "newN")) |>
+ggplot(aes(x = age, y = score)) +
+  facet_wrap(vars(node)) +
+  geom_point(aes(colour = group), size = 0.7, alpha = 0.7) +
+  geom_smooth(method = "lm", colour = "slategrey") +
+  scale_colour_ptol() +
+  labs(x = "Age (months)", y = "Score", colour = "Dataset")
+ggsave("sds_tree_uni_age.png", width = 11, height = 3)
+
+tree_scores_tidy_uni |>
+  group_by(node) |>
+  summarise(cor = cor(age, score, use = "complete.obs"))
+```
+
+```{r}
+tree_scores <- fscores(mod, method = "EAP", verbose = FALSE)
+tree_scores_tidy <- tree_scores |> as_tibble() |>
+  mutate(run_id = rownames(data_prepped), .before = everything()) |>
+  pivot_longer(cols = -run_id, names_to = "node", values_to = "score") |>
+  left_join(run_data |> select(run_id, user_id, age)) |>
+  left_join(sds_tree_runs)
+  # mutate(prop_correct = num_correct / num_attempted) |>
+  # select(-starts_with("num"))
+  # pivot_longer(cols = c(match, newM, newN), names_to = "node", values_to = "ability")
+
+tree_scores_tidy |>
+  pivot_wider(names_from = node, values_from = c(score, prop)) |>
+  mutate(group = group |> str_remove("pilot_")) |>
+  # select(-run_id, -user_id, -group) |>
+ggpairs(aes(colour = group),
+        columns = c("age", "prop_match", "prop_newM", "prop_newN", "score_match", "score_newM", "score_newN"),
+        upper = list(continuous = wrap("cor", size = 3.5)),
+        lower = list(continuous = wrap("points", alpha = 0.3, size = 0.8)),
+        diag = list(continuous = wrap("densityDiag", alpha = 0.3))) +
+  scale_colour_ptol() +
+  scale_fill_ptol()
+ggsave("sds_tree_pairs.png", width = 14, height = 8)
+```
+
+```{r}
+by_item <- mirt_tree_coefs |> left_join(sds_tree_props) |>
+  select(node, item, d, g, n, prop)
+
+ggplot(by_item, aes(x = prop, y = d)) +
+  facet_wrap(vars(node), scales = "free_y") +
+  geom_point(aes(size = n)) +
+  # scale_size_binned() +
+  xlim(c(0, 1))
+
+ggplot(by_item, aes(x = prop, y = g)) +
+  facet_wrap(vars(node), scales = "free_y") +
+  geom_abline(linetype = "dotted", colour = "lightgrey") +
+  geom_point(aes(size = n)) +
+  # scale_size_binned() +
+  xlim(c(0, 1))
+
+ggpairs(by_item, aes(colour = node),
+        columns = c("d", "g", "n", "prop"),
+        upper = list(continuous = wrap("cor", size = 3.5)),
+        lower = list(continuous = wrap("points", alpha = 0.3, size = 0.8)),
+        diag = list(continuous = wrap("densityDiag", alpha = 0.3))) +
+  scale_colour_ptol() +
+  scale_fill_ptol()
+
+```
+

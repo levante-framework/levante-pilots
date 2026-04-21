@@ -1,0 +1,39 @@
+```{r}
+library(dplyr)
+library(tidyr)
+library(readr)
+library(purrr)
+library(rlevante)
+```
+
+```{r}
+# list of processed datasets to fetch
+data_sources <- list("pilot_uniandes_co_rural_processed:bxgv",
+                     "pilot_uniandes_co_bogota_processed:d0c5",
+                     "pilot_mpieva_de_main_processed:8wjx",
+                     "pilot_western_ca_main_processed:bgcj")
+
+# fetch processed trials data
+trials <- map(data_sources, get_trials)
+
+# subset to theory of mind
+trials_tom <- trials |>
+  list_rbind() |>
+  filter(item_task == "tom")
+
+# nest by site and dataset
+task_data_nested <- trials_tom |>
+  nest(data = -c(item_task, site, dataset))
+
+write_rds(task_data_nested, "data/task_data_nested.rds", compress = "gz")
+
+runs <- map(data_sources, get_scores)
+
+runs_mrot <- runs |>
+  list_rbind() |>
+  filter(task_code == "mrot") |>
+  select(site, dataset, run_id, user_id, age, language, adaptive, num_attempted,
+         max_incorrect, max_time)
+
+write_rds(runs_mrot, "data/runs_mrot.rds", compress = "gz")
+```

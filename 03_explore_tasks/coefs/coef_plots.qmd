@@ -121,20 +121,19 @@ walk(item_groups, tom_coef_plot)
 sds
 
 ```{r}
-all_coefs <- read_rds("02_scoring_outputs/all_coefs.rds")
-
 sds_coefs <- all_coefs |>
   filter(task == "sds", model_set == "multigroup_site") |> #, subset == "all_items") |>
-  select(model_set, subset, itemtype, invariance, group, item, a1, d) |>
-  pivot_longer(c(a1, d), names_to = "param", values_to = "value") |>
+  select(model_set, subset, itemtype, invariance, group, item, a1, difficulty) |>
+  pivot_longer(c(a1, difficulty), names_to = "param", values_to = "value") |>
   filter(!(param == "a1" & itemtype == "rasch")) |>
-  separate(item, into = c("task", "block", "trial_type")) |>
+  separate(item, into = c("task", "block", "trial_type", "trial_status")) |>
+  unite("item", trial_type, trial_status, remove = FALSE, na.rm = TRUE) |>
   mutate(itemtype = itemtype |> as_factor() |> fct_relevel("rasch"),
          invariance = invariance |> as_factor() |> fct_relevel("configural", "scalar"),
          block = block |> fct_recode(dims = "dimensions"))
 
 sds_coefs |>
-  filter(param == "d") |>
+  # filter(param == "difficulty") |>
   # filter(param == "d", !(block %in% c("dimensions", "same"))) |>
   ggplot(aes(y = value, x = block, colour = trial_type)) +
   facet_grid(vars(itemtype, invariance), vars(group)) +
@@ -146,6 +145,96 @@ sds_coefs |>
   labs(x = "Block", y = "Difficulty", colour = "Item") +
   theme(panel.border = element_rect())
 ggsave("plots/sds_difficulty.png", width = 11, height = 8)
+
+sds_rasch_scalar <- sds_coefs |>
+  filter(param == "difficulty", subset == "all_items",
+         invariance == "scalar", itemtype == "rasch",
+         str_detect(block, "match")) |>
+  select(-group) |>
+  distinct() |>
+  # arrange(value) |>
+  mutate(trial_type = trial_type |> as_factor() |> fct_rev()) |>
+  mutate(trial_status = if_else(trial_type == "choice1", "start",
+                                str_sub(trial_status, 1, 1)),
+         trial_status = trial_status |> fct_relevel("start"))
+         # block = block |> fct_inorder())
+
+ggplot(sds_rasch_scalar, aes(x = value, y = trial_type, colour = trial_status)) +
+  facet_grid(rows = vars(block), scales = "free", space = "free") +
+  # facet_grid(vars(itemtype, invariance), vars(group)) +
+  geom_vline(xintercept = 0, color = "darkgrey", linetype = "dotted") +
+  geom_crossbar(aes(xmin = value, xmax = value), middle.linewidth = 0.5) +
+                # position = "dodge", width = 0.5) +
+  # scale_color_manual(values = c(rev(ptol_pal()(4)), rev(ptol_pal()(6)))) +
+  # scale_color_ptol() +
+  # scale_color_viridis_d() +
+  scale_colour_manual(values = c("black", scales::pal_brewer(palette = "Spectral")(4))) +
+  # scale_colour_brewer(palette = "Spectral") +
+  # scale_y_continuous(limits = ~range(.x, 0)) +
+  labs(y = "", x = "Difficulty", colour = "Previous matches") +
+  theme(#panel.border = element_rect(),
+        panel.grid.major.y = element_line(colour = "#EBEBEBFF"),
+        legend.position = "top",
+        # legend.title = element_blank(),
+        axis.title.y = element_blank())
+ggsave("sds_difficulty_status.png", width = 6, height = 5)
+
+g_s <- all_coefs |>
+  filter(task == "sds", subset == "all_items", invariance == "scalar",
+         itemtype == "rasch", str_detect(item, "match")) |>
+  select(item_uid = item, g) |> distinct()
+
+sds_sumscores <- trial_data_coded |>
+  filter(item_task == "sds") |>
+  group_by(site, item_group, item_uid, chance) |>
+  summarise(prop = mean(correct), n = n()) |>
+  ungroup() |>
+  separate(item_uid, into = c("task", "block", "trial_type", "trial_status"),
+           remove = FALSE) |>
+  unite("item", trial_type, trial_status, remove = FALSE, na.rm = TRUE) |>
+  mutate(block = block |> fct_recode(dims = "dimensions")) |>
+  mutate(trial_type = trial_type |> as_factor() |> fct_rev(),
+         item = item |> as_factor() |> fct_rev()) |>
+  mutate(trial_status = trial_status |> replace_values()) |>
+  mutate(trial_status = if_else(trial_type == "choice1", "start",
+                                str_sub(trial_status, 1, 1)),
+         trial_status = trial_status |> fct_relevel("start")) |>
+  left_join(g_s)
+
+sds_sumscores |> filter(str_detect(block, "match")) |>
+ggplot(aes(x = prop, y = trial_type, colour = trial_status)) +
+  facet_grid(cols = vars(site), rows = vars(block), scales = "free", space = "free") +
+  # facet_grid(vars(itemtype, invariance), vars(group)) +
+  geom_vline(xintercept = 0, color = "darkgrey", linetype = "dotted") +
+  geom_crossbar(aes(xmin = prop, xmax = prop), middle.linewidth = 0.5) +
+  scale_x_continuous(transform = "reverse") +
+  scale_colour_manual(values = c("black", scales::pal_brewer(palette = "Spectral")(4))) +
+  labs(y = "Block", x = "Proportion correct", colour = "Item") +
+  theme(#panel.border = element_rect(),
+        panel.grid.major.y = element_line(colour = "#EBEBEBFF"),
+        legend.position = "top",
+        axis.title.y = element_blank())
+ggsave("sds_sumscores_status.png", width = 8, height = 5)
+
+sds_sumscores |> filter(str_detect(block, "match")) |>
+  arrange(trial_status, as.character(trial_type)) |>
+  mutate(item = item |> fct_inorder() |> fct_rev()) |>
+ggplot(aes(x = prop, y = item, colour = trial_status)) +
+  facet_grid(cols = vars(site), rows = vars(block), scales = "free", space = "free") +
+  # facet_grid(vars(itemtype, invariance), vars(group)) +
+  # geom_vline(xintercept = 0, color = "darkgrey", linetype = "dotted") +
+  geom_crossbar(aes(xmin = g, xmax = g), middle.linewidth = 0.5,
+                linewidth = 0.3, colour = "lightgrey", width = 0.7) +
+  geom_crossbar(aes(xmin = prop, xmax = prop), middle.linewidth = 0.5) +
+  # scale_x_continuous(transform = "reverse") +
+  scale_colour_manual(values = c("black", scales::pal_brewer(palette = "Spectral")(4))) +
+  labs(y = "Block", x = "Proportion correct", colour = "Item") +
+  theme(#panel.border = element_rect(),
+        panel.grid.major.y = element_line(colour = "#EBEBEBFF"),
+        legend.position = "top",
+        axis.title.y = element_blank())
+ggsave("sds_sumscores_status_expanded.png", width = 8, height = 8)
+
 
 sds_coefs |>
   filter(param == "d", block == "dims") |>
