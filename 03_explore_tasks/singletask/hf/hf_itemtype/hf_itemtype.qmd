@@ -1,0 +1,57 @@
+```{r}
+hf_coefs <- all_coefs |>
+  filter(task == "hf", model_set == "multigroup_site", invariance == "scalar", subset == "all_items") |>
+  select(itemtype, item, discrimination = a1, difficulty) |>
+  distinct() |>
+  pivot_longer(cols = c(discrimination, difficulty), names_to = "parameter", values_to = "value") |>
+  filter_out(itemtype == "rasch" & parameter == "discrimination") |>
+  mutate(itemtype = itemtype |> fct_rev()) |>
+  separate_wider_regex(item, c(stimulus = ".*", "_", status = ".*"),
+                       cols_remove = FALSE) |>
+  arrange(itemtype, parameter, desc(value)) |>
+  mutate(stimulus = stimulus |> fct_inorder())
+
+ggplot(hf_coefs, aes(x = value, y = stimulus)) +
+  facet_wrap(vars(parameter, itemtype), scales = "free", strip.position = "bottom") +
+  geom_crossbar(aes(xmin = value, xmax = value, colour = status),
+                width = 0.5, middle.linewidth = 0.1) +
+  scale_colour_brewer(palette = "Set1") +
+  theme(strip.placement = "outside",
+        axis.title = element_blank(),
+        legend.title = element_blank(),
+        legend.position = "top",
+        legend.justification = 1)
+ggsave("plots/hf_params.png", width = 10, height = 3)
+```
+
+```{r}
+hf_mods <- mods_objs |>
+  filter(task == "hf", model_set == "multigroup_site", invariance == "scalar", subset == "all_items") |>
+  select(itemtype, mod) |>
+  deframe() |>
+  map(\(mod) extract.group(mod, extract.mirt(mod, "groupNames")[[1]]))
+
+theta <- seq(-5, 5, by = 0.01)
+hf_mod_info <- hf_mods |> map(\(mod) get_iteminfo_uni(mod, theta))
+hf_info <- hf_mod_info |>
+  list_rbind(names_to = "itemtype") |>
+  mutate(item = item_inst |> str_remove("-[0-9]+$")) |>
+  select(-item_inst) |>
+  distinct() |>
+  mutate(itemtype = itemtype |> fct_rev()) |>
+  separate_wider_regex(item, c(stimulus = ".*", "_", status = ".*"),
+                       cols_remove = FALSE) |>
+  mutate(stimulus = stimulus |> factor(levels = rev(levels(hf_coefs$stimulus))))
+  # arrange(itemtype, desc(value)) |>
+  # mutate(stimulus = stimulus |> fct_inorder())
+
+ggplot(hf_info, aes(x = theta, y = info, colour = status)) +
+  facet_grid(vars(itemtype), vars(stimulus), scales = "free") +
+  geom_line(aes(group = item), linewidth = 0.4) +
+  scale_colour_brewer(palette = "Set1") +
+  labs(x = "Ability", y = "Item information") +
+  theme(legend.title = element_blank(),
+        legend.position = "top",
+        legend.justification = 1)
+ggsave("plots/hf_info.png", width = 11, height = 4.5)
+```
