@@ -47,9 +47,6 @@ generate_model_str_numeric <- function(df, df_prepped, item_type, f, priors = NU
 
   params <- "d" # always have difficulty
   if (item_type != "Rasch") {
-    # add slopes a[i] based on parameterization
-    # s <- as.numeric(str_extract(item_type, "^\\d")) - 1
-    # params <- c(params, paste0("a", 1:s))
     params <- c(params, "a1")
   }
 
@@ -72,7 +69,10 @@ generate_model_str_numeric <- function(df, df_prepped, item_type, f, priors = NU
   constraint <- if (str_length(constraints) > 1) paste0("CONSTRAIN=", constraints) else ""
   
   # e.g. PRIOR = (2-3, 5, d, norm, 0, 1), (4, d, norm, 0, 0.5)')
-  prior_terms <- priors |> imap(\(pr, param) glue("(1-{length(items)},{paste(c(param, pr),collapse = ',')})"))
+  # prior_terms <- priors |> imap(\(pr, param) glue("(1-{length(items)},{paste(c(param, pr),collapse = ',')})"))
+  # prior <- if (length(prior_terms) > 0) glue("PRIOR={paste(prior_terms, collapse = ',')}") else ""
+  prior_terms <- priors |>
+    imap(\(pr, param) glue("(1-{ncol(df_prepped)},{paste(c(param, pr),collapse = ',')})"))
   prior <- if (length(prior_terms) > 0) glue("PRIOR={paste(prior_terms, collapse = ',')}") else ""
   
   # combine statements

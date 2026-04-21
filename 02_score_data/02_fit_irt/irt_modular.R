@@ -14,10 +14,11 @@ fit_task_models_pooled <- \(task_data, models, priors, task, subset_var, subset_
   trials <- task_data |>
     filter(item_task == task) |>
     filter(!!subset_var == subset_val) |>
-    unnest(data)
+    unnest(data) |>
+    filter(!is.na(correct))
   
   # prep data for modeling
-  data_filtered <- trials |> rlevante:::dedupe_items() |> remove_no_var_items()
+  data_filtered <- trials |> rlevante:::dedupe_items() |> rlevante:::remove_no_var_items()
   data_prepped <- rlevante:::to_mirt_shape(data_filtered)
   
   # pull out chance values
@@ -80,8 +81,8 @@ fit_task_models_multigroup <- \(task_data, models, priors, task, group = site,
     filter(item_task == task) |>
     unnest(data) |>
     rename(group = !!group) |>
-    mutate(item_uid = as.character(item_uid))
-    # rename(group = site)
+    mutate(item_uid = as.character(item_uid)) |>
+    filter(!is.na(correct))
   
   # prep data for modeling
   data_filtered_full <- trials |> rlevante:::dedupe_items() |> rlevante:::remove_no_var_items()
@@ -93,10 +94,15 @@ fit_task_models_multigroup <- \(task_data, models, priors, task, group = site,
   
   data_filtered_overlap <- data_filtered_full |>
     rlevante:::remove_nonshared_items() |>
-    rlevante:::remove_no_var_items_bygroup()
+    remove_no_var_items_bygroup()
   data_wide_overlap <- data_filtered_overlap |> rlevante:::to_mirt_shape_grouped()
   data_prepped_overlap <- data_wide_overlap |> select(-group)
   guess_overlap <- data_filtered_overlap |> distinct(item_inst, chance) |> pull(chance)
+
+  if (nrow(data_filtered_overlap) == 0) {
+    message("No items in common to all groups, skipping multigroup models")
+    return()
+  }
   
   # construct output directory
   out_dir <- file.path(registry_dir, task, paste0("multigroup_", as_name(group)))

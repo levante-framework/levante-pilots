@@ -12,7 +12,8 @@ source(here("02_score_data/02_fit_irt/irt_modular.R"), chdir = TRUE)
 regdir <- here("02_scoring_outputs", "model_registry")
 
 # tasks to include in these analyses
-irt_tasks <- c("math",
+irt_tasks <- c("pa",
+               "math",
                "matrix",
                "mrot",
                "sds",
@@ -28,12 +29,9 @@ ref_sites <- c("pilot_uniandes_co", "pilot_mpieva_de", "pilot_western_ca")
 task_data_nested <- read_rds(here("01_fetched_data/task_data_nested.rds")) |>
   filter(site %in% ref_sites)
 
-# task_data_mrot <- task_data_nested |> filter(item_task == "mrot") |> unnest(data) |>
-#   filter(item_group == "2d") |> nest(data = -c(item_task, site, language)) |>
-#   mutate(item_task = "mrot2d")
-
-task_data_irt <- task_data_nested |> filter(item_task %in% irt_tasks) #|>
-  # bind_rows(task_data_mrot)
+task_data_irt <- task_data_nested |>
+  filter(item_task %in% irt_tasks) |>
+  filter(!is.na(language))
 ```
 
 ```{r}
@@ -64,32 +62,32 @@ objs <- ls()
 
 # set up cluster for parallelization
 cluster <- new_cluster(length(irt_tasks)) |>
-  cluster_library(c("tidyverse", "mirt", "glue", "rlang")) |>
+  cluster_library(c("tidyverse", "mirt", "glue", "rlang", "rlevante")) |>
   cluster_copy(objs)
 
 # hack -- need to call setClass() on cluster to define class 
-cluster |> cluster_send({
-  ModelRecord <- setClass(
-    "ModelRecord",
-    slots = c(
-      model_class   = "character",  # "SingleGroupClass", "MultipleGroupClass"
-      model_vals    = "data.frame", # mod2vals() output
-      itemtype      = "character",  # "Rasch", "2PL", "3PL"
-      # model         = "mirt.model",
-      method        = "character",
-      data          = "matrix",
-      factors       = "character",
-      nfact         = "numeric",
-      invariance    = "character",
-      items         = "character",
-      runs          = "character",
-      group_names   = "character",
-      groups        = "character",
-      scores        = "tbl_df",
-      fit           = "list"
-    )
-  )
-})
+# cluster |> cluster_send({
+#   ModelRecord <- setClass(
+#     "ModelRecord",
+#     slots = c(
+#       model_class   = "character",  # "SingleGroupClass", "MultipleGroupClass"
+#       model_vals    = "data.frame", # mod2vals() output
+#       itemtype      = "character",  # "Rasch", "2PL", "3PL"
+#       # model         = "mirt.model",
+#       method        = "character",
+#       data          = "matrix",
+#       factors       = "character",
+#       nfact         = "numeric",
+#       invariance    = "character",
+#       items         = "character",
+#       runs          = "character",
+#       group_names   = "character",
+#       groups        = "character",
+#       scores        = "tbl_df",
+#       fit           = "list"
+#     )
+#   )
+# })
 
 # fit by-language pooled models for each task (in parallel)
 cluster |>
@@ -112,11 +110,11 @@ cluster |>
 ```
 
 ```{r}
-# fit_bylanguage_task(task_data = task_data_irt,
-#                     models = models_pooled,
-#                     prior = priors,
-#                     task = "sds",
-#                     registry_dir = regdir)
+fit_bylanguage_task(task_data = task_data_irt,
+                    models = models_pooled,
+                    prior = priors,
+                    task = "pa",
+                    registry_dir = regdir)
 # 
 # irt_tasks |> map(\(tsk) {
 #   fit_bylanguage_task(task_data = task_data_irt,
@@ -126,12 +124,12 @@ cluster |>
 #                       registry_dir = regdir)
 # })
 # 
-# fit_task_models_multigroup(task_data = task_data_irt,
-#                            models = models_multigroup,
-#                            prior = priors,
-#                            task = "sds",
-#                            group = site,
-#                            registry_dir = regdir)
+fit_task_models_multigroup(task_data = task_data_irt,
+                           models = models_multigroup,
+                           prior = priors,
+                           task = "matrix",
+                           group = site,
+                           registry_dir = regdir)
 # 
 # fit_task_models_pooled(task_data_irt, models_pooled, priors, "mrot", language, "de", regdir)
 ```
