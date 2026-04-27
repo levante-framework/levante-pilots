@@ -1,6 +1,7 @@
 percentify <- \(s) as.character(glue("{sprintf('%.1f', s)}%"))
 
 run_data <- read_rds(here("01_fetched_data/run_data.rds"))
+# FixMe: @Mika - df no longer exists: is this just filtered to admins with n>=10 trials?
 runs_filtered <- read_rds(here("01_fetched_data/runs_filtered.rds"))
 
 # all runs

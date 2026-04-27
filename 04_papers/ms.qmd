@@ -434,7 +434,7 @@ We end by discussing future plans for further internationalization and downward 
 ```{r load-scores}
 all_scores <- read_rds(here("02_scoring_outputs","scores","scores_combined.rds")) |>
   group_by(user_id, item_task) |>
-  arrange(time_started) |>
+  arrange(age) |>
   mutate(run_number = 1:n(),
          age_gap = age - age[1]) |>
   ungroup() |>
@@ -615,10 +615,11 @@ Initially designed in English, the core tasks were subsequently adapted for Span
 
 # Pilot Data Collection
 
-```{r compute_counts}
+```{r compute_counts, eval=F}
 percentify <- \(s) as.character(glue("{sprintf('%.1f', s)}%"))
 
 run_data <- read_rds(here("01_fetched_data/run_data.rds"))
+# FixMe: Mika these don't exist any longer
 runs_nonempty <- read_rds(here("01_fetched_data/runs_nonempty.rds"))
 runs_filtered <- read_rds(here("01_fetched_data/runs_filtered.rds"))
 
@@ -1611,7 +1612,7 @@ ef_tasks <- c("hf","mg","sds","mefs")
 # Filter to ef tasks (from included_scores), keep first run 
 ef_firstrun_scores <- included_scores |>
   filter(item_task %in% ef_tasks) |>
-  arrange(user_id, item_task, run_number, time_started) |>
+  arrange(user_id, item_task, run_number, age) |>
   group_by(user_id, item_task) |>
   slice(1) |>
   ungroup()
@@ -1789,7 +1790,7 @@ lang_vars <- c("swr","sre","pa","vocab","trog")
 # first run per user–task
 lang_firstrun_scores <- included_scores |>
   filter(item_task %in% lang_vars) |>
-  arrange(user_id, item_task, run_number, time_started) |>
+  arrange(user_id, item_task, run_number, age) |>
   group_by(user_id, item_task) |>
   slice(1) |>
   ungroup()
