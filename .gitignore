@@ -12,4 +12,4 @@ rsconnect*
 data_raw/
 04_paper/ms.aux
 04_paper/ms.out
-03_explore_tasks/Spark_lab_hf_data/spark_h-f_cache/
+*_cache/

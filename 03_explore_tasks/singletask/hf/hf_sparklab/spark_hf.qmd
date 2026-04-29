@@ -32,8 +32,10 @@ The generalizability analysis of PLUS addresses three research questions:
 
 We additionally examine reaction time profiles across datasets as a descriptive check on construct validity, asking whether the expected patterns of faster RTs with age and greater difficulty for incongruent trials are present in PLUS as in Levante.
 ```{r}
-#| label: packages
+#| label: setup
 #| include: false
+#| cache: false
+
 library(tidyverse)   
 library(mirt)        
 library(here)
@@ -43,7 +45,7 @@ library(patchwork)
 library(janitor)
 library(haven)
 library(dplyr)
-
+source(here("plot_settings.R"))
 ```
 
 ```{r}
@@ -244,7 +246,7 @@ kimochis |>
 ggplot(aes(x = age, fill = time)) +
 geom_histogram(bins = 30, alpha = 0.7, position = "identity") +
 facet_wrap(~time) +
-theme_minimal() +
+# theme_minimal() +
 labs(title = "Age distribution by timepoint")
 
 ```
@@ -423,14 +425,19 @@ hf_coefs <- best_coefs |> filter(task == "hf")
 hf_coefs |> distinct(item)
 
 # pull the hf model record
-hf_mod_rec <- mods_best |> filter(task == "hf") |> pull(mod_rec) |> pluck(1)
+hf_path_rasch <- "hf/multigroup_site/all_items/hf_rasch_f1_scalar.rds"
+hf_path_2pl <- "hf/multigroup_site/all_items/hf_2pl_f1_scalar.rds"
+levante_regdir <- here("02_scoring_outputs", "model_registry")
+hf_mod_rec_rasch <- read_rds(file.path(levante_regdir, hf_path_rasch))
+hf_mod_rec_2pl <- read_rds(file.path(levante_regdir, hf_path_2pl))
+# hf_mod_rec <- mods_best |> filter(task == "hf") |> pull(mod_rec) |> pluck(1)
 
 # inspect the model record slots
-isVirtualClass("ModelRecord")
-slotNames(hf_mod_rec)
+# isVirtualClass("ModelRecord")
+# slotNames(hf_mod_rec)
 
 # look at items slot specifically
-hf_mod_rec@items
+# hf_mod_rec@items
 ```
 
 ```{r}
@@ -574,7 +581,7 @@ as.matrix()
 #| include: false
 
 # pull levante d parameters (identical across sites under scalar invariance)
-levante_lookup_collapsed <- hf_mod_rec@model_vals |>
+levante_lookup_collapsed_rasch <- hf_mod_rec_rasch@model_vals |>
 filter(name == "d") |>
 mutate(item_uid = str_remove(item, "-\\d+$")) |>
 filter(item_uid %in% levante_uid_types) |>
@@ -583,14 +590,36 @@ slice_min(item, n = 1) |>
 ungroup() |>
 distinct(item = item_uid, name, value)
 
+levante_lookup_collapsed_2pl <- hf_mod_rec_2pl@model_vals |>
+filter(name %in% c("d", "a1")) |>
+mutate(item_uid = str_remove(item, "-\\d+$")) |>
+filter(item_uid %in% levante_uid_types) |>
+group_by(item_uid, name) |>
+slice_min(item, n = 1) |>
+ungroup() |>
+distinct(item = item_uid, name, value)
+
 # fix item parameters to levante values
-fixed_pars_collapsed <- mirt(
+fixed_pars_collapsed_rasch <- mirt(
 data     = plus_collapsed_matrix,
 model    = 1,
 itemtype = rep("Rasch", ncol(plus_collapsed_matrix)),
 pars     = "values"
 ) |>
-left_join(levante_lookup_collapsed, by = c("item", "name"), suffix = c("", "_levante")) |>
+left_join(levante_lookup_collapsed_rasch, by = c("item", "name"), suffix = c("", "_levante")) |>
+mutate(
+value = if_else(!is.na(value_levante), value_levante, value),
+est   = FALSE
+) |>
+select(-value_levante)
+
+fixed_pars_collapsed_2pl <- mirt(
+data     = plus_collapsed_matrix,
+model    = 1,
+itemtype = rep("2PL", ncol(plus_collapsed_matrix)),
+pars     = "values"
+) |>
+left_join(levante_lookup_collapsed_2pl, by = c("item", "name"), suffix = c("", "_levante")) |>
 mutate(
 value = if_else(!is.na(value_levante), value_levante, value),
 est   = FALSE
@@ -598,51 +627,74 @@ est   = FALSE
 select(-value_levante)
 
 # fit model with fixed parameters and estimate EAP scores
-hf_mod_plus_collapsed <- mirt(
+hf_mod_plus_collapsed_rasch <- mirt(
 data      = plus_collapsed_matrix,
 model     = 1,
 itemtype  = rep("Rasch", ncol(plus_collapsed_matrix)),
-pars      = fixed_pars_collapsed,
+pars      = fixed_pars_collapsed_rasch,
 technical = list(NCYCLES = 1)
 )
 
-plus_scores_collapsed <- fscores(hf_mod_plus_collapsed, method = "EAP", full.scores.SE = TRUE)
+hf_mod_plus_collapsed_2pl <- mirt(
+data      = plus_collapsed_matrix,
+model     = 1,
+itemtype  = rep("2PL", ncol(plus_collapsed_matrix)),
+pars      = fixed_pars_collapsed_2pl,
+technical = list(NCYCLES = 1)
+)
+
+plus_scores_collapsed_rasch <- fscores(hf_mod_plus_collapsed_rasch, method = "EAP", full.scores.SE = TRUE)
+plus_scores_collapsed_2pl <- fscores(hf_mod_plus_collapsed_2pl, method = "EAP", full.scores.SE = TRUE)
 
 plus_hf_scored_collapsed <- plus_hf_collapsed_wide |>
 select(stud_id, time) |>
 mutate(
-theta_collapsed = plus_scores_collapsed[, "F1"],
-se_collapsed    = plus_scores_collapsed[, "SE_F1"]
-)
+theta_rasch = plus_scores_collapsed_rasch[, "F1"],
+se_rasch    = plus_scores_collapsed_rasch[, "SE_F1"],
+theta_2pl = plus_scores_collapsed_2pl[, "F1"],
+se_2pl    = plus_scores_collapsed_2pl[, "SE_F1"],
+) |>
+pivot_longer(cols = -c(stud_id, time), names_to = c("param", "itemtype"), names_sep = "_", values_to = "value") |>
+pivot_wider(names_from = param, values_from = value) |>
+rename(theta_collapsed = theta, se_collapsed = se)
 
-plus_reliability_collapsed <- round(
-1 - mean(plus_hf_scored_collapsed$se_collapsed^2) / var(plus_hf_scored_collapsed$theta_collapsed),
-3
-)
+plus_reliability_collapsed <- plus_hf_scored_collapsed |>
+  group_by(itemtype) |>
+  summarise(n = n(),
+            rxx = 1 - mean(se_collapsed^2) / var(theta_collapsed)) |>
+  mutate(sample = "PLUS", time = "Pooled")
+  # deframe() |>
+  # round(3)
+
+# plus_reliability_collapsed <- round(
+# 1 - mean(plus_hf_scored_collapsed$se_collapsed^2) / var(plus_hf_scored_collapsed$theta_collapsed),
+# 3
+# )
 
 # grade-level theta summary
 grade_summary <- plus_hf_scored_collapsed |>
 left_join(plus |> distinct(stud_id, pl_grade), by = "stud_id") |>
-group_by(pl_grade) |>
+group_by(pl_grade, itemtype) |>
 summarise(
 m  = round(mean(theta_collapsed, na.rm = TRUE), 2),
 sd = round(sd(theta_collapsed, na.rm = TRUE), 2),
 .groups = "drop"
-)
+) #|>
+  # pivot_wider(names_from = itemtype, values_from = c(m, sd))
 
-g3_m  <- grade_summary |> filter(pl_grade == 3) |> pull(m)
-g3_sd <- grade_summary |> filter(pl_grade == 3) |> pull(sd)
-g4_m  <- grade_summary |> filter(pl_grade == 4) |> pull(m)
-g4_sd <- grade_summary |> filter(pl_grade == 4) |> pull(sd)
-g5_m  <- grade_summary |> filter(pl_grade == 5) |> pull(m)
-g5_sd <- grade_summary |> filter(pl_grade == 5) |> pull(sd)
+g3_m  <- grade_summary |> filter(pl_grade == 3) |> select(itemtype, m) |> deframe()
+g3_sd <- grade_summary |> filter(pl_grade == 3) |> select(itemtype, sd) |> deframe()
+g4_m  <- grade_summary |> filter(pl_grade == 4) |> select(itemtype, m) |> deframe()
+g4_sd <- grade_summary |> filter(pl_grade == 4) |> select(itemtype, sd) |> deframe()
+g5_m  <- grade_summary |> filter(pl_grade == 5) |> select(itemtype, m) |> deframe()
+g5_sd <- grade_summary |> filter(pl_grade == 5) |> select(itemtype, sd) |> deframe()
 ```
 ### Data preparation and scoring - PLUS 
 Trial-level data from PLUS were filtered to test blocks only (hearts test, flowers test, mixed test), excluding practice trials. Trials with RT < 100ms were excluded as likely accidental key presses (n = 842). Accuracy was derived from the stimulus-response pairing: trials with a heart stimulus were scored correct if the response matched the stimulus side (congruent rule), and trials with a flower stimulus were scored correct if the response was on the opposite side (incongruent rule). Trials with no response (NA) were scored as incorrect, consistent with the Levante scoring approach. Additionally, consistent with the 750ms response window enforced during PLUS data collection, trials with RT > 750ms were scored as incorrect (19.8% of trials). This yielded a final analytic sample of `r length(unique(plus_hf_scored_collapsed$stud_id))` children (`r format(nrow(plus_hf_scored_collapsed), big.mark = ",")` observations across fall and spring timepoints).
 
 Each trial was assigned an item label following the Levante naming convention: `{block}_{stimulus}_{trial_type}-{trial_number}`, where trial type was classified as start (first trial in block), stay (same stimulus type as previous trial), or switch (different stimulus type from previous trial). Repeated trials of the same type (e.g., multiple heart stay trials) were collapsed into a single score per trial type. A child was scored as correct on that trial type if they got more than half of those trials right, and incorrect otherwise, giving one binary score per trial type per child to enter into the IRT model. Item difficulty parameters were taken from the Levante H&F Rasch model, which was estimated under scalar invariance across sites; parameters are therefore identical across all three Levante sites. This yielded `r length(shared_uid_types)` IRT items in PLUS out of the `r length(levante_uid_types)` analytic units used in Levante scoring (see @tbl-item-overlap-table). The missing item type (`r paste(setdiff(levante_uid_types, shared_uid_types), collapse = ", ")`) was absent from PLUS because the mixed block always began with a flower stimulus in this assessment (n = `r n_hf_start_trials` start trials, all flower), whereas the Levante mixed block begins with a heart stimulus. As a result, no child contributed a heartsflowers_heart_start trial and this analytic unit could not be scored.
 
-Ability scores (θ) showed an increasing pattern across grades (3rd grade: M = `r g3_m`, SD = `r g3_sd`; 4th grade: M = `r g4_m`, SD = `r g4_sd`; 5th grade: M = `r g5_m`, SD = `r g5_sd`), consistent with the expected developmental trajectory and supporting the construct validity of the scoring approach in this sample. Grade-level means are negative relative to the Levante scale origin, likely reflecting the stricter 750ms response window applied in PLUS scoring, which results in a higher proportion of trials scored as incorrect compared to Levante's 2000ms rule.
+Ability scores (θ) showed an increasing pattern across grades, both under a Rasch model (3rd grade: M = `r g3_m[["rasch"]]`, SD = `r g3_sd[["rasch"]]`; 4th grade: M = `r g4_m[["rasch"]]`, SD = `r g4_sd[["rasch"]]`; 5th grade: M = `r g5_m[["rasch"]]`, SD = `r g5_sd[["rasch"]]`) and under a 2PL model (3rd grade: M = `r g3_m[["2pl"]]`, SD = `r g3_sd[["2pl"]]`; 4th grade: M = `r g4_m[["2pl"]]`, SD = `r g4_sd[["2pl"]]`; 5th grade: M = `r g5_m[["2pl"]]`, SD = `r g5_sd[["2pl"]]`), consistent with the expected developmental trajectory and supporting the construct validity of the scoring approach in this sample. Grade-level means are negative relative to the Levante scale origin, likely reflecting the stricter 750ms response window applied in PLUS scoring, which results in a higher proportion of trials scored as incorrect compared to Levante's 2000ms rule.
 
 ```{r}
 #| label: prep-kimochis-hf-items
@@ -727,13 +779,26 @@ as.matrix()
 #| include: false
 
 # fix item parameters to levante values
-fixed_pars_collapsed_kimochis <- mirt(
+fixed_pars_collapsed_kimochis_rasch <- mirt(
 data     = kimochis_collapsed_matrix,
 model    = 1,
 itemtype = rep("Rasch", ncol(kimochis_collapsed_matrix)),
 pars     = "values"
 ) |>
-left_join(levante_lookup_collapsed, by = c("item", "name"), suffix = c("", "_levante")) |>
+left_join(levante_lookup_collapsed_rasch, by = c("item", "name"), suffix = c("", "_levante")) |>
+mutate(
+value = if_else(!is.na(value_levante), value_levante, value),
+est   = FALSE
+) |>
+select(-value_levante)
+
+fixed_pars_collapsed_kimochis_2pl <- mirt(
+data     = kimochis_collapsed_matrix,
+model    = 1,
+itemtype = rep("2PL", ncol(kimochis_collapsed_matrix)),
+pars     = "values"
+) |>
+left_join(levante_lookup_collapsed_2pl, by = c("item", "name"), suffix = c("", "_levante")) |>
 mutate(
 value = if_else(!is.na(value_levante), value_levante, value),
 est   = FALSE
@@ -741,40 +806,56 @@ est   = FALSE
 select(-value_levante)
 
 # fit model with fixed parameters and estimate EAP scores
-hf_mod_kimochis_collapsed <- mirt(
+hf_mod_kimochis_collapsed_rasch <- mirt(
 data      = kimochis_collapsed_matrix,
 model     = 1,
 itemtype  = rep("Rasch", ncol(kimochis_collapsed_matrix)),
-pars      = fixed_pars_collapsed_kimochis,
+pars      = fixed_pars_collapsed_kimochis_rasch,
 technical = list(NCYCLES = 1)
 )
 
-kimochis_scores_collapsed <- fscores(hf_mod_kimochis_collapsed, method = "EAP", full.scores.SE = TRUE)
+hf_mod_kimochis_collapsed_2pl <- mirt(
+data      = kimochis_collapsed_matrix,
+model     = 1,
+itemtype  = rep("2PL", ncol(kimochis_collapsed_matrix)),
+pars      = fixed_pars_collapsed_kimochis_2pl,
+technical = list(NCYCLES = 1)
+)
+
+kimochis_scores_collapsed_rasch <- fscores(hf_mod_kimochis_collapsed_rasch, method = "EAP", full.scores.SE = TRUE)
+kimochis_scores_collapsed_2pl <- fscores(hf_mod_kimochis_collapsed_2pl, method = "EAP", full.scores.SE = TRUE)
 
 kimochis_hf_scored_collapsed <- kimochis_hf_collapsed_wide |>
 select(id, time) |>
 mutate(
-theta_collapsed = kimochis_scores_collapsed[, "F1"],
-se_collapsed    = kimochis_scores_collapsed[, "SE_F1"]
-)
+theta_rasch = kimochis_scores_collapsed_rasch[, "F1"],
+se_rasch    = kimochis_scores_collapsed_rasch[, "SE_F1"],
+theta_2pl = kimochis_scores_collapsed_2pl[, "F1"],
+se_2pl    = kimochis_scores_collapsed_2pl[, "SE_F1"],
+) |>
+pivot_longer(cols = -c(id, time), names_to = c("param", "itemtype"), names_sep = "_", values_to = "value") |>
+pivot_wider(names_from = param, values_from = value) |>
+rename(theta_collapsed = theta, se_collapsed = se)
 
-kimochis_reliability_collapsed <- round(
-1 - mean(kimochis_hf_scored_collapsed$se_collapsed^2) / var(kimochis_hf_scored_collapsed$theta_collapsed),
-3
-)
+kimochis_reliability_collapsed <- kimochis_hf_scored_collapsed |>
+  group_by(itemtype) |>
+  summarise(reliability = 1 - mean(se_collapsed^2) / var(theta_collapsed)) |>
+  deframe() |>
+  round(3)
 
 # age-group theta summary
 kimochis_age_summary <- kimochis_hf_scored_collapsed |>
 left_join(kimochis |> distinct(id, time, age), by = c("id", "time")) |>
 mutate(age_group = cut(age, breaks = c(2, 3, 4, 5, 6),
 labels = c("2-3", "3-4", "4-5", "5-6"))) |>
-group_by(age_group) |>
+group_by(age_group, itemtype) |>
 summarise(
 m  = round(mean(theta_collapsed, na.rm = TRUE), 2),
 sd = round(sd(theta_collapsed, na.rm = TRUE), 2),
 .groups = "drop"
 )
 
+# TODO
 a23_m  <- kimochis_age_summary |> filter(age_group == "2-3") |> pull(m)
 a23_sd <- kimochis_age_summary |> filter(age_group == "2-3") |> pull(sd)
 a34_m  <- kimochis_age_summary |> filter(age_group == "3-4") |> pull(m)
@@ -789,24 +870,24 @@ a45_sd <- kimochis_age_summary |> filter(age_group == "4-5") |> pull(sd)
 #| tbl-cap: "Item coverage across Levante, PLUS, and Kimochis"
 
 # levante item counts
-n_levante_total <- hf_mod_rec@model_vals |>
+n_levante_total <- hf_mod_rec_rasch@model_vals |>
   filter(name == "d") |>
   distinct(item) |>
   nrow()
 
-n_levante_hearts <- hf_mod_rec@model_vals |>
+n_levante_hearts <- hf_mod_rec_rasch@model_vals |>
   filter(name == "d") |>
   distinct(item) |>
   filter(str_detect(item, "^hearts_")) |>
   nrow()
 
-n_levante_flowers <- hf_mod_rec@model_vals |>
+n_levante_flowers <- hf_mod_rec_rasch@model_vals |>
   filter(name == "d") |>
   distinct(item) |>
   filter(str_detect(item, "^flowers_")) |>
   nrow()
 
-n_levante_mixed <- hf_mod_rec@model_vals |>
+n_levante_mixed <- hf_mod_rec_rasch@model_vals |>
   filter(name == "d") |>
   distinct(item) |>
   filter(str_detect(item, "^heartsflowers_")) |>
@@ -815,7 +896,7 @@ n_levante_mixed <- hf_mod_rec@model_vals |>
 # PLUS: item counts derived from shared uid types
 n_plus_hearts_raw <- n_levante_hearts
 n_plus_flowers_raw <- n_levante_flowers
-n_plus_mixed_raw <- hf_mod_rec@model_vals |>
+n_plus_mixed_raw <- hf_mod_rec_rasch@model_vals |>
   filter(name == "d") |>
   distinct(item) |>
   filter(str_detect(item, "^heartsflowers_")) |>
@@ -825,7 +906,7 @@ n_plus_mixed_raw <- hf_mod_rec@model_vals |>
 
 n_plus_total_raw <- n_plus_hearts_raw + n_plus_flowers_raw + n_plus_mixed_raw
 
-n_plus_raw <- hf_mod_rec@model_vals |>
+n_plus_raw <- hf_mod_rec_rasch@model_vals |>
   filter(name == "d") |>
   distinct(item) |>
   mutate(item_uid = str_remove(item, "-\\d+$")) |>
@@ -845,7 +926,7 @@ n_kimochis_flowers_raw <- kimochis_hf_items |>
 
 n_kimochis_total_raw <- n_kimochis_hearts_raw + n_kimochis_flowers_raw
 
-n_kimo_raw <- hf_mod_rec@model_vals |>
+n_kimo_raw <- hf_mod_rec_rasch@model_vals |>
   filter(name == "d") |>
   distinct(item) |>
   filter(!str_detect(item, "^heartsflowers_")) |>
@@ -950,7 +1031,8 @@ mutate(dataset = case_when(
 site == "pilot_mpieva_de"   ~ "Levante (Germany)",
 site == "pilot_uniandes_co" ~ "Levante (Colombia)",
 site == "pilot_western_ca"  ~ "Levante (Canada)"
-))
+)) |>
+filter(age > 2)
 
 # plus: proportion correct per child per timepoint
 plus_acc <- plus_hf_items |>
@@ -982,14 +1064,14 @@ mutate(dataset = factor(dataset, levels = c(
 ggplot(aes(x = age, y = prop_correct)) +
 geom_point(alpha = 0.3, size = 0.8, colour = "grey40") +
 geom_smooth(method = "gam", colour = "blue", se = TRUE) +
-facet_wrap(~dataset, nrow = 1) +
+facet_wrap(~dataset, nrow = 2) +
 scale_y_continuous(limits = c(0, 1), labels = scales::percent) +
 labs(
 x = "Age (years)",
 y = "Proportion correct",
 caption = "Each point = participant run; trend = GAM per dataset"
-) +
-theme_minimal()
+) 
+# theme_minimal()
 
 ```
 
@@ -1084,8 +1166,9 @@ colour = "Dataset",
 shape  = "Dataset",
 title  = "Item-level proportion correct across datasets"
 ) +
-theme_minimal() +
+# theme_minimal() +
 theme(
+panel.grid.major.y = element_line(colour = "#EBEBEBFF"),
 legend.position = "bottom",
 plot.margin = margin(l = 20, unit = "mm")
 )
@@ -1103,7 +1186,7 @@ We first examined raw proportion correct across datasets as an index of item dif
 # levante reliability - one row per site
 levante_rxx <- task_rxx |>
 filter(task == "hf") |>
-select(site, rxx) |>
+select(site, itemtype, rxx) |>
 mutate(
 sample = case_when(
 site == "pilot_mpieva_de"   ~ "Levante (Germany)",
@@ -1113,11 +1196,12 @@ site == "pilot_western_ca"  ~ "Levante (Canada)"
 n_items = 9,
 scoring = "levante-equivalent"
 ) |>
-select(sample, n_items, rxx, scoring)
+select(sample, itemtype, n_items, rxx, scoring) |>
+arrange(itemtype, sample)
 
 # reliability by timepoint
 plus_rxx_by_time <- plus_hf_scored_collapsed |>
-group_by(time) |>
+group_by(time, itemtype) |>
 summarise(
 n   = n(),
 rxx = round(1 - mean(se_collapsed^2) / var(theta_collapsed), 3),
@@ -1134,7 +1218,7 @@ summarise(n = n_distinct(user_id), .groups = "drop")
 
 levante_rxx <- task_rxx |>
 filter(task == "hf") |>
-select(site, rxx) |>
+select(site, itemtype, rxx) |>
 mutate(
 sample = case_when(
 site == "pilot_mpieva_de"   ~ "Levante (Germany)",
@@ -1143,7 +1227,7 @@ site == "pilot_western_ca"  ~ "Levante (Canada)"
 )
 ) |>
 left_join(levante_n, by = "site") |>
-select(sample, n, rxx)
+select(sample, itemtype, n, rxx)
 
 ```
 
@@ -1156,14 +1240,20 @@ select(sample, n, rxx)
 rxx_full_table <- bind_rows(
 levante_rxx |>
 mutate(time = NA_character_) |>
-select(sample, time, n, rxx),
-tibble(sample = "PLUS", time = "Pooled", n = nrow(plus_hf_scored_collapsed), rxx = plus_reliability_collapsed),
-plus_rxx_by_time |> select(sample, time, n, rxx)
-)
+select(sample, itemtype, time, n, rxx),
+plus_reliability_collapsed,
+# tibble(sample = "PLUS", time = "Pooled", n = nrow(plus_hf_scored_collapsed), rxx = plus_reliability_collapsed),
+plus_rxx_by_time
+) |>
+pivot_wider(names_from = itemtype, values_from = rxx, names_prefix = "rxx_") #|>
+# relocate(rxx_2pl, .after = rxx_rasch)
+# mutate(itemtype = itemtype |> replace_values("rasch" ~ "Rasch", "2pl" ~ "2PL") |> fct_relevel("Rasch")) |>
+# arrange(sample, time, itemtype)
 
 flextable(rxx_full_table) |>
-set_header_labels(sample = "Sample", time = "Timepoint", n = "N", rxx = "Reliability") |>
-colformat_double(j = "rxx", digits = 2) |>
+set_header_labels(sample = "Sample", time = "Timepoint", n = "N",
+                  rxx_2pl = "Reliability (2PL)", rxx_rasch = "Reliability (Rasch)") |>
+colformat_double(j = c("rxx_rasch", "rxx_2pl"), digits = 2) |>
 merge_v(j = "sample") |>
 theme_vanilla() |>
 autofit()
@@ -1199,18 +1289,23 @@ The distribution of θ estimates (@fig-distribution-by-timepoint) shows a rightw
 ```{r}
 #| label: fig-distribution-by-timepoint
 #| echo: false
+#| fig-width: 7
+#| fig-height: 3
 #| fig-cap: "Distribution of ability estimates (θ) by timepoint in PLUS"
 
 plus_hf_scored_collapsed |>
-mutate(time = as.character(time)) |>
+mutate(time = as.character(time),
+itemtype = itemtype |> replace_values("2pl" ~ "2PL", "rasch" ~ "Rasch")) |>
 ggplot(aes(x = theta_collapsed, fill = time)) +
+facet_wrap(vars(itemtype)) +
 geom_density(alpha = 0.5) +
 labs(
 x = "Ability (θ)",
 y = "Density",
 fill = "Timepoint"
 ) +
-theme_minimal()
+scale_fill_ptol() #+
+# theme_minimal()
 
 ```
 
@@ -1229,13 +1324,26 @@ select(all_of(shared_uid_types)) |>
 as.matrix()
 
 # rebuild fixed parameters for fall only matrix
-fixed_pars_fall <- mirt(
+fixed_pars_fall_rasch <- mirt(
 data     = plus_fall_wide,
 model    = 1,
 itemtype = rep("Rasch", ncol(plus_fall_wide)),
 pars     = "values"
 ) |>
-left_join(levante_lookup_collapsed, by = c("item", "name"), suffix = c("", "_levante")) |>
+left_join(levante_lookup_collapsed_rasch, by = c("item", "name"), suffix = c("", "_levante")) |>
+mutate(
+value = if_else(!is.na(value_levante), value_levante, value),
+est   = FALSE
+) |>
+select(-value_levante)
+
+fixed_pars_fall_2pl <- mirt(
+data     = plus_fall_wide,
+model    = 1,
+itemtype = rep("2PL", ncol(plus_fall_wide)),
+pars     = "values"
+) |>
+left_join(levante_lookup_collapsed_2pl, by = c("item", "name"), suffix = c("", "_levante")) |>
 mutate(
 value = if_else(!is.na(value_levante), value_levante, value),
 est   = FALSE
@@ -1243,32 +1351,54 @@ est   = FALSE
 select(-value_levante)
 
 # fit model
-hf_mod_plus_fall <- mirt(
+hf_mod_plus_fall_rasch <- mirt(
 data      = plus_fall_wide,
 model     = 1,
 itemtype  = rep("Rasch", ncol(plus_fall_wide)),
-pars      = fixed_pars_fall,
+pars      = fixed_pars_fall_rasch,
+technical = list(NCYCLES = 1)
+)
+
+hf_mod_plus_fall_2pl <- mirt(
+data      = plus_fall_wide,
+model     = 1,
+itemtype  = rep("2PL", ncol(plus_fall_wide)),
+pars      = fixed_pars_fall_2pl,
 technical = list(NCYCLES = 1)
 )
 
 # pre-compute fit stats for inline reporting and table
-plus_fall_itemfit <- itemfit(hf_mod_plus_fall, fit_stats = "S_X2", na.rm = TRUE)
-plus_fall_rmsea_min <- plus_fall_itemfit |> pull(RMSEA.S_X2) |> min() |> round(3)
-plus_fall_rmsea_max <- plus_fall_itemfit |> pull(RMSEA.S_X2) |> max() |> round(3)
+plus_fall_itemfit_rasch <- itemfit(hf_mod_plus_fall_rasch, fit_stats = "S_X2", na.rm = TRUE)
+plus_fall_rmsea_min_rasch <- plus_fall_itemfit_rasch |> pull(RMSEA.S_X2) |> min() |> round(3)
+plus_fall_rmsea_max_rasch <- plus_fall_itemfit_rasch |> pull(RMSEA.S_X2) |> max() |> round(3)
+plus_fall_itemfit_2pl <- itemfit(hf_mod_plus_fall_2pl, fit_stats = "S_X2", na.rm = TRUE)
+plus_fall_rmsea_min_2pl <- plus_fall_itemfit_2pl |> pull(RMSEA.S_X2) |> min() |> round(3)
+plus_fall_rmsea_max_2pl <- plus_fall_itemfit_2pl |> pull(RMSEA.S_X2) |> max() |> round(3)
+
+plus_fall_rmsea_range_rasch <- plus_fall_itemfit_rasch |>
+  filter(item != "heartsflowers_flower_start") |> pull(RMSEA.S_X2) |> range() |>
+  round(2) |> paste(collapse = "–")
+plus_fall_rmsea_range_2pl <- plus_fall_itemfit_2pl |>
+  filter(item != "heartsflowers_flower_start") |> pull(RMSEA.S_X2) |> range() |>
+  round(2) |> paste(collapse = "–")
 
 # display table
-plus_fall_itemfit |>
+bind_rows(
+plus_fall_itemfit_rasch |> mutate(itemtype = "rasch", .before = everything()),
+plus_fall_itemfit_2pl |> mutate(itemtype = "2pl", .before = everything())
+) |>
 as_tibble() |>
-arrange(p.S_X2) |>
-mutate(p.S_X2 = format(p.S_X2, scientific = TRUE, digits = 3)) |>
-rename(Item = item, RMSEA = RMSEA.S_X2, p = p.S_X2) |>
+arrange(itemtype, p.S_X2) |>
+mutate(p.S_X2 = format(p.S_X2, scientific = TRUE, digits = 3),
+       itemtype = itemtype |> replace_values("2pl" ~ "2PL", "rasch" ~ "Rasch")) |>
+rename(Item = item, Model = itemtype, RMSEA = RMSEA.S_X2, p = p.S_X2) |>
 flextable() |>
 colformat_double(digits = 3) |>
 theme_vanilla() |>
 autofit()
 
 ```
-Item level fit statistics are presented in @tbl-plus-fall-item-fit. Item fit was evaluated using the S-X2 statistic for the PLUS Fall sample (N = `r nrow(plus_fall_wide)`). All items showed significant misfit (all p < .001), with RMSEA values ranging from `r plus_fall_rmsea_min` to `r plus_fall_rmsea_max`. Most items showed moderate misfit (RMSEA = 0.07–0.16), but `heartsflowers_flower_start` stood out as the worst (RMSEA = `r plus_fall_rmsea_max`). This pattern is consistent with the 750ms response window applied during PLUS data collection. Mixed block items require task-switching, which is cognitively demanding and inherently slower, meaning that correct responses are more likely to exceed the 750ms cutoff and be scored as incorrect. The first trial of the mixed block is particularly affected: regardless of ability, children tend to respond slowly on the initial switch into the mixed context. The Levante model, calibrated with a 2000ms window, expects this item to be easier than PLUS children's scores suggest, producing the severe misfit observed. By contrast, hearts and flowers block items — where median RTs fall well below 750ms — are less affected by the cutoff and show comparatively better fit.
+Item level fit statistics are presented in @tbl-plus-fall-item-fit. Item fit was evaluated using the S-X2 statistic for the PLUS Fall sample (N = `r nrow(plus_fall_wide)`). All items showed significant misfit (all p < .001), with RMSEA values ranging from `r plus_fall_rmsea_min_rasch` to `r plus_fall_rmsea_max_rasch` for Rasch and `r plus_fall_rmsea_min_2pl` to `r plus_fall_rmsea_max_2pl` for 2PL. Most items showed moderate misfit (RMSEA = `r plus_fall_rmsea_range_rasch` for Rasch and `r plus_fall_rmsea_range_2pl` for 2PL), but `heartsflowers_flower_start` stood out as the worst (RMSEA = `r plus_fall_rmsea_max_rasch` for Rasch and `r plus_fall_rmsea_max_2pl` for 2PL). This pattern is consistent with the 750ms response window applied during PLUS data collection. Mixed block items require task-switching, which is cognitively demanding and inherently slower, meaning that correct responses are more likely to exceed the 750ms cutoff and be scored as incorrect. The first trial of the mixed block is particularly affected: regardless of ability, children tend to respond slowly on the initial switch into the mixed context. The Levante model, calibrated with a 2000ms window, expects this item to be easier than PLUS children's scores suggest, producing the severe misfit observed. By contrast, hearts and flowers block items — where median RTs fall well below 750ms — are less affected by the cutoff and show comparatively better fit.
 
 Together, the low reliability and level of item misfit suggest the Levante model does not generalize well to the PLUS assessment context. The misfit pattern is interpretable as a measurement artefact of the stricter response window rather than a fundamental failure of the model.
 
@@ -1316,7 +1446,7 @@ library(rlevante)
 library(rlang)
 
 # source old helpers first to get remove_no_var_items
-source("/Users/foreilly/Documents/GitHub/levante-pilots/02_score_data/fit_irt_old/irt_helpers.R")
+# source("/Users/foreilly/Documents/GitHub/levante-pilots/02_score_data/fit_irt_old/irt_helpers.R")
 
 # then source current helpers to overwrite with updated functions
 source(here("02_score_data/02_fit_irt/irt_helpers.R"))
@@ -1324,8 +1454,8 @@ source(here("02_score_data/02_fit_irt/irt_modular.R"))
 source(here("02_score_data/02_fit_irt/anova_mirt.R"))
 source(here("02_score_data/02_fit_irt/registry_helper.R"))
 
-rm(pull)         
-library(dplyr)   # restore dplyr::pull
+# rm(pull)         
+# library(dplyr)   # restore dplyr::pull
 
 # create new registry directory
 plus_regdir <- here("02_scoring_outputs", "model_registry_spark_plus")
@@ -1359,42 +1489,68 @@ list.files(plus_regdir, recursive = TRUE)
 #| label: param-comparison-prep
 #| include: false
 
-plus_mod_rec <- read_rds(
+plus_mod_rec_rasch <- read_rds(
   file.path(plus_regdir, "hf/multigroup_site/overlap_items/hf_rasch_f1_scalar.rds")
 )
+plus_mod_rec_2pl <- read_rds(
+  file.path(plus_regdir, "hf/multigroup_site/overlap_items/hf_2pl_f1_scalar.rds")
+)
 
-plus_coefs <- plus_mod_rec@model_vals |>
+plus_coefs_rasch <- plus_mod_rec_rasch@model_vals |>
   filter(name == "d", group == "plus_fall") |>
-  mutate(item = str_remove(item, "-\\d+$")) |>
-  distinct(item, plus_d = value)
+  mutate(item = str_remove(item, "-\\d+$"), itemtype = "rasch") |>
+  distinct(itemtype, item, plus_value = -value) |>
+  mutate(param = "difficulty")
 
-levante_coefs <- hf_mod_rec@model_vals |>
+plus_coefs_2pl <- plus_mod_rec_2pl@model_vals |>
+  filter(name %in% c("d", "a1"), group == "plus_fall") |>
+  mutate(item = str_remove(item, "-\\d+$")) |>
+  distinct(item, name, value) |>
+  pivot_wider(names_from = name, values_from = value) |>
+  mutate(difficulty = -d / a1) |>
+  select(item, difficulty, discrimination = a1) |>
+  pivot_longer(-item, names_to = "param", values_to = "plus_value") |>
+  mutate(itemtype = "2pl")
+
+levante_coefs_rasch <- hf_mod_rec_rasch@model_vals |>
   filter(name == "d", group == "pilot_mpieva_de") |>
-  mutate(item = str_remove(item, "-\\d+$")) |>
+  mutate(item = str_remove(item, "-\\d+$"), itemtype = "rasch") |>
   filter(item %in% shared_uid_types) |>
-  distinct(item, levante_d = value)
+  distinct(itemtype, item, levante_value = -value) |>
+  mutate(param = "difficulty")
 
-param_comparison <- plus_coefs |>
-  left_join(levante_coefs, by = "item") |>
-  mutate(d_diff = plus_d - levante_d)
+levante_coefs_2pl <- hf_mod_rec_2pl@model_vals |>
+  filter(name %in% c("d", "a1"), group == "pilot_mpieva_de") |>
+  mutate(item = str_remove(item, "-\\d+$")) |>
+  distinct(item, name, value) |>
+  pivot_wider(names_from = name, values_from = value) |>
+  mutate(difficulty = -d / a1) |>
+  select(item, difficulty, discrimination = a1) |>
+  pivot_longer(-item, names_to = "param", values_to = "levante_value") |>
+  mutate(itemtype = "2pl")
+
+param_comparison <- left_join(
+  bind_rows(plus_coefs_rasch, plus_coefs_2pl),
+  bind_rows(levante_coefs_rasch, levante_coefs_2pl)
+) |>
+  mutate(diff = plus_value - levante_value,
+         model = itemtype |> replace_values("rasch" ~ "Rasch", "2pl" ~ "2PL")) |>
+  select(item, model, param, plus_value, levante_value, diff) |>
+  arrange(desc(model), param, diff)
 ```
 
 ```{r}
 #| label: tbl-param-comparison
-#| tbl-cap: "Re-estimated PLUS Fall item difficulty parameters compared to original Levante values. Positive d_diff indicates the item was estimated as easier in PLUS; negative d_diff indicates harder."
+#| tbl-cap: "Re-estimated PLUS Fall item difficulty and discrimination parameters compared to original LEVANTE values. Positive difference indicates the item was estimated as more difficult / more discrimating in PLUS than in LEVANTE; negative difference indicates less difficult / less discriminating."
 #| echo: false
 
 param_comparison |>
-  arrange(d_diff) |>
-  rename(
-    Item                          = item,
-    `PLUS d`                      = plus_d,
-    `Levante d`                   = levante_d,
-    `Difference (PLUS - Levante)` = d_diff
-  ) |>
   flextable() |>
+  set_header_labels(item = "Item", model = "Model", param = "Parameter",
+                    plus_value = "PLUS & LEVANTE value", levante_value = "LEVANTE value",
+                    diff = "Difference (PLUS – LEVANTE)") |>
   colformat_double(digits = 3) |>
-  bold(i = ~ Item == "heartsflowers_flower_start", part = "body") |>
+  # bold(i = ~ item == "heartsflowers_flower_start", part = "body") |>
   theme_vanilla() |>
   autofit()
 ```
@@ -1402,7 +1558,9 @@ param_comparison |>
 ```{r}
 #| label: fig-param-comparison
 #| echo: false
-#| fig-cap: "Comparison of re-estimated PLUS Fall item difficulty parameters (d) against original Levante parameters. Points falling above the diagonal indicate items estimated as easier in PLUS; points below indicate items estimated as harder. Colour indicates block type."
+#| fig-width: 8
+#| fig-height: 4
+#| fig-cap: "Comparison of re-estimated PLUS Fall item difficulty and discrimination parameters against original LEVANTE parameters. Points falling above the diagonal indicate items estimated as more diffult / more discriminating in PLUS than in LEVANTE; points below indicate items estimated as less difficult / less discriminating. Colour indicates block type."
 
 param_comparison |>
   mutate(
@@ -1410,23 +1568,25 @@ param_comparison |>
       str_detect(item, "^hearts_")       ~ "Hearts",
       str_detect(item, "^flowers_")      ~ "Flowers",
       str_detect(item, "^heartsflowers_") ~ "Mixed"
-    )
+    ),
+    model = model |> fct_rev()
   ) |>
-  ggplot(aes(x = levante_d, y = plus_d, colour = block, label = item)) +
-  geom_abline(slope = 1, intercept = 0, linetype = "dashed", colour = "grey50") +
-  geom_point(size = 3) +
-  ggrepel::geom_text_repel(size = 3, max.overlaps = 15) +
+  ggplot(aes(x = levante_value, y = plus_value, colour = block, label = item)) +
+  facet_wrap(vars(model, param), scales = "free") +
+  geom_abline(slope = 1, intercept = 0, linetype = "dotted", colour = "lightgrey") +
+  geom_point(size = 1.5) +
+  ggrepel::geom_text_repel(size = 2.5, max.overlaps = 15, family = .font) +
   scale_colour_manual(values = c(
     "Hearts"  = "#4DAF4A",
     "Flowers" = "#377EB8",
     "Mixed"   = "#E41A1C"
   )) +
   labs(
-    x      = "Levante d",
-    y      = "PLUS Fall d",
+    x      = "LEVANTE value",
+    y      = "PLUS Fall & LEVANTE value",
     colour = "Block"
   ) +
-  theme_minimal() +
+  # theme_minimal() +
   theme(legend.position = "bottom")
 ```
 
@@ -1441,28 +1601,53 @@ hearts_flowers_items <- param_comparison |>
 mixed_items <- param_comparison |>
   filter(str_detect(item, "^heartsflowers_"))
 
-hf_diff_min <- hearts_flowers_items |> pull(d_diff) |> min() |> round(2)
-hf_diff_max <- hearts_flowers_items |> pull(d_diff) |> max() |> round(2)
+hf_d_diff_rasch <- hearts_flowers_items |> filter(param == "difficulty", model == "Rasch") |> pull(diff)
+hf_d_diff_rasch_min <- min(hf_d_diff_rasch) |> round(2)
+hf_d_diff_rasch_max <- max(hf_d_diff_rasch) |> round(2)
+hf_d_diff_2pl <- hearts_flowers_items |> filter(param == "difficulty", model == "2PL") |> pull(diff)
+hf_d_diff_2pl_min <- min(hf_d_diff_2pl) |> round(2)
+hf_d_diff_2pl_max <- max(hf_d_diff_2pl) |> round(2)
 
-mixed_diff_min <- mixed_items |> 
-  filter(item != "heartsflowers_flower_start") |> 
-  pull(d_diff) |> min() |> round(2)
-mixed_diff_max <- mixed_items |> 
-  filter(item != "heartsflowers_flower_start") |> 
-  pull(d_diff) |> max() |> round(2)
+# mixed_diff_min <- mixed_items |> 
+#   filter(item != "heartsflowers_flower_start") |> 
+#   pull(d_diff) |> min() |> round(2)
+# mixed_diff_max <- mixed_items |> 
+#   filter(item != "heartsflowers_flower_start") |> 
+#   pull(d_diff) |> max() |> round(2)
 
-hfs_flower_start_diff <- param_comparison |> 
-  filter(item == "heartsflowers_flower_start") |> 
-  pull(d_diff) |> round(2)
+mixed_d_diff_rasch <- mixed_items |>
+  filter(param == "difficulty", model == "Rasch") |>
+  filter(diff > 0) |> pull(diff)
+mixed_d_diff_rasch_min <- min(mixed_d_diff_rasch) |> round(2)
+mixed_d_diff_rasch_max <- max(mixed_d_diff_rasch) |> round(2)
 
-hfs_flower_start_plus_d    <- param_comparison |> filter(item == "heartsflowers_flower_start") |> pull(plus_d) |> round(2)
-hfs_flower_start_levante_d <- param_comparison |> filter(item == "heartsflowers_flower_start") |> pull(levante_d) |> round(2)
+mixed_d_diff_2pl <- mixed_items |>
+  filter(param == "difficulty", model == "2PL") |>
+  filter(diff > 0) |> pull(diff)
+mixed_d_diff_2pl_min <- min(mixed_d_diff_2pl) |> round(2)
+mixed_d_diff_2pl_max <- max(mixed_d_diff_2pl) |> round(2)
+
+mixed_neg_item <- mixed_items |>
+  filter(param == "difficulty", model == "2PL") |>
+  filter(diff < 0) |> pull(item)
+
+hfs_flower_start <- param_comparison |> 
+  filter(item == "heartsflowers_flower_start", param == "difficulty")
+
+hfs_flower_start_plus_rasch <- hfs_flower_start |> filter(model == "Rasch") |> pull(plus_value) |> round(2)
+hfs_flower_start_plus_2pl <- hfs_flower_start |> filter(model == "2PL") |> pull(plus_value) |> round(2)
+hfs_flower_start_levante_rasch <- hfs_flower_start |> filter(model == "Rasch") |> pull(levante_value) |> round(2)
+hfs_flower_start_levante_2pl <- hfs_flower_start |> filter(model == "2PL") |> pull(levante_value) |> round(2)
+hfs_flower_start_diff_rasch <- hfs_flower_start |> filter(model == "Rasch") |> pull(diff) |> round(2)
+hfs_flower_start_diff_2pl <- hfs_flower_start |> filter(model == "2PL") |> pull(diff) |> round(2)
+# hfs_flower_start_plus_d    <- param_comparison |> filter(item == "heartsflowers_flower_start") |> pull(plus_d) |> round(2)
+# hfs_flower_start_levante_d <- param_comparison |> filter(item == "heartsflowers_flower_start") |> pull(levante_d) |> round(2)
 ```
-Item difficulty parameters were re-estimated freely from the PLUS Fall sample (N = `r nrow(plus_fall_wide)`) using the Levante pipeline, fitting a Rasch model with scalar invariance across the three Levante sites and PLUS Fall. Parameters were estimated on the `r length(shared_uid_types)` items present in all four groups (i.e., excluding `heartsflowers_heart_start`, which was absent from PLUS by design). @fig-param-comparison shows the re-estimated PLUS parameters plotted against the original Levante values.
+Item difficulty parameters were re-estimated freely from the PLUS Fall sample (N = `r nrow(plus_fall_wide)`) combined with the LEVANTE pilot sample using the LEVANTE pipeline, fitting Rasch and 2PL models with scalar invariance across the three LEVANTE sites and PLUS Fall. Parameters were estimated on the `r length(shared_uid_types)` items present in all four groups (i.e., excluding `heartsflowers_heart_start`, which was absent from PLUS by design). @fig-param-comparison shows the re-estimated PLUS parameters plotted against the original LEVANTE values.
 
-Hearts and flowers block items were estimated as easier in PLUS than in Levante (positive d_diff, range: `r hf_diff_min` to `r hf_diff_max`), while mixed block items were estimated as harder (negative d_diff, range: `r mixed_diff_min` to `r mixed_diff_max`, excluding `heartsflowers_flower_start`). This is consistent with the differential impact of the 750ms response window across blocks: hearts and flowers trials are fast enough that the cutoff rarely affects scoring, whereas mixed block trials — which require task-switching and are inherently slower — are more affected as items appear harder than they would under a lenient time limit.
+Hearts block and flowers block items were estimated as less difficult in PLUS than in LEVANTE (i.e. negative difference, range: `r hf_d_diff_rasch_min` to `r hf_d_diff_rasch_max` for Rasch, for `r hf_d_diff_2pl_min` to `r hf_d_diff_2pl_max` 2PL), while mixed block items were estimated as more difficult, (i.e. positive difference, range: `r mixed_d_diff_rasch_min` to `r mixed_d_diff_rasch_max` for Rasch, `r mixed_d_diff_2pl_min` to `r mixed_d_diff_2pl_max` for 2PL), except for `r mixed_neg_item`. This is consistent with the differential impact of the 750ms response window across blocks: hearts and flowers trials are fast enough that the cutoff rarely affects scoring, whereas mixed block trials — which require task-switching and are inherently slower — are more affected as items appear harder than they would under a lenient time limit.
 
-The largest shift was for `heartsflowers_flower_start` (Levante d = `r hfs_flower_start_levante_d`, PLUS d = `r hfs_flower_start_plus_d`, d_diff = `r hfs_flower_start_diff`), which was estimated as substantially harder in PLUS than in Levante. This is consistent with the severe item misfit observed in Section 5 and reinforces the interpretation that this item is disproportionately affected by the strict response window.
+The largest shift was for `heartsflowers_flower_start` (LEVANTE d = `r hfs_flower_start_levante_rasch` for Rasch, `r hfs_flower_start_levante_2pl` for 2PL; PLUS d = `r hfs_flower_start_plus_rasch` for Rasch, `r hfs_flower_start_plus_2pl` for 2PL; d_diff = `r hfs_flower_start_diff_rasch` for Rasch, `r hfs_flower_start_diff_2pl` for 2PL), which was estimated as substantially harder in PLUS than in LEVANTE This is consistent with the severe item misfit observed in Section 5 and reinforces the interpretation that this item is disproportionately affected by the strict response window.
 
 ## How do RTs change with age across datasets?
 ```{r}
@@ -1629,7 +1814,7 @@ all_descriptive_rt |>
     x = "RT (ms)",
     y = NULL
   ) +
-  theme_minimal() +
+  # theme_minimal() +
   theme(legend.position = "none")
 ```
 
@@ -1668,7 +1853,7 @@ all_descriptive_rt |>
     colour = "Block",
     fill   = "Block"
   ) +
-  theme_minimal() +
+  # theme_minimal() +
   theme(legend.position = "bottom")
 ```
 
