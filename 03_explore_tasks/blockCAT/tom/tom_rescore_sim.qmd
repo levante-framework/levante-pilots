@@ -1,0 +1,164 @@
+```{r}
+task_trials <- task_data_nested |>
+  filter(item_task == "tom") |>
+  unnest(data) |>
+  nest(trials = -c(task_id, item_task, dataset)) |>
+  mutate(runs = list(tibble()))
+```
+
+```{r}
+scoring_table <- rlevante:::fetch_scoring_table()
+registry_dir <- rlevante:::fetch_registry_dir()
+
+task_scores <- task_trials |>
+  mutate(scores = pmap(list(item_task, dataset, trials, runs),
+                       partial(rlevante:::score,
+                               scoring_table = scoring_table,
+                               registry_dir = registry_dir)))
+
+scores <- task_scores |>
+  filter(!map_lgl(scores, is.null)) |>
+  select(dataset, item_task, scores) |>
+  unnest(scores)
+```
+
+```{r}
+# nest trials by story for sampling
+story_trials <- task_trials |>
+  unnest(trials) |>
+  select(site, dataset, task_id, run_id, trial_id, correct,
+         item_uid, item_task, item_group, item) |>
+  mutate(story = str_extract(item_uid, "story[0-9]+"),
+         story_i = str_extract(story, "[0-9]+") |> as.integer(),
+         story = story |> fct_reorder(story_i),
+         set = cut(story_i, breaks = c(0, 6, 12, 18)) |> as.numeric(),
+         set = paste0("set", set)) |>
+  nest(story_trials = c(trial_id, item_uid, item, correct)) |>
+  arrange(run_id, story)
+
+story_trials |> count(run_id) |> count(n)
+
+# keep only runs with exactly 6 stories
+story_trials_full <- story_trials |> filter(n() == 6, .by = run_id)
+
+sample_stories <- \(k) story_trials_full |> slice_sample(n = k, by = run_id)
+
+k_vals <- 1:6
+n_samples <- 10
+story_samples <- expand_grid(k = k_vals, i = 1:n_samples) |>
+  mutate(samples = map(k, sample_stories))
+
+# story_samples <- map(ks, sample_stories) |> list_rbind()
+story_samples_trials <- story_samples |>
+  unnest(samples) |>
+  unnest(story_trials) |>
+  nest(trials = -c(task_id, item_task, dataset, k, i)) |>
+  mutate(runs = list(tibble()))
+```
+
+```{r}
+score_fun <- partial(rlevante:::score,
+                     scoring_table = scoring_table,
+                     registry_dir = registry_dir) |>
+  quietly()
+
+story_samples_scored <- story_samples_trials |>
+  mutate(scores = pmap(list(item_task, dataset, trials, runs),
+                       score_fun))
+
+story_samples_scores <- story_samples_scored |>
+  mutate(score_result = map(scores, \(sc) sc$result)) |>
+  # filter(!map_lgl(scores, is.null)) |>
+  select(dataset, item_task, k, i, score_result) |>
+  unnest(score_result) |>
+  mutate(dataset = dataset |> str_remove("pilot_") |> str_replace_all("_", "-"))
+```
+
+```{r}
+score_summary_dataset <- story_samples_scores |>
+  group_by(dataset, k) |>
+  summarise(mean_score = mean(score),
+            min_score = min(score),
+            max_score = max(score),
+            mean_se = mean(score_se),
+            min_se = min(score_se),
+            max_se = max(score_se)) |>
+  ungroup()
+
+score_summary_dataset |>
+  select(dataset, k, mean_se) |>
+  mutate(k = paste0("k", k)) |>
+  pivot_wider(names_from = k, values_from = mean_se, names_prefix = "mean_se_")
+
+se_dataset <- score_summary_dataset |>
+  # filter(k %in% c(3, 4, 6)) |>
+  select(dataset, k, mean_se) |>
+  mutate(k = paste0("k", k),
+         mean_se = 1 / mean_se)
+
+se_dataset |>
+  left_join(se_dataset |> filter(k == "k6") |> select(dataset, mean_se_max = mean_se)) |>
+  mutate(se_prop = mean_se / mean_se_max) |>
+  select(dataset, k, se_prop) |>
+  pivot_wider(names_from = k, values_from = se_prop)
+
+score_summary_k <- story_samples_scores |>
+  group_by(k) |>
+  summarise(mean_score = mean(score),
+            min_score = min(score),
+            max_score = max(score),
+            mean_se = mean(score_se),
+            min_se = min(score_se),
+            max_se = max(score_se))
+
+se_k <- score_summary_k |>
+  # filter(k %in% c(3, 4, 6)) |>
+  select(k, mean_se) |>
+  mutate(k = paste0("k", k),
+         mean_se = 1 / mean_se)
+
+se_k |>
+  mutate(mean_se_max = se_k |> filter(k == "k6") |> pull(mean_se)) |>
+  mutate(se_prop = mean_se / mean_se_max) |>
+  select(k, se_prop) |>
+  mutate(se_pct = round(se_prop * 100, 0)) |>
+  mutate(se_pct_diff = se_pct - lag(se_pct))
+
+ggplot(story_samples_scores, aes(x = 1 / score_se)) +
+  facet_wrap(vars(dataset), nrow = 1) +
+  geom_density(aes(colour = factor(k)), linewidth = 0.4) +
+  scale_colour_viridis_d(direction = -1) +
+  labs(x = "Standard error of ability estimate",
+       y = "Density", colour = "Stories per sample") +
+  guides(color = guide_legend(nrow = 1)) +
+  theme(legend.position = "bottom",
+        legend.title.position = "top",
+        legend.justification = 0)
+ggsave("tom_story_sample_se.png", width = 10, height = 4)
+
+ggplot(story_samples_scores, aes(x = score_se)) +
+  facet_wrap(vars(dataset), nrow = 1) +
+  # geom_vline(xintercept = 0.5, color = "lightgray", linetype = "dotted") +
+  geom_density(aes(colour = factor(k)), linewidth = 0.4) +
+  scale_colour_viridis_d(direction = -1) +
+  labs(x = "Standard error of ability estimate",
+       y = "Density", colour = "Stories per sample") +
+  guides(color = guide_legend(nrow = 1)) +
+  theme(legend.position = "bottom",
+        legend.title.position = "top",
+        legend.justification = 0)
+ggsave("tom_story_sample_se_abs.png", width = 10, height = 4)
+
+ggplot(story_samples_scores, aes(x = 1 / score_se)) +
+  # facet_wrap(vars(dataset), nrow = 1) +
+  geom_density(aes(colour = factor(k)), linewidth = 0.4) +
+  scale_colour_viridis_d(direction = -1) +
+  labs(x = "Inverse standard error of ability estimate",
+       y = "Density", colour = "Stories per sample") +
+  guides(color = guide_legend(nrow = 1)) +
+  theme(legend.position = "bottom",
+        legend.title.position = "top",
+        legend.justification = 0)
+```
+
+
