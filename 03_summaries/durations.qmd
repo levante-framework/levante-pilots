@@ -31,11 +31,12 @@ Stories (DE - 2 waves, 2 new corpora; CO - 1 new corpus?)
 ```{r}
 times <- task_data |>
   mutate(timestamp = as_datetime(timestamp)) |>
-  group_by(run_id, site) |>
+  group_by(run_id, dataset) |>
   summarise(time = mean(timestamp))
 
-ggplot(times, aes(x = time, fill = site)) +
-  geom_histogram() 
+ggplot(times, aes(x = time, fill = dataset)) +
+  geom_histogram() +
+  scale_fill_solarized()
 
 ggsave(here("03_summaries", "plots", "data_waves.png"),
         width = 6, height = 3, create.dir = TRUE)
@@ -50,14 +51,15 @@ time_summary <- task_data |>
             start = min(timestamp), end = max(timestamp)) |>
   ungroup() |>
   mutate(diff = difftime(end, start, units = "mins")) |>
-  left_join(runs |> select(run_id, is_cat = adaptive, completed)) |>
-  filter(trials > 3, completed, diff < 120)
+  left_join(runs |> select(run_id, is_cat = adaptive)) |>
+  filter(trials > 3, diff < 120)
 
 # ggplot(time_summary, aes(x = diff)) +
 #   facet_wrap(vars(item_task)) +
 #   geom_histogram()
 
-ggplot(time_summary |> filter(item_task %in% core_tasks), aes(x = trials, y = diff, color = site)) +
+ggplot(time_summary,# |> filter(item_task %in% core_tasks),
+       aes(x = trials, y = diff, color = site)) +
   facet_wrap(vars(item_task), scales = "free") +
   geom_point()
 ggsave("durations.png", width = 8, height = 8)

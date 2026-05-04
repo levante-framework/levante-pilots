@@ -1,0 +1,212 @@
+```{r}
+time_summary |> filter(item_task == "tom") |> pull(diff) |> median()
+
+time_summary |>
+  filter(item_task == "tom", diff < 20) |>
+  mutate(site = site |> str_remove("pilot_") |> str_replace_all("_", "-") |> fct_rev()) |>
+  ggplot(aes(y = site, x = diff, colour = site)) +
+    ggforce::geom_sina(size = 0.2, alpha = 0.2) +
+    geom_boxplot(outliers = FALSE, alpha = 0.5) +
+    scale_colour_solarized(guide = "none") +
+    labs(x = "Duration (minutes)", y = NULL)
+ggsave(here("03_summaries/plots/tom_durations.png"), width = 7, height = 2)
+```
+
+
+```{r}
+dataset_spec <- list(
+  list(name = "pilot_uniandes_co_bogota:3j4z", version = "current"),
+  list(name = "pilot_uniandes_co_rural:66d2",  version = "current"),
+  list(name = "pilot_mpieva_de_main:6c0n",     version = "current"),
+  list(name = "pilot_western_ca_main:97mt",    version = "current"))
+
+runs <- map(dataset_spec, \(ds) rlevante:::get_raw_table(table_name = "runs", ds$name))
+run_info <- runs |>
+  set_names(map_chr(dataset_spec, \(ds) ds$name)) |>
+  list_rbind(names_to = "dataset") |>
+  filter(task_id == "theory-of-mind") |>
+  select(run_id, dataset, time_started, time_finished, num_attempted, completed) |>
+  mutate(dataset = dataset |> str_remove(":.*$"))
+
+# run_prepost <- run_info |>
+#   select(run_id, run_start = time_started, run_end = time_finished)
+run_prepost <- run_info |>
+  select(run_id, pre = time_started, post = time_finished) |>
+  pivot_longer(cols = -run_id, names_to = "story", values_to = "end") |>
+  mutate(story_i = story |> replace_values("pre" ~ "0", "post" ~ "100") |> as.integer()) |>
+  semi_join(tom_story_ranges)
+
+tom_story_ranges <- task_data |>
+  filter(item_task == "tom") |>
+  mutate(story = str_extract(item_uid, "story[0-9]+"),
+         story_i = str_extract(story, "[0-9]+") |> as.integer()) |>
+  arrange(run_id, timestamp) |>
+  group_by(run_id, story_i, item_group, story) |>
+  summarise(trials = n(),
+            start = min(timestamp), end = max(timestamp)) |>
+  ungroup()
+
+run_pre <- run_info |>
+  select(run_id, start = time_started, end = time_started) |>
+  mutate(story = "pre", story_i = 0) |>
+  semi_join(tom_story_ranges, by = "run_id")
+run_post <- run_info |>
+  select(run_id, start = time_finished, end = time_finished) |>
+  mutate(story = "post", story_i = 100) |>
+  semi_join(tom_story_ranges, by = "run_id")
+
+tom_story_ranges_fenced <- tom_story_ranges |>
+  bind_rows(run_pre) |>
+  bind_rows(run_post) |>
+  arrange(run_id, start)
+
+tom_story_diffs <- tom_story_ranges_fenced |>
+  group_by(run_id) |>
+  mutate(self_diff = difftime(end, start, units = "sec"),
+         trans_diff = difftime(start, lag(end), units = "sec"),
+         # trans_type = paste(lag(story), story, sep = "-"),
+         trans_type = paste("pre", story, sep = "-"),
+         trans_i = case_when(lag(story) == "pre" ~ 0.5,
+                             story == "post" ~ lag(story_i) + 0.5,
+                             TRUE ~ (story_i + lag(story_i)) / 2),
+         story_i = if_else(story_i == 100, lag(story_i), story_i),
+         item_group = if_else(is.na(item_group), lag(item_group), item_group)) |>
+  ungroup() |>
+  filter(!is.na(trans_diff)) |>
+  select(run_id, item_group,  story_i, story, self_diff, trans_i, trans_type, trans_diff)
+
+tom_story_diffs_long <- bind_rows(
+  tom_story_diffs |>
+    mutate(i = story_i) |>
+    select(run_id, item_group, story_i, i, block = story, diff = self_diff),
+  tom_story_diffs |>
+    mutate(i = trans_i) |>
+    select(run_id, item_group, story_i, i, block = trans_type, diff = trans_diff)
+) |>
+  arrange(run_id, i) |>
+  left_join(run_info |> select(run_id, dataset)) |>
+  filter(diff > 0) |>
+  # filter(trials > 3, diff < 120)
+  # filter(duration < 300, duration > 0) |>
+  arrange(story_i, i) |>
+  mutate(item_group = item_group |> fct_inorder(),
+         block = block |> fct_inorder() |> fct_rev()) |>
+  arrange(run_id, story_i, i) |>
+  mutate(set = cut(story_i, breaks = c(0, 6, 12, 18)) |> as.numeric(),
+         set = paste("Set", set))
+
+# 
+# tom_time_summary |>
+#   group_by(item_group) |>
+#   mutate(stage = 1:n()) |>`
+#   group_by(stage) |>
+#   summarise(total = sum(median_duration) / 60)
+
+# ggplot(tom_story_diffs_long |> filter(!str_detect(block, "post"), diff < 180),
+#        aes(y = block, x = diff, colour = item_group)) +
+#   # facet_wrap(vars(item_group), ncol = 2, scales = "free_y") +
+#   facet_wrap(vars(set), ncol = 3, scales = "free_y") +
+#   # facet_wrap(vars(item_group, stage), ncol = 3, scales = "free_y") +
+#   # facet_grid(vars(item_group), vars(stage), scales = "free") +
+#   ggforce::geom_sina(size = 0.2, alpha = 0.2) +
+#   geom_boxplot(outliers = FALSE, alpha = 0.5) +
+#   # geom_text(aes(x = Inf, label = summary_label), hjust = 1, size = 2.5,
+#   #           data = tom_time_summary) +
+#   scale_colour_brewer(palette = "Spectral", guide = "none") +
+#   labs(x = "Duration (seconds)", y = NULL) +
+#   theme(strip.text = element_text(hjust = 0))
+
+ tom_story_diffs_collapsed <- tom_story_diffs_long |>
+   filter(!str_detect(block, "post"), diff < 180) |>
+   group_by(dataset, run_id, set, item_group, story_i) |>
+   summarise(diff = sum(diff)) |> #, block = block[[1]]) |>
+   ungroup() |>
+   mutate(block = paste0("story", story_i) |> fct_reorder(story_i) |> fct_rev())
+ 
+  # tom_time_summary <- tom_story_diffs_collapsed |>
+  # group_by(item_group, set, block, story_i) |>
+  # summarise(median_trials = median(trials),
+  #           median_diff = median(diff)) |>
+  # ungroup() |>
+  # mutate(summary_label = glue("{round(median_duration, 1)}s ({median_trials} trials)")) |>
+  # arrange(item_group, desc(story))
+
+tom_time_summary <- tom_story_diffs_collapsed |>
+  group_by(item_group, set, block, story_i) |>
+  summarise(median_diff = median(diff)) |>
+  ungroup() |>
+  mutate(mins = floor(median_diff / 60),
+         secs = floor(median_diff - mins * 60),
+         summary_label = glue("{mins}m {secs}s")) #|>
+  # arrange(item_group, desc(story))
+ 
+ # ggplot(tom_story_diffs_collapsed,
+ #       aes(y = block, x = diff, colour = item_group)) +
+ #  # facet_wrap(vars(item_group), ncol = 2, scales = "free_y") +
+ #  facet_wrap(vars(set), ncol = 3, scales = "free_y") +
+ #  # facet_wrap(vars(item_group, stage), ncol = 3, scales = "free_y") +
+ #  # facet_grid(vars(item_group), vars(stage), scales = "free") +
+ #  ggforce::geom_sina(size = 0.2, alpha = 0.2) +
+ #  geom_boxplot(outliers = FALSE, alpha = 0.5) +
+ #  # geom_text(aes(x = Inf, label = summary_label), hjust = 1, size = 2.5,
+ #  #           data = tom_time_summary) +
+ #  scale_colour_brewer(palette = "Spectral") +
+ #  labs(x = "Duration (seconds)", y = NULL, color = NULL) +
+ #  theme(strip.text = element_text(hjust = 0))
+ 
+ggplot(tom_story_diffs_collapsed,
+       aes(y = block, x = diff / 60, colour = item_group)) +
+  facet_wrap(vars(item_group), ncol = 1, scales = "free_y") +
+  # facet_wrap(vars(set), ncol = 3, scales = "free_y") +
+  # facet_wrap(vars(item_group, stage), ncol = 3, scales = "free_y") +
+  # facet_grid(vars(item_group), vars(stage), scales = "free") +
+  ggforce::geom_sina(size = 0.2, alpha = 0.2) +
+  geom_boxplot(outliers = FALSE, alpha = 0.5) +
+  geom_text(aes(x = Inf, label = summary_label), hjust = 1, size = 2.5,
+            data = tom_time_summary) +
+  scale_colour_brewer(palette = "Spectral", guide = "none") +
+  labs(x = "Duration (minutes)", y = NULL, color = NULL) +
+  theme(strip.text = element_text(hjust = 0))
+ggsave(here("03_summaries/plots/tom_story_durations.png"), width = 6, height = 7)
+
+median(tom_story_diffs_collapsed$diff) / 60
+
+tom_story_diffs_set <- tom_story_diffs_collapsed |>
+  group_by(dataset, run_id, set) |>
+  summarise(total = sum(diff)) |>
+  ungroup() |>
+  mutate(set = set |> fct_rev())
+
+median(tom_story_diffs_set$total) / 60
+tom_time_set_summary <- tom_story_diffs_set |>
+  group_by(set) |>
+  summarise(median_total = median(total)) |>
+  ungroup() |>
+  mutate(mins = floor(median_total / 60),
+         secs = floor(median_total - mins * 60),
+         summary_label = glue("{mins}m {secs}s"))
+
+ggplot(tom_story_diffs_set,
+       aes(y = set, x = total / 60)) +
+  # facet_wrap(vars(item_group), ncol = 1, scales = "free_y") +
+  # facet_wrap(vars(set), ncol = 3, scales = "free_y") +
+  # facet_wrap(vars(item_group, stage), ncol = 3, scales = "free_y") +
+  # facet_grid(vars(item_group), vars(stage), scales = "free") +
+  ggforce::geom_sina(size = 0.2, alpha = 0.2) +
+  geom_boxplot(outliers = FALSE, alpha = 0.5) +
+  geom_text(aes(x = Inf, label = summary_label), hjust = 1, size = 2.5,
+            data = tom_time_set_summary) +
+  scale_colour_brewer(palette = "Spectral", guide = "none") +
+  labs(x = "Duration (minutes)", y = NULL, color = NULL) +
+  theme(strip.text = element_text(hjust = 0))
+ggsave(here("03_summaries/plots/tom_set_durations.png"), width = 7, height = 3)
+
+# ggplot(tom_times, aes(y = story, x = duration, colour = item_group)) +
+#   # facet_wrap(vars(item_group), ncol = 1, scales = "free_y") +
+#   facet_grid(vars(item_group), vars(dataset), scales = "free_y") +
+#   ggforce::geom_sina(size = 0.2, alpha = 0.2) +
+#   geom_boxplot(outliers = FALSE, alpha = 0.5) +
+#   scale_colour_brewer(palette = "Spectral", guide = "none") +
+#   labs(x = "Duration (seconds)", y = NULL) +
+#   theme(strip.text = element_text(hjust = 0))
+```
