@@ -1,0 +1,107 @@
+```{r}
+pa_mod_roar <- read_rds("02_scoring_outputs/model_registry/pa/by_language/en-ROAR/pa_rasch_f1.rds")
+pa_mod_levante <- read_rds("02_scoring_outputs/model_registry/pa/by_language/en-US/pa_rasch_f1.rds")
+```
+
+```{r}
+mod_coefs <- \(mod_rec, item_sep = "-") {
+  n_resp <- colSums(!is.na(mod_rec@data)) |>
+    enframe(name = "item", value = "n_responses")
+  model_vals(mod_rec) |>
+    as_tibble() |>
+    filter(group != "GROUP", item != "GROUP") |>
+    select(group, item, name, value) |>
+    pivot_wider(names_from = name, values_from = value) |>
+    left_join(n_resp) |>
+    mutate(item = str_remove(item, glue("{item_sep}[0-9]+$"))) |>
+    group_by(group, item, d, a1) |>
+    summarise(n_responses = sum(n_responses)) |>
+    group_by(item, d, a1, n_responses) |>
+    summarise(groups = list(group), .groups = "drop") |>
+    rename(item_uid = item) |>
+    # select(item_uid = item, n_responses, d, a1) |>
+    # distinct() |>
+    mutate(difficulty = -d / a1) |>
+    arrange(difficulty)
+}
+
+pa_coefs <- list(roar = mod_coefs(pa_mod_roar),
+                 levante = mod_coefs(pa_mod_levante)) |>
+  list_rbind(names_to = "source")
+```
+
+```{r}
+pa_coef_compare <- pa_coefs |>
+  select(source, item_uid, difficulty) |>
+  pivot_wider(names_from = source, values_from = difficulty) |>
+  separate_wider_delim(cols = item_uid, delim = "_",
+                       names = c("task", "subtask", "item")) |>
+  mutate(subtask = factor(subtask))
+
+ggplot(pa_coef_compare, aes(x = roar, y = levante)) +
+  geom_abline(colour = "lightgrey", linewidth = 0.2, linetype = "dashed") +
+  geom_smooth(method = "lm", se = FALSE, fullrange = TRUE,
+              colour = "grey", linewidth = 0.5) +
+  # geom_point(aes(colour = subtask), size = 0, alpha = 0) +
+  # geom_text(aes(label = item, colour = subtask), size = 2) +
+  geom_text_repel(aes(label = item, colour = subtask),
+                  family = .font, size = 2.5, segment.colour = "grey", segment.linewidth = 0.5) +
+  geom_point(aes(colour = subtask), size = 1) +
+  scale_colour_ptol() +
+  guides(colour = guide_legend(override.aes = list(size = 4, alpha = 1, label = ""))) +
+  labs(x = "Item difficulty – ROAR model", y = "Item difficulty – LEVANTE model",
+       colour = "Subtask") +
+  theme(legend.position = "bottom")
+ggsave("pa_param_compare.png", width = 7, height = 6)
+```
+
+```{r}
+contrasts(pa_coef_compare$subtask) <- contr.sum(levels(pa_coef_compare$subtask))
+pa_lm <- lm(roar ~ levante, data = pa_coef_compare)
+summary(pa_lm)
+```
+
+```{r}
+pa_trials <- task_data_nested |>
+  filter(item_task == "pa", language == "en-US") |>
+  unnest(data) |>
+  select(site, dataset, run_id, item_uid, correct)
+
+mod_spec <- list(
+  model_set = "by_language",
+  subset = "en",
+  itemtype = "rasch",
+  nfact = 1,
+  invariance = "scalar"
+)
+
+pa_scores_levante <- rlevante:::score_irt(pa_trials, mod_spec, pa_mod_levante)
+pa_scores_roar <- rlevante:::score_irt(pa_trials, mod_spec, pa_mod_roar)
+pa_scores <- list(roar = pa_scores_roar, levante = pa_scores_levante) |>
+  list_rbind(names_to = "source")
+```
+
+```{r}
+run_info <- run_data |>
+  filter(task_id == "pa", language == "en-US") |>
+  select(run_id, site, dataset, age, num_attempted)
+
+pa_score_compare <- pa_scores |>
+  pivot_wider(names_from = source, values_from = c(score, score_se)) |>
+  left_join(run_info) |>
+  mutate(age_bin = cut(age, breaks = seq(5, 13, 2), include.lowest = TRUE))
+
+ggplot(pa_score_compare, aes(x = score_roar, y = score_levante)) +
+  geom_abline(colour = "lightgrey", linewidth = 0.2, linetype = "dashed") +
+  # geom_smooth(method = "lm", se = FALSE, fullrange = TRUE,
+  #             colour = "grey", linewidth = 0.5) +
+  geom_smooth(se = FALSE, fullrange = TRUE,
+              colour = "grey", linewidth = 0.5) +
+  geom_point(aes(colour = age_bin), size = 1) +
+  scale_colour_viridis_d() +
+  labs(x = "Ability – ROAR model", y = "Ability – LEVANTE model",
+       colour = "Age bin") +
+  theme(legend.position = "bottom")
+ggsave("pa_score_compare.png", width = 7, height = 6)
+```
+
