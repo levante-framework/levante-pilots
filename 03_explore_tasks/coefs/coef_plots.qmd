@@ -7,7 +7,7 @@ library(tidyverse)
 library(ggthemes)
 source(here("plot_settings.R"))
 
-all_coefs <- read_rds("02_scoring_outputs/all_coefs.rds")
+all_coefs <- read_rds(here("02_scoring_outputs/all_coefs.rds"))
 ```
 
 hf
@@ -302,3 +302,59 @@ sds_props |>
   theme(panel.border = element_rect())
 ggsave("sds_props.png", width = 9, height = 4)
 ```
+
+```{r}
+run_data <- read_rds(here("01_fetched_data/run_data.rds"))
+
+matrix_trials <- task_data_nested |>
+  filter(item_task == "matrix") |>
+  unnest(data) |>
+  left_join(run_data |> select(run_id, age)) |>
+  filter(age > 1)
+
+matrix_items <- matrix_trials |>
+  group_by(item_uid, item_group, item) |>
+  summarise(n_sites = n_distinct(site),
+            n_datasets = n_distinct(dataset),
+            n_runs = n_distinct(run_id),
+            n_trials = n_distinct(trial_id),
+            sub_5 = any(age < 5),
+            # age_min = min(age, na.rm = TRUE),
+            # age_max = max(age, na.rm = TRUE),
+            prop_correct = mean(correct)) |>
+  ungroup()
+
+matrix_coefs <- all_coefs |>
+  filter(task == "matrix", model_set == "multigroup_site", subset == "all_items",
+         invariance == "scalar", itemtype == "rasch") |>
+  select(item_uid = item, difficulty) |>
+  distinct()
+  # separate_wider_delim(item, delim = "_", names = c("task", "set", "d", "mat"), cols_remove = FALSE) |>
+  # arrange(value) |>
+  # mutate(item_uid = item_uid |> fct_inorder())
+
+matrix_items_coefs <- matrix_coefs |> left_join(matrix_items)
+
+ggplot(matrix_items_coefs, aes(x = difficulty, y = item_uid)) +
+  # facet_wrap(vars(set, d), scales = "free") +
+  # facet_wrap(vars(invariance, group)) +
+  # facet_grid(vars(invariance), vars(group)) +
+  geom_crossbar(aes(xmin = difficulty, xmax = difficulty), width = 0.5, middle.linewidth = 1) +
+  # geom_point(size = 1) +
+  # scale_color_ptol() +
+  # scale_y_continuous(limits = ~range(.x, 0)) +
+  labs(y = "Item", x = "Difficulty")
+
+matrix_items_coefs |>
+  mutate(n_trial_bin = cut(n_trials, breaks = c(0, 10, 100, 1000, 10000))) |>
+ggplot(aes(x = prop_correct, y = difficulty, colour = n_trial_bin)) +
+  geom_point(size = 0.5) +
+  scale_colour_viridis_d(direction = -1) +
+  # scale_colour_binned() +
+  xlim(c(0, 1)) +
+  labs(x = "Proportion correct", y = "Difficulty", colour = "N trials")
+ggsave("matrix_coef_fixed.png", width = 8, height = 5)
+
+GGally::ggpairs(matrix_items_coefs, columns = c("n_trials", "prop_correct", "difficulty"))
+```
+
