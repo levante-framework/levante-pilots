@@ -58,8 +58,10 @@ generate_model_str_numeric <- function(df, df_prepped, item_type, f, priors = NU
     deframe()
   
   constraints <- items |> map(\(item_uid) {
-    # get columns with item's instances
-    matched_idx <- which(str_sub(colnames(df_prepped), start = 1, end = str_length(item_uid)) == item_uid)
+    # get columns with item's instances by checking for columns that start with
+    # item_uid + item_sep
+    prefixes <- str_sub(colnames(df_prepped), start = 1, end = str_length(item_uid) + 1)
+    matched_idx <- which(prefixes == paste0(item_uid, item_sep))
 
     if (length(matched_idx) > 1) {
       # constraint for item instance: (item_1, item_2, param)

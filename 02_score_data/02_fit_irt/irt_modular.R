@@ -94,7 +94,7 @@ fit_task_models_multigroup <- \(task_data, models, priors, task, group = site,
   
   data_filtered_overlap <- data_filtered_full |>
     rlevante:::remove_nonshared_items() |>
-    remove_no_var_items_bygroup()
+    rlevante:::remove_no_var_items_bygroup()
   data_wide_overlap <- data_filtered_overlap |> rlevante:::to_mirt_shape_grouped()
   data_prepped_overlap <- data_wide_overlap |> select(-group)
   guess_overlap <- data_filtered_overlap |> distinct(item_inst, chance) |> pull(chance)
