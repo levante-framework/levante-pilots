@@ -52,11 +52,11 @@ source(here("plot_settings.R"))
 #| label: load-data
 #| include: false
 
-plus <- readRDS("plus_hf_merged.rds") |> mutate(pl_fem = as_factor(pl_fem))
-kimochis <- readRDS("kimochis_hf.rds")
+plus <- readRDS("data/plus_hf_merged.rds") |> mutate(pl_fem = as_factor(pl_fem)) |> as_tibble()
+kimochis <- readRDS("data/kimochis_hf.rds") |> as_tibble()
 
 # run data for raw scores
-run_data <- readr::read_rds(here::here("..", "levante-pilots", "01_fetched_data/run_data.rds"))
+run_data <- readr::read_rds(here::here("01_fetched_data/run_data.rds"))
 # colnames(run_data)
 ```
 
@@ -441,6 +441,73 @@ hf_mod_rec_2pl <- read_rds(file.path(levante_regdir, hf_path_2pl))
 ```
 
 ```{r}
+# lev_data <- hf_mod_rec_rasch@data
+# lev_item_na_rate <- colSums(is.na(lev_data)) / nrow(lev_data)
+# lev_keep_items <- names(which(lev_item_na_rate < 0.2))
+# lev_data_kept <- lev_data[,lev_keep_items]
+# 
+# lev_data |>
+#   as_tibble() |>
+#   mutate(i = 1:nrow(lev_data), group = mod_rec@groups) |>
+#   pivot_longer(cols = -c(i, group), names_to = "item", values_to = "correct") |>
+#   # count(group, item, correct) |>
+#   # count(group, item) |>
+#   filter(item == "flowers_flower_start-1") |>
+#   count(group, correct)
+# 
+# # lev_rasch_pars <- hf_mod_rec_rasch@model_vals |># as_tibble() |>
+# #   filter(item %in% lev_keep_items) |>
+# #   select(group, item, name, fixed_value = value)
+# 
+# lev_rasch_pars <- hf_mod_rec_rasch@model_vals |># as_tibble() |>
+#   filter(item %in% lev_keep_items) |>
+#   select(item, name, fixed_value = value) |> distinct()
+# 
+# # lev_rasch_vals <- multipleGroup(data = lev_data_kept,
+# #                                 group = mod_rec@groups,
+# #                                 pars = "values",
+# #                                 itemtype = "Rasch",
+# #                                 TOL = NaN) # as_tibble()
+# # lev_rasch_vals_fixed <- lev_rasch_vals |>
+# #   left_join(lev_rasch_pars) |>
+# #   mutate(value = if_else(!is.na(fixed_value), fixed_value, value)) |>
+# #   select(-fixed_value)
+# 
+# lev_rasch_vals <- mirt(data = lev_data_kept,
+#                        pars = "values",
+#                        itemtype = "Rasch",
+#                        TOL = NaN) # as_tibble()
+# lev_rasch_vals_fixed <- lev_rasch_vals |>
+#   # select(-value) |>
+#   left_join(lev_rasch_pars) |>
+#   mutate(value = if_else(!is.na(fixed_value), fixed_value, value)) |>
+#   select(-fixed_value)
+#   # relocate(value, .after = parnum)
+# 
+# # lev_mod_rasch <- multipleGroup(data = lev_data_kept,
+# #                                group = mod_rec@groups,
+# #                                pars = lev_rasch_vals,
+# #                                itemtype = "Rasch",
+# #                                TOL = NaN)
+# 
+# lev_mod_rasch <- mirt(data = lev_data_kept,
+#                       pars = lev_rasch_vals_fixed,
+#                       itemtype = "Rasch",
+#                       TOL = NaN)
+# 
+# levante_itemfit_rasch <- itemfit(lev_mod_rasch, fit_stats = "S_X2", na.rm = TRUE)
+# levante_itemfit_rasch |> as_tibble() |> arrange(desc(RMSEA.S_X2)) |>
+#   mutate(signif = p.S_X2 < 0.05) |> count(signif)
+# 
+# # hf_mod_rasch <- multipleGroup(data = lev_data,
+# #                               group = mod_rec@groups,
+# #                               pars = lev_rasch_vals_fixed,
+# #                               TOL = NaN)
+
+```
+
+
+```{r}
 #| label: levante-hf-structure
 #| include: false
 
@@ -518,7 +585,8 @@ stim_shape != prev_shape   ~ "switch"
 group_by(stud_id, time, block_clean, stim_shape, trial_type) |>
 mutate(trial_type_num = row_number()) |>
 ungroup() |>
-mutate(item = glue("{block_clean}_{stim_shape}_{trial_type}-{trial_type_num}"))
+mutate(item_uid = glue("{block_clean}_{stim_shape}_{trial_type}"))
+# mutate(item = glue("{block_clean}_{stim_shape}_{trial_type}-{trial_type_num}"))
 
 # timeout rate (flowers and mixed blocks only)
 mean_timeout_pct <- plus_hf_items |>
@@ -544,12 +612,12 @@ nrow()
 #| label: plus-hf-levante-equivalent
 #| include: false
 
-# collapse repeated trials of same type into single binary item
-plus_hf_collapsed <- plus_hf_items |>
-mutate(item_uid = str_remove(item, "-\\d+$")) |>
-group_by(stud_id, time, item_uid) |>
-summarise(prop_correct = mean(correct, na.rm = TRUE), .groups = "drop") |>
-mutate(correct_collapsed = as.integer(prop_correct >= 0.5))
+# # collapse repeated trials of same type into single binary item
+# plus_hf_collapsed <- plus_hf_items |>
+# mutate(item_uid = str_remove(item, "-\\d+$")) |>
+# group_by(stud_id, time, item_uid) |>
+# summarise(prop_correct = mean(correct, na.rm = TRUE), .groups = "drop") |>
+# mutate(correct_collapsed = as.integer(prop_correct >= 0.5))
 
 # levante item_uid types
 levante_uid_types <- c(
@@ -561,19 +629,42 @@ levante_uid_types <- c(
 )
 
 shared_uid_types <- intersect(
-plus_hf_collapsed |> distinct(item_uid) |> pull(item_uid),
+plus_hf_items |> distinct(item_uid) |> pull(item_uid),
 levante_uid_types
 ) |>
 setdiff("heartsflowers_heart_start")
 
-# pivot to wide and build response matrix
-plus_hf_collapsed_wide <- plus_hf_collapsed |>
-select(stud_id, time, item_uid, correct_collapsed) |>
-pivot_wider(names_from = item_uid, values_from = correct_collapsed)
+plus_hf_dedupe <- plus_hf_items |>
+  mutate(run_id = paste(stud_id, time)) |>
+  rlevante:::dedupe_items() |>
+  rlevante:::remove_no_var_items()
 
-plus_collapsed_matrix <- plus_hf_collapsed_wide |>
-select(all_of(shared_uid_types)) |>
+# pivot to wide and build response matrix
+plus_hf_wide <- plus_hf_dedupe |>
+select(stud_id, time, item_inst, correct) |>
+pivot_wider(names_from = item_inst, values_from = correct)
+
+plus_matrix <- plus_hf_wide |>
+# select(all_of(shared_uid_types)) |>
+select(-stud_id, -time) |>
 as.matrix()
+```
+
+```{r}
+# plus_hf_filtered <- plus_hf_items |>
+#   # filter(item_uid %in% levante_lookup_collapsed_rasch$item_uid) |>
+#   mutate(run_id = as.character(stud_id)) |>
+#   select(run_id, item_uid, correct) |>
+#   rlevante:::dedupe_items() |>
+#   rlevante:::remove_no_var_items()
+# 
+# plus_hf_collapsed_wide <- plus_hf_filtered |> rlevante:::to_mirt_shape()
+# plus_collapsed_matrix <- plus_hf_collapsed_wide |> as.matrix()
+
+plus_item_inst_map <- plus_hf_dedupe |>
+  distinct(item_uid, item_inst) |>
+  rename(item = item_inst) |>
+  mutate(item = as.character(item), item_uid = as.character(item_uid))
 ```
 
 ```{r}
@@ -581,87 +672,93 @@ as.matrix()
 #| include: false
 
 # pull levante d parameters (identical across sites under scalar invariance)
-levante_lookup_collapsed_rasch <- hf_mod_rec_rasch@model_vals |>
+levante_lookup_rasch <- hf_mod_rec_rasch@model_vals |> as_tibble() |>
 filter(name == "d") |>
 mutate(item_uid = str_remove(item, "-\\d+$")) |>
-filter(item_uid %in% levante_uid_types) |>
+# filter(item_uid %in% levante_uid_types) |>
 group_by(item_uid, name) |>
 slice_min(item, n = 1) |>
 ungroup() |>
-distinct(item = item_uid, name, value)
+distinct(item_uid, name, value)
+# distinct(item = item_uid, name, value)
 
-levante_lookup_collapsed_2pl <- hf_mod_rec_2pl@model_vals |>
+levante_lookup_2pl <- hf_mod_rec_2pl@model_vals |>
 filter(name %in% c("d", "a1")) |>
 mutate(item_uid = str_remove(item, "-\\d+$")) |>
-filter(item_uid %in% levante_uid_types) |>
+# filter(item_uid %in% levante_uid_types) |>
 group_by(item_uid, name) |>
 slice_min(item, n = 1) |>
 ungroup() |>
-distinct(item = item_uid, name, value)
+distinct(item_uid, name, value)
+# distinct(item = item_uid, name, value)
 
 # fix item parameters to levante values
-fixed_pars_collapsed_rasch <- mirt(
-data     = plus_collapsed_matrix,
+fixed_pars_rasch <- mirt(
+data     = plus_matrix,
 model    = 1,
-itemtype = rep("Rasch", ncol(plus_collapsed_matrix)),
+itemtype = rep("Rasch", ncol(plus_matrix)),
 pars     = "values"
 ) |>
-left_join(levante_lookup_collapsed_rasch, by = c("item", "name"), suffix = c("", "_levante")) |>
+left_join(plus_item_inst_map) |>
+left_join(levante_lookup_rasch, by = c("item_uid", "name"), suffix = c("", "_levante")) |>
+# left_join(levante_lookup_collapsed_rasch, by = c("item", "name"), suffix = c("", "_levante")) |>
 mutate(
 value = if_else(!is.na(value_levante), value_levante, value),
 est   = FALSE
 ) |>
-select(-value_levante)
+select(-value_levante, -item_uid)
 
-fixed_pars_collapsed_2pl <- mirt(
-data     = plus_collapsed_matrix,
+fixed_pars_2pl <- mirt(
+data     = plus_matrix,
 model    = 1,
-itemtype = rep("2PL", ncol(plus_collapsed_matrix)),
+itemtype = rep("2PL", ncol(plus_matrix)),
 pars     = "values"
 ) |>
-left_join(levante_lookup_collapsed_2pl, by = c("item", "name"), suffix = c("", "_levante")) |>
+left_join(plus_item_inst_map) |>
+left_join(levante_lookup_2pl, by = c("item_uid", "name"), suffix = c("", "_levante")) |>
+# left_join(levante_lookup_collapsed_2pl, by = c("item", "name"), suffix = c("", "_levante")) |>
 mutate(
 value = if_else(!is.na(value_levante), value_levante, value),
 est   = FALSE
 ) |>
-select(-value_levante)
+select(-value_levante, -item_uid)
 
 # fit model with fixed parameters and estimate EAP scores
-hf_mod_plus_collapsed_rasch <- mirt(
-data      = plus_collapsed_matrix,
+hf_mod_plus_rasch <- mirt(
+data      = plus_matrix,
 model     = 1,
-itemtype  = rep("Rasch", ncol(plus_collapsed_matrix)),
-pars      = fixed_pars_collapsed_rasch,
-technical = list(NCYCLES = 1)
+itemtype  = rep("Rasch", ncol(plus_matrix)),
+pars      = fixed_pars_rasch,
+TOL       = NaN
 )
 
-hf_mod_plus_collapsed_2pl <- mirt(
-data      = plus_collapsed_matrix,
+hf_mod_plus_2pl <- mirt(
+data      = plus_matrix,
 model     = 1,
-itemtype  = rep("2PL", ncol(plus_collapsed_matrix)),
-pars      = fixed_pars_collapsed_2pl,
-technical = list(NCYCLES = 1)
+itemtype  = rep("2PL", ncol(plus_matrix)),
+pars      = fixed_pars_2pl,
+TOL       = NaN
 )
 
-plus_scores_collapsed_rasch <- fscores(hf_mod_plus_collapsed_rasch, method = "EAP", full.scores.SE = TRUE)
-plus_scores_collapsed_2pl <- fscores(hf_mod_plus_collapsed_2pl, method = "EAP", full.scores.SE = TRUE)
+plus_scores_rasch <- fscores(hf_mod_plus_rasch, method = "EAP", full.scores.SE = TRUE)
+plus_scores_2pl <- fscores(hf_mod_plus_2pl, method = "EAP", full.scores.SE = TRUE)
 
-plus_hf_scored_collapsed <- plus_hf_collapsed_wide |>
+plus_hf_scored <- plus_hf_wide |>
 select(stud_id, time) |>
 mutate(
-theta_rasch = plus_scores_collapsed_rasch[, "F1"],
-se_rasch    = plus_scores_collapsed_rasch[, "SE_F1"],
-theta_2pl = plus_scores_collapsed_2pl[, "F1"],
-se_2pl    = plus_scores_collapsed_2pl[, "SE_F1"],
+theta_rasch = plus_scores_rasch[, "F1"],
+se_rasch    = plus_scores_rasch[, "SE_F1"],
+theta_2pl = plus_scores_2pl[, "F1"],
+se_2pl    = plus_scores_2pl[, "SE_F1"],
 ) |>
 pivot_longer(cols = -c(stud_id, time), names_to = c("param", "itemtype"), names_sep = "_", values_to = "value") |>
-pivot_wider(names_from = param, values_from = value) |>
-rename(theta_collapsed = theta, se_collapsed = se)
+pivot_wider(names_from = param, values_from = value)
+# rename(theta_collapsed = theta, se_collapsed = se)
 
-plus_reliability_collapsed <- plus_hf_scored_collapsed |>
+plus_reliability <- plus_hf_scored |>
   group_by(itemtype) |>
   summarise(n = n(),
-            rxx = 1 - mean(se_collapsed^2) / var(theta_collapsed)) |>
+            rxx = 1 - mean(se^2) / var(theta)) |>
   mutate(sample = "PLUS", time = "Pooled")
   # deframe() |>
   # round(3)
@@ -672,12 +769,12 @@ plus_reliability_collapsed <- plus_hf_scored_collapsed |>
 # )
 
 # grade-level theta summary
-grade_summary <- plus_hf_scored_collapsed |>
+grade_summary <- plus_hf_scored |>
 left_join(plus |> distinct(stud_id, pl_grade), by = "stud_id") |>
 group_by(pl_grade, itemtype) |>
 summarise(
-m  = round(mean(theta_collapsed, na.rm = TRUE), 2),
-sd = round(sd(theta_collapsed, na.rm = TRUE), 2),
+m  = round(mean(theta, na.rm = TRUE), 2),
+sd = round(sd(theta, na.rm = TRUE), 2),
 .groups = "drop"
 ) #|>
   # pivot_wider(names_from = itemtype, values_from = c(m, sd))
@@ -690,7 +787,7 @@ g5_m  <- grade_summary |> filter(pl_grade == 5) |> select(itemtype, m) |> defram
 g5_sd <- grade_summary |> filter(pl_grade == 5) |> select(itemtype, sd) |> deframe()
 ```
 ### Data preparation and scoring - PLUS 
-Trial-level data from PLUS were filtered to test blocks only (hearts test, flowers test, mixed test), excluding practice trials. Trials with RT < 100ms were excluded as likely accidental key presses (n = 842). Accuracy was derived from the stimulus-response pairing: trials with a heart stimulus were scored correct if the response matched the stimulus side (congruent rule), and trials with a flower stimulus were scored correct if the response was on the opposite side (incongruent rule). Trials with no response (NA) were scored as incorrect, consistent with the Levante scoring approach. Additionally, consistent with the 750ms response window enforced during PLUS data collection, trials with RT > 750ms were scored as incorrect (19.8% of trials). This yielded a final analytic sample of `r length(unique(plus_hf_scored_collapsed$stud_id))` children (`r format(nrow(plus_hf_scored_collapsed), big.mark = ",")` observations across fall and spring timepoints).
+Trial-level data from PLUS were filtered to test blocks only (hearts test, flowers test, mixed test), excluding practice trials. Trials with RT < 100ms were excluded as likely accidental key presses (n = 842). Accuracy was derived from the stimulus-response pairing: trials with a heart stimulus were scored correct if the response matched the stimulus side (congruent rule), and trials with a flower stimulus were scored correct if the response was on the opposite side (incongruent rule). Trials with no response (NA) were scored as incorrect, consistent with the Levante scoring approach. Additionally, consistent with the 750ms response window enforced during PLUS data collection, trials with RT > 750ms were scored as incorrect (19.8% of trials). This yielded a final analytic sample of `r length(unique(plus_hf_scored$stud_id))` children (`r format(nrow(plus_hf_scored), big.mark = ",")` observations across fall and spring timepoints).
 
 Each trial was assigned an item label following the Levante naming convention: `{block}_{stimulus}_{trial_type}-{trial_number}`, where trial type was classified as start (first trial in block), stay (same stimulus type as previous trial), or switch (different stimulus type from previous trial). Repeated trials of the same type (e.g., multiple heart stay trials) were collapsed into a single score per trial type. A child was scored as correct on that trial type if they got more than half of those trials right, and incorrect otherwise, giving one binary score per trial type per child to enter into the IRT model. Item difficulty parameters were taken from the Levante H&F Rasch model, which was estimated under scalar invariance across sites; parameters are therefore identical across all three Levante sites. This yielded `r length(shared_uid_types)` IRT items in PLUS out of the `r length(levante_uid_types)` analytic units used in Levante scoring (see @tbl-item-overlap-table). The missing item type (`r paste(setdiff(levante_uid_types, shared_uid_types), collapse = ", ")`) was absent from PLUS because the mixed block always began with a flower stimulus in this assessment (n = `r n_hf_start_trials` start trials, all flower), whereas the Levante mixed block begins with a heart stimulus. As a result, no child contributed a heartsflowers_heart_start trial and this analytic unit could not be scored.
 
@@ -737,7 +834,8 @@ trial_type     = if_else(trial_num == min(trial_num), "start", "stay"),
 trial_type_num = if_else(trial_type == "start", 1L, row_number() - 1L)
 ) |>
 ungroup() |>
-mutate(item = paste0(block_clean, "_", stim_shape, "_", trial_type, "-", trial_type_num))
+mutate(item_uid = paste0(block_clean, "_", stim_shape, "_", trial_type))
+# mutate(item = paste0(block_clean, "_", stim_shape, "_", trial_type, "-", trial_type_num))
 
 # exclude children scoring below 50% on hearts block
 kimochis_hearts_check <- kimochis_hf_items |>
@@ -751,27 +849,46 @@ filter(hearts_acc >= 0.5)
 #| label: kimochis-hf-levante-equivalent
 #| include: false
 
-# collapse repeated trials of same type into single binary item
-kimochis_hf_collapsed <- kimochis_hf_items |>
-mutate(item_uid = str_remove(item, "-\\d+$")) |>
-group_by(id, time, item_uid) |>
-summarise(prop_correct = mean(acc, na.rm = TRUE), .groups = "drop") |>
-mutate(correct_collapsed = as.integer(prop_correct >= 0.5))
+# # collapse repeated trials of same type into single binary item
+# kimochis_hf_collapsed <- kimochis_hf_items |>
+# mutate(item_uid = str_remove(item, "-\\d+$")) |>
+# group_by(id, time, item_uid) |>
+# summarise(prop_correct = mean(acc, na.rm = TRUE), .groups = "drop") |>
+# mutate(correct_collapsed = as.integer(prop_correct >= 0.5))
 
 shared_uid_kimochis <- intersect(
-kimochis_hf_collapsed |> distinct(item_uid) |> pull(item_uid),
+kimochis_hf_items |> distinct(item_uid) |> pull(item_uid),
 levante_uid_types
 )
 
-# pivot to wide and build response matrix
-kimochis_hf_collapsed_wide <- kimochis_hf_collapsed |>
-select(id, time, item_uid, correct_collapsed) |>
-pivot_wider(names_from = item_uid, values_from = correct_collapsed)
+# # pivot to wide and build response matrix
+# kimochis_hf_collapsed_wide <- kimochis_hf_collapsed |>
+# select(id, time, item_uid, correct_collapsed) |>
+# pivot_wider(names_from = item_uid, values_from = correct_collapsed)
+# 
+# kimochis_collapsed_matrix <- kimochis_hf_collapsed_wide |>
+# select(all_of(shared_uid_kimochis)) |>
+# as.matrix()
 
-kimochis_collapsed_matrix <- kimochis_hf_collapsed_wide |>
-select(all_of(shared_uid_kimochis)) |>
+kimochis_hf_dedupe <- kimochis_hf_items |>
+  mutate(run_id = paste(id, time), correct = acc) |>
+  rlevante:::dedupe_items() |>
+  rlevante:::remove_no_var_items()
+
+# pivot to wide and build response matrix
+kimochis_hf_wide <- kimochis_hf_dedupe |>
+select(id, time, item_inst, correct) |>
+pivot_wider(names_from = item_inst, values_from = correct)
+
+kimochis_matrix <- kimochis_hf_wide |>
+# select(all_of(shared_uid_types)) |>
+select(-id, -time) |>
 as.matrix()
 
+kimochis_item_inst_map <- kimochis_hf_dedupe |>
+  distinct(item_uid, item_inst) |>
+  rename(item = item_inst) |>
+  mutate(item = as.character(item), item_uid = as.character(item_uid))
 ```
 
 ```{r}
@@ -779,79 +896,83 @@ as.matrix()
 #| include: false
 
 # fix item parameters to levante values
-fixed_pars_collapsed_kimochis_rasch <- mirt(
-data     = kimochis_collapsed_matrix,
+fixed_pars_kimochis_rasch <- mirt(
+data     = kimochis_matrix,
 model    = 1,
-itemtype = rep("Rasch", ncol(kimochis_collapsed_matrix)),
+itemtype = rep("Rasch", ncol(kimochis_matrix)),
 pars     = "values"
 ) |>
-left_join(levante_lookup_collapsed_rasch, by = c("item", "name"), suffix = c("", "_levante")) |>
+left_join(kimochis_item_inst_map) |>
+left_join(levante_lookup_rasch, by = c("item_uid", "name"), suffix = c("", "_levante")) |>
+# left_join(levante_lookup_rasch, by = c("item", "name"), suffix = c("", "_levante")) |>
 mutate(
 value = if_else(!is.na(value_levante), value_levante, value),
 est   = FALSE
 ) |>
-select(-value_levante)
+select(-value_levante, -item_uid)
 
-fixed_pars_collapsed_kimochis_2pl <- mirt(
-data     = kimochis_collapsed_matrix,
+fixed_pars_kimochis_2pl <- mirt(
+data     = kimochis_matrix,
 model    = 1,
-itemtype = rep("2PL", ncol(kimochis_collapsed_matrix)),
+itemtype = rep("2PL", ncol(kimochis_matrix)),
 pars     = "values"
 ) |>
-left_join(levante_lookup_collapsed_2pl, by = c("item", "name"), suffix = c("", "_levante")) |>
+left_join(kimochis_item_inst_map) |>
+left_join(levante_lookup_2pl, by = c("item_uid", "name"), suffix = c("", "_levante")) |>
+# left_join(levante_lookup_2pl, by = c("item", "name"), suffix = c("", "_levante")) |>
 mutate(
 value = if_else(!is.na(value_levante), value_levante, value),
 est   = FALSE
 ) |>
-select(-value_levante)
+select(-value_levante, -item_uid)
 
 # fit model with fixed parameters and estimate EAP scores
-hf_mod_kimochis_collapsed_rasch <- mirt(
-data      = kimochis_collapsed_matrix,
+hf_mod_kimochis_rasch <- mirt(
+data      = kimochis_matrix,
 model     = 1,
-itemtype  = rep("Rasch", ncol(kimochis_collapsed_matrix)),
-pars      = fixed_pars_collapsed_kimochis_rasch,
-technical = list(NCYCLES = 1)
+itemtype  = rep("Rasch", ncol(kimochis_matrix)),
+pars      = fixed_pars_kimochis_rasch,
+tol       = NaN
 )
 
-hf_mod_kimochis_collapsed_2pl <- mirt(
-data      = kimochis_collapsed_matrix,
+hf_mod_kimochis_2pl <- mirt(
+data      = kimochis_matrix,
 model     = 1,
-itemtype  = rep("2PL", ncol(kimochis_collapsed_matrix)),
-pars      = fixed_pars_collapsed_kimochis_2pl,
-technical = list(NCYCLES = 1)
+itemtype  = rep("2PL", ncol(kimochis_matrix)),
+pars      = fixed_pars_kimochis_2pl,
+tol       = NaN
 )
 
-kimochis_scores_collapsed_rasch <- fscores(hf_mod_kimochis_collapsed_rasch, method = "EAP", full.scores.SE = TRUE)
-kimochis_scores_collapsed_2pl <- fscores(hf_mod_kimochis_collapsed_2pl, method = "EAP", full.scores.SE = TRUE)
+kimochis_scores_rasch <- fscores(hf_mod_kimochis_rasch, method = "EAP", full.scores.SE = TRUE)
+kimochis_scores_2pl <- fscores(hf_mod_kimochis_2pl, method = "EAP", full.scores.SE = TRUE)
 
-kimochis_hf_scored_collapsed <- kimochis_hf_collapsed_wide |>
+kimochis_hf_scored <- kimochis_hf_wide |>
 select(id, time) |>
 mutate(
-theta_rasch = kimochis_scores_collapsed_rasch[, "F1"],
-se_rasch    = kimochis_scores_collapsed_rasch[, "SE_F1"],
-theta_2pl = kimochis_scores_collapsed_2pl[, "F1"],
-se_2pl    = kimochis_scores_collapsed_2pl[, "SE_F1"],
+theta_rasch = kimochis_scores_rasch[, "F1"],
+se_rasch    = kimochis_scores_rasch[, "SE_F1"],
+theta_2pl = kimochis_scores_2pl[, "F1"],
+se_2pl    = kimochis_scores_2pl[, "SE_F1"],
 ) |>
 pivot_longer(cols = -c(id, time), names_to = c("param", "itemtype"), names_sep = "_", values_to = "value") |>
 pivot_wider(names_from = param, values_from = value) |>
-rename(theta_collapsed = theta, se_collapsed = se)
+rename(theta = theta, se = se)
 
-kimochis_reliability_collapsed <- kimochis_hf_scored_collapsed |>
+kimochis_reliability <- kimochis_hf_scored |>
   group_by(itemtype) |>
-  summarise(reliability = 1 - mean(se_collapsed^2) / var(theta_collapsed)) |>
+  summarise(reliability = 1 - mean(se^2) / var(theta)) |>
   deframe() |>
   round(3)
 
 # age-group theta summary
-kimochis_age_summary <- kimochis_hf_scored_collapsed |>
+kimochis_age_summary <- kimochis_hf_scored |>
 left_join(kimochis |> distinct(id, time, age), by = c("id", "time")) |>
 mutate(age_group = cut(age, breaks = c(2, 3, 4, 5, 6),
 labels = c("2-3", "3-4", "4-5", "5-6"))) |>
 group_by(age_group, itemtype) |>
 summarise(
-m  = round(mean(theta_collapsed, na.rm = TRUE), 2),
-sd = round(sd(theta_collapsed, na.rm = TRUE), 2),
+m  = round(mean(theta, na.rm = TRUE), 2),
+sd = round(sd(theta, na.rm = TRUE), 2),
 .groups = "drop"
 )
 
@@ -982,7 +1103,7 @@ tibble(
   fontsize(size = 11, part = "all")
 ```
 ### Data preparation and scoring - Kimochis
-Trial-level data from Kimochis were filtered to test blocks only (hearts test, flowers test), excluding practice trials. The dataset did not include a mixed block, as the children were considered too young for its task-switching demands. Accuracy was taken from the pre-computed "acc" column rather than derived from stimulus-response pairings. Timeout trials (14.5% of test trials) were scored as incorrect, consistent with the Levante scoring approach. This yielded a final analytic sample of `r length(unique(kimochis_hf_scored_collapsed$id))` children (`r format(nrow(kimochis_hf_scored_collapsed), big.mark = ",")` observations) across two academic year cohorts (2021–2022 and 2022–2023), each with fall and spring timepoints.
+Trial-level data from Kimochis were filtered to test blocks only (hearts test, flowers test), excluding practice trials. The dataset did not include a mixed block, as the children were considered too young for its task-switching demands. Accuracy was taken from the pre-computed "acc" column rather than derived from stimulus-response pairings. Timeout trials (14.5% of test trials) were scored as incorrect, consistent with the Levante scoring approach. This yielded a final analytic sample of `r length(unique(kimochis_hf_scored$id))` children (`r format(nrow(kimochis_hf_scored), big.mark = ",")` observations) across two academic year cohorts (2021–2022 and 2022–2023), each with fall and spring timepoints.
 
 Each trial was assigned an item label following the Levante naming convention. Of the `r n_levante_total` items in the Levante H&F model, `r n_kimo_raw` were present in Kimochis, all from the hearts and flowers blocks; all `r n_levante_mixed` mixed block items were absent by design. The 8 additional flowers trials in Kimochis (stay-16 through stay-23) exceeded the length of the Levante flowers block and were excluded from scoring. Repeated trials of the same type were aggregated into a single analytic unit scored as correct if the child got more than half right, yielding `r length(shared_uid_kimochis)` IRT items (`r paste(shared_uid_kimochis, collapse = ", ")`) (see @tbl-item-overlap-table).
 
@@ -993,11 +1114,11 @@ Given these limitations, the structural differences between the two assessments 
 #| label: sample-size-table
 #| include: false
 
-sample_sizes <- plus_hf_scored_collapsed |>
+sample_sizes <- plus_hf_scored |>
 count(time) |>
 mutate(sample = "PLUS", time = as.character(time)) |>
 bind_rows(
-kimochis_hf_scored_collapsed |>
+kimochis_hf_scored |>
 count(time) |>
 mutate(sample = "Kimochis", time = as.character(time))
 ) |>
@@ -1102,7 +1223,7 @@ select(dataset, item_uid, prop_correct)
 
 # plus: raw trial-level accuracy per item_uid type (no collapsing)
 plus_item_props_raw <- plus_hf_items |>
-mutate(item_uid = str_remove(item, "-\\d+$")) |>
+# mutate(item_uid = str_remove(item, "-\\d+$")) |>
 filter(item_uid %in% levante_uid_types) |>
 filter(item_uid != "heartsflowers_heart_start") |>  # exclude anomalous item
 group_by(time, item_uid) |>
@@ -1183,28 +1304,28 @@ We first examined raw proportion correct across datasets as an index of item dif
 #| label: reliability-comparison
 #| include: false
 
-# levante reliability - one row per site
-levante_rxx <- task_rxx |>
-filter(task == "hf") |>
-select(site, itemtype, rxx) |>
-mutate(
-sample = case_when(
-site == "pilot_mpieva_de"   ~ "Levante (Germany)",
-site == "pilot_uniandes_co" ~ "Levante (Colombia)",
-site == "pilot_western_ca"  ~ "Levante (Canada)"
-),
-n_items = 9,
-scoring = "levante-equivalent"
-) |>
-select(sample, itemtype, n_items, rxx, scoring) |>
-arrange(itemtype, sample)
+# # levante reliability - one row per site
+# levante_rxx <- task_rxx |>
+# filter(task == "hf") |>
+# select(site, itemtype, rxx) |>
+# mutate(
+# sample = case_when(
+# site == "pilot_mpieva_de"   ~ "Levante (Germany)",
+# site == "pilot_uniandes_co" ~ "Levante (Colombia)",
+# site == "pilot_western_ca"  ~ "Levante (Canada)"
+# ),
+# n_items = 9,
+# scoring = "levante-equivalent"
+# ) |>
+# select(sample, itemtype, n_items, rxx, scoring) |>
+# arrange(itemtype, sample)
 
 # reliability by timepoint
-plus_rxx_by_time <- plus_hf_scored_collapsed |>
+plus_rxx_by_time <- plus_hf_scored |>
 group_by(time, itemtype) |>
 summarise(
 n   = n(),
-rxx = round(1 - mean(se_collapsed^2) / var(theta_collapsed), 3),
+rxx = round(1 - mean(se^2) / var(theta), 3),
 .groups = "drop"
 ) |>
 mutate(sample = "PLUS", time = as.character(time))
@@ -1241,7 +1362,7 @@ rxx_full_table <- bind_rows(
 levante_rxx |>
 mutate(time = NA_character_) |>
 select(sample, itemtype, time, n, rxx),
-plus_reliability_collapsed,
+plus_reliability,
 # tibble(sample = "PLUS", time = "Pooled", n = nrow(plus_hf_scored_collapsed), rxx = plus_reliability_collapsed),
 plus_rxx_by_time
 ) |>
@@ -1264,13 +1385,11 @@ autofit()
 #| echo: false
 #| tbl-cap: "Item-level pass rate (proportion of children scoring correct) by timepoint (PLUS)"
 
-# Note: correct_collapsed is a binary 0/1 variable where 1 means the child got more than half of that trial type correct. So mean(correct_collapsed) gives the proportion of children who passed that item type — it's a raw pass rate, not an IRT score.
-
 # item-level proportion correct by timepoint
-plus_item_props <- plus_hf_collapsed |>
+plus_item_props <- plus_hf_items |>
 filter(item_uid %in% shared_uid_types) |>
 group_by(time, item_uid) |>
-summarise(prop_correct = mean(correct_collapsed, na.rm = TRUE), .groups = "drop") |>
+summarise(prop_correct = mean(correct, na.rm = TRUE), .groups = "drop") |>
 mutate(time = as.character(time))
 
 plus_item_props |>
@@ -1293,10 +1412,10 @@ The distribution of θ estimates (@fig-distribution-by-timepoint) shows a rightw
 #| fig-height: 3
 #| fig-cap: "Distribution of ability estimates (θ) by timepoint in PLUS"
 
-plus_hf_scored_collapsed |>
+plus_hf_scored |>
 mutate(time = as.character(time),
 itemtype = itemtype |> replace_values("2pl" ~ "2PL", "rasch" ~ "Rasch")) |>
-ggplot(aes(x = theta_collapsed, fill = time)) +
+ggplot(aes(x = theta, fill = time)) +
 facet_wrap(vars(itemtype)) +
 geom_density(alpha = 0.5) +
 labs(
@@ -1318,10 +1437,17 @@ scale_fill_ptol() #+
 #| message: false
 
 # refit model on Fall only 
-plus_fall_wide <- plus_hf_collapsed_wide |>
+plus_fall_wide <- plus_hf_wide |>
 filter(as.character(time) == "PLUS Fall") |>
-select(all_of(shared_uid_types)) |>
+select(-stud_id, -time) |>
+# select(all_of(shared_uid_types)) |>
 as.matrix()
+
+# drop items with high missingness (because they mess up item fit stats)
+item_na_rate <- colSums(is.na(plus_fall_wide)) / nrow(plus_fall_wide)
+keep_items <- names(which(item_na_rate < 0.1))
+
+plus_fall_wide <- plus_fall_wide[,keep_items]
 
 # rebuild fixed parameters for fall only matrix
 fixed_pars_fall_rasch <- mirt(
@@ -1330,12 +1456,14 @@ model    = 1,
 itemtype = rep("Rasch", ncol(plus_fall_wide)),
 pars     = "values"
 ) |>
-left_join(levante_lookup_collapsed_rasch, by = c("item", "name"), suffix = c("", "_levante")) |>
+left_join(plus_item_inst_map) |>
+left_join(levante_lookup_rasch, by = c("item_uid", "name"), suffix = c("", "_levante")) |>
+# left_join(levante_lookup_rasch, by = c("item", "name"), suffix = c("", "_levante")) |>
 mutate(
 value = if_else(!is.na(value_levante), value_levante, value),
 est   = FALSE
 ) |>
-select(-value_levante)
+select(-value_levante, -item_uid)
 
 fixed_pars_fall_2pl <- mirt(
 data     = plus_fall_wide,
@@ -1343,12 +1471,14 @@ model    = 1,
 itemtype = rep("2PL", ncol(plus_fall_wide)),
 pars     = "values"
 ) |>
-left_join(levante_lookup_collapsed_2pl, by = c("item", "name"), suffix = c("", "_levante")) |>
+left_join(plus_item_inst_map) |>
+left_join(levante_lookup_2pl, by = c("item_uid", "name"), suffix = c("", "_levante")) |>
+# left_join(levante_lookup_2pl, by = c("item", "name"), suffix = c("", "_levante")) |>
 mutate(
 value = if_else(!is.na(value_levante), value_levante, value),
 est   = FALSE
 ) |>
-select(-value_levante)
+select(-value_levante, -item_uid)
 
 # fit model
 hf_mod_plus_fall_rasch <- mirt(
@@ -1356,7 +1486,7 @@ data      = plus_fall_wide,
 model     = 1,
 itemtype  = rep("Rasch", ncol(plus_fall_wide)),
 pars      = fixed_pars_fall_rasch,
-technical = list(NCYCLES = 1)
+tol       = NaN
 )
 
 hf_mod_plus_fall_2pl <- mirt(
@@ -1364,7 +1494,7 @@ data      = plus_fall_wide,
 model     = 1,
 itemtype  = rep("2PL", ncol(plus_fall_wide)),
 pars      = fixed_pars_fall_2pl,
-technical = list(NCYCLES = 1)
+tol       = NaN
 )
 
 # pre-compute fit stats for inline reporting and table
@@ -1376,10 +1506,12 @@ plus_fall_rmsea_min_2pl <- plus_fall_itemfit_2pl |> pull(RMSEA.S_X2) |> min() |>
 plus_fall_rmsea_max_2pl <- plus_fall_itemfit_2pl |> pull(RMSEA.S_X2) |> max() |> round(3)
 
 plus_fall_rmsea_range_rasch <- plus_fall_itemfit_rasch |>
-  filter(item != "heartsflowers_flower_start") |> pull(RMSEA.S_X2) |> range() |>
+  # filter(item != "heartsflowers_flower_start") |>
+  pull(RMSEA.S_X2) |> range() |>
   round(2) |> paste(collapse = "–")
 plus_fall_rmsea_range_2pl <- plus_fall_itemfit_2pl |>
-  filter(item != "heartsflowers_flower_start") |> pull(RMSEA.S_X2) |> range() |>
+  # filter(item != "heartsflowers_flower_start") |>
+  pull(RMSEA.S_X2) |> range() |>
   round(2) |> paste(collapse = "–")
 
 # display table
@@ -1388,35 +1520,40 @@ plus_fall_itemfit_rasch |> mutate(itemtype = "rasch", .before = everything()),
 plus_fall_itemfit_2pl |> mutate(itemtype = "2pl", .before = everything())
 ) |>
 as_tibble() |>
+filter(str_detect(item, "-1$")) |>
 arrange(itemtype, p.S_X2) |>
-mutate(p.S_X2 = format(p.S_X2, scientific = TRUE, digits = 3),
+mutate(signif = if_else(p.S_X2 < 0.05, "*", ""),
+       p.S_X2 = format(p.S_X2, scientific = TRUE, digits = 3),
        itemtype = itemtype |> replace_values("2pl" ~ "2PL", "rasch" ~ "Rasch")) |>
-rename(Item = item, Model = itemtype, RMSEA = RMSEA.S_X2, p = p.S_X2) |>
+# rename(Item = item, Model = itemtype, RMSEA = RMSEA.S_X2, p = p.S_X2) |>
 flextable() |>
+set_header_labels(item = "Item", itemtype = "Model", RMSEA.S_X2 = "RMSEA", p.S_X2 = "p", signif = "p < 0.05") |>
 colformat_double(digits = 3) |>
 theme_vanilla() |>
 autofit()
 
 ```
-Item level fit statistics are presented in @tbl-plus-fall-item-fit. Item fit was evaluated using the S-X2 statistic for the PLUS Fall sample (N = `r nrow(plus_fall_wide)`). All items showed significant misfit (all p < .001), with RMSEA values ranging from `r plus_fall_rmsea_min_rasch` to `r plus_fall_rmsea_max_rasch` for Rasch and `r plus_fall_rmsea_min_2pl` to `r plus_fall_rmsea_max_2pl` for 2PL. Most items showed moderate misfit (RMSEA = `r plus_fall_rmsea_range_rasch` for Rasch and `r plus_fall_rmsea_range_2pl` for 2PL), but `heartsflowers_flower_start` stood out as the worst (RMSEA = `r plus_fall_rmsea_max_rasch` for Rasch and `r plus_fall_rmsea_max_2pl` for 2PL). This pattern is consistent with the 750ms response window applied during PLUS data collection. Mixed block items require task-switching, which is cognitively demanding and inherently slower, meaning that correct responses are more likely to exceed the 750ms cutoff and be scored as incorrect. The first trial of the mixed block is particularly affected: regardless of ability, children tend to respond slowly on the initial switch into the mixed context. The Levante model, calibrated with a 2000ms window, expects this item to be easier than PLUS children's scores suggest, producing the severe misfit observed. By contrast, hearts and flowers block items — where median RTs fall well below 750ms — are less affected by the cutoff and show comparatively better fit.
 
-Together, the low reliability and level of item misfit suggest the Levante model does not generalize well to the PLUS assessment context. The misfit pattern is interpretable as a measurement artefact of the stricter response window rather than a fundamental failure of the model.
+Item level fit statistics are presented in @tbl-plus-fall-item-fit. Item fit was evaluated using the S-X2 statistic for the PLUS Fall sample (N = `r nrow(plus_fall_wide)`). All items showed significant misfit (all p < .001), with RMSEA values ranging from `r plus_fall_rmsea_min_rasch` to `r plus_fall_rmsea_max_rasch` for Rasch and `r plus_fall_rmsea_min_2pl` to `r plus_fall_rmsea_max_2pl` for 2PL.
+<!-- Most items showed moderate misfit (RMSEA = `r plus_fall_rmsea_range_rasch` for Rasch and `r plus_fall_rmsea_range_2pl` for 2PL), but `heartsflowers_flower_start` stood out as the worst (RMSEA = `r plus_fall_rmsea_max_rasch` for Rasch and `r plus_fall_rmsea_max_2pl` for 2PL). This pattern is consistent with the 750ms response window applied during PLUS data collection. Mixed block items require task-switching, which is cognitively demanding and inherently slower, meaning that correct responses are more likely to exceed the 750ms cutoff and be scored as incorrect. The first trial of the mixed block is particularly affected: regardless of ability, children tend to respond slowly on the initial switch into the mixed context. The Levante model, calibrated with a 2000ms window, expects this item to be easier than PLUS children's scores suggest, producing the severe misfit observed. By contrast, hearts and flowers block items — where median RTs fall well below 750ms — are less affected by the cutoff and show comparatively better fit. -->
+
+<!-- Together, the low reliability and level of item misfit suggest the Levante model does not generalize well to the PLUS assessment context. The misfit pattern is interpretable as a measurement artefact of the stricter response window rather than a fundamental failure of the model. -->
 
 ## What happens when we re-estimate item parameters from PLUS?
 ```{r}
 #| label: prep-plus-fall-for-irt
 #| include: false
 
-plus_fall_for_irt <- plus_hf_collapsed |>
+plus_fall_for_irt <- plus_hf_items |>
 filter(as.character(time) == "PLUS Fall",
 item_uid %in% shared_uid_types) |>
 transmute(
 user_id  = as.character(stud_id),
 run_id   = as.character(stud_id),
 item_uid = item_uid,
-correct  = correct_collapsed,
+correct  = correct,
 site     = "plus_fall",
-chance   = 0.25
+chance   = 0.5
 )
 
 plus_nested <- plus_fall_for_irt |>
@@ -1435,12 +1572,17 @@ unnest(data) |>
 filter(item_uid != "heartsflowers_heart_start") |>
 nest(data = -c(site, item_task)) |>
 bind_rows(plus_nested)
+
+# create new registry directory
+plus_regdir <- here("02_scoring_outputs", "model_registry_spark_plus")
+dir.create(plus_regdir, showWarnings = FALSE)
 ```
 
 ```{r}
 #| label: fit-multigroup-hf-plus
 #| include: false
 #| cache: true
+#| eval: false
 
 library(rlevante)
 library(rlang)
@@ -1456,10 +1598,6 @@ source(here("02_score_data/02_fit_irt/registry_helper.R"))
 
 # rm(pull)         
 # library(dplyr)   # restore dplyr::pull
-
-# create new registry directory
-plus_regdir <- here("02_scoring_outputs", "model_registry_spark_plus")
-dir.create(plus_regdir, showWarnings = FALSE)
 
 models_multigroup <- tribble(
 ~nfact, ~itemtype, ~invariance,
@@ -1954,11 +2092,12 @@ all_descriptive_rt |>
 
 ## Boundary condition — Kimochis
 ```{r}
-kimochis_rxx_by_time <- kimochis_hf_scored_collapsed |>
+
+kimochis_rxx_by_time <- kimochis_hf_scored |>
 group_by(time) |>
 summarise(
 n   = n(),
-rxx = round(1 - mean(se_collapsed^2) / var(theta_collapsed), 3),
+rxx = round(1 - mean(se^2) / var(theta), 3),
 .groups = "drop"
 ) |>
 mutate(sample = "Kimochis", time = as.character(time))
