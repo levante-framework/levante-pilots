@@ -27,18 +27,20 @@ write_rds(run_data, here("01_fetched_data/run_data.rds"), compress = "gz")
 ```{r}
 # fetch processed trials
 trials <- map(dataset_spec, \(ds) get_trials(ds$name, ds$version))
+write_rds(trials, here("01_fetched_data/trials.rds"), compress = "gz")
 
-task_data_nested <- task_data_nested |> unnest(data) |>
-#   left_join(run_data |> select(run_id, language)) |>
-  nest(data = -c(item_task, language))
+# task_data_nested <- task_data_nested |> unnest(data) |>
+# #   left_join(run_data |> select(run_id, language)) |>
+#   nest(data = -c(item_task, language))
 
 # nest by site and dataset
 task_data_nested <- trials |>
   list_rbind() |>
-  left_join(run_data |> select(run_id, language)) |>
-  nest(data = -c(item_task, language, site, dataset)) |>
+  left_join(run_data |> select(run_id, adaptive, language)) |> # filter(chance == 0) TODO: check on missing chance values
+  mutate(chance = if_else(item_task == "hf", 0.5, chance)) |> # temporary hotfix for wrong HF chance values
+  nest(data = -c(item_task, language)) |>
   filter(item_task != "ha") |>
-  arrange(item_task, dataset)
+  arrange(item_task, language)
 
 write_rds(task_data_nested, here("01_fetched_data/task_data_nested.rds"), compress = "gz")
 ```
