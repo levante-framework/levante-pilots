@@ -5,6 +5,7 @@ execute:
   warning: false
 format:
   html:
+    embed-resources: true
     code-fold: true
     theme: cosmo
     page-layout: full
