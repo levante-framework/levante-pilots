@@ -110,15 +110,32 @@ param_fits_d <- coef_mrot |>
   unnest(param_fits_d)
 
 param_fits_a <- coef_mrot |>
-  nest(coefs = -itemtype) |>
-  mutate(param_mod_a = map(coefs, \(cr) lm(discrimination ~ angle * item_group, data = cr)),
-         param_fits_a = map(param_mod_a, \(pmod) {
-           broom::augment(pmod, newdata = mrot_grid) |>
-             group_by(angle) |>
-             summarise(discrimination = mean(.fitted))
-         })) |>
-  select(itemtype, param_fits_a) |>
-  unnest(param_fits_a)
+  # select(itemtype, item_group, item, angle, discrimination) |>
+  group_by(itemtype, item_group, angle) |>
+  summarise(discrimination = mean(discrimination)) |>
+  pivot_wider(names_from = item_group, values_from = discrimination) |>
+  # mutate(delta_d = `2d` - `3d`) |>
+  # mutate(mean_shift = mean(delta_d, na.rm = TRUE),
+  #        shift_2d = `2d` - mean_shift) |>
+  mutate(shift_2d = if_else(itemtype == "2PL", `2d` - 0.25, 1),
+         g = 0.5) |>
+  select(itemtype, angle, discrimination = shift_2d, g)
+
+# param_fits_a <- coef_mrot |>
+#   filter(item_group == "2d") |>
+#   group_by(itemtype, angle) |>
+#   summarise(discrimination = mean(discrimination))
+
+# param_fits_a <- coef_mrot |>
+#   nest(coefs = -itemtype) |>
+#   mutate(param_mod_a = map(coefs, \(cr) lm(discrimination ~ angle * item_group, data = cr)),
+#          param_fits_a = map(param_mod_a, \(pmod) {
+#            broom::augment(pmod, newdata = mrot_grid) |>
+#              group_by(angle) |>
+#              summarise(discrimination = mean(.fitted))
+#          })) |>
+#   select(itemtype, param_fits_a) |>
+#   unnest(param_fits_a)
 
 param_fits <- left_join(param_fits_d, param_fits_a)
 
@@ -226,9 +243,9 @@ ggplot(item_info |> mutate(angle = angle |> as_factor()), aes(x = theta, y = inf
 
 ```{r}
 #| label: mrot_info_blocks
-#| fig-width: 8
+#| fig-width: 9
 #| fig-height: 4
-#| out-width: 90%
+#| out-width: 100%
 #| fig.show: hold
 
 item_info_blocks <- item_info |>
@@ -263,4 +280,37 @@ ggplot(item_info_blocks, aes(x = theta, y = info)) +
   labs(x = "Theta", y = "Item information (block average)", colour = "Block") +
   theme(legend.position = "top")
 # ggsave("mrot_info_blocks.png", width = 8, height = 4)
+```
+
+### Followup: check where thresholds fall in empirical score distribution 
+
+```{r}
+#| label: mrot_score_dist
+#| fig-width: 9
+#| fig-height: 5
+#| out-width: 100%
+#| fig.show: hold
+
+run_data <- read_rds(here("01_fetched_data/run_data.rds"))
+mrot_scores <- run_data |>
+  filter(task_code == "mrot") |>
+  select(site, dataset, run_id, age, score, score_se) |>
+  filter(!is.na(age), age >= 5, age <= 14) |>
+  mutate(site = site |> str_remove("pilot_") |> str_replace_all("_", "-"))
+mrot_scores_all <- mrot_scores |> bind_rows(mrot_scores |> mutate(site = "all")) |> mutate(site = fct_relevel(site, "all", after = Inf))
+
+thresholds_2pl <- thresholds |> filter(itemtype == "2PL")
+
+ggplot(mrot_scores_all, aes(x = score)) +
+  geom_vline(xintercept = thresholds_2pl$theta,
+             colour = "lightgrey", linewidth = 0.3) +
+  geom_label(aes(label = theta, x = theta), y = Inf, data = thresholds_2pl,
+             colour = "darkgrey", vjust = "inward", size = 2.5,
+             label.padding = unit(0.15, "lines"), linewidth = 0.2) +
+  geom_density(aes(colour = site), linewidth = 0.5) +
+  scale_colour_manual(values = c(ptol_pal()(3), "slategrey")) +
+  xlim(range(theta)) +
+  scale_y_continuous(expand = expansion(mult = c(0.01, 0.1))) +
+  labs(x = "Theta", y = "Density", colour = "") +
+  theme(legend.position = "bottom")
 ```
