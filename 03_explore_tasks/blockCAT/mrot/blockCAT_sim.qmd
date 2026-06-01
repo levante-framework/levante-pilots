@@ -1,0 +1,267 @@
+---
+title: "Block CAT simulations"
+format: html
+---
+
+```{r setup}
+#| code-fold: false
+#| echo: false
+
+library(mirtCAT)
+library(tidyverse)
+```
+
+Goal: simulate running of block CAT to inform selection of block thresholds
+
+![](blockCAT_flow.png){width=75%}
+
+```{r}
+# params and thresholds from mrot_info.qmd
+mrot_cat_info <- read_rds("mrot_cat_info.rds")
+
+thresholds <- mrot_cat_info |>
+  select(itemtype, next_block = block_index, block_threshold) |>
+  distinct()
+```
+
+```{r}
+# block + item + params needed for mirtCAT
+mrot_cat_params <- mrot_cat_info |>
+  mutate(d = -difficulty * discrimination,
+         itemtype = as.character(itemtype)) |>
+  select(itemtype, block_index, item_uid, item_entry, angle, a1 = discrimination, d, g = chance)
+
+# mrot_cat_params |>
+#   group_by(itemtype, block_index) |>
+#   filter(d == max(d))
+#   summarise(min_d = min(d),
+#             max_d = max(d))
+
+# read in list of items in current item bank
+item_bank <- tibble(item_uid = read_lines("mrot_item_bank.txt")) |>
+  mutate(item_index = 1:n()) |>
+  group_by(item_uid) |>
+  mutate(instance = 1:n(),
+         item = paste(item_uid, instance, sep = "-")) |>
+  ungroup()
+item_bank_itemtype <- list("Rasch" = item_bank, "2PL" = item_bank) |> list_rbind(names_to = "itemtype")
+
+# combine item bank and params
+mrot_cat_params_bank <- mrot_cat_params |>
+  left_join(item_bank_itemtype) |>
+  arrange(itemtype, block_index, item_index) |>
+  group_by(itemtype, block_index) |>
+  mutate(item_i = 1:n()) |>
+  ungroup() |>
+  select(-item_index, -instance)
+
+# nest by itemtype + block and create mirt objects from params
+mrot_cat_mods <- mrot_cat_params_bank |>
+  nest(items = c(item_i, item_uid, item, item_entry, angle), block_pars = c(a1, d, g)) |>
+  mutate(mod = map2(block_pars, itemtype, generate.mirt_object))
+
+# theta grid to simulate over -- theta values x number of samples
+theta_vals <- seq(-3, 3, by = 1)
+n_samp <- 20
+theta_mx <- matrix(rep(theta_vals, each = n_samp))
+# initial_theta <- -2
+
+# set starting thetas for each block to difficulty of start item
+start_thetas <- mrot_cat_params_bank |>
+  filter(item_i == 1) |>
+  mutate(difficulty = -d / a1) |>
+  select(itemtype, block_index, start_theta = difficulty)
+
+# set up objects needed as inputs mirtCAT
+mrot_cat_setup <- mrot_cat_mods |>
+  left_join(start_thetas) |>
+  # left_join(thresholds, by = c("itemtype", "block_index" = "next_block")) |>
+  # mutate(start_theta = if_else(block_index == 1, initial_theta, block_threshold)) |>
+  mutate(
+    df = map(items, \(it) {
+      data.frame(Questions = it$item_uid,
+                 Option = matrix(c(0,1), nrow(it), 2, byrow = TRUE),
+                 Type = "radio",
+                 stringsAsFactors = FALSE)
+    }),
+    patterns = map(mod, \(m) generate_pattern(m, Theta = theta_mx)),
+    design = map2(items, start_theta, \(it, th) list(min_items = floor(nrow(it) / 3),
+                                                     max_items = floor(nrow(it) / 3),
+                                                     thetas.start = th,
+                                                     theta_range = c(-6, 6))))
+
+# run mirtCAT given arguments (specification data frame, mirt model, response pattern matrix, design parameter list)
+mrot_cat <- \(df, mod, patterns, design, est_method) {
+  message("Running mirtCAT...")
+  mirtCAT(df, mod, method = est_method, criteria = "MI",
+          local_pattern = patterns, design = design)
+}
+
+# tidy mirtCAT output into trial-level tibble
+extract_cat_log <- \(cat_run) {
+  imap(cat_run, \(x, i) {
+    tibble(sample_i = i,
+           trial_i = seq_along(x$thetas_history),
+           true_theta = x$true_thetas,
+           theta = x$thetas_history[,"Theta_1"],
+           theta_se = x$thetas_SE_history[,"Theta_1"],
+           item_i = c(NA, x$items_answered),
+           correct = c(NA, x$scored_responses[x$items_answered]))
+  }) |>
+    list_rbind()
+}
+
+# run mirtCAT for block 1
+mrot_cat_block_1 <- mrot_cat_setup |>
+  filter(block_index == 1) |>
+  mutate(cat = pmap(list(df, mod, patterns, design), mrot_cat))
+
+# tidy block 1 output
+cat_log_block_1 <- mrot_cat_block_1 |>
+  select(itemtype, cat) |>
+  deframe() |>
+  map(extract_cat_log) |>
+  list_rbind(names_to = "itemtype") |>
+  mutate(block_index = 1, .before = everything()) |>
+  left_join(mrot_cat_params_bank) |>
+  mutate(item_label = paste(item_i, item_entry, angle))
+
+ggplot(cat_log_block_1 |> filter(true_theta > 0),
+       aes(x = trial_i, y = theta, colour = true_theta)) +
+  facet_grid(vars(itemtype), vars(true_theta), scales = "free_y",
+             labeller = labeller(true_theta = \(x) glue("θ = {x}"))) +
+  geom_hline(aes(yintercept = block_threshold), colour = "lightgrey", linetype = "dashed",
+             data = thresholds) +
+  geom_hline(aes(yintercept = true_theta), colour = "slategrey") +
+  geom_line(aes(group = sample_i), alpha = 0.8, linewidth = 0.5) +
+  scale_colour_viridis_c(guide = "none") +
+  labs(x = "Trial", y = "θ estimate")
+ggsave("mrot_cat_block1_theta.png", width = 12, height = 4)
+
+cat_log_block_1 |>
+  filter(!is.na(item)) |>
+  arrange(desc(angle), item_entry) |>
+  mutate(item_label = paste(item_entry, angle) |> fct_inorder()) |>
+  ggplot(aes(x = trial_i, y = item_label, colour = true_theta)) +
+  facet_grid(vars(itemtype), vars(true_theta), scales = "free_y",
+             labeller = labeller(true_theta = \(x) glue("θ = {x}"))) +
+  # facet_wrap(vars(true_theta), nrow = 1, #scales = "free_y",
+  #            labeller = as_labeller(\(x) glue("θ = {x}"))) +
+  geom_point(size = 0.8) +
+  geom_line(aes(group = sample_i), alpha = 0.8, linewidth = 0.5) +
+  scale_colour_viridis_c(guide = "none") +
+  labs(x = "Trial", y = "Item")
+ggsave("mrot_cat_block1_items.png", width = 12, height = 4)
+
+
+cat_log_block_1 |>
+  filter(!is.na(item)) |>
+  filter(trial_i <= 10) |>
+  # arrange(desc(angle), item_entry) |>
+  # mutate(item_label = paste(item_entry, angle) |> fct_inorder()) |>
+  ggplot(aes(x = trial_i, y = angle, colour = true_theta)) +
+  facet_grid(vars(itemtype), vars(true_theta), scales = "free_y",
+             labeller = labeller(true_theta = \(x) glue("θ = {x}"))) +
+  # facet_wrap(vars(true_theta), nrow = 1, #scales = "free_y",
+  #            labeller = as_labeller(\(x) glue("θ = {x}"))) +
+  geom_point(size = 0.8) +
+  geom_line(aes(group = sample_i), alpha = 0.8, linewidth = 0.5) +
+  scale_colour_viridis_c(guide = "none") +
+  labs(x = "Trial", y = "Item")
+
+cat_log_block_1 |>
+  count(trial_i, item_entry, angle)
+```
+
+```{r}
+# block_1_pass <- cat_log_block_1 |>
+#   mutate(next_block = block_index + 1) |>
+#   left_join(thresholds) |>
+#   filter(theta >= block_threshold) #|>
+  # group_by(sample_i) |>
+  # filter(trial_i == max(trial_i))
+
+ggplot(block_1_pass, #|> filter(true_theta > 0),
+       aes(x = trial_i, y = theta, colour = true_theta)) +
+  facet_grid(vars(itemtype), vars(true_theta), scales = "free_y",
+             labeller = labeller(true_theta = \(x) glue("θ = {x}"))) +
+  geom_hline(aes(yintercept = true_theta), colour = "lightgrey") +
+  geom_line(aes(group = sample_i), alpha = 0.8, linewidth = 0.5) +
+  scale_colour_viridis_c(guide = "none") +
+  labs(x = "Trial", y = "θ estimate")
+
+block_1_thetas <- cat_log_block_1 |>
+  group_by(itemtype, sample_i) |>
+  filter(trial_i == max(trial_i)) |>
+  ungroup() |>
+  select(itemtype, sample_i, theta_block_1 = theta)
+
+# run mirtCAT for block 1
+mrot_cat_block_1 <- mrot_cat_setup |>
+  filter(block_index == 2) |>
+  # mutate(design = map(design, \(de) ))
+  mutate(cat = pmap(list(df, mod, patterns, design), mrot_cat))
+
+```
+
+```{r}
+mrot_cat_block <- mrot_cat_setup |>
+  expand_grid(tibble(method = c("EAP", "MAP", "ML"))) |>
+  mutate(cat = pmap(list(df, mod, patterns, design, method), mrot_cat))
+
+cat_log_block <- mrot_cat_block |>
+  mutate(cat_log = map(cat, extract_cat_log)) |>
+  select(itemtype, block_index, method, cat_log) |>
+  unnest(cat_log) |>
+  left_join(mrot_cat_params_bank) |>
+  mutate(item_label = paste(item_i, item_entry, angle),
+         block_trial = paste(block_index, trial_i))
+
+cat_log_block |> filter(itemtype == "2PL", method == "EAP") |>
+ggplot(aes(x = trial_i, y = theta, colour = true_theta)) +
+  facet_grid(vars(block_index), vars(true_theta), scales = "free_y",
+             labeller = labeller(true_theta = \(x) glue("θ = {x}"))) +
+  # facet_wrap(vars(true_theta), scales = "free_y", nrow = 1,
+  #            labeller = labeller(true_theta = \(x) glue("θ = {x}"))) +
+  geom_hline(aes(yintercept = block_threshold),
+             colour = "lightgrey", linetype = "dashed", linewidth = 0.25,
+             data = thresholds |> filter(itemtype == "2PL", !is.na(block_threshold))) +
+  geom_hline(aes(yintercept = true_theta), linewidth = 0.25, colour = "slategrey") +
+  geom_line(aes(group = sample_i), alpha = 0.8, linewidth = 0.5) +
+  scale_colour_viridis_c(guide = "none") +
+  labs(x = "Trial", y = "θ estimate")
+ggsave("mrot_cat_allblocks_theta.png", width = 10, height = 3)
+
+cat_log_block |>
+  filter(itemtype == "2PL", method == "EAP") |>
+  filter(!is.na(item)) |>
+  filter(true_theta %in% c(-2, 0, 2)) |>
+  arrange(desc(block_index), desc(angle), item_entry) |>
+  mutate(item_label = paste(item_entry, angle) |> fct_inorder()) |>
+  arrange(sample_i, block_index, trial_i) |>
+  mutate(block_trial = block_trial |> fct_inorder()) |>
+  ggplot(aes(x = block_trial, y = item_label, colour = true_theta)) +
+  facet_grid(vars(block_index), vars(true_theta), scales = "free_y", space = "free_y",
+             labeller = labeller(true_theta = \(x) glue("θ = {x}"))) +
+  # facet_grid(vars(itemtype), vars(true_theta), scales = "free_y",
+  #            labeller = labeller(true_theta = \(x) glue("θ = {x}"))) +
+  # facet_wrap(vars(true_theta), nrow = 1, #scales = "free_y",
+  #            labeller = as_labeller(\(x) glue("θ = {x}"))) +
+  geom_point(size = 0.8) +
+  geom_line(aes(group = sample_i), alpha = 0.8, linewidth = 0.5) +
+  scale_colour_viridis_c(guide = "none") +
+  labs(x = "Trial", y = "Item")
+
+final_thetas <- cat_log_block |>
+  group_by(method, itemtype, block_index, sample_i) |>
+  filter(trial_i == max(trial_i)) |>
+  ungroup() |>
+  select(method, itemtype, block_index, sample_i, true_theta, theta, theta_se) |>
+  filter(itemtype == "2PL") |>
+  pivot_wider(names_from = method, values_from = c(theta, theta_se))
+ggplot(final_thetas, aes(x = theta_MAP, y = theta_EAP)) +
+  facet_grid(vars(block_index), vars(true_theta), scales = "free_y",
+             labeller = labeller(true_theta = \(x) glue("θ = {x}"))) +
+  geom_point()
+
+```

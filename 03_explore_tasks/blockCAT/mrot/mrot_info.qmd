@@ -314,3 +314,24 @@ ggplot(mrot_scores_all, aes(x = score)) +
   labs(x = "Theta", y = "Density", colour = "") +
   theme(legend.position = "bottom")
 ```
+
+```{r}
+blocks <- bind_rows(
+  cross_animal_poly |> select(itemtype, block_threshold = theta) |> mutate(block_index = 2),
+  cross_poly_shape |> select(itemtype, block_threshold = theta) |> mutate(block_index = 3)
+) |>
+  ungroup()
+
+mrot_cat_info <- coef_combined |>
+  mutate(angle_str = as.character(angle),
+         angle_str = if_else(str_length(angle_str) == 2, paste0("0", angle_str), angle_str),
+         item_uid = paste(task_code, item_group, item_entry, angle_str, sep = "_"),
+         block_index = case_when(item_group == "3d" ~ 3,
+                                 str_detect(item_entry, "polygon") ~ 2,
+                                 .default = 1)) |>
+  left_join(blocks) |>
+  select(itemtype, item_group, block_index, block_threshold, item_uid, item_entry, angle, difficulty, discrimination, chance = g) |>
+  arrange(itemtype, block_index)
+
+write_rds(mrot_cat_info, "mrot_cat_info.rds", compress = "gz")
+```
