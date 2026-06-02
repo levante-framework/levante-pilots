@@ -4,7 +4,7 @@ library(here)
 library(glue)
 
 source(here("03_summaries", "plotting_helper.R"))
-runs <- read_rds(here("01_fetched_data/run_data.rds"))
+run_data <- read_rds(here("01_fetched_data/run_data.rds"))
 ```
 
 # Task durations
@@ -46,12 +46,12 @@ ggsave(here("03_summaries", "plots", "data_waves.png"),
 ```{r}
 time_summary <- task_data |>
   arrange(run_id, timestamp) |>
-  group_by(site, item_task, run_id) |>
+  group_by(site, dataset, item_task, run_id) |>
   summarise(trials = n(),
             start = min(timestamp), end = max(timestamp)) |>
   ungroup() |>
   mutate(diff = difftime(end, start, units = "mins")) |>
-  left_join(runs |> select(run_id, is_cat = adaptive)) |>
+  left_join(run_data |> select(run_id, is_cat = adaptive)) |>
   filter(trials > 3, diff < 120)
 
 # ggplot(time_summary, aes(x = diff)) +
@@ -59,19 +59,19 @@ time_summary <- task_data |>
 #   geom_histogram()
 
 ggplot(time_summary,# |> filter(item_task %in% core_tasks),
-       aes(x = trials, y = diff, color = site)) +
+       aes(x = trials, y = diff, color = dataset)) +
   facet_wrap(vars(item_task), scales = "free") +
   geom_point()
 ggsave("durations.png", width = 8, height = 8)
 
 task_time_summary <- time_summary |>
-  bind_rows(time_summary |> mutate(site = "all")) |>
+  bind_rows(time_summary |> mutate(site = "all", dataset = "all")) |>
   filter(!is.na(is_cat)) |>
-  group_by(site, item_task, is_cat) |>
+  group_by(site, dataset, item_task, is_cat) |>
   summarise(median_diff = median(diff),
             min_diff = min(diff),
             max_diff = max(diff),
-            n_runs = n()) |>
+            n_run_data = n()) |>
   ungroup() |>
   mutate(across(contains("diff"), \(d) round(d, 2))) |>
   mutate(combined_diff = glue("{median_diff} [{min_diff}, {max_diff}]"))
