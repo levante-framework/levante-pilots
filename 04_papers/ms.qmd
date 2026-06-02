@@ -305,7 +305,6 @@ execute:
   echo: false
   message: false
   warning: false
-  error: true
   cache: true
 ---
 
@@ -318,6 +317,7 @@ library(here)
 library(glue)
 library(purrr)
 library(viridis)
+library(readxl)
 
 library(flextable)
 library(ftExtra)
@@ -328,6 +328,7 @@ library(mirt)
 library(broom.mixed)
 library(lmerTest)
 library(emmeans)
+library(tidySEM)
 
 source(here("03_summaries","plotting_helper.R"))
 source(here("plot_settings.R"))
@@ -336,11 +337,11 @@ source(here("plot_settings.R"))
 ```{r settings}
 #| cache: false
 
-site_labels <- c("uniandes-co" = "pilot_uniandes_co",
-                 "mpieva-de" = "pilot_mpieva_de",
-                 "western-ca" = "pilot_western_ca")
-core_tasks   <- c("matrix","mrot","math","hf","mg","sds",
-                  "trog","vocab","tom")
+site_labels <- c("uniandes-co-bogota" = "pilot_uniandes_co_bogota",
+                 "uniandes-co-rural" = "pilot_uniandes_co_rural",
+                 "mpieva-de" = "pilot_mpieva_de_main",
+                 "western-ca" = "pilot_western_ca_main")
+core_tasks <- c("matrix", "mrot", "math", "hf", "mg", "sds", "trog", "vocab", "tom")
 
 sites <- names(site_labels)
 site_pal <- solarized_pal()(length(sites)) |> set_names(sites)
@@ -432,22 +433,43 @@ We end by discussing future plans for further internationalization and downward 
 # The LEVANTE Core Tasks
 
 ```{r load-scores}
-all_scores <- read_rds(here("02_scoring_outputs","scores","scores_combined.rds")) |>
+task_info <- tribble(
+  ~item_task , ~task               , ~task_category,
+  "hf"       , "hearts & flowers"       , "executive function",
+  "sds"      , "same & different"       , "executive function",
+  "mg"       , "memory"                 , "executive function",
+  "math"     , "math"                   , "math",
+  "matrix"   , "pattern matching"       , "reasoning",
+  "mrot"     , "shape rotation"         , "spatial cognition",
+  "trog"     , "sentence understanding" , "language",
+  "vocab"    , "vocabulary"             , "language",
+  "tom"      , "stories"                , "social cognition",
+  "pa"       , "language sounds"        , "reading",
+  "sre"      , "sentence reading"       , "reading",
+  "swr"      , "word reading"           , "reading",
+  "mefs"     , "MEFS"                   , "executive function"
+) |>
+  mutate(task = task |> str_to_title() |> fct_inorder(),
+         task_category = task_category |> str_to_title() |> fct_inorder())
+
+# all_scores <- read_rds(here("02_scoring_outputs","scores","scores_combined.rds")) |>
+all_scores <- read_rds(here("01_fetched_data/run_data.rds")) |>
+  rename(item_task = task_code) |>
   group_by(user_id, item_task) |>
   arrange(age) |>
   mutate(run_number = 1:n(),
          age_gap = age - age[1]) |>
   ungroup() |>
-  mutate(site_label = site |> fct_recode(!!!site_labels)) |>
-  mutate(task = task |> str_to_title() |> fct_inorder(),
-         task_category = task_category |> str_to_title() |> fct_inorder())
+  mutate(site_label = dataset |> fct_recode(!!!site_labels)) |>
+  left_join(task_info)
 
 task_map <- all_scores |> distinct(item_task, task)
 
 age_scores <- all_scores |> filter(age >= 5, age < 13)
 
 included_scores <- age_scores |>
-  filter(run_number == 1 | (run_number == 2 & age_gap > 1/6))
+  filter(run_number == 1 | (run_number == 2 & age_gap > 1/6)) |>
+  filter_out(num_attempted < 10)
 
 coretask_scores <- included_scores |>
   filter(item_task %in% core_tasks)
@@ -463,18 +485,19 @@ task_time_summary <- read_rds(here("03_summaries","tables",
 
 task_time_table <- task_time_summary |>
   filter(item_task %in% core_tasks) |>
-  mutate(site_label = site |> fct_recode(!!!site_labels, "All" = "all"),
-         adaptive = if_else(is_cat, "Adaptive", "Non-adaptive")) |>
+  mutate(site_label = dataset |> fct_recode(!!!site_labels, "All" = "all"),
+         adaptive = if_else(is_cat, "adaptive", "non_adaptive")) |>
   left_join(task_map) |>
   select(task, site_label, adaptive, median_diff) |>
   pivot_wider(names_from = adaptive, values_from = median_diff) |>
-  mutate(pct = 100 * as.numeric(Adaptive) / as.numeric(`Non-adaptive`),
-         `Non-adaptive` = sprintf("%.2f", `Non-adaptive`),
-         Adaptive = if_else(is.na(Adaptive), NA, as.character(glue("{Adaptive} ({round(pct, 0)}%)")))) |>
+  mutate(pct = 100 * as.numeric(adaptive) / as.numeric(non_adaptive),
+         non_adaptive = sprintf("%.2f", non_adaptive),
+         adaptive = if_else(is.na(adaptive), NA, as.character(glue("{adaptive} ({round(pct, 0)}%)")))) |>
   select(-pct) |>
-  pivot_longer(names_to = "adaptive", values_to = "median_diff", cols = c(`Non-adaptive`, `Adaptive`)) |>
+  pivot_longer(names_to = "adaptive", values_to = "median_diff",
+               cols = c(non_adaptive, adaptive)) |>
   pivot_wider(names_from = c(adaptive, site_label), values_from = median_diff) |>
-  select(task, starts_with("Non"), starts_with("Adaptive")) |>
+  select(task, starts_with("non"), starts_with("adaptive")) |>
   arrange(task)
 
 # task_time_table |>
@@ -521,7 +544,7 @@ The Test for Reception of Grammar (TROG) [@bishop1982] is a multiple-choice meas
 
 ### Vocabulary
 
-The Vocabulary task was developed as a non-commercial, open alternative to tasks such as the Peabody Picture Vocabulary [@dunn1965] and the NIH Toolbox Picture Vocabulary Task [@zelazo2013national]; see @long_ma_tan_silverman_frank_yeatman_2025 for more details. In this task, children hear a target word read aloud and are shown four pictures. They must identify the picture that matches the word among three distractors. A first set of targets and distractors were sourced from the THINGS+ dataset [@hebart2019things; @stoinski2024thingsplus], specifically from the permissively-licensed subset of the data; in this item subset (108 items) each image had a semantically close and semantically far distractor as well as an unrelated distractor image (e.g., target word “acorn” with close distractor being a “coconut”, and the far and unrelated distractors being “keys” and “laundry”).  Additional difficult items were included beyond those analyzed in @long_ma_tan_silverman_frank_yeatman_2025. These more difficult items were sourced and translated from an open-sourced Dutch receptive vocabulary assessment tool, the DAIVT [@bousard2021dutch]; we also manually constructed several of our own items to reach a total of 170.
+The Vocabulary task was developed as a non-commercial, open alternative to tasks such as the Peabody Picture Vocabulary [@dunn1965] and the NIH Toolbox Picture Vocabulary Task [@zelazo2013national]; see @long_ma_tan_silverman_frank_yeatman_2025 for more details. In this task, children hear a target word read aloud and are shown four pictures. They must identify the picture that matches the word among three distractors. A first set of targets and distractors were sourced from the THINGS+ dataset [@hebart2019things; @stoinski2024thingsplus], specifically from the permissively-licensed subset of the data; in this item subset (108 items) each image had a semantically close and semantically far distractor as well as an unrelated distractor image (e.g., target word "acorn" with close distractor being a "coconut", and the far and unrelated distractors being "keys" and "laundry").  Additional difficult items were included beyond those analyzed in @long_ma_tan_silverman_frank_yeatman_2025. These more difficult items were sourced and translated from an open-sourced Dutch receptive vocabulary assessment tool, the DAIVT [@bousard2021dutch]; we also manually constructed several of our own items to reach a total of 170.
 
 ## Math
 
@@ -541,7 +564,7 @@ Mental rotation refers to the ability to imagine the rotation of objects in spac
 
 ### Same and Different 
 
-The Same Different Selection (SDS) task was designed to assess cognitive flexibility in children [@obradovic2025sds]. It incorporates elements from the “Something’s the Same” task [@willoughby2011] and “Flexible Item Selection Task” [@jacques2001] as initial task blocks and extends these tasks by including more advanced blocks that increase the number of conceptual dimensions, values per dimension, and number of presented cards. Children are presented with sets of cards that show geometric figures that vary along multiple dimensions, such as shape, color, size, and number. They are required to identify similarities and differences between cards based on these dimensions (e.g., choosing a pair of cards with figures that share the same color and then choosing a pair of cards that share the same number of figures), by engaging their ability to shift attention from previously identified dimensions and identify new matching dimensions criteria. The version of the task we adapted included successively more difficult blocks of trials in which children were asked to identify two, three, or four pairs of items that were the same in different ways (e.g., matching on different dimensions). 
+The Same Different Selection (SDS) task was designed to assess cognitive flexibility in children [@obradovic2025sds]. It incorporates elements from the "Something’s the Same" task [@willoughby2011] and "Flexible Item Selection Task" [@jacques2001] as initial task blocks and extends these tasks by including more advanced blocks that increase the number of conceptual dimensions, values per dimension, and number of presented cards. Children are presented with sets of cards that show geometric figures that vary along multiple dimensions, such as shape, color, size, and number. They are required to identify similarities and differences between cards based on these dimensions (e.g., choosing a pair of cards with figures that share the same color and then choosing a pair of cards that share the same number of figures), by engaging their ability to shift attention from previously identified dimensions and identify new matching dimensions criteria. The version of the task we adapted included successively more difficult blocks of trials in which children were asked to identify two, three, or four pairs of items that were the same in different ways (e.g., matching on different dimensions). 
 
 ### Hearts and Flowers
 
@@ -615,165 +638,6 @@ Initially designed in English, the core tasks were subsequently adapted for Span
 
 # Pilot Data Collection
 
-```{r compute_counts, eval=F}
-percentify <- \(s) as.character(glue("{sprintf('%.1f', s)}%"))
-
-run_data <- read_rds(here("01_fetched_data/run_data.rds"))
-# FixMe: Mika these don't exist any longer
-runs_nonempty <- read_rds(here("01_fetched_data/runs_nonempty.rds"))
-runs_filtered <- read_rds(here("01_fetched_data/runs_filtered.rds"))
-
-# all runs
-run_counts <- run_data |> count(site, task_id, name = "n_total_runs")
-
-# runs with any trials
-run_nonempty_counts <- runs_nonempty |> count(site, task_id, name = "n_nonempty_runs")
-
-# runs filtered to completed, no straightlining, first in admin
-run_filtered_counts <- runs_filtered |> count(site, task_id, name = "n_filtered_runs")
-
-# runs in trial data (must have item info)
-# trial_data <- read_rds(here(glue("01_fetched_data/trial_data.rds")))
-# trial_run_counts <- trial_data |> distinct(site, task_id, run_id) |> count(site, task_id, name = "n_trials_runs")
-
-# runs in filtered trial data (both above filters + not all invalid trials)
-task_data <- read_rds(here(glue("01_fetched_data/task_data_nested.rds"))) |> unnest(data)
-trial_filtered_run_counts <- task_data |> distinct(site, task_id, run_id) |> count(site, task_id, name = "n_trials_filtered_runs")
-
-# scores (above runs + non-missing age)
-score_counts <- all_scores |> count(site, task_id, name = "n_scores")
-
-# age in range scores (above scores + age in range)
-age_score_counts <- age_scores |> count(site, task_id, name = "n_age_scores")
-
-# included scores (above scores + first run or large enough age gap)
-included_score_counts <- included_scores |> count(site, task_id, name = "n_included_scores")
-
-# combined_counts <- list(run_counts, trial_run_counts, run_filtered_counts, trial_filtered_run_counts, score_counts, included_score_counts) |>
-counts <- list(run_counts, run_nonempty_counts, run_filtered_counts, trial_filtered_run_counts, score_counts, age_score_counts, included_score_counts) |>
-  reduce(left_join) |>
-  left_join(all_scores |> distinct(task_id, item_task, task) |> filter(item_task != "ha")) |>
-  filter(item_task %in% core_tasks) |>
-  select(-task_id, -item_task) |>
-  relocate(task, .before = everything()) |>
-  arrange(task) |>
-  mutate(site = site |> fct_recode(!!!site_labels))
-
-# write_csv(counts, here("04_papers/display/counts.csv"))
-
-# counts_long <- combined_counts |>
-#   pivot_longer(starts_with("n_"), names_to = "count", names_prefix = "n_", values_to = "n") |>
-#   mutate(count = count |> fct_inorder())
-
-# anti_join(
-# all_scores |> filter(item_task != "ha") |> select(site, task_id, run_id),
-# task_data |> distinct(site, task_id, run_id)
-# )
-# 
-# lost_runs <- anti_join(
-#   task_data |> filter(item_task %in% irt_tasks, item_task != "ha") |> distinct(site, task_id, run_id),
-#   all_scores |> select(site, task_id, run_id)
-# ) 
-  
-  # filter(site == "pilot_western_ca") |>
-  # filter(timestamp == min(timestamp))
-# run_data |>
-#   semi_join(lost_runs) |>
-#   filter(!is.na(age)) |>
-#   filter(time_started == min(time_started)) |> pull(time_started)
-#   pull(run_id) |> pluck(1)
-
-site_counts <- counts |>
-  group_by(site) |>
-  summarise(across(starts_with("n_"), sum)) |>
-  pivot_longer(cols = -site,
-               names_to = "count", values_to = "n", names_prefix = "n_")
-
-site_diffs <- site_counts |>
-  group_by(site) |>
-  mutate(diff = lag(n) - n,
-         pct_diff = diff / max(n) * 100,
-         excluded = glue("{diff} [{percentify(pct_diff)}]"),
-         comparison = paste(lag(count), "-", count)) |>
-  ungroup() |>
-  filter(count != "total_runs") |>
-  select(site, count = comparison, n = excluded)
-
-site_endpoints <- site_counts |>
-  group_by(site) |>
-  slice(1, n()) |>
-  ungroup() |>
-  mutate(n = as.character(n))
-
-site_table <- bind_rows(site_endpoints, site_diffs) |>
-  pivot_wider(names_from = site, values_from = n) |>
-  mutate(count = count |> fct_inorder() |> fct_relevel("included_scores", after = Inf)) |>
-  arrange(count) |>
-  mutate(count = count |> fct_recode(
-    "Total number of runs" = "total_runs",
-    "Excluded for not having any trial data" = "total_runs - nonempty_runs",
-    "Excluded for being incomplete, invalid, or duplicate" = "nonempty_runs - filtered_runs",
-    "Excluded for missing item metadata" = "filtered_runs - trials_filtered_runs",
-    "Excluded for missing age" = "trials_filtered_runs - scores",
-    "Excluded for age out of range" = "scores - age_scores",
-    "Excluded for non-retest non-first run or retest with too short retest gap" = "age_scores - included_scores",
-    "Final number of scored runs" = "included_scores"
-  )) |>
-  rename(Count = count)
-
-site_totals <- site_counts |> filter(count == "total_runs") |> select(site, n) |> deframe()
-
-user_totals <- run_data |>
-  group_by(site) |>
-  summarise(n_users = n_distinct(user_id)) |>
-  mutate(site = site |> fct_recode(!!!site_labels))
-
-user_score_counts <- coretask_scores |>
-  group_by(site) |>
-  summarise(n_users = n_distinct(user_id),
-            n_runs = n_distinct(run_id)) |>
-  mutate(site = site |> fct_recode(!!!site_labels))
-
-collapse_value_list <- \(l) l |> imap(\(v, n) paste(n, v, sep = ": ")) |> paste(collapse = ", ")
-
-get_count_row <- \(i) {
-  site_table |> slice(i) |> select(-Count) |> collapse_value_list()
-  # imap(\(v, n) paste(n, v, sep = ": ")) |> paste(collapse = ", ")
-}
-
-trial_data_subset <- read_rds(here(glue("01_fetched_data/trial_data_subset.rds")))
-trial_data_filtered <- read_rds(here(glue("01_fetched_data/trial_data_filtered.rds")))
-
-trial_counts <- left_join(
-  trial_data_subset |> count(site, item_task, name = "n_trials"),
-  trial_data_filtered |> count(site, item_task, name = "n_included_trials")
-) |>
-  filter(item_task %in% core_tasks) |>
-  mutate(site = site |> fct_recode(!!!site_labels),
-         n_excluded_trials = n_trials - n_included_trials,
-         pct_excluded = n_excluded_trials / n_trials * 100) |>
-  mutate(excluded = glue("{n_excluded_trials} [{percentify(pct_excluded)}]"))
-
-task_trial_counts <- trial_counts |>
-  group_by(item_task) |>
-  summarise(across(where(is.integer), sum)) |>
-  mutate(pct_excluded = (n_trials - n_included_trials) / n_trials * 100) |>
-  mutate(excluded = glue("{n_excluded_trials} [{percentify(pct_excluded)}]"))
-
-site_trial_counts <- trial_counts |>
-  group_by(site) |>
-  summarise(across(where(is.integer), sum)) |>
-  mutate(pct_excluded = (n_trials - n_included_trials) / n_trials * 100) |>
-  mutate(excluded = glue("{n_excluded_trials} [{percentify(pct_excluded)}]"))
-
-total_trial_counts <- trial_counts |>
-  group_by() |>
-  summarise(across(where(is.numeric), sum)) |>
-  mutate(pct_excluded = (n_trials - n_included_trials) / n_trials * 100) |>
-  mutate(excluded = glue("{n_excluded_trials} [{percentify(pct_excluded)}]"))
-
-```
-
 The pilot site partnership was an integral component of the core task development. Across three countries and languages, pilot sites provided collaboration on task adaptation and functionality, iterative task testing, and diverse settings for infrastructure deployment. Data collected from pilot sites allowed analyses of construct validity, measurement invariance, test-retest reliability, parameters for computer adaptive testing, and a demonstration of age-related differences measured by the tasks across constructs. Because we continued developing tasks continuously during the ~18-month pilot process, we anticipate that our reported reliability and validity estimates are an underestimate of the current task performance. Our analyses pool over early versions of the tasks that in some cases had instructions or items that were later revised for clarity. 
 
 A key feature of the LEVANTE framework is that all data are fully de-identified, minimizing legal and ethical barriers to data sharing. No sociodemographic information or other identifying details about the child are entered into the researcher dashboard by participating sites, and ages are recorded only to the nearest month [@frank2025]. We anticipate that sites will add sociodemographic information at a later stage via an app currently under development, which is designed to ensure that individuals cannot be statistically re-identified (e.g., due to rare combinations of characteristics within a community). For this reason, here we provide only minimal demographic characterization and analysis of the children from our pilot sites. @fig-age-hist provides the distribution of ages for each site. 
@@ -788,31 +652,89 @@ ages <- coretask_scores |>
   summarise(age = min(age),
             n_runs = n())
 
-ggplot(ages, aes(x = age, fill = site)) + 
-  facet_wrap(vars(site_label)) + 
+ggplot(ages, aes(x = age, fill = site_label)) + 
+  facet_wrap(vars(site_label), nrow = 1) + 
   geom_histogram(binwidth = 1, color = "white") +
-  scale_fill_solarized(guide = "none") +
+  # scale_fill_solarized(guide = "none") +
+  .scale_fill_site(guide = "none") +
+  scale_x_continuous(breaks = 5:13) +
   scale_y_continuous(expand = expansion(0, 0)) +
   labs(x = "Age (years)", y = "Number of children")
 ```
 
-## uniandes-co
+```{r compute_counts}
+runs_coded <- read_rds("runs_coded.rds")
 
-The Universidad de Los Andes team conducted school-based data collection at four schools in Bogotá and two public schools in the rural departments of Caquetá and Boyacá, selected for convenience from schools that had participated in previous projects with the university. In Bogotá, three of the participating schools belong to two family compensation funds and the fourth is managed by a charter-school organisation; across all sites, the schools primarily serve children from lower-middle and low-income families. By partnering with these schools, the research team oversaw data collection using a group testing format on tablets provided by the team, with larger groups for older children and smaller groups for younger children. The uniandes-co site collected data from `{r} user_totals$n_users[user_totals$site == "uniandes-co"]` children ages 5--12 years. Due to time constraints for school-based administration, children typically completed a subset of the tasks. 
+total_counts <- runs_coded |>
+  group_by(site_label) |>
+  summarise(n_users = n_distinct(user_id), n_runs = n())
 
-## mpieva-de
+user_totals <- total_counts |> select(site_label, n_users) |> deframe()
+```
 
-Data for the mpieva-de site were collected by the Max Planck Institute for Evolutionary Anthropology using family-based remote assessment. Families were recruited through an existing database of Leipzig residents and were first contacted by telephone to invite participation. A total of `r user_totals$n_users[user_totals$site == "mpieva-de"]` children, aged 5--12 years participated. Families who agreed to partake received login instructions to complete the assigned LEVANTE tasks at home using their own computer or tablet. Mpieva-de also provided retest data, with follow-up assessments administered at either a 3-month or 7-month interval after the inital session. Participants were drawn from Leipzig, a medium-sized urban center of approximately 620,000 residents that is culturally diverse, with around 17% of the population having a migration background (primarily from Syria, Ukraine, and the Russian Federation). The population is highly educated, with most adults completing at least nine years of formal schooling and many holding high school and university degrees. Most children in Leipzig attend subsidized external childcare from infancy through primary school.
+```{r compute_exclusions}
+get_exclusion_counts_site <- \(v) {
+  runs_coded |> bind_rows(runs_coded |> mutate(site_label = "all")) |>
+    count(site_label, .data[[v]]) |>
+    rename(value = all_of(v)) |>
+    mutate(variable = v, .before = value) |>
+    group_by(variable) |>
+    mutate(prop = n / sum(n)) |>
+    ungroup() |>
+    filter(value) |>
+    select(-value)
+}
 
-## western-ca
+exclusions <- colnames(runs_coded) |>
+  discard(\(x) x %in% c("site_label", "user_id", "run_id"))
+exclusion_counts_site <- map(exclusions, get_exclusion_counts_site) |> list_rbind()
 
-Partners at Western University (Ontario) recruited participants from the local community, primarily through online outreach (Facebook advertisements and community group posts), supplemented by posters on neighborhood mailboxes and notices shared via local school newsletters. Interested families voluntarily registered to be included in our participant database. Children were tested individually by a researcher in a dedicated testing space on campus. The western-ca site collected data from `r user_totals$n_users[user_totals$site == "western-ca"]` children, ages 5-12 years. Families were primarily recruited from London, Ontario, with a smaller subset from the Greater Toronto Area (GTA), both predominantly urban regions. According to recent census estimates, London residents have a mean education level of some postsecondary education, and the median household income is approximately $80,000 CAD. 
+included_runs <- runs_coded |>
+  pivot_longer(cols = where(is_logical)) |>
+  group_by(run_id) |>
+  filter(all(!value)) |>
+  ungroup() |>
+  distinct(site_label, user_id, run_id)
+
+inclusion_counts <- included_runs |>
+  group_by(site_label) |>
+  summarise(n_users = n_distinct(user_id), n_runs = n())
+
+score_counts <- coretask_scores |>
+  group_by(site_label) |>
+  summarise(n_users = n_distinct(user_id), n_runs = n())
+
+# included_runs |> anti_join(coretask_scores)
+# rid <- coretask_scores |> anti_join(included_runs) |> pull(run_id)
+# runs_coded |> filter(run_id %in% rid) |> View()
+```
+
+## Colombia (uniandes-co-bogota and uniandes-co-rural)
+
+The Universidad de Los Andes team conducted school-based data collection at four schools in Bogotá and two public schools in the rural departments of Caquetá and Boyacá, selected for convenience from schools that had participated in previous projects with the university. In Bogotá, three of the participating schools belong to two family compensation funds and the fourth is managed by a charter-school organisation; across all sites, the schools primarily serve children from lower-middle and low-income families. By partnering with these schools, the research team oversaw data collection using a group testing format on tablets provided by the team, with larger groups for older children and smaller groups for younger children. The sites collected data from `{r} user_totals[["uniandes-co-bogota"]]` children in uniandes-co-bogota and `{r} user_totals[["uniandes-co-rural"]]` children in uniandes-co-rural, aged 5--12 years. Due to time constraints for school-based administration, children typically completed a subset of the tasks. 
+
+## Germnay (mpieva-de)
+
+Data for the mpieva-de site were collected by the Max Planck Institute for Evolutionary Anthropology using family-based remote assessment. Families were recruited through an existing database of Leipzig residents and were first contacted by telephone to invite participation. A total of `{r} user_totals[["mpieva-de"]]` children, aged 5--12 years, participated. Families who agreed to partake received login instructions to complete the assigned LEVANTE tasks at home using their own computer or tablet. Mpieva-de also provided retest data, with follow-up assessments administered at either a 3-month or 7-month interval after the initial session. Participants were drawn from Leipzig, a medium-sized urban center of approximately 620,000 residents that is culturally diverse, with around 17% of the population having a migration background (primarily from Syria, Ukraine, and the Russian Federation). The population is highly educated, with most adults completing at least nine years of formal schooling and many holding high school and university degrees. Most children in Leipzig attend subsidized external childcare from infancy through primary school.
+
+## Canada (western-ca)
+
+Partners at Western University (Ontario) recruited participants from the local community, primarily through online outreach (Facebook advertisements and community group posts), supplemented by posters on neighborhood mailboxes and notices shared via local school newsletters. Interested families voluntarily registered to be included in our participant database. Children were tested individually by a researcher in a dedicated testing space on campus. The western-ca site collected data from `{r} user_totals[["western-ca"]]` children, aged 5-12 years. Families were primarily recruited from London, Ontario, with a smaller subset from the Greater Toronto Area (GTA), both predominantly urban regions. According to recent census estimates, London residents have a mean education level of some postsecondary education, and the median household income is approximately $80,000 CAD. 
 
 ## Data filtering
 
-We use "run" to represent an instance of a child attempting a single task. Across all tasks, the sites collected a total of `{r} sum(site_totals)` runs (`{r} get_count_row(1)`) from `{r} sum(user_totals$n_users)` unique children (`{r} user_totals |> deframe() |> collapse_value_list()`), of which some runs were excluded for not having any associated trial data (`{r} get_count_row(2)`); for being incomplete, invalid, or duplicate (`{r} get_count_row(3)`); for missing item metadata (`{r} get_count_row(4)`); for missing age (`{r} get_count_row(5)`); for for age being out of range (`{r} get_count_row(6)`), or for having too short (<0.6 months) of a retest gap (`{r} get_count_row(7)`), resulting in a total of `{r} sum(user_score_counts$n_runs)` scored runs (`{r} user_score_counts |> select(site, n_runs) |> deframe() |> collapse_value_list()`) from `{r} sum(user_score_counts$n_users)` unique children (`{r} user_score_counts |> select(site, n_users) |> deframe() |> collapse_value_list()`).
-
-Within the included runs, there were a total of `{r} total_trial_counts$n_trials` trials (`{r} site_trial_counts |> select(site, n_trials) |> deframe() |> collapse_value_list()`), of which `{r} total_trial_counts$excluded` were excluded (`{r} site_trial_counts |> select(site, excluded) |> deframe() |> collapse_value_list()`) due to too fast (<100ms) or too slow (>30s) reaction times. For reasons of space we do not disaggregate these exclusions by task, but note that the task with the highest exclusion rate was Pattern Matching (`{r} percentify(max(task_trial_counts$pct_excluded))` trials excluded), while all the other tasks ranged between `{r} percentify(min(task_trial_counts$pct_excluded))` and `{r} percentify(sort(task_trial_counts$pct_excluded, decreasing = TRUE)[2])` trials excluded.
+```{r}
+# We use "run" to represent an instance of a child attempting a single task. Across all tasks, the sites collected a total of `{r} sum(total_counts$n_runs)` runs (`{r} get_count_row(1)`) from `{r} sum(total_counts$n_users)` unique children (`{r} user_totals |> deframe() |> collapse_value_list()`), of which some runs were excluded
+# for not having any associated trial data (`{r} get_count_row(2)`);
+# for being incomplete, invalid, or duplicate (`{r} get_count_row(3)`);
+# for missing item metadata (`{r} get_count_row(4)`);
+# for missing age (`{r} get_count_row(5)`);
+# for for age being out of range (`{r} get_count_row(6)`),
+# or for having too short (<0.6 months) of a retest gap (`{r} get_count_row(7)`),
+# resulting in a total of `{r} sum(user_score_counts$n_runs)` scored runs (`{r} user_score_counts |> select(site, n_runs) |> deframe() |> collapse_value_list()`) from `{r} sum(user_score_counts$n_users)` unique children (`{r} user_score_counts |> select(site, n_users) |> deframe() |> collapse_value_list()`).
+# 
+# Within the included runs, there were a total of `{r} total_trial_counts$n_trials` trials (`{r} site_trial_counts |> select(site, n_trials) |> deframe() |> collapse_value_list()`), of which `{r} total_trial_counts$excluded` were excluded (`{r} site_trial_counts |> select(site, excluded) |> deframe() |> collapse_value_list()`) due to too fast (<100ms) or too slow (>30s) reaction times. For reasons of space we do not disaggregate these exclusions by task, but note that the task with the highest exclusion rate was Pattern Matching (`{r} percentify(max(task_trial_counts$pct_excluded))` trials excluded), while all the other tasks ranged between `{r} percentify(min(task_trial_counts$pct_excluded))` and `{r} percentify(sort(task_trial_counts$pct_excluded, decreasing = TRUE)[2])` trials excluded.
+```
 
 Note that the exclusion rate during this pilot study -- especially at the first site deployed, uniandes-co -- are higher than expected due to technical issues with some of the tasks, as well as intermittent connectivity issues at the rural sites.
 
@@ -877,19 +799,19 @@ inv_explainer |>
 ```
 :::
 ```{r}
-task_lab_map <- c(
-  hf="Hearts and Flowers", mg="Memory", sds="Same and Different",
-  matrix="Pattern Matching", mrot="Shape Rotation",
-  trog="Sentence Understanding", vocab="Vocabulary",
-  math="Math", tom="Stories"
-)
+# task_lab_map <- c(
+#   hf="Hearts and Flowers", mg="Memory", sds="Same and Different",
+#   matrix="Pattern Matching", mrot="Shape Rotation",
+#   trog="Sentence Understanding", vocab="Vocabulary",
+#   math="Math", tom="Stories"
+# )
 
 task_meta <- coretask_scores %>% distinct(item_task, task, task_category)
 task_ids  <- unique(coretask_scores$item_task)
 
-prep_task <- function(df) df %>%
-  mutate(site = factor(site),
-         age_c = as.numeric(scale(age, scale = FALSE)))
+# prep_task <- function(df) df %>%
+#   mutate(site = factor(site),
+#          age_c = as.numeric(scale(age, scale = FALSE)))
 
 fmt_p <- function(p) case_when(
   is.na(p) ~ NA_character_,
@@ -916,53 +838,66 @@ For ease of interpretation, we calculated the zero-order correlations between ag
 #| fig-height: 9
 
 # remove CAT data, remove CO data from memory task
-fixed_only <- coretask_scores %>%
-  filter(adaptive == FALSE) %>%                             
-  filter(!(task == "Memory" & site_label == "uniandes-co")) %>%  # rop CO Memory
+fixed_only <- coretask_scores |>
+  filter(!adaptive) |>
+  filter(!(task == "Memory" & site_label == "uniandes-co")) |> # drop CO Memory
+  mutate(site_label = factor(site_label),
+         age_c = age - mean(age)) |>
   droplevels()
+contrasts(fixed_only$site_label) <- contr.sum(nlevels(fixed_only$site_label))
 
-pred_curves_augment <- function(task_name) {
-  d <- fixed_only %>% filter(item_task == task_name)
-  d$site  <- factor(d$site)
-  d$age_c <- scale(d$age, scale = FALSE)[,1]
-  mu_age  <- mean(d$age, na.rm = TRUE)
+# age_mods <- fixed_only |>
+#   # mutate(site_label = factor(site_label),
+#   #        age_c <- scale(age)[,1])
+#   nest(task_data = -item_task) |>
+#   mutate(age_mod = map(task_data, \(d) lm(score ~ age * site, data = d)))
+# 
+# age_mods |>
+#   mutate(fits = map(age_mod, \(m) augment(m, newdata = grid, se_fit = TRUE)))
+# 
+# pred_curves_augment <- function(task) {
+#   d <- fixed_only %>% filter(item_task == task)
+#   d$site  <- factor(d$site)
+#   d$age_c <- scale(d$age, scale = FALSE)[,1]
+#   mu_age  <- mean(d$age, na.rm = TRUE)
+# 
+#   fit <- lm(score ~ age_c * site, data = d)
+# 
+#   grid <- expand.grid(
+#     age_c = seq(min(d$age_c, na.rm = TRUE),
+#                 max(d$age_c, na.rm = TRUE),
+#                 length.out = 100),
+#     site  = levels(d$site)
+#   )
+# 
+#   broom::augment(fit, newdata = grid, se_fit = TRUE) %>%
+#     transmute(
+#       item_task = task,
+#       site      = as.character(site),
+#       age       = age_c + mu_age,
+#       fit       = .fitted,
+#       lower     = .fitted - 1.96*.se.fit,
+#       upper     = .fitted + 1.96*.se.fit
+#     )
+# }
+# 
+# pred_all <- map_dfr(task_ids, pred_curves_augment) %>%
+#   left_join(task_meta, by = "item_task") |>
+#   left_join(select(fixed_only, task_category, site_label, site) |> distinct())
 
-  fit <- lm(metric_value ~ age_c * site, data = d)
-
-  grid <- expand.grid(
-    age_c = seq(min(d$age_c, na.rm = TRUE),
-                max(d$age_c, na.rm = TRUE),
-                length.out = 100),
-    site  = levels(d$site)
-  )
-
-  broom::augment(fit, newdata = grid, se_fit = TRUE) %>%
-    transmute(
-      item_task = task_name,
-      site      = as.character(site),
-      age       = age_c + mu_age,
-      fit       = .fitted,
-      lower     = .fitted - 1.96*.se.fit,
-      upper     = .fitted + 1.96*.se.fit
-    )
-}
-
-pred_all <- map_dfr(task_ids, pred_curves_augment) %>%
-  left_join(task_meta, by = "item_task") |>
-  left_join(select(fixed_only, task_category, site_label, site) |> distinct())
-
-dev_change_plot <- ggplot(fixed_only, aes(age, metric_value)) +
+dev_change_plot <- ggplot(fixed_only, aes(x = age, y = score, colour = site_label)) +
   ggh4x::facet_nested_wrap(
     vars(task_category, task),
     nest_line = element_line(), solo_line = TRUE,
     axes = "x", scales = "free_y"
   ) +
-  geom_ribbon(data = pred_all, 
-              aes(y = fit, ymin = lower, 
-                  ymax = upper, fill = site_label),
-              alpha = 0.12, colour = NA, show.legend = FALSE) +
-  geom_line(data = pred_all, aes(y= fit, col = site_label), linewidth = 1) + 
-  geom_point(aes(colour = site_label), alpha = 0.3, size = 1) +
+  # geom_ribbon(data = pred_all, 
+  #             aes(y = fit, ymin = lower, 
+  #                 ymax = upper, fill = site_label),
+  #             alpha = 0.12, colour = NA, show.legend = FALSE) +
+  # geom_line(data = pred_all, aes(y= fit, col = site_label), linewidth = 1) + 
+  geom_smooth(method = "lm", linewidth = 1) +
+  geom_point(alpha = 0.3, size = 1) +
   scale_x_continuous(breaks = seq(6, 14, 2)) +
   .scale_colour_site() +
   guides(colour = guide_legend(
@@ -996,13 +931,22 @@ dev_change_plot <- ggplot(fixed_only, aes(age, metric_value)) +
 #| tbl-cap: "Age-Related Change in Performance: Task Grand Means (GM), Site Deviations (Δ), and Age–Ability Correlations ($r$), non-adaptive data only. *Note: for each task, z-scores were regressed on centred age and site, with sum-to-zero contrasts for site. GM β is the grand-mean age slope, Δβ is each site’s deviation from this slope, site-specific slope = GM β + Δβ. $r$ is the within-site Pearson correlation between age and task score.*"
 #| ft.arraystretch: 1
 
-analyze_task_slopes <- function(task_name) {
-  d <- fixed_only %>% filter(item_task == task_name)
-  d$site  <- as.factor(d$site)
-  d$age_c <- scale(d$age, scale = FALSE)[, 1]
-  contrasts(d$site) <- contr.sum(nlevels(d$site))
+# age_mods <- fixed_only |>
+#   # filter(item_task != "mrot") |>
+#   # mutate(site_label = factor(site_label),
+#   #        age_c <- scale(age)[,1])
+#   nest(task_data = -item_task) |>
+#   mutate(age_mod = map(task_data, \(d) lm(score ~ age_c * site_label, data = d)))
+# 
+# age_mods
 
-  fit <- lm(metric_value ~ age_c * site, data = d)
+analyze_task_slopes <- function(tsk) {
+  d <- fixed_only %>% filter(item_task == tsk) |> droplevels()
+  # d$site  <- as.factor(d$site)
+  # d$age_c <- scale(d$age, scale = FALSE)[, 1]
+  # contrasts(d$site) <- contr.sum(nlevels(d$site))
+
+  fit <- lm(score ~ age_c * site_label, data = d)
 
   # grand-mean slope (main effect of age_c under sum-to-zero contrasts)
   cs <- coef(summary(fit))
@@ -1013,12 +957,13 @@ analyze_task_slopes <- function(task_name) {
   mean_df    <- df.residual(fit)
 
   # site deviations from the grand-mean slope
-  tr_site <- emtrends(fit, ~ site, var = "age_c")
+  tr_site <- emtrends(fit, ~ site_label, var = "age_c")
   dev_tab <- contrast(tr_site, "eff") %>%
     summary(infer = c(TRUE, TRUE)) %>%
     as_tibble() %>%
     transmute(
-      site            = sub("\\s*effect$", "", contrast),
+      # site            = sub("\\s*effect$", "", contrast),
+      site_label      = str_extract(contrast, "(?<=\\().*(?=\\))"),
       Slope_Deviation = estimate,
       SE              = SE,
       t               = t.ratio,
@@ -1028,13 +973,13 @@ analyze_task_slopes <- function(task_name) {
 
   # site-wise r(age, ability)
   corr_tab <- d %>%
-    filter(!is.na(age_c), !is.na(metric_value)) %>%
-    mutate(site = as.character(site)) %>%
-    group_by(site) %>%
+    filter(!is.na(age_c), !is.na(score)) %>%
+    # mutate(site = as.character(site)) %>%
+    group_by(site_label) %>%
     summarise(
       N = n(),
-      r = if (n() >= 3 && sd(age_c) > 0 && sd(metric_value) > 0)
-            cor(age_c, metric_value) else NA_real_,
+      r = if (n() >= 3 && sd(age_c) > 0 && sd(score) > 0)
+            cor(age_c, score) else NA_real_,
       .groups = "drop"
     ) %>%
     mutate(
@@ -1045,20 +990,22 @@ analyze_task_slopes <- function(task_name) {
 
   dev_tab %>%
     mutate(
-      task      = task_name,
+      item_task  = tsk,
       Mean_Slope = mean_slope,
       Mean_SE    = mean_se,
       Mean_t     = mean_t,
       Mean_df    = mean_df,
       Mean_p     = mean_p
     ) %>%
-    left_join(corr_tab, by = "site")
+    left_join(corr_tab, by = "site_label") |>
+    relocate(item_task, .before = everything())
 }
 
 deviation_raw <- map_dfr(task_ids, analyze_task_slopes) %>%
-  rename(item_task = task) %>%
-  left_join(task_meta, by = "item_task") %>%
-  mutate(Task = coalesce(task, recode(item_task, !!!task_lab_map)))
+  left_join(task_info)
+  # rename(item_task = task) %>%
+  # left_join(task_meta, by = "item_task") %>%
+  # mutate(Task = coalesce(task, recode(item_task, !!!task_lab_map)))
 
 deviation_print <- deviation_raw %>%
   mutate(
@@ -1070,8 +1017,9 @@ deviation_print <- deviation_raw %>%
     `r p-value`          = fmt_p(r_p)
   ) %>%
   transmute(
-    Task,
-    Site = fct_recode(site, !!!site_labels),
+    Task = task,
+    Site = site_label,
+    # Site = fct_recode(site, !!!site_labels),
     `Grand Mean Slope (β)` = round(Mean_Slope, 2),
     `Grand Mean SE`        = round(Mean_SE, 2),
     `Grand Mean p-value`,
@@ -1182,7 +1130,7 @@ retest_wide <- de_retest_scores |>
   pivot_wider(
     id_cols = c(user_id, task_category, task, mean_age, age_gap),
     names_from = run_number,
-    values_from = metric_value,
+    values_from = score,
     names_prefix = "run_"
   ) |>
   select(user_id, task_category, task, age = mean_age, age_gap, run_1, run_2)
@@ -1298,39 +1246,19 @@ ggplot(retest_wide, aes(run_1, run_2, colour = age)) +
 
 Assessment of validity for the core tasks was challenging, in part because of the precise issues that motivated us to create the task battery in the first place. No readily available, internationalized measures existed to compare to many of our tasks. Thus, for validation evidence, we rely on the overall construct structure of the core task battery as well as the relations to our gold standard measures for literacy (ROAR-Word, ROAR-Sentence and ROAR-Phoneme) and executive function (MEFS).
 
-```{r prep-sem, include=FALSE}
-# one row per user (metadata + task scores from first run)
-meta <- coretask_firstrun_scores |>
-  group_by(user_id) |>
-  summarise(
-    age        = min(age, na.rm = TRUE),
-    site       = first(na.omit(site)),
-    site_label = first(na.omit(site_label)),
-    dataset    = first(na.omit(dataset)),
-    .groups = "drop"
-  )
+```{r prep-sem}
+prep_sem <- \(scores, tasks) {
+  scores |>
+    filter(item_task %in% tasks) |>
+    arrange(user_id, item_task, age) |>
+    slice(1, .by = c(user_id, item_task)) |>
+    select(site_label, user_id, item_task, score, age) |>
+    mutate(age = min(age), .by = c(site_label, user_id)) |>
+    pivot_wider(names_from = item_task, values_from = score) |>
+    mutate(across(all_of(tasks), \(x) scale(x)[,1]))
+}
 
-# wide task scores (first run only)
-wide_scores <- coretask_firstrun_scores |>
-  select(user_id, item_task, metric_value) |>
-  distinct() |>  # guard against accidental duplicates
-  pivot_wider(
-    names_from  = item_task,
-    values_from = metric_value
-  ) |>
-  left_join(meta, by = "user_id") |>
-  relocate(user_id, site, site_label, dataset, age)
-
-# keep only the core task columns + metadata
-vars_core <- c("math","matrix","mrot","sds","hf","mg","trog","vocab","tom")
-wide_scores <- wide_scores |>
-  select(user_id, site, site_label, dataset, age, any_of(vars_core))
-
-# standardise
-z <- function(x) (x - mean(x, na.rm = TRUE)) / sd(x, na.rm = TRUE)
-vars_core_std <- wide_scores |>
-  mutate(across(all_of(vars_core), ~ z(as.numeric(.x))))
-# str(vars_core_std[vars_core])
+wide_scores <- prep_sem(included_scores, unique(included_scores$item_task))
 ```
 
 ```{r sem-g, include=FALSE}
@@ -1350,7 +1278,7 @@ model_cov_no_age <- "
 "
 
 fit_cov_no_age <- sem(
-  model_cov_no_age, data = vars_core_std,
+  model_cov_no_age, data = wide_scores,
   estimator = 'MLR', std.lv = TRUE, missing = 'fiml'
 )
 summary(fit_cov_no_age, fit.measures = TRUE, standardized = TRUE)
@@ -1360,8 +1288,8 @@ summary(fit_cov_no_age, fit.measures = TRUE, standardized = TRUE)
 ```{r sem-g-age, include=FALSE}
 #| echo: false
 #| results: "hide" 
-# vars_core_std$log_age_c <- scale(log(vars_core_std$age))[,1] # removing log_age_c following feedback from BD and NR.
-vars_core_std$age_c <- scale(vars_core_std$age, scale = FALSE)[, 1] # center age
+# wide_scores$log_age_c <- scale(log(wide_scores$age))[,1] # removing log_age_c following feedback from BD and NR.
+wide_scores$age_c <- scale(wide_scores$age, scale = FALSE)[, 1] # center age
 
 model_cov_age <- "
   # first-order factors (fix first loading to 1 for each factor)
@@ -1388,7 +1316,7 @@ model_cov_age <- "
 "
 
 fit_cov_age <- sem(
-  model_cov_age, data = vars_core_std,
+  model_cov_age, data = wide_scores,
   estimator = 'MLR', missing = 'fiml',
   std.lv = FALSE, optim.method = 'nlminb',
   control = list(iter.max = 50000, rel.tol = 1e-6)
@@ -1406,7 +1334,7 @@ We assessed construct validity using a structural equation model (SEM) specifyin
 #| fig-width: 8
 #| fig-height: 9
 
-source(here("03_summaries/modified_sem_plot.R")) # veronica helper
+source("modified_sem_plot.R") # veronica helper
 
 pe <- parameterEstimates(fit_cov_age, standardized = TRUE)
 latents  <- sort(unique(pe$lhs[pe$op == "=~"]))
@@ -1471,7 +1399,6 @@ edges <- pe %>%
     label = sprintf("%.2f%s", std.all, stars)
   )
 
-library(readxl)
 layout_ids <- as.matrix(read_excel("SEM_layout.xlsx", col_names = FALSE))
 layout_ids[layout_ids == ""] <- NA
 
@@ -1556,13 +1483,13 @@ ef ~ age_c
 language ~ age_c
 "
 
-fit_1f <- sem(mdl_1f, data = vars_core_std,
+fit_1f <- sem(mdl_1f, data = wide_scores,
               estimator = "MLR", missing = "fiml", std.lv = TRUE, optim.method = "nlminb",
               control = list(iter.max = 50000, rel.tol = 1e-6))
-fit_2f <- sem(mdl_2f, data = vars_core_std,
+fit_2f <- sem(mdl_2f, data = wide_scores,
               estimator = "MLR", missing = "fiml", std.lv = TRUE, optim.method = "nlminb",
               control = list(iter.max = 50000, rel.tol = 1e-6))
-fit_3f <- sem(mdl_3f, data = vars_core_std,
+fit_3f <- sem(mdl_3f, data = wide_scores,
               estimator = "MLR", missing = "fiml", std.lv = TRUE, optim.method = "nlminb",
               control = list(iter.max = 50000, rel.tol = 1e-6))
 
@@ -1609,49 +1536,14 @@ ft
 ```
 
 ```{r prep-sem-ef}
-ef_tasks <- c("hf","mg","sds","mefs")
+mefs <- read_rds(here("02_scoring_outputs/scores/scores_mefs.rds"))
+mefs_scores <- mefs |>
+  filter(metric_type == "standard_score", !is.na(age)) |>
+  select(dataset, user_id, item_task, score = metric_value, age) |>
+  mutate(site_label = dataset |> fct_recode(!!!site_labels))
 
-# Filter to ef tasks (from included_scores), keep first run 
-ef_firstrun_scores <- included_scores |>
-  filter(item_task %in% ef_tasks) |>
-  arrange(user_id, item_task, run_number, age) |>
-  group_by(user_id, item_task) |>
-  slice(1) |>
-  ungroup()
-
-# one row per user
-meta_ef <- ef_firstrun_scores |>
-  group_by(user_id) |>
-  summarise(
-    age        = min(age, na.rm = TRUE),
-    site       = first(na.omit(site)),
-    site_label = first(na.omit(site_label)),
-    dataset    = first(na.omit(dataset)),
-    .groups = "drop"
-  )
-
-# Wide ef task scores (first run only)
-ef_wide_scores <- ef_firstrun_scores |>
-  select(user_id, item_task, metric_value) |>
-  distinct() |>  # guard against accidental duplicates
-  pivot_wider(
-    names_from  = item_task,
-    values_from = metric_value
-  ) |>
-  left_join(meta_ef, by = "user_id") |>
-  relocate(user_id, site, site_label, dataset, age)
-
-# keep only ef columns + metadata
-vars_ef <- ef_tasks
-ef_wide_scores <- ef_wide_scores |>
-  select(user_id, site, site_label, dataset, age, any_of(vars_ef))
-
-# Standardise ef indicators (same z() you used)
-z <- function(x) (x - mean(x, na.rm = TRUE)) / sd(x, na.rm = TRUE)
-ef_wide_std <- ef_wide_scores |>
-  mutate(across(all_of(vars_ef), ~ z(as.numeric(.x))))
-
-# str(ef_wide_std[vars_ef])
+ef_tasks <- c("hf", "mg", "sds", "mefs")
+ef_wide_scores <- prep_sem(bind_rows(included_scores, mefs_scores), ef_tasks)
 ```
 
 ```{r sem-ef}
@@ -1663,7 +1555,7 @@ EF =~ hf + mg + sds + mefs
 EF ~ age
 '
 
-fit_ef <- cfa(cfa_ef, data = ef_wide_std,
+fit_ef <- cfa(cfa_ef, data = ef_wide_scores,
               estimator = "MLR", std.lv = TRUE, missing = "fiml")
 summary(fit_ef, fit.measures = TRUE, standardized = TRUE)
 #print(fitMeasures(fit_ef, c("cfi","tli","rmsea","srmr", "aic", "bic")))
@@ -1787,46 +1679,8 @@ plot(g_ef)
 ```
 
 ```{r prep-sem-lang}
-lang_vars <- c("swr","sre","pa","vocab","trog")
-
-# first run per user–task
-lang_firstrun_scores <- included_scores |>
-  filter(item_task %in% lang_vars) |>
-  arrange(user_id, item_task, run_number, age) |>
-  group_by(user_id, item_task) |>
-  slice(1) |>
-  ungroup()
-
-meta_lang <- lang_firstrun_scores |>
-  group_by(user_id) |>
-  summarise(
-    age        = min(age, na.rm = TRUE),
-    site       = first(na.omit(site)),
-    site_label = first(na.omit(site_label)),
-    dataset    = first(na.omit(dataset)),
-    .groups = "drop"
-  )
-
-# create wide df 
-lang_wide_scores <- lang_firstrun_scores |>
-  select(user_id, item_task, metric_value) |>
-  distinct() |>
-  pivot_wider(
-    names_from  = item_task,
-    values_from = metric_value
-  ) |>
-  left_join(meta_lang, by = "user_id") |>
-  relocate(user_id, site, site_label, dataset, age)
-
-# keep only language columns + metadata
-lang_wide_scores <- lang_wide_scores |>
-  select(user_id, site, site_label, dataset, age, any_of(lang_vars))
-
-# standardise 
-z <- function(x) (x - mean(x, na.rm = TRUE)) / sd(x, na.rm = TRUE)
-lang_wide_std <- lang_wide_scores |>
-  mutate(across(all_of(lang_vars), \(x) z(as.numeric(x))))
-# mutate(across(all_of(intersect(lang_vars, names(.))), ~ z(as.numeric(.x))))
+lang_tasks <- c("swr", "sre", "pa", "vocab", "trog")
+lang_wide_scores <- prep_sem(included_scores, lang_tasks)
 ```
 
 ```{r sem-lang}
@@ -1839,7 +1693,7 @@ Language =~ swr + sre + pa + trog + vocab
 Language ~ age
 '
 
-fit_lang <- cfa(cfa_lang, data = lang_wide_std,
+fit_lang <- cfa(cfa_lang, data = lang_wide_scores,
                 estimator = "MLR", std.lv = TRUE, missing = "fiml")
 summary(fit_lang, fit.measures = TRUE, standardized = TRUE)
 pe_lang <- parameterEstimates(fit_lang, standardized = TRUE)
@@ -1980,7 +1834,7 @@ cat_only <- coretask_scores %>%
   filter(adaptive == TRUE, site_label != "uniandes-co") %>% # drop Columbia
   droplevels()
 
-ggplot(cat_only, aes(age, metric_value)) +
+ggplot(cat_only, aes(age, score)) +
   ggh4x::facet_nested_wrap(vars(task_category, task),
                            nest_line = element_line(), solo_line = TRUE,
                            axes = "x", scales = "free_y") +
@@ -2072,13 +1926,13 @@ Authors’ contributions are detailed on the title page, following the CRediT au
 #| fig-pos: 'H'
 
 
-slopes_by_task <- function(task_name) {
-  d <- fixed_only %>% filter(item_task == task_name)
+slopes_by_task <- function(task) {
+  d <- fixed_only %>% filter(item_task == task)
   d$site  <- factor(d$site)
   d$age_c <- scale(d$age, scale = FALSE)[, 1]
   contrasts(d$site) <- contr.sum(nlevels(d$site))
 
-  fit <- lm(metric_value ~ age_c * site, data = d)
+  fit <- lm(score ~ age_c * site, data = d)
 
   gm <- coef(summary(fit))["age_c", "Estimate"]
 
@@ -2091,7 +1945,7 @@ slopes_by_task <- function(task_name) {
 
   tr_sum |>
     transmute(
-      item_task = task_name,
+      item_task = task,
       site      = .data$site,
       slope     = .data[[slope_col]],
       SE        = .data$SE,
@@ -2104,28 +1958,28 @@ slopes_by_task <- function(task_name) {
     )
 }
 
-slopes_df <- map_dfr(task_ids, slopes_by_task) %>%                   
-  left_join(task_meta, by = "item_task") %>%
-  mutate(
-    Site    = fct_recode(site, !!!site_labels),
-    TaskLab = coalesce(task, recode(item_task, !!!task_lab_map)),
-    TaskLab = factor(TaskLab, levels = unique(task_meta$task))               
-  )
-
-ggplot(slopes_df, aes(x = slope, y = fct_rev(Site), colour = Site)) +
-  geom_vline(xintercept = 0, linetype = 3) +
-  geom_vline(data = distinct(slopes_df, TaskLab, gm_slope),
-             aes(xintercept = gm_slope),
-             linetype = 2, linewidth = 0.6, colour = "grey40") +
-  geom_errorbarh(aes(xmin = lower, xmax = upper), width = 0) +
-   geom_point(size = 2) +
-  facet_wrap(~ TaskLab, scales = "free_x") +
-  .scale_colour_site() +                                                     
-  labs(x = "Age slope (β per year, estimated marginal trend)",
-       y = NULL, colour = "Site",
-       #title = "Site-specific age slopes by task (EMTrends with 95% CI), non-adaptive datat only",
-       subtitle = "Dashed line: task grand-mean slope; dotted line: zero") +
-  theme(legend.position = "bottom")
+# slopes_df <- map_dfr(task_ids, slopes_by_task) %>%                   
+#   left_join(task_meta, by = "item_task") %>%
+#   mutate(
+#     Site    = fct_recode(site, !!!site_labels),
+#     TaskLab = coalesce(task, recode(item_task, !!!task_lab_map)),
+#     TaskLab = factor(TaskLab, levels = unique(task_meta$task))               
+#   )
+# 
+# ggplot(slopes_df, aes(x = slope, y = fct_rev(Site), colour = Site)) +
+#   geom_vline(xintercept = 0, linetype = 3) +
+#   geom_vline(data = distinct(slopes_df, TaskLab, gm_slope),
+#              aes(xintercept = gm_slope),
+#              linetype = 2, linewidth = 0.6, colour = "grey40") +
+#   geom_errorbarh(aes(xmin = lower, xmax = upper), width = 0) +
+#    geom_point(size = 2) +
+#   facet_wrap(~ TaskLab, scales = "free_x") +
+#   .scale_colour_site() +                                                     
+#   labs(x = "Age slope (β per year, estimated marginal trend)",
+#        y = NULL, colour = "Site",
+#        #title = "Site-specific age slopes by task (EMTrends with 95% CI), non-adaptive datat only",
+#        subtitle = "Dashed line: task grand-mean slope; dotted line: zero") +
+#   theme(legend.position = "bottom")
 ```
 
 ```{r}
@@ -2152,7 +2006,7 @@ ability_scores_cat <- coretask_scores %>%
 
 # plot
 ggplot(ability_scores_cat,
-       aes(x = metric_value, y = metric_se, colour = adaptive)) +
+       aes(x = score, y = score_se, colour = adaptive)) +
   geom_point(alpha = 0.15, size = 0.7) +
   geom_smooth(se = FALSE, method = "loess") +
   scale_colour_discrete(na.translate = FALSE) +
@@ -2175,7 +2029,7 @@ ggplot(ability_scores_cat,
 # ability_scores_cat %>%
 #   mutate(
 #     theta_band = cut(
-#       metric_value,
+#       score,
 #       breaks = c(-Inf, -2, -1, 0, 1, 2, Inf),
 #       labels = c("< -2", "-2 to -1", "-1 to 0", "0 to 1", "1 to 2", "> 2")
 #     )
@@ -2183,7 +2037,7 @@ ggplot(ability_scores_cat,
 #   group_by(task, theta_band, adaptive) %>%
 #   summarise(
 #     n = n(),
-#     mean_se = mean(metric_se, na.rm = TRUE),
+#     mean_se = mean(score_se, na.rm = TRUE),
 #     .groups = "drop"
 #   ) %>%
 #   arrange(task, theta_band, adaptive)

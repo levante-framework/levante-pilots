@@ -25,10 +25,12 @@ task_pal <- ptol_pal()(length(task_categories_vec)) |> rlang::set_names(task_cat
 .scale_color_task <- .scale_colour_task
 
 # color palette for sites (solarized)
-sites <- c("pilot_uniandes_co", "pilot_mpieva_de", "pilot_western_ca")
+# sites <- c("pilot_uniandes_co", "pilot_mpieva_de", "pilot_western_ca")
+sites <- c("mpieva-de", "uniandes-co-bogota", "uniandes-co-rural", "western-ca")
 site_pal <- solarized_pal()(length(sites)) |> rlang::set_names(sites)
 .scale_colour_site <- \(...) scale_colour_manual(values = site_pal, ...)
 .scale_color_site <- .scale_colour_site
+.scale_fill_site <- \(...) scale_fill_manual(values = site_pal, ...)
 
 # color pallete for other contrasts (brewer Set1)
 .scale_color_default <- \(...) scale_colour_brewer(palette = "Set1", ...)
