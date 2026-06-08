@@ -817,96 +817,77 @@ Marginal reliability, an IRT-based analogue to Cronbach’s $\alpha$, quantifies
 ```{r}
 #| label: tbl-task-rxx
 #| tbl-cap: "Marginal reliabilities for each task and site."
-#| include: FALSE
-#| eval: FALSE
 
 # task_rxx <- read_rds(here("02_scoring_outputs/task_rxx.rds"))
 mod_stats <- read_rds(here("02_scoring_outputs/mod_stats.rds"))
 
-lang_task_tbl <- full_join(
-  mod_stats |> filter(by_lang) |> select(task, lang_bic) |> unnest(lang_bic) |> select(-invariance),
-  mod_stats |> filter(by_lang) |> select(task, lang_rxx) |> unnest(lang_rxx) |> select(-invariance)
-) |>
-  select(task, subset, itemtype, rxx, bic = BIC) |>
-  group_by(task, subset) |>
-  mutate(lowest_bic = itemtype[bic == min(bic)],
-         highest_rxx = itemtype[rxx == max(rxx)]) |>
-  ungroup() |>
-  pivot_wider(names_from = itemtype, values_from = c(bic, rxx))
-
-mod_stats |> select(task, overlap_bic) |> unnest(overlap_bic) |>
-  filter(model_set %in% c("by_language", "multigroup_dataset"))
-
-mod_stats |> select(task, scalar_rxx) |> unnest(scalar_rxx) |>
-  filter(model_set %in% c("by_language", "multigroup_dataset")) |> count(task)
-
-# full_join(
-#   mod_stats |> select(task, overlap_bic) |> unnest(overlap_bic),
-#   mod_stats |> filter(!by_lang) |> select(task, scalar_rxx) |> unnest(scalar_rxx)
-# )
-
-
-
-# # task_bic <- mod_stats |>
-# #   mutate(task_bic = if_else(by_lang, lang_bic, overlap_bic)) |>
-# #   select(task, by_lang, task_bic) |>
-# #   unnest(task_bic) |>
-# #   filter(model_set %in% c("by_language", "multigroup_dataset")) |>
-# #   mutate(invariance = if_else(invariance == "", "configural", invariance)) |>
-# #   # group_by(task, model_set, itemtype, nfact) |>
-# #   # mutate(bic_diff = BIC - min(BIC))
-# #   pivot_wider(names_from = invariance, values_from = BIC, names_prefix = "invariance_") |>
-# #   mutate(bic_diff = invariance_configural - invariance_scalar) |>
-# #   select(-starts_with("invariance_")) |>
-# #   arrange(by_lang, task) |>
-# #   pivot_wider(names_from = itemtype, values_from = bic_diff, names_prefix = "dbic_")
-# # 
-# # task_rxx <- mod_stats |>
-# #   mutate(task_rxx = if_else(by_lang, lang_rxx, scalar_rxx)) |>
-# #   select(task, by_lang, task_rxx) |>
-# #   unnest(task_rxx) |>
-# #   filter(model_set %in% c("by_language", "multigroup_dataset"))
-#   # semi_join(best_mods)
+# lang_task_tbl <- full_join(
+#   mod_stats |> filter(by_lang) |> select(task, lang_bic) |> unnest(lang_bic) |> select(-invariance),
+#   mod_stats |> filter(by_lang) |> select(task, lang_rxx) |> unnest(lang_rxx) |> select(-invariance)
+# ) |>
+#   select(task, subset, itemtype, rxx, bic = BIC) |>
+#   group_by(task, subset) |>
+#   mutate(lowest_bic = itemtype[bic == min(bic)],
+#          highest_rxx = itemtype[rxx == max(rxx)]) |>
+#   ungroup() |>
+#   pivot_wider(names_from = itemtype, values_from = c(bic, rxx))
 # 
-# trx <- task_rxx |>
-#   rename(item_task = task) |>
-#   left_join(task_map) |>
-#   mutate(
-#     group_label = if_else(is.na(group), subset, group |> fct_recode(!!!site_labels)),
-#     itemtype = itemtype |> fct_recode("Rasch" = "rasch", "2PL" = "2pl"),
-#     invariance = invariance |> str_to_sentence()
-#   ) |>
-#   arrange(by_lang, task) |>
-#   select(task, group_label, itemtype, invariance, rxx) |>
-#   pivot_wider(names_from = itemtype, values_from = rxx)
-#   # pivot_wider(
-#   #   names_from   = site,
-#   #   values_from  = rxx,
-#   #   names_prefix = "Reliability_"
-#   # ) |>
-#   # rename(Task = task, Model = itemtype, Invariance = invariance)
+# mod_stats |> select(task, overlap_bic) |> unnest(overlap_bic) |>
+#   filter(model_set %in% c("by_language", "multigroup_dataset"))
 # 
-# # get reliability columns
-# reliab_cols <- names(trx)[startsWith(names(trx), "Reliability_")]
-# 
-# ft <- trx |>
-#   flextable() |>
-#   separate_header() |>
-#   align_text_col()
-# 
-# # reliability < 0.6 in blue
-# for (col in reliab_cols) {
-#   idx <- which(trx[[col]] < 0.6 & !is.na(trx[[col]]))
-#   ft  <- color(ft, i = idx, j = col, color = "blue", part = "body")
-# }
-# 
-# ft <- autofit(ft, add_w = 0, add_h = 0)
-# ft <- ft |>
-#   add_footer_lines(values = "Note. Cells in blue indicate reliability < .60.") |>
-#   fontsize(part = "footer", size = 8) |>
-#   italic(part = "footer")
-# ft
+# mod_stats |> select(task, scalar_rxx) |> unnest(scalar_rxx) |>
+#   filter(model_set %in% c("by_language", "multigroup_dataset")) |> count(task)
 
+# group_labels <- c("uniandes-co-bogota (es-CO)" = "pilot_uniandes_co_bogota",
+#                   "uniandes-co-rural (es-CO)" = "pilot_uniandes_co_rural",
+#                   "mpieva-de (de-DE)" = "pilot_mpieva_de_main",
+#                   "western-ca (en-US)" = "pilot_western_ca_main",
+#                   "uniandes-co-bogota (es-CO)" = "es-CO",
+#                   "uniandes-co-rural (es-CO)" = "es-CO",
+#                   "mpieva-de (de-DE)" = "de-DE",
+#                   "western-ca (en-US)" = "en-US")
+
+task_rxx <- mod_stats |>
+  rename(item_task = task) |>
+  left_join(task_mods) |>
+  filter(item_task %in% core_tasks) |>
+  mutate(task_rxx = if_else(model_set == "by_language", lang_rxx, scalar_rxx)) |>
+  select(item_task, task_model_set = model_set, task_itemtype = itemtype, task_invariance = invariance, task_rxx) |>
+  unnest(task_rxx) |>
+  mutate(task_invariance = if_else(task_invariance == "", "configural", task_invariance),
+         invariance = if_else(invariance == "by_language", "configural", invariance)) |>
+  filter(model_set == task_model_set, task_itemtype == itemtype, task_invariance == invariance) |>
+  mutate(
+    # group = if_else(is.na(group), subset, group),
+    # group_label = group |> fct_recode(!!!group_labels),
+    group_label = if_else(is.na(group), subset, group |> fct_recode(!!!site_labels)),
+    itemtype = itemtype |> fct_recode("Rasch" = "rasch", "2PL" = "2pl"),
+    invariance = invariance |> str_to_sentence()
+  ) |>
+  left_join(task_info) |>
+  select(task, group_label, itemtype, invariance, rxx) |>
+  arrange(task)
+
+task_rxx |>
+  filter(invariance != "Configural") |>
+  pivot_wider(names_from = group_label, values_from = rxx) |>
+  flextable() |>
+  set_header_labels("task" = "Task", "itemtype" = "Model", "invariance" = "Invariance") |>
+  align_text_col() |>
+  autofit()
+```
+
+```{r}
+#| label: tbl-task-rxx-config
+#| tbl-cap: "Marginal reliabilities for each task and site."
+
+task_rxx |>
+  filter(invariance == "Configural") |>
+  pivot_wider(names_from = group_label, values_from = rxx) |>
+  flextable() |>
+  set_header_labels("task" = "Task", "itemtype" = "Model", "invariance" = "Invariance") |>
+  align_text_col() |>
+  autofit()
 ```
 
 ```{r test-retest-cor}
