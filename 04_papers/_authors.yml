@@ -231,29 +231,48 @@ author:
     email: mcfrank@stanford.edu
 
 roles:
-      - conceptualization
-      - data curation
-      - formal analysis
-      - funding acquisition
-      - investigation
-      - methodology
-      - project administration
-      - software
-      - supervision
-      - visualization
-      - writing – original draft
-      - writing – review & editing
+  - conceptualization
+  - data curation
+  - formal analysis
+  - funding acquisition
+  - investigation
+  - methodology
+  - project administration
+  - software
+  - supervision
+  - visualization
+  - writing – original draft
+  - writing – review & editing
 
 affiliations:
   - id: stanford
-    name: "Stanford University"
+    name: Stanford University
+    department: Department of Psychology
+    city: Stanford, CA
+    country: United States
   - id: ucsd
-    name: "University of California, San Diego"
+    name: University of California, San Diego
+    department: Department of Psychology
+    city: San Diego, CA
+    country: United States
   - id: western
-    name: "Western University"
-  - id: uniandes
-    name: "Universidad de los Andes"
+    name: University of Western Ontario
+    department: Department of Psychology
+    city: London, ON
+    country: Canada
   - id: mpieva
-    name: "Max Planck Institute for Evolutionary Anthropology"
+    name: Max Planck Institute for Evolutionary Anthropology
+    department: Department of Comparative Cultural Psychology
+    city: Leipzig
+    country: Germany
   - id: leuphana
-    name: "Leuphana University"
+    name: Leuphana University
+    department: Institute of Psychology
+    city: Lüneburg
+    country: Germany
+  - id: uniandes
+    name: Universidad de los Andes
+    department: School of Education
+    city: Bogotá
+    country: Colombia
+    
