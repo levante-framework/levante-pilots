@@ -7,10 +7,11 @@ metadata-files:
 
 author-note:
   disclosures:
+    data-sharing: "The data and analytic code necessary to reproduce the analyses presented here are publicly accessible at <https://github.com/levante-framework/levante-pilots>. The materials necessary to attempt to replicate the findings presented here are publicly accessible at <https://github.com/levante-framework/core-tasks>. The analyses presented here were not preregistered."
+    conflict-of-interest: "The author has no conflict of interest to declare."
     financial-support: "This work was supported by the Jacobs Foundation."
-    # conflict-of-interest: The author has no conflict of interest to declare.
 
-abstract: We present the Learning Variability Network Exchange (LEVANTE) core tasks, a set of nine short and engaging tasks designed to assess learning and development in children ages 5--12 years across a wide range of languages and cultures. Using a simple and uniform multi-alternative forced-choice format, these tasks measure constructs including math, executive function, language, reasoning, and social cognition and can be administered on a tablet or computer, both in person and remotely, with all materials openly available. We describe the design and selection of these tasks, and then report on their reliability and validity in a sample of 2329 children recruited from sites in Colombia, Germany, and Canada. Tasks are scored using multi-group item response theory models, allowing testing for measurement invariance. The parameters of these models can then be used to create computer adaptive versions of the tasks, allowing the entire battery to be given in around an hour. We discuss the use,  ongoing refinement, and extension of these tasks in the service of creating an open dataset to describe variability in children's development and learning across contexts.
+abstract: We present the Learning Variability Network Exchange (LEVANTE) core tasks, a set of nine short and engaging tasks designed to assess learning and development in children ages 5--12 years across a wide range of languages and cultures. Using a simple and uniform multi-alternative forced-choice format, these tasks measure constructs including math, executive function, language, reasoning, and social cognition and can be administered on a tablet or computer, both in person and remotely, with all materials openly available. We describe the design and selection of these tasks, and then report on their reliability and validity in a sample of ~2500 children recruited from sites in Colombia, Germany, and Canada. Tasks are scored using multi-group item response theory models, allowing testing for measurement invariance. The parameters of these models can then be used to create computer adaptive versions of the tasks, allowing the entire battery to be given in around an hour. We discuss the use, ongoing refinement, and extension of these tasks in the service of creating an open dataset to describe variability in children's development and learning across contexts.
 
 keywords: ["cognitive development"]
 word-count: true
@@ -1273,7 +1274,7 @@ We assessed construct validity using a structural equation model (SEM) specifyin
 #| fig-width: 8
 #| fig-height: 9
 
-source("modified_sem_plot.R") # veronica helper
+source("sem/modified_sem_plot.R") # veronica helper
 
 pe <- parameterEstimates(fit_cov_age, standardized = TRUE)
 latents  <- sort(unique(pe$lhs[pe$op == "=~"]))
@@ -1338,7 +1339,7 @@ edges <- pe %>%
     label = sprintf("%.2f%s", std.all, stars)
   )
 
-layout_ids <- as.matrix(read_excel("SEM_layout.xlsx", col_names = FALSE))
+layout_ids <- as.matrix(read_excel("sem/layouts/SEM_layout.xlsx", col_names = FALSE))
 layout_ids[layout_ids == ""] <- NA
 
 # checks
@@ -1567,7 +1568,7 @@ edges <- pe_ef |>
     )
   ) 
 
-layout_ef <- as.matrix(read_excel("ef_sem_layout.xlsx", col_names = FALSE))
+layout_ef <- as.matrix(read_excel("sem/layouts/ef_sem_layout.xlsx", col_names = FALSE))
 layout_ef[layout_ef == ""] <- NA
 
 # checks
@@ -1702,7 +1703,7 @@ edges_lang <- pe_lang |>
     )
   )
 
-layout_lang <- as.matrix(read_excel("lang_sem_layout.xlsx", col_names = FALSE))
+layout_lang <- as.matrix(read_excel("sem/layouts/lang_sem_layout.xlsx", col_names = FALSE))
 layout_lang[layout_lang == ""] <- NA
 
 # checks
