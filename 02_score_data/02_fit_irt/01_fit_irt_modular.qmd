@@ -24,15 +24,10 @@ irt_tasks <- c("pa",
                "trog",
                "vocab")
 
-# reference sites to include in these analyses
-# ref_sites <- c("pilot_uniandes_co", "pilot_mpieva_de", "pilot_western_ca")
-
-task_data_nested <- read_rds(here("01_fetched_data/task_data_nested.rds")) #|>
-  # filter(site %in% ref_sites)
-
-task_data_irt <- task_data_nested |>
+task_data_irt <- read_rds(here("01_fetched_data/task_data_nested.rds")) |>
   filter(item_task %in% irt_tasks) |>
-  filter(!is.na(language))
+  filter(!is.na(language)) |>
+  mutate(language = language |> str_replace("Other\\((.*)\\)", "\\1"))
 ```
 
 ```{r}
@@ -100,13 +95,15 @@ cluster |>
                                    registry_dir = regdir))
 
 # fit multigroup models for each task (in parallel)
+irt_tasks <- c("math", "matrix", "vocab")
 cluster |>
   cluster_assign_each(task = irt_tasks) |>
   cluster_send(fit_task_models_multigroup(task_data = task_data_irt,
                                           models = models_multigroup,
                                           priors = priors,
                                           task = task,
-                                          group = site,
+                                          # group = site,
+                                          group = dataset,
                                           registry_dir = regdir))
 ```
 
@@ -124,12 +121,13 @@ fit_bylanguage_task(task_data = task_data_irt,
 #                       task = tsk,
 #                       registry_dir = regdir)
 # })
-# 
+
 fit_task_models_multigroup(task_data = task_data_irt,
                            models = models_multigroup,
                            prior = priors,
-                           task = "matrix",
-                           group = site,
+                           task = "pa",
+                           # group = site,
+                           group = dataset,
                            registry_dir = regdir)
 # 
 # fit_task_models_pooled(task_data_irt, models_pooled, priors, "mrot", language, "de", regdir)
