@@ -292,7 +292,7 @@ format:
     documentmode: man
     keep-tex: true
     include-in-header: preamble.tex
-    fig-format: pdf
+    fig-format: png
     # fig-pos: H        
     # tbl-pos: H  
 
@@ -329,6 +329,7 @@ library(broom.mixed)
 library(lmerTest)
 library(emmeans)
 library(tidySEM)
+library(marginaleffects)
 
 source(here("03_summaries","plotting_helper.R"))
 source(here("plot_settings.R"))
@@ -434,7 +435,7 @@ We end by discussing future plans for further internationalization and downward 
 
 ```{r load-scores}
 task_info <- tribble(
-  ~item_task , ~task               , ~task_category,
+  ~item_task , ~task                    , ~task_category,
   "hf"       , "hearts & flowers"       , "executive function",
   "sds"      , "same & different"       , "executive function",
   "mg"       , "memory"                 , "executive function",
@@ -452,30 +453,166 @@ task_info <- tribble(
   mutate(task = task |> str_to_title() |> fct_inorder(),
          task_category = task_category |> str_to_title() |> fct_inorder())
 
+task_mods <- tribble(
+  ~item_task , ~model_set          , ~itemtype, ~invariance,
+  "hf"       , "multigroup_dataset",     "2pl",    "scalar",
+  "math"     , "multigroup_dataset",   "rasch",    "scalar",
+  "matrix"   , "multigroup_dataset",   "rasch",    "scalar",
+  "mg"       , "multigroup_dataset",   "rasch",    "scalar",
+  "mrot"     , "multigroup_dataset",     "2pl",    "scalar",
+  "trog"     , "multigroup_dataset",   "rasch",    "scalar",
+  "sds"      , "multigroup_dataset",   "rasch",    "scalar",
+  "vocab"    , "by_language",          "rasch",    "",
+  "tom"      , "by_language",          "rasch",    "",
+  "pa"       , "by_language",          "rasch",    "",
+  "sre"      , "by_language",          "rasch",    "",
+  "swr"      , "by_language",          "rasch",    "",
+)
+
 # all_scores <- read_rds(here("02_scoring_outputs","scores","scores_combined.rds")) |>
-all_scores <- read_rds(here("01_fetched_data/run_data.rds")) |>
-  rename(item_task = task_code) |>
-  group_by(user_id, item_task) |>
+run_data <- read_rds(here("01_fetched_data/run_data.rds"))
+# all_scores <- read_rds("data/scores_latest.rds") |>
+mod_scores <- read_rds(here("02_scoring_outputs/scores/registry_scores.rds"))
+mod_stats <- read_rds(here("02_scoring_outputs/mod_stats.rds"))
+
+included_runs <- run_data |>
+  filter(!is.na(age), age >= 5, age < 13) |>
+  group_by(user_id, task_code) |>
   arrange(age) |>
   mutate(run_number = 1:n(),
          age_gap = age - age[1]) |>
   ungroup() |>
-  mutate(site_label = dataset |> fct_recode(!!!site_labels)) |>
-  left_join(task_info)
-
-task_map <- all_scores |> distinct(item_task, task)
-
-age_scores <- all_scores |> filter(age >= 5, age < 13)
-
-included_scores <- age_scores |>
   filter(run_number == 1 | (run_number == 2 & age_gap > 1/6)) |>
-  filter_out(num_attempted < 10)
+  select(dataset, user_id, run_id, language, adaptive, age, run_number, age_gap, num_attempted) |>
+  mutate(site_label = dataset |> fct_recode(!!!site_labels))
 
-coretask_scores <- included_scores |>
-  filter(item_task %in% core_tasks)
+included_mod_scores <- mod_scores |> inner_join(included_runs) |>
+  filter(model_set %in% c("by_language", "multigroup_dataset")) |>
+  filter_out(subset == "overlap_items")
 
-coretask_firstrun_scores <- coretask_scores |>
-  filter(run_number == 1)
+# best_mods <- mod_stats |>
+#   mutate(task_bic = if_else(by_lang, lang_bic, overlap_bic)) |>
+#   select(task, by_lang, task_bic) |>
+#   unnest(task_bic) |>
+#   group_by(task, model_set, subset) |>
+#   filter(BIC == min(BIC)) |>
+#   ungroup() |>
+#   select(-BIC) |>
+#   filter(model_set %in% c("by_language", "multigroup_dataset")) |>
+#   mutate(subset = replace_na(subset, "all_items"))
+# 
+# best_scores <- mod_scores |> inner_join(best_mods) |>
+#   rename(score = ability, score_se = se)
+
+sre_scores <- read_rds(here("02_scoring_outputs/scores/scores_custom.rds")) |>
+  filter(item_task == "sre") |>
+  select(item_task, run_id, ability = metric_value) |>
+  inner_join(included_runs)
+
+# # all_scores <- run_data |>
+# #   select(dataset, task_id, user_id, run_id, age, num_attempted) |>
+# #   left_join(bind_rows(best_scores, sre_scores)) |>
+# #   filter(!is.na(score)) |>
+# #   rename(item_task = task) |>
+# #   group_by(user_id, item_task) |>
+# #   arrange(age) |>
+# #   mutate(run_number = 1:n(),
+# #          age_gap = age - age[1]) |>
+# #   ungroup() |>
+# #   mutate(site_label = dataset |> fct_recode(!!!site_labels)) |>
+# #   left_join(task_info)
+# # 
+# # task_map <- all_scores |> distinct(item_task, task)
+# # 
+# # age_scores <- all_scores |> filter(age >= 5, age < 13)
+# 
+# included_scores <- age_scores |>
+#   filter(run_number == 1 | (run_number == 2 & age_gap > 1/6)) #|>
+#   # filter_out(num_attempted < 10)
+
+# coretask_scores <- included_scores |>
+#   filter(item_task %in% core_tasks)
+
+task_scores <- included_mod_scores |>
+  rename(item_task = task) |>
+  semi_join(task_mods) |>
+  bind_rows(sre_scores) |>
+  left_join(task_info) |>
+  rename(score = ability, score_se = se)
+
+coretask_scores <- task_scores |> filter(item_task %in% core_tasks)
+coretask_firstrun_scores <- coretask_scores |> filter(run_number == 1)
+```
+
+```{r age-slopes}
+#| dependson: load-scores
+
+score_age_cors <- included_mod_scores |>
+  group_by(task, dataset, model_set, itemtype, nfact, invariance) |>
+  summarise(score_age_cor = cor(ability, age)) |>
+  ungroup()
+
+age_mods <- included_mod_scores |>
+  nest(scores = -c(task, model_set, itemtype, nfact, invariance)) |>
+  mutate(scores = map(scores, \(s) s |> mutate(ability = scale(ability)[,1]))) |>
+  mutate(score_age_mod = map(scores, \(s) lm(ability ~ age * dataset, data = s)))
+
+age_slopes <- age_mods |>
+  mutate(
+    slope = map(score_age_mod, \(mod) {
+    avg_slopes(mod, variable = "age") |> as_tibble()
+  }),
+  slope_dataset = map(score_age_mod, \(mod) {
+    avg_slopes(mod, variable = "age", by = "dataset") |> as_tibble()
+  }))
+
+age_slopes_tbl <- full_join(
+  age_slopes |> select(-scores, -score_age_mod, -slope_dataset) |> unnest(slope) |> mutate(dataset = "overall"),
+  age_slopes |> select(-scores, -score_age_mod, -slope) |> unnest(slope_dataset)
+) |>
+  mutate(invariance = if_else(invariance == "", "configural", invariance),
+         itemtype_ = itemtype |> fct_relevel("rasch") |> fct_recode("Rasch" = "rasch", "2PL" = "2pl"),
+         site_label = dataset |> fct_recode(!!!site_labels)) |>
+  arrange(itemtype_, invariance) |>
+  mutate(model = glue("({invariance}) {itemtype_}") |> fct_inorder() |> fct_rev()) |>
+  rename(item_task = task) |>
+  left_join(task_info) |>
+  arrange(task, model)
+
+age_slopes_overall <- age_slopes_tbl |> filter(dataset == "overall")
+age_slopes_dataset <- age_slopes_tbl |> filter(dataset != "overall")
+
+# ggplot(age_slopes_dataset, aes(x = estimate, y = model)) +
+#   # facet_wrap(vars(task), ncol = 1, scales = "free_y", space = "free_y") +
+#   facet_grid(vars(task), vars(site_label), scales = "free_y", space = "free_y") +
+#   geom_vline(xintercept = 0, colour = "lightgrey", linetype = "dotted") +
+#   geom_pointrange(aes(xmin = conf.low, xmax = conf.high, colour = site_label),
+#                   size = 0.1, alpha = 0.5) +
+#   geom_pointrange(aes(xmin = conf.low, xmax = conf.high), colour = "black", size = 0.2,
+#                   data = age_slopes_overall) +
+#   scale_colour_ptol(guide = "none") +
+#   labs(x = "Age slope (SD of ability per year)", y = "Model") +
+#   theme(strip.text.y = element_text(size = rel(0.75)),
+#         panel.grid.major.y = element_line(colour = "#EBEBEBFF", linewidth = 0.2))
+# ggsave("age_slopes.png", width = 14, height = 12)
+
+task_age_slopes <- age_slopes_tbl |> semi_join(task_mods) |>
+  arrange(dataset, estimate) |>
+  mutate(task = task |> fct_inorder())
+task_age_slopes_overall <- task_age_slopes |> filter(dataset == "overall")
+task_age_slopes_dataset <- task_age_slopes |> filter(dataset != "overall")
+
+ggplot(task_age_slopes_dataset, aes(x = estimate, y = task)) +
+  facet_wrap(vars(site_label), nrow = 1) +
+  geom_vline(xintercept = 0, colour = "lightgrey", linetype = "dotted") +
+  geom_pointrange(aes(xmin = conf.low, xmax = conf.high, colour = site_label),
+                  size = 0.1, alpha = 0.5) +
+  geom_pointrange(aes(xmin = conf.low, xmax = conf.high), colour = "black", size = 0.2,
+                  data = task_age_slopes_overall) +
+  scale_colour_ptol(guide = "none") +
+  labs(x = "Age slope (SD of ability per year)", y = "Task", colour = "Model type") +
+  theme(panel.grid.major.y = element_line(colour = "#EBEBEBFF", linewidth = 0.2))
+# ggsave("age_slopes_task.png", width = 12, height = 3)
 ```
 
 ```{r time-summary}
@@ -487,7 +624,8 @@ task_time_table <- task_time_summary |>
   filter(item_task %in% core_tasks) |>
   mutate(site_label = dataset |> fct_recode(!!!site_labels, "All" = "all"),
          adaptive = if_else(is_cat, "adaptive", "non_adaptive")) |>
-  left_join(task_map) |>
+  # left_join(task_map) |>
+  left_join(task_info) |>
   select(task, site_label, adaptive, median_diff) |>
   pivot_wider(names_from = adaptive, values_from = median_diff) |>
   mutate(pct = 100 * as.numeric(adaptive) / as.numeric(non_adaptive),
@@ -520,9 +658,9 @@ All tasks are available for demonstration purposes at <https://researcher.levant
 
 ::: {.landscape}
 ```{r}
+#| dependson: time-summary
 #| label: tbl-durations
 #| tbl-cap: "Median task durations (minutes) for non-adaptive (left) and adaptive (right) versions of each task, within across all sites and within each site. Adaptive durations include in parentheses what percentage that adaptive duration is of the corresponding non-adaptive duration."
-#| cache: false
 
 task_time_table |>
   rename(Task = task) |>
@@ -643,12 +781,13 @@ The pilot site partnership was an integral component of the core task developmen
 A key feature of the LEVANTE framework is that all data are fully de-identified, minimizing legal and ethical barriers to data sharing. No sociodemographic information or other identifying details about the child are entered into the researcher dashboard by participating sites, and ages are recorded only to the nearest month [@frank2025]. We anticipate that sites will add sociodemographic information at a later stage via an app currently under development, which is designed to ensure that individuals cannot be statistically re-identified (e.g., due to rare combinations of characteristics within a community). For this reason, here we provide only minimal demographic characterization and analysis of the children from our pilot sites. @fig-age-hist provides the distribution of ages for each site. 
 
 ```{r}
+#| dependson: load-scores
 #| label: fig-age-hist
 #| fig-cap: "Overall distributions of ages for each site."
 #| fig-height: 3
 
 ages <- coretask_scores |>
-  group_by(site, site_label, dataset, user_id) |>
+  group_by(site_label, dataset, user_id) |>
   summarise(age = min(age),
             n_runs = n())
 
@@ -662,7 +801,7 @@ ggplot(ages, aes(x = age, fill = site_label)) +
   labs(x = "Age (years)", y = "Number of children")
 ```
 
-```{r compute_counts}
+```{r compute-counts}
 runs_coded <- read_rds("runs_coded.rds")
 
 total_counts <- runs_coded |>
@@ -672,7 +811,9 @@ total_counts <- runs_coded |>
 user_totals <- total_counts |> select(site_label, n_users) |> deframe()
 ```
 
-```{r compute_exclusions}
+```{r compute-exclusions}
+#| dependson: compute-counts
+
 get_exclusion_counts_site <- \(v) {
   runs_coded |> bind_rows(runs_coded |> mutate(site_label = "all")) |>
     count(site_label, .data[[v]]) |>
@@ -798,6 +939,7 @@ inv_explainer |>
   fontsize(j = "mirt", size = 8)
 ```
 :::
+
 ```{r}
 # task_lab_map <- c(
 #   hf="Hearts and Flowers", mg="Memory", sds="Same and Different",
@@ -819,6 +961,7 @@ fmt_p <- function(p) case_when(
   TRUE     ~ sprintf("%.3f", p)
 )
 ```
+
 # Psychometric properties of tasks
 
 ## Developmental sensitivity
@@ -832,6 +975,7 @@ To quantify the age gradients, we fit separate ordinary least-squares models pre
 For ease of interpretation, we calculated the zero-order correlations between age and IRT ability scores for each site. As seen in the right side of Table 4, these correlations were uniformly positive ($r = .40$ to .70), of moderate magnitude across tasks, and broadly similar across sites. In sum, the results of the age-based analyses suggest that the tasks are sensitive to age-related differences and are likely suitable for deployment in longitudinal studies of developmental change.
 
 ```{r}
+#| dependson: load-scores
 #| label: fig-age-trends
 #| fig-cap: "Estimated IRT ability by age across tasks and sites, non-adaptive data only."
 #| fig-width: 8
@@ -915,6 +1059,8 @@ dev_change_plot <- ggplot(fixed_only, aes(x = age, y = score, colour = site_labe
     plot.caption.position = "plot"
   )
 
+dev_change_plot
+
 # ggsave(
 # filename = here::here("04_papers", "display", "dev_change.png"),
 # plot = dev_change_plot,
@@ -928,6 +1074,8 @@ dev_change_plot <- ggplot(fixed_only, aes(x = age, y = score, colour = site_labe
 ::: {.landscape}
 ```{r}
 #| label: tbl-slopes
+#| include: FALSE
+#| eval: FALSE
 #| tbl-cap: "Age-Related Change in Performance: Task Grand Means (GM), Site Deviations (Δ), and Age–Ability Correlations ($r$), non-adaptive data only. *Note: for each task, z-scores were regressed on centred age and site, with sum-to-zero contrasts for site. GM β is the grand-mean age slope, Δβ is each site’s deviation from this slope, site-specific slope = GM β + Δβ. $r$ is the within-site Pearson correlation between age and task score.*"
 #| ft.arraystretch: 1
 
@@ -1066,56 +1214,107 @@ Marginal reliability, an IRT-based analogue to Cronbach’s $\alpha$, quantifies
 ```{r}
 #| label: tbl-task-rxx
 #| tbl-cap: "Marginal reliabilities for each task and site."
+#| include: FALSE
+#| eval: FALSE
 
-task_rxx <- read_rds(here("02_scoring_outputs/task_rxx.rds"))
+# task_rxx <- read_rds(here("02_scoring_outputs/task_rxx.rds"))
+mod_stats <- read_rds(here("02_scoring_outputs/mod_stats.rds"))
 
-trx <- task_rxx |>
-  rename(item_task = task) |>
-  left_join(task_map) |>
-  select(task, site, itemtype, invariance, rxx) |>
-  mutate(
-    site      = site |> fct_recode(!!!site_labels),
-    itemtype  = itemtype |> fct_recode("Rasch" = "rasch", "2PL" = "2pl"),
-    invariance = invariance |> str_to_sentence()
-  ) |>
-  arrange(task) |>
-  pivot_wider(
-    names_from   = site,
-    values_from  = rxx,
-    names_prefix = "Reliability_"
-  ) |>
-  rename(Task = task, Model = itemtype, Invariance = invariance)
+lang_task_tbl <- full_join(
+  mod_stats |> filter(by_lang) |> select(task, lang_bic) |> unnest(lang_bic) |> select(-invariance),
+  mod_stats |> filter(by_lang) |> select(task, lang_rxx) |> unnest(lang_rxx) |> select(-invariance)
+) |>
+  select(task, subset, itemtype, rxx, bic = BIC) |>
+  group_by(task, subset) |>
+  mutate(lowest_bic = itemtype[bic == min(bic)],
+         highest_rxx = itemtype[rxx == max(rxx)]) |>
+  ungroup() |>
+  pivot_wider(names_from = itemtype, values_from = c(bic, rxx))
 
-# get reliability columns
-reliab_cols <- names(trx)[startsWith(names(trx), "Reliability_")]
+mod_stats |> select(task, overlap_bic) |> unnest(overlap_bic) |>
+  filter(model_set %in% c("by_language", "multigroup_dataset"))
 
-ft <- trx |>
-  flextable() |>
-  separate_header() |>
-  align_text_col()
+mod_stats |> select(task, scalar_rxx) |> unnest(scalar_rxx) |>
+  filter(model_set %in% c("by_language", "multigroup_dataset")) |> count(task)
 
-# reliability < 0.6 in blue
-for (col in reliab_cols) {
-  idx <- which(trx[[col]] < 0.6 & !is.na(trx[[col]]))
-  ft  <- color(ft, i = idx, j = col, color = "blue", part = "body")
-}
+# full_join(
+#   mod_stats |> select(task, overlap_bic) |> unnest(overlap_bic),
+#   mod_stats |> filter(!by_lang) |> select(task, scalar_rxx) |> unnest(scalar_rxx)
+# )
 
-ft <- autofit(ft, add_w = 0, add_h = 0)
-ft <- ft |>
-  add_footer_lines(values = "Note. Cells in blue indicate reliability < .60.") |>
-  fontsize(part = "footer", size = 8) |>
-  italic(part = "footer")
-ft
+
+
+# # task_bic <- mod_stats |>
+# #   mutate(task_bic = if_else(by_lang, lang_bic, overlap_bic)) |>
+# #   select(task, by_lang, task_bic) |>
+# #   unnest(task_bic) |>
+# #   filter(model_set %in% c("by_language", "multigroup_dataset")) |>
+# #   mutate(invariance = if_else(invariance == "", "configural", invariance)) |>
+# #   # group_by(task, model_set, itemtype, nfact) |>
+# #   # mutate(bic_diff = BIC - min(BIC))
+# #   pivot_wider(names_from = invariance, values_from = BIC, names_prefix = "invariance_") |>
+# #   mutate(bic_diff = invariance_configural - invariance_scalar) |>
+# #   select(-starts_with("invariance_")) |>
+# #   arrange(by_lang, task) |>
+# #   pivot_wider(names_from = itemtype, values_from = bic_diff, names_prefix = "dbic_")
+# # 
+# # task_rxx <- mod_stats |>
+# #   mutate(task_rxx = if_else(by_lang, lang_rxx, scalar_rxx)) |>
+# #   select(task, by_lang, task_rxx) |>
+# #   unnest(task_rxx) |>
+# #   filter(model_set %in% c("by_language", "multigroup_dataset"))
+#   # semi_join(best_mods)
+# 
+# trx <- task_rxx |>
+#   rename(item_task = task) |>
+#   left_join(task_map) |>
+#   mutate(
+#     group_label = if_else(is.na(group), subset, group |> fct_recode(!!!site_labels)),
+#     itemtype = itemtype |> fct_recode("Rasch" = "rasch", "2PL" = "2pl"),
+#     invariance = invariance |> str_to_sentence()
+#   ) |>
+#   arrange(by_lang, task) |>
+#   select(task, group_label, itemtype, invariance, rxx) |>
+#   pivot_wider(names_from = itemtype, values_from = rxx)
+#   # pivot_wider(
+#   #   names_from   = site,
+#   #   values_from  = rxx,
+#   #   names_prefix = "Reliability_"
+#   # ) |>
+#   # rename(Task = task, Model = itemtype, Invariance = invariance)
+# 
+# # get reliability columns
+# reliab_cols <- names(trx)[startsWith(names(trx), "Reliability_")]
+# 
+# ft <- trx |>
+#   flextable() |>
+#   separate_header() |>
+#   align_text_col()
+# 
+# # reliability < 0.6 in blue
+# for (col in reliab_cols) {
+#   idx <- which(trx[[col]] < 0.6 & !is.na(trx[[col]]))
+#   ft  <- color(ft, i = idx, j = col, color = "blue", part = "body")
+# }
+# 
+# ft <- autofit(ft, add_w = 0, add_h = 0)
+# ft <- ft |>
+#   add_footer_lines(values = "Note. Cells in blue indicate reliability < .60.") |>
+#   fontsize(part = "footer", size = 8) |>
+#   italic(part = "footer")
+# ft
 
 ```
 
-```{r}
+```{r test-retest-cor}
+#| dependson: load-scores
+
 # prophecy <- function (n = 2, r) {
 #   (n * r) /  (1 + (n - 1) * r)
 # }
 
 de_retest_scores <- coretask_scores |> 
-  filter(site == "pilot_mpieva_de") |>
+  filter(dataset == "pilot_mpieva_de_main") |>
   group_by(user_id, task) |>
   arrange(user_id, task, age) |>
   filter(n() > 1) 
@@ -1145,11 +1344,13 @@ trt <- retest_wide |>
   arrange(task)
 ```
 
-```{r, include=FALSE}
+```{r test-retest-n}
+#| dependson: load-scores
+
 # age comparison of re-test sample
 # ages for all de participants 
 de_general_ages <- coretask_scores |>
-  filter(site == "pilot_mpieva_de") |>
+  filter(dataset == "pilot_mpieva_de_main") |>
   group_by(user_id, task_category, task) |>
   summarise(
     age = mean(age, na.rm = TRUE),
@@ -1202,6 +1403,7 @@ age_diff_months <- age_diff_years * 12
 We were also interested in capturing the extent to which the LEVANTE tasks yield reliable signal across a delay. The mpieva-de pilot site was able to re-administer tasks to a subset of their original participant group with a retest interval of either 3 months (group 1) or 7 months (group 2) approximately. We used this re-administration as an opportunity to collect data with computer adaptive versions of many of the tasks (Sentence Understanding, Pattern Matching, Shape Rotation, Math, and Vocabulary); see below for further details of computer adaptive versions. In addition, for several tasks (Math, Stories, Pattern Matching), we used this opportunity to gather item data about new groups of retest items that were designed to match the content of the original items but vary in their surface forms. For the other tasks, we retested using the same items. 
 
 @fig-retest shows the relations between time 1 and time 2 scores. Across individual tasks, retest sample sizes ranged from N = `r min(trt$n)` to N = `r max(trt$n)`; the low number of repeat administrations for Sentence Understanding reflects an error in which this task was not sent to younger children. Children in the test–retest subsample were very similar in age to those in the overall mpieva-de pilot sample. The overall sample (n = `r gen_age$n`) had a mean age of `r round(gen_age$mean_age, 2)` years (SD = `r round(gen_age$sd_age, 2)`), whereas the test–retest subsample (n = `r trt_age$n`) had a mean age of `r round(trt_age$mean_age, 2)` years (SD = `r round(trt_age$sd_age, 2)`), a difference of approximately `r round(age_diff_years, 2)` years (~`r round(age_diff_months, 0)` months). Each figure panel also shows the test-retest correlation and sample size for the corresponding task. Most retest correlations were in the range of $r = .5$ -- .7, with two exceptions. Sentence Understanding had a smaller sample size with a more restricted age range and showed lower reliability within that range; and Math showed higher reliability than the other tasks. Under classical test theory assumptions, these test–retest correlations provide an estimate of score reliability that complements the marginal reliabilities reported above [@kline2013handbook].
+
 ```{r}
 #| label: fig-retest
 #| fig-cap: "Test-retest correlations per task (in mpieva-de data)."
@@ -1247,6 +1449,8 @@ ggplot(retest_wide, aes(run_1, run_2, colour = age)) +
 Assessment of validity for the core tasks was challenging, in part because of the precise issues that motivated us to create the task battery in the first place. No readily available, internationalized measures existed to compare to many of our tasks. Thus, for validation evidence, we rely on the overall construct structure of the core task battery as well as the relations to our gold standard measures for literacy (ROAR-Word, ROAR-Sentence and ROAR-Phoneme) and executive function (MEFS).
 
 ```{r prep-sem}
+#| dependson: load-scores
+
 prep_sem <- \(scores, tasks) {
   scores |>
     filter(item_task %in% tasks) |>
@@ -1258,10 +1462,13 @@ prep_sem <- \(scores, tasks) {
     mutate(across(all_of(tasks), \(x) scale(x)[,1]))
 }
 
-wide_scores <- prep_sem(included_scores, unique(included_scores$item_task))
+# wide_scores <- prep_sem(included_scores, unique(included_scores$item_task))
+wide_scores <- prep_sem(coretask_scores, unique(coretask_scores$item_task))
 ```
 
-```{r sem-g, include=FALSE}
+```{r sem-g}
+#| dependson: prep-sem
+
 model_cov_no_age <- "
   # first-order factors
   reasoning =~ matrix + mrot
@@ -1281,13 +1488,12 @@ fit_cov_no_age <- sem(
   model_cov_no_age, data = wide_scores,
   estimator = 'MLR', std.lv = TRUE, missing = 'fiml'
 )
-summary(fit_cov_no_age, fit.measures = TRUE, standardized = TRUE)
-
+# summary(fit_cov_no_age, fit.measures = TRUE, standardized = TRUE)
 ```
 
-```{r sem-g-age, include=FALSE}
-#| echo: false
-#| results: "hide" 
+```{r sem-g-age}
+#| dependson: prep-sem
+
 # wide_scores$log_age_c <- scale(log(wide_scores$age))[,1] # removing log_age_c following feedback from BD and NR.
 wide_scores$age_c <- scale(wide_scores$age, scale = FALSE)[, 1] # center age
 
@@ -1321,10 +1527,11 @@ fit_cov_age <- sem(
   std.lv = FALSE, optim.method = 'nlminb',
   control = list(iter.max = 50000, rel.tol = 1e-6)
 )
-summary(fit_cov_age, fit.measures = TRUE, standardized = TRUE)
+# summary(fit_cov_age, fit.measures = TRUE, standardized = TRUE)
 ```
 
 ### Construct validity
+
 We assessed construct validity using a structural equation model (SEM) specifying three first‐order latent factors—Reasoning, Executive Function, and Language—with each factor measured by its respective tasks and allowed to covary with Math and Stories (see @fig-semplot-core-tasks). Math and Stories were treated as observed endogenous outcomes because each construct had a single task; introducing one-indicator latent variables would require strong, unverifiable assumptions about reliability and error variance. Age was specified to predict each of the latent factors as well as the observed variables Math and Stories.
 
 ```{r}
@@ -1543,7 +1750,8 @@ mefs_scores <- mefs |>
   mutate(site_label = dataset |> fct_recode(!!!site_labels))
 
 ef_tasks <- c("hf", "mg", "sds", "mefs")
-ef_wide_scores <- prep_sem(bind_rows(included_scores, mefs_scores), ef_tasks)
+# ef_wide_scores <- prep_sem(bind_rows(included_scores, mefs_scores), ef_tasks)
+ef_wide_scores <- prep_sem(bind_rows(coretask_scores, mefs_scores), ef_tasks)
 ```
 
 ```{r sem-ef}
@@ -1680,7 +1888,7 @@ plot(g_ef)
 
 ```{r prep-sem-lang}
 lang_tasks <- c("swr", "sre", "pa", "vocab", "trog")
-lang_wide_scores <- prep_sem(included_scores, lang_tasks)
+lang_wide_scores <- prep_sem(task_scores, lang_tasks)
 ```
 
 ```{r sem-lang}
@@ -1920,43 +2128,43 @@ Authors’ contributions are detailed on the title page, following the CRediT au
 
 ```{r}
 #| label: fig-em-trends
+#| include: FALSE
 #| fig-cap: "Site-specific age slopes by task (EMTrends with 95% CI), non-adaptive data only"
 #| fig-width: 8
 #| fig-height: 9
 #| fig-pos: 'H'
 
-
-slopes_by_task <- function(task) {
-  d <- fixed_only %>% filter(item_task == task)
-  d$site  <- factor(d$site)
-  d$age_c <- scale(d$age, scale = FALSE)[, 1]
-  contrasts(d$site) <- contr.sum(nlevels(d$site))
-
-  fit <- lm(score ~ age_c * site, data = d)
-
-  gm <- coef(summary(fit))["age_c", "Estimate"]
-
-  tr_sum <- emtrends(fit, ~ site, var = "age_c") |>
-    summary(infer = c(TRUE, TRUE)) |>
-    as_tibble()
-
-  slope_col <- intersect(names(tr_sum), c("estimate","trend","emmean","age_c.trend"))[1]
-  if (is.na(slope_col)) stop("Could not find slope column in emtrends() summary")
-
-  tr_sum |>
-    transmute(
-      item_task = task,
-      site      = .data$site,
-      slope     = .data[[slope_col]],
-      SE        = .data$SE,
-      df        = .data$df,
-      t         = .data$t.ratio,
-      p         = .data$p.value,
-      lower     = .data$lower.CL,
-      upper     = .data$upper.CL,
-      gm_slope  = gm
-    )
-}
+# slopes_by_task <- function(task) {
+#   d <- fixed_only %>% filter(item_task == task)
+#   d$site  <- factor(d$site)
+#   d$age_c <- scale(d$age, scale = FALSE)[, 1]
+#   contrasts(d$site) <- contr.sum(nlevels(d$site))
+# 
+#   fit <- lm(score ~ age_c * site, data = d)
+# 
+#   gm <- coef(summary(fit))["age_c", "Estimate"]
+# 
+#   tr_sum <- emtrends(fit, ~ site, var = "age_c") |>
+#     summary(infer = c(TRUE, TRUE)) |>
+#     as_tibble()
+# 
+#   slope_col <- intersect(names(tr_sum), c("estimate","trend","emmean","age_c.trend"))[1]
+#   if (is.na(slope_col)) stop("Could not find slope column in emtrends() summary")
+# 
+#   tr_sum |>
+#     transmute(
+#       item_task = task,
+#       site      = .data$site,
+#       slope     = .data[[slope_col]],
+#       SE        = .data$SE,
+#       df        = .data$df,
+#       t         = .data$t.ratio,
+#       p         = .data$p.value,
+#       lower     = .data$lower.CL,
+#       upper     = .data$upper.CL,
+#       gm_slope  = gm
+#     )
+# }
 
 # slopes_df <- map_dfr(task_ids, slopes_by_task) %>%                   
 #   left_join(task_meta, by = "item_task") %>%
