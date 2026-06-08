@@ -33,27 +33,28 @@ task_metrics <- tribble(
   "trog"     , "ability",
   "vocab"    , "ability",
   "tom"      , "ability",
-  "ha"       , "prop_correct",
-  "pa"       , "prop_correct",
+  # "ha"       , "prop_correct",
+  # "pa"       , "prop_correct",
+  "pa"      , "ability",
   "sre"      , "guessing_adjusted_number_correct",
   "swr"      , "ability",
   "mefs"     , "standard_score"
 )
 
-cat_tasks <- c("swr")
+# cat_tasks <- c("swr")
 
 run_info <- read_rds(here(glue("01_fetched_data/run_data.rds"))) |>
   select(site, dataset, language, task_id, #variant_id, variant_name,
          user_id, run_id, adaptive, age) #, time_started)
 
 score_files <- c("registry_scores.rds", "sumscores.rds", "roar_thetas.rds", "scores_custom.rds")
-ref_sites <- c("pilot_uniandes_co", "pilot_mpieva_de", "pilot_western_ca")
+# ref_sites <- c("pilot_uniandes_co", "pilot_mpieva_de", "pilot_western_ca")
 
 scores <- score_files |>
   map(\(f) read_rds(here("02_scoring_outputs", "scores", f))) |>
   bind_rows() |>
-  left_join(run_info) |>
-  filter(site %in% ref_sites)
+  left_join(run_info)
+  # filter(site %in% ref_sites)
 
 # mefs <- read_rds(here("02_scoring_outputs", "scores", "scores_mefs.rds"))
 

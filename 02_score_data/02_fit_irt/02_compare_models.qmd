@@ -21,7 +21,8 @@ mods_coded <- mods |>
   separate_wider_delim(file, names = c("task_dup", "itemtype", "nfact", "invariance"),
                        delim = "_", cols_remove = FALSE, too_few = "align_start") |>
   select(-task_dup) |>
-  mutate(invariance = invariance |> replace_na(""))
+  mutate(invariance = invariance |> replace_na("")) |>
+  mutate(BIC = map_dbl(mod_rec, \(rec) rec@fit$BIC))
   # mutate(nfact = map_int(mod_rec, \(mr) mr@nfact),
   #        itemtype = map_chr(mod_rec, \(mr) mr@itemtype),
   #        invariance_terms = map(mod_rec, \(mr) mr@invariance),
@@ -84,59 +85,65 @@ ggsave(here("02_scoring_outputs/plots/multigroup_post.png"), width = 14, height 
 ```
 
 ```{r}
-# best by language model for each task
-mods_best_language <- mods_coded |>
-  filter(model_set == "by_language") |>
-  # mutate(BIC = map_dbl(mod_rec, BIC)) |>
-  mutate(BIC = map_dbl(mod_rec, \(rec) rec@fit$BIC)) |>
-  group_by(task, subset) |>
-  filter(BIC == min(BIC)) |>
-  ungroup() |>
-  select(-BIC)
+# # best by language model for each task
+# mods_best_language <- mods_coded |>
+#   filter(model_set == "by_language") |>
+#   group_by(task, subset) |>
+#   filter(BIC == min(BIC)) |>
+#   ungroup() |>
+#   select(-BIC)
 
-# best model on overlapping items for each task
 mods_overlap <- mods_coded |>
-  filter(model_set == "multigroup_site", subset == "overlap_items") |>
-  # mutate(BIC = map_dbl(mod_rec, BIC))
-  mutate(BIC = map_dbl(mod_rec, \(rec) rec@fit$BIC))
+  filter(str_detect(model_set, "multigroup"), subset == "overlap_items") |>
+  select(model_set, task, itemtype, nfact, invariance, BIC)
 
 mods_overlap |>
-  group_by(task) |>
+  group_by(model_set, task) |>
   mutate(delta_bic = BIC - min(BIC)) |>
+  filter(model_set == "multigroup_dataset") |>
 ggplot(aes(x = delta_bic, y = paste(itemtype, invariance))) +
   facet_wrap(vars(task), scales = "free") +
+  # facet_grid(vars(model_set), vars(task), scales = "free") +
   geom_vline(xintercept = 0, color = "grey") +
   geom_crossbar(aes(xmin = delta_bic, xmax = delta_bic, colour = itemtype), width = 0.7,
                 middle.linewidth = 0.5) +
   scale_colour_brewer(palette = "Set1", guide = "none") +
   labs(x = "BIC difference from lowest", y = "Model")
-ggsave(here("02_scoring_outputs/plots/bic_comparison.png"), width = 9, height = 6)
+ggsave(here("02_scoring_outputs/plots/bic_comparison.png"), width = 10, height = 5)
 
+# best model on overlapping items for each task x model_set x itemtype
 mods_best_overlap <- mods_overlap |>
-  group_by(task, subset) |>
+  group_by(task, model_set, itemtype) |>
   filter(BIC == min(BIC)) |>
   ungroup() |>
-  select(-BIC)
+  # select(-BIC) |>
+  select(task, model_set, itemtype, nfact, invariance)
 
-# best all items multigroup model for each task (if overlap winner not configural)
-mods_best_multigroup <- mods_coded |>
-  filter(model_set == "multigroup_site", subset == "all_items",
-         invariance != "configural") |>
-  semi_join(mods_best_overlap |>
-              select(task, itemtype, nfact, invariance))
+# # best all items multigroup model for each task (if overlap winner not configural)
+# mods_best_multigroup <- mods_coded |>
+#   filter(str_detect(model_set, "multigroup"), subset == "all_items",
+#          invariance != "configural") |>
+#   semi_join(mods_best_overlap)
 
 configural_tasks <- mods_best_overlap |>
   filter(invariance == "configural") |>
-  select(task) |>
-  bind_rows(tibble(task = setdiff(mods_best_language$task, mods_best_overlap$task)))
+  distinct(task)
+  # bind_rows(tibble(task = setdiff(mods_best_language$task, mods_best_overlap$task)))
 
+lang_only_tasks <- mods_coded |>
+  group_by(task) |>
+  filter(all(model_set == "by_language")) |>
+  ungroup() |>
+  distinct(task)
+
+by_lang_tasks <- bind_rows(configural_tasks, lang_only_tasks)
 # best by language model for each task for which overlap winner is configural
-mods_best_configural <- mods_best_language |>
-  semi_join(configural_tasks) |>
-  mutate(invariance = "configural")
+mods_best_configural <- mods_coded |>
+  filter(model_set == "by_language") |>
+  semi_join(by_lang_tasks)
 
-mods_best <- bind_rows(mods_best_multigroup, mods_best_configural)
-write_rds(mods_best, here("02_scoring_outputs/mods_best.rds"))
+# mods_best <- bind_rows(mods_best_multigroup, mods_best_configural)
+# write_rds(mods_best, here("02_scoring_outputs/mods_best.rds"))
 ```
 
 ```{r}
@@ -162,31 +169,163 @@ write_rds(best_coefs, here("02_scoring_outputs/best_coefs.rds"),
 ```
 
 ```{r}
-mods_objs <- mods_coded |> mutate(mod = map(mod_rec, model_from_record))
+# mods_objs <- mods_coded |> mutate(mod = map(mod_rec, model_from_record))
 
-mods_group <- mods_objs |>
-  filter(model_set == "multigroup_site", subset == "all_items") |>
+mods_scalar <- mods_coded |>
+  filter(str_detect(model_set, "multigroup"), subset == "all_items") |>
   filter(invariance == "scalar") |> # extract.group not working for metric/configural
-  semi_join(mods_best_multigroup, by = "task") |>
-  mutate(site = map(mod, \(m) m@Data$groupNames),
+  # anti_join(mods_best_configural, by = "task") |>
+  mutate(mod = map(mod_rec, model_from_record)) |>
+  # semi_join(mods_best_multigroup, by = "task") |>
+  mutate(group = map(mod, \(m) m@Data$groupNames),
          group_models = map(mod, multigroup_extract_groups))
 
-mods_group_rxx <- mods_group |>
-  select(site, task, itemtype, nfact, invariance, group_models) |>
-  unnest(cols = c("group_models", "site")) |>
+mods_scalar_rxx <- mods_scalar |>
+  select(model_set, subset, group, task, itemtype, nfact, invariance, group_models) |>
+  unnest(cols = c("group_models", "group")) |>
   mutate(rxx = map_dbl(group_models, marginal_rxx)) |>
-  select(site, task, itemtype, nfact, invariance, rxx)
+  select(model_set, subset, group, task, itemtype, nfact, invariance, rxx)
 
-mods_lang_rxx <- mods_objs |>
+mods_lang_rxx <- mods_coded |>
   filter(model_set == "by_language") |>
-  semi_join(mods_best_configural, by = "task") |>
-  mutate(site = subset |> fct_recode("pilot_mpieva_de" = "de-DE",
-                                     "pilot_uniandes_co" = "es-CO",
-                                     "pilot_western_ca" = "en-US")) |>
-  mutate(rxx = map_dbl(mod, marginal_rxx),
-         invariance = "by_language") |>
-  select(site, task, itemtype, nfact, invariance, rxx)
+  mutate(mod = map(mod_rec, model_from_record)) |>
+  mutate(rxx = map_dbl(mod, marginal_rxx)) |>
+  select(model_set, subset, task, itemtype, nfact, invariance, rxx) #|>
+  # mutate(invariance = "by_language")
 
-task_rxx <- bind_rows(mods_group_rxx, mods_lang_rxx)
-write_rds(task_rxx, here("02_scoring_outputs", "task_rxx.rds"))
+mods_lang_bic <-  mods_coded |>
+  filter(model_set == "by_language") |>
+  select(model_set, subset, task, itemtype, nfact, invariance, BIC)
+
+mod_stats <- mods_overlap |> nest(overlap_bic = -task) |>
+  full_join(mods_scalar_rxx |> nest(scalar_rxx = -task)) |>
+  full_join(mods_lang_bic |> nest(lang_bic = -task)) |>
+  full_join(mods_lang_rxx |> nest(lang_rxx = -task)) |>
+  mutate(by_lang = task %in% by_lang_tasks$task, .after = task)
+
+write_rds(mod_stats, here("02_scoring_outputs", "mod_stats.rds"), compress = "gz")
+
+# task_rxx <- bind_rows(mods_group_rxx, mods_lang_rxx)
+# write_rds(task_rxx, here("02_scoring_outputs", "task_rxx.rds"))
+```
+
+```{r}
+rxx_multigroup <- mods_scalar_rxx |>
+  filter(model_set == "multigroup_dataset") |>
+  mutate(group_label = group |> fct_recode(!!!site_labels),
+         itemtype = itemtype |> fct_relevel("rasch") |> fct_recode("Rasch" = "rasch", "2PL" = "2pl")) |>
+  arrange(itemtype, invariance) |>
+  mutate(model = glue("({invariance}) {itemtype}") |> fct_inorder() |> fct_rev()) |>
+  rename(item_task = task) |>
+  left_join(task_info)
+
+ggplot(rxx_multigroup, aes(x = itemtype, y = rxx, colour = task)) +
+  facet_grid(cols = vars(group_label)) +
+  geom_line(aes(group = task)) +
+  geom_point(size = 1) +
+  scale_colour_ptol() +
+  scale_x_discrete(expand = expansion(add = 0.2)) +
+  labs(x = "Model type (scalar invariant)", y = "Marginal reliability", colour = "Task")
+ggsave("rxx_multigroup_itemtype.png", width = 12, height = 4)
+
+ggplot(rxx_multigroup, aes(x = rxx, y = model)) +
+  facet_wrap(vars(task), ncol = 1, scales = "free_y") +
+  geom_vline(xintercept = 0.6, colour = "lightgrey", linetype = "dotted") +
+  geom_crossbar(aes(xmin = rxx, xmax = rxx, colour = group_label), width = 0.7,
+                middle.linewidth = 0.5) +
+  scale_colour_ptol() +
+  labs(x = "Marginal reliability", y = "Model", colour = "") +
+  theme(panel.grid.major.y = element_line(colour = "#EBEBEBFF", linewidth = 0.2),
+        legend.position = "bottom")
+ggsave("rxx_multigroup_compare.png", width = 6, height = 9)
+
+rxx_lang <- mods_lang_rxx |>
+  mutate(itemtype = itemtype |> fct_relevel("rasch") |> fct_recode("Rasch" = "rasch", "2PL" = "2pl")) |>
+  rename(item_task = task, group_label = subset) |>
+  left_join(task_info)
+
+ggplot(rxx_lang, aes(x = itemtype, y = rxx, colour = task)) +
+  facet_grid(cols = vars(group_label)) +
+  geom_line(aes(group = task)) +
+  geom_point(size = 1) +
+  scale_colour_ptol() +
+  scale_x_discrete(expand = expansion(add = 0.2)) +
+  labs(x = "Model type (pooled by language)", y = "Marginal reliability", colour = "Task")
+ggsave("rxx_bylang_itemtype.png", width = 10, height = 4)
+
+ggplot(rxx_lang, aes(x = rxx, y = fct_rev(itemtype))) +
+  facet_wrap(vars(task), ncol = 1, scales = "free_y") +
+  geom_vline(xintercept = 0.6, colour = "lightgrey", linetype = "dotted") +
+  geom_crossbar(aes(xmin = rxx, xmax = rxx, colour = group_label), width = 0.7,
+                middle.linewidth = 0.5) +
+  scale_colour_ptol() +
+  labs(x = "Marginal reliability", y = "Model", colour = "") +
+  theme(panel.grid.major.y = element_line(colour = "#EBEBEBFF", linewidth = 0.2),
+        legend.position = "bottom")
+ggsave("rxx_bylang_compare.png", width = 6, height = 11)
+
+# rxx_both <- bind_rows(rxx_multigroup, rxx_lang) |>
+#   arrange(itemtype, invariance) |>
+#   mutate(invariance = if_else(invariance == "", "configural", invariance),
+#          model = glue("({invariance}) {itemtype}") |> fct_inorder() |> fct_rev())
+
+mods_overlap |>
+  filter(model_set == "multigroup_dataset") |>
+  group_by(task) |>
+  mutate(delta_bic = BIC - min(BIC),
+         lowest_bic = delta_bic == 0) |>
+  mutate(itemtype = itemtype |> fct_relevel("rasch") |> fct_recode("Rasch" = "rasch", "2PL" = "2pl")) |>
+  arrange(itemtype, invariance) |>
+  mutate(model = glue("({invariance}) {itemtype}") |> fct_inorder() |> fct_rev()) |>
+  rename(item_task = task) |>
+  left_join(task_info) |>
+ggplot(aes(x = delta_bic, y = model)) +
+  facet_wrap(vars(task), scales = "free") +
+  # facet_grid(vars(model_set), vars(task), scales = "free") +
+  geom_vline(xintercept = 0, color = "grey") +
+  geom_crossbar(aes(xmin = delta_bic, xmax = delta_bic, colour = itemtype, linewidth = lowest_bic), #width = 0.7,
+                middle.linewidth = 0.5) +
+  scale_colour_brewer(palette = "Set1", guide = "none") +
+  scale_linewidth_manual(values = c(0.5, 1), guide = "none") +
+  labs(x = "BIC difference from lowest", y = "Model")
+ggsave("bic_compare.png", width = 10, height = 5)
+
+bic_compare <- mods_overlap |>
+  filter(model_set == "multigroup_dataset") |>
+  filter(invariance != "metric") |>
+  mutate(itemtype = itemtype |> fct_relevel("rasch") |> fct_recode("Rasch" = "rasch", "2PL" = "2pl")) |>
+  group_by(task) |>
+  mutate(delta_bic = BIC - min(BIC)) |>
+  rename(item_task = task) |>
+  left_join(task_info)
+
+ggplot(bic_compare, aes(x = invariance, y = delta_bic, colour = task)) +
+  # facet_grid(cols = vars(group_label)) +
+  facet_wrap(vars(itemtype)) +
+  geom_line(aes(group = task)) +
+  geom_point(size = 1) +
+  scale_colour_ptol() +
+  scale_x_discrete(expand = expansion(add = 0.2)) +
+  labs(x = "Model type", y = "BIC difference from lowest", colour = "Task")
+ggsave("bic_invariance.png", width = 9, height = 4.5)
+
+ggplot(bic_compare, aes(x = itemtype, y = delta_bic, colour = task)) +
+  # facet_grid(cols = vars(group_label)) +
+  facet_wrap(vars(invariance)) +
+  geom_line(aes(group = task)) +
+  geom_point(size = 1) +
+  scale_colour_ptol() +
+  scale_x_discrete(expand = expansion(add = 0.2)) +
+  labs(x = "Model type", y = "BIC difference from lowest", colour = "Task")
+ggsave("bic_itemtype.png", width = 9, height = 4.5)
+```
+
+```{r}
+# mods_bic <- mods_overlap |> select(task, itemtype, nfact, invariance, BIC)
+# mods_group_rxx |>
+#   left_join(mods_bic) |>
+#   group_by(task) |>
+#   mutate(delta_bic = BIC - min(BIC)) |>
+#   ggplot(aes(x = rxx, y = delta_bic)) +
+#     geom_point(aes(colour = itemtype))
 ```
