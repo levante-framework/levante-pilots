@@ -55,6 +55,7 @@ library(readxl)
 library(flextable)
 library(ftExtra)
 library(png)
+library(ggh4x)
 
 library(lavaan)
 library(mirt)
@@ -80,7 +81,7 @@ core_tasks <- c("matrix", "mrot", "math", "hf", "mg", "sds", "trog", "vocab", "t
 sites <- names(site_labels)
 site_pal <- solarized_pal()(length(sites)) |> set_names(sites)
 
-set_flextable_defaults(theme_fun = theme_apa, arraystretch = 1, padding = 1)
+set_flextable_defaults(theme_fun = theme_apa, arraystretch = 1, padding = 1, line_spacing = 1)
 
 # seed for random number generation
 set.seed(42)
@@ -275,77 +276,6 @@ task_scores <- included_mod_scores |>
 
 coretask_scores <- task_scores |> filter(item_task %in% core_tasks)
 coretask_firstrun_scores <- coretask_scores |> filter(run_number == 1)
-```
-
-```{r age-slopes}
-#| dependson: load-scores
-
-score_age_cors <- included_mod_scores |>
-  group_by(task, dataset, model_set, itemtype, nfact, invariance) |>
-  summarise(score_age_cor = cor(ability, age)) |>
-  ungroup()
-
-age_mods <- included_mod_scores |>
-  nest(scores = -c(task, model_set, itemtype, nfact, invariance)) |>
-  mutate(scores = map(scores, \(s) s |> mutate(ability = scale(ability)[,1]))) |>
-  mutate(score_age_mod = map(scores, \(s) lm(ability ~ age * dataset, data = s)))
-
-age_slopes <- age_mods |>
-  mutate(
-    slope = map(score_age_mod, \(mod) {
-    avg_slopes(mod, variable = "age") |> as_tibble()
-  }),
-  slope_dataset = map(score_age_mod, \(mod) {
-    avg_slopes(mod, variable = "age", by = "dataset") |> as_tibble()
-  }))
-
-age_slopes_tbl <- full_join(
-  age_slopes |> select(-scores, -score_age_mod, -slope_dataset) |> unnest(slope) |> mutate(dataset = "overall"),
-  age_slopes |> select(-scores, -score_age_mod, -slope) |> unnest(slope_dataset)
-) |>
-  mutate(invariance = if_else(invariance == "", "configural", invariance),
-         itemtype_ = itemtype |> fct_relevel("rasch") |> fct_recode("Rasch" = "rasch", "2PL" = "2pl"),
-         site_label = dataset |> fct_recode(!!!site_labels)) |>
-  arrange(itemtype_, invariance) |>
-  mutate(model = glue("({invariance}) {itemtype_}") |> fct_inorder() |> fct_rev()) |>
-  rename(item_task = task) |>
-  left_join(task_info) |>
-  arrange(task, model)
-
-age_slopes_overall <- age_slopes_tbl |> filter(dataset == "overall")
-age_slopes_dataset <- age_slopes_tbl |> filter(dataset != "overall")
-
-# ggplot(age_slopes_dataset, aes(x = estimate, y = model)) +
-#   # facet_wrap(vars(task), ncol = 1, scales = "free_y", space = "free_y") +
-#   facet_grid(vars(task), vars(site_label), scales = "free_y", space = "free_y") +
-#   geom_vline(xintercept = 0, colour = "lightgrey", linetype = "dotted") +
-#   geom_pointrange(aes(xmin = conf.low, xmax = conf.high, colour = site_label),
-#                   size = 0.1, alpha = 0.5) +
-#   geom_pointrange(aes(xmin = conf.low, xmax = conf.high), colour = "black", size = 0.2,
-#                   data = age_slopes_overall) +
-#   scale_colour_ptol(guide = "none") +
-#   labs(x = "Age slope (SD of ability per year)", y = "Model") +
-#   theme(strip.text.y = element_text(size = rel(0.75)),
-#         panel.grid.major.y = element_line(colour = "#EBEBEBFF", linewidth = 0.2))
-# ggsave("age_slopes.png", width = 14, height = 12)
-
-task_age_slopes <- age_slopes_tbl |> semi_join(task_mods) |>
-  arrange(dataset, estimate) |>
-  mutate(task = task |> fct_inorder())
-task_age_slopes_overall <- task_age_slopes |> filter(dataset == "overall")
-task_age_slopes_dataset <- task_age_slopes |> filter(dataset != "overall")
-
-ggplot(task_age_slopes_dataset, aes(x = estimate, y = task)) +
-  facet_wrap(vars(site_label), nrow = 1) +
-  geom_vline(xintercept = 0, colour = "lightgrey", linetype = "dotted") +
-  geom_pointrange(aes(xmin = conf.low, xmax = conf.high, colour = site_label),
-                  size = 0.1, alpha = 0.5) +
-  geom_pointrange(aes(xmin = conf.low, xmax = conf.high), colour = "black", size = 0.2,
-                  data = task_age_slopes_overall) +
-  scale_colour_ptol(guide = "none") +
-  labs(x = "Age slope (SD of ability per year)", y = "Task", colour = "Model type") +
-  theme(panel.grid.major.y = element_line(colour = "#EBEBEBFF", linewidth = 0.2))
-# ggsave("age_slopes_task.png", width = 12, height = 3)
 ```
 
 ```{r time-summary}
@@ -673,29 +603,197 @@ inv_explainer |>
 ```
 :::
 
-```{r}
-# task_lab_map <- c(
-#   hf="Hearts and Flowers", mg="Memory", sds="Same and Different",
-#   matrix="Pattern Matching", mrot="Shape Rotation",
-#   trog="Sentence Understanding", vocab="Vocabulary",
-#   math="Math", tom="Stories"
-# )
+# Psychometric properties of tasks
 
-task_meta <- coretask_scores %>% distinct(item_task, task, task_category)
-task_ids  <- unique(coretask_scores$item_task)
+```{r age-mods}
+#| dependson: load-scores
 
-# prep_task <- function(df) df %>%
-#   mutate(site = factor(site),
-#          age_c = as.numeric(scale(age, scale = FALSE)))
+# remove CAT data, remove CO data from memory task
+fixed_only <- coretask_scores |>
+  filter(!adaptive) #|>
+  # filter(!(task == "Memory" & site_label == "uniandes-co")) |> # drop CO Memory
+  # mutate(age_c = age - mean(age))
+contrasts(fixed_only$site_label) <- contr.sum(nlevels(fixed_only$site_label))
 
-fmt_p <- function(p) case_when(
-  is.na(p) ~ NA_character_,
-  p < .001 ~ "<0.001",
-  TRUE     ~ sprintf("%.3f", p)
-)
+age_mods <- fixed_only |>
+  nest(scores = -contains("task")) |>
+  mutate(scores = map(scores, \(s) s |> mutate(score = scale(score)[,1]))) |>
+  mutate(score_age_mod = map(scores, \(s) lm(score ~ age * site_label, data = s)))
+
+age_seq <- seq(min(fixed_only$age), max(fixed_only$age), length.out = 100)
+sites_grid <- \(s) {
+  datagrid(site_label = s,
+           age = age_seq,
+           newdata = fixed_only) |>
+    select(site_label, age) |>
+    droplevels()
+}
+
+age_preds <- age_mods |>
+  mutate(sites = map(scores, \(sc) unique(sc$site_label)),
+         pred_grid = map(sites, sites_grid),
+         preds = map2(score_age_mod, pred_grid, \(mod, pg) predictions(mod, newdata = pg) |> as_tibble())) |>
+  select(contains("task"), preds) |>
+  unnest(preds)
 ```
 
-# Psychometric properties of tasks
+```{r}
+#| dependson: age-mods
+#| label: fig-age-trends
+#| fig-cap: "Estimated IRT ability increases over age across tasks and sites (non-adaptive data only). Note that absolute differences between sites are not interpretable due to confounds and non-random sampling."
+#| fig-width: 8
+#| fig-height: 9
+
+ggplot(fixed_only, aes(x = age, y = score, colour = site_label)) +
+  facet_nested_wrap(vars(task_category, task),
+                    nest_line = element_line(), solo_line = TRUE,
+                    axes = "x", scales = "free_y") +
+  geom_point(alpha = 0.2, size = 0.8) +
+  geom_ribbon(aes(y = estimate, ymin = conf.low, ymax = conf.high, group = site_label),
+              fill = "grey70", color = NA, alpha = 0.4,
+              data = age_preds) +
+  geom_line(aes(y = estimate), linewidth = 1, data = age_preds) +
+  scale_x_continuous(breaks = seq(6, 14, 2)) +
+  # .scale_colour_site() +
+  scale_colour_ptol() +
+  guides(colour = guide_legend(override.aes = list(shape = NA, linetype = 1, linewidth = 2))) +
+  labs(x = "Age (years)", y = "Ability (IRT score)", colour = "Site") +
+  theme(legend.position = "bottom")
+```
+
+```{r age-slopes}
+#| dependson: age-slopes
+
+age_slopes <- age_mods |>
+  mutate(
+    slope = map(score_age_mod, \(mod) {
+      avg_slopes(mod, variable = "age") |> as_tibble()
+    }),
+    slope_dataset = map(score_age_mod, \(mod) {
+      avg_slopes(mod, variable = "age", by = "site_label") |> as_tibble()
+    })
+  )
+
+age_slopes_df <- full_join(
+  age_slopes |> select(-scores, -score_age_mod, -slope_dataset) |> unnest(slope) |> mutate(site_label = "overall"),
+  age_slopes |> select(-scores, -score_age_mod, -slope) |> unnest(slope_dataset)
+) |>
+  mutate(site_label = factor(site_label, levels = c("overall", names(site_labels)))) |>
+  arrange(site_label, estimate) |>
+  mutate(task = task |> fct_inorder())
+
+age_slope_diffs <- age_mods |>
+  mutate(
+    slope_diff = map(score_age_mod, \(mod) {
+      avg_slopes(mod, variable = "age", by = "site_label",
+                 hypothesis = difference ~ meandev) |> as_tibble()
+    })
+  )
+
+age_slope_diffs_df <- age_slope_diffs |>
+  select(-scores, -score_age_mod) |>
+  unnest(slope_diff) |>
+  mutate(signif = p.value < 0.05) |> # TODO: multcomp?
+  mutate(site_label = hypothesis |> str_remove(" - Mean") |> str_remove_all("[\\(\\)]") |>
+           factor(levels = c("overall", names(site_labels))),
+         .after = hypothesis)
+```
+
+```{r}
+#| dependson: age-slopes
+#| label: fig-age-slopes
+#| fig-cap: "Marginal effect of age across all sites and within each site (non-adaptive data only), representating an increase in standard deviations of ability per year of age."
+#| fig-width: 9.5
+#| fig-height: 3
+
+age_slopes_overall <- age_slopes_df |> filter(site_label == "overall")
+age_slopes_dataset <- age_slopes_df |>
+  filter(site_label != "overall") |>
+  left_join(age_slope_diffs_df |> select(item_task, site_label, signif))
+
+ggplot(age_slopes_dataset, aes(x = estimate, y = task)) +
+  facet_wrap(vars(site_label), nrow = 1) +
+  geom_vline(xintercept = 0, colour = "lightgrey", linetype = "dotted") +
+  geom_pointrange(aes(xmin = conf.low, xmax = conf.high), colour = "black", size = 0.2,
+                  data = age_slopes_overall) +
+  geom_pointrange(aes(xmin = conf.low, xmax = conf.high, colour = site_label),
+                  size = 0.1) +
+  # geom_linerange(aes(xmin = conf.low, xmax = conf.high, colour = site_label),
+  #                 size = 0.1) +
+  # geom_point(aes(colour = site_label, shape = signif)) +
+  scale_colour_ptol(guide = "none") +
+  # scale_shape_manual(values = c(19, 21), guide = "none") +
+  labs(x = "Age slope (SD of ability per year)", colour = "Model type") +
+  theme(panel.grid.major.y = element_line(colour = "#EBEBEBFF", linewidth = 0.2),
+        axis.title.y = element_blank())
+```
+
+```{r age-cors}
+#| dependson: age-slopes
+
+age_cors_dataset <- fixed_only |>
+  nest(data = -c(task, site_label)) |>
+  mutate(n = map_int(data, nrow),
+         cor_test = map(data, \(d) cor.test(~ score + age, data = d) |> tidy())) |>
+  select(task, site_label, cor_test, n) |>
+  unnest(cor_test)
+
+age_cors_overall <- fixed_only |>
+  nest(data = -c(task)) |>
+  mutate(n = map_int(data, nrow),
+         cor_test = map(data, \(d) cor.test(~ score + age, data = d) |> tidy())) |>
+  select(task, cor_test, n) |>
+  unnest(cor_test) |>
+  mutate(site_label = "overall")
+
+age_cors_df <- bind_rows(age_cors_overall, age_cors_dataset)
+```
+
+```{r}
+#| dependson: age-cors
+#| label: tbl-age-effects
+#| tbl-cap: "Relationship between age and ability score for each task, across all sites and within each site (non-adaptive data only). Slope is the marginal effect of age from a model predicting z-scored ability from age x site, and so represents an increase in standard deviations of ability per year of age. Correlation is the Pearson correlation coefficient of z-scored ability and age, separately for data from each site."
+#| ft.arraystretch: 0.9
+
+age_stats_tbl <- list(
+  "cor" = age_cors_df |> select(task, site_label, estimate, conf.low, conf.high, n),
+  "slope" = age_slopes_df |> select(task, site_label, estimate, conf.low, conf.high)
+) |>
+  list_rbind(names_to = "stat") |>
+  mutate(across(c(estimate, conf.low, conf.high), \(x) sprintf("%.2f", x))) |>
+  mutate(est_ci = glue("{estimate} [{conf.low}, {conf.high}]")) |>
+  select(stat, task, site_label, n, est_ci) |>
+  pivot_wider(names_from = stat, values_from = c(n, est_ci)) |>
+  # filter(n_cor > 20) |>
+  select(-n_slope) |>
+  mutate(site_label = site_label |> as_factor() |> fct_relevel("overall") |> fct_recode("–" = "overall")) |>
+  relocate(est_ci_slope, .before = est_ci_cor) |>
+  arrange(task, site_label) |>
+  mutate(task = if_else(task == lag(task) & !is.na(lag(task)), "", task))
+
+n_sites <- n_distinct(age_stats_tbl$site_label)
+flextable(age_stats_tbl) |>
+  set_header_labels(
+    "task" = "Task",
+    "site_label" = "Site",
+    "n_cor" = "N",
+    "est_ci_slope" = "Age-ability slope",
+    "est_ci_cor" = "Age-ability correlation"
+  ) |>
+  hline(~lead(site_label) == "–",
+        border = officer::fp_border(color = "lightgrey", width = 0.75)) |>
+  align(align = c("left", "left", "right", "right", "right"), part = "all") |>
+  fontsize(size = 10, part = "all") |>
+  autofit()
+```
+
+```{r age-inlines}
+age_cor_range <- age_cors_dataset |>
+  filter(n > 20) |> # TODO: justify if remains the case post SDS fixing
+  pull(estimate) |>
+  range() |>
+  sprintf(fmt = "%.2f")
+```
 
 ## Developmental sensitivity
 
@@ -703,238 +801,10 @@ Our goal for the LEVANTE core tasks is that they are sensitive to developmental 
 
 Across all nine tasks, ability scores were higher at older ages at all sites, indicating robust positive age gradients (see @fig-age-trends). This pattern was particularly pronounced for Vocabulary, Hearts and Flowers, and Math. Age gradients were broadly similar across sites: the panels suggest parallel developmental gradients in cognitive performance, with systematic shifts in mean ability but little evidence that the age-related slope differs markedly by site.
 
-To quantify the age gradients, we fit separate ordinary least-squares models predicting ability scores (IRT units) from centered age with site fixed effects and an age $\times$ site interaction, allowing slopes to vary by site. As summarized in @tbl-slopes, age-related slopes were positive for all tasks and sites, indicating that older children performed better on every measure (see @fig-em-trends in the appendices for visual representation). 
+To quantify the age gradients, we fit ordinary least-squares models for each task predicting ability scores (IRT units) from age with site fixed effects and an age by site interaction, allowing slopes to vary by site. As summarized in @tbl-age-effects and @fig-age-slopes, age-related slopes were positive for all tasks and sites, indicating that older children on average performed better on every measure.
 
-For ease of interpretation, we calculated the zero-order correlations between age and IRT ability scores for each site. As seen in the right side of Table 4, these correlations were uniformly positive ($r = .40$ to .70), of moderate magnitude across tasks, and broadly similar across sites. In sum, the results of the age-based analyses suggest that the tasks are sensitive to age-related differences and are likely suitable for deployment in longitudinal studies of developmental change.
+For ease of interpretation, we calculated the zero-order correlations between age and IRT ability scores for each site. As seen in the right side of @tbl-age-effects, these correlations were uniformly positive (_r_ = `r age_cor_range[1]` to `r age_cor_range[2]`), of moderate magnitude across tasks, and broadly similar across sites. In sum, the results of the age-based analyses suggest that the tasks are sensitive to age-related differences and are likely suitable for deployment in longitudinal studies of developmental change.
 
-```{r}
-#| dependson: load-scores
-#| label: fig-age-trends
-#| fig-cap: "Estimated IRT ability by age across tasks and sites, non-adaptive data only."
-#| fig-width: 8
-#| fig-height: 9
-
-# remove CAT data, remove CO data from memory task
-fixed_only <- coretask_scores |>
-  filter(!adaptive) |>
-  filter(!(task == "Memory" & site_label == "uniandes-co")) |> # drop CO Memory
-  mutate(site_label = factor(site_label),
-         age_c = age - mean(age)) |>
-  droplevels()
-contrasts(fixed_only$site_label) <- contr.sum(nlevels(fixed_only$site_label))
-
-# age_mods <- fixed_only |>
-#   # mutate(site_label = factor(site_label),
-#   #        age_c <- scale(age)[,1])
-#   nest(task_data = -item_task) |>
-#   mutate(age_mod = map(task_data, \(d) lm(score ~ age * site, data = d)))
-# 
-# age_mods |>
-#   mutate(fits = map(age_mod, \(m) augment(m, newdata = grid, se_fit = TRUE)))
-# 
-# pred_curves_augment <- function(task) {
-#   d <- fixed_only %>% filter(item_task == task)
-#   d$site  <- factor(d$site)
-#   d$age_c <- scale(d$age, scale = FALSE)[,1]
-#   mu_age  <- mean(d$age, na.rm = TRUE)
-# 
-#   fit <- lm(score ~ age_c * site, data = d)
-# 
-#   grid <- expand.grid(
-#     age_c = seq(min(d$age_c, na.rm = TRUE),
-#                 max(d$age_c, na.rm = TRUE),
-#                 length.out = 100),
-#     site  = levels(d$site)
-#   )
-# 
-#   broom::augment(fit, newdata = grid, se_fit = TRUE) %>%
-#     transmute(
-#       item_task = task,
-#       site      = as.character(site),
-#       age       = age_c + mu_age,
-#       fit       = .fitted,
-#       lower     = .fitted - 1.96*.se.fit,
-#       upper     = .fitted + 1.96*.se.fit
-#     )
-# }
-# 
-# pred_all <- map_dfr(task_ids, pred_curves_augment) %>%
-#   left_join(task_meta, by = "item_task") |>
-#   left_join(select(fixed_only, task_category, site_label, site) |> distinct())
-
-dev_change_plot <- ggplot(fixed_only, aes(x = age, y = score, colour = site_label)) +
-  ggh4x::facet_nested_wrap(
-    vars(task_category, task),
-    nest_line = element_line(), solo_line = TRUE,
-    axes = "x", scales = "free_y"
-  ) +
-  # geom_ribbon(data = pred_all, 
-  #             aes(y = fit, ymin = lower, 
-  #                 ymax = upper, fill = site_label),
-  #             alpha = 0.12, colour = NA, show.legend = FALSE) +
-  # geom_line(data = pred_all, aes(y= fit, col = site_label), linewidth = 1) + 
-  geom_smooth(method = "lm", linewidth = 1) +
-  geom_point(alpha = 0.3, size = 1) +
-  scale_x_continuous(breaks = seq(6, 14, 2)) +
-  .scale_colour_site() +
-  guides(colour = guide_legend(
-    override.aes = list(shape = NA, linetype = 1, linewidth = 2)
-  )) +
-  labs(
-    x = "Age (years)",
-    y = "Ability (IRT score)",
-    colour = "Site",
-    caption = "Note. Uniandes-co Memory data were excluded due to task bugs and difficulties with the instructions."
-  ) +
-  theme(
-    legend.position = "bottom",
-    plot.caption = element_text(hjust = 0, size = rel(0.8)),
-    plot.caption.position = "plot"
-  )
-
-dev_change_plot
-
-# ggsave(
-# filename = here::here("04_papers", "display", "dev_change.png"),
-# plot = dev_change_plot,
-# width = 8,
-# height = 9,
-# dpi = 300
-# )
-
-```
-
-::: {.landscape}
-```{r}
-#| label: tbl-slopes
-#| include: FALSE
-#| eval: FALSE
-#| tbl-cap: "Age-Related Change in Performance: Task Grand Means (GM), Site Deviations (Δ), and Age–Ability Correlations ($r$), non-adaptive data only. *Note: for each task, z-scores were regressed on centred age and site, with sum-to-zero contrasts for site. GM β is the grand-mean age slope, Δβ is each site’s deviation from this slope, site-specific slope = GM β + Δβ. $r$ is the within-site Pearson correlation between age and task score.*"
-#| ft.arraystretch: 1
-
-# age_mods <- fixed_only |>
-#   # filter(item_task != "mrot") |>
-#   # mutate(site_label = factor(site_label),
-#   #        age_c <- scale(age)[,1])
-#   nest(task_data = -item_task) |>
-#   mutate(age_mod = map(task_data, \(d) lm(score ~ age_c * site_label, data = d)))
-# 
-# age_mods
-
-analyze_task_slopes <- function(tsk) {
-  d <- fixed_only %>% filter(item_task == tsk) |> droplevels()
-  # d$site  <- as.factor(d$site)
-  # d$age_c <- scale(d$age, scale = FALSE)[, 1]
-  # contrasts(d$site) <- contr.sum(nlevels(d$site))
-
-  fit <- lm(score ~ age_c * site_label, data = d)
-
-  # grand-mean slope (main effect of age_c under sum-to-zero contrasts)
-  cs <- coef(summary(fit))
-  mean_slope <- unname(cs["age_c", "Estimate"])
-  mean_se    <- unname(cs["age_c", "Std. Error"])
-  mean_t     <- unname(cs["age_c", "t value"])
-  mean_p     <- unname(cs["age_c", "Pr(>|t|)"])
-  mean_df    <- df.residual(fit)
-
-  # site deviations from the grand-mean slope
-  tr_site <- emtrends(fit, ~ site_label, var = "age_c")
-  dev_tab <- contrast(tr_site, "eff") %>%
-    summary(infer = c(TRUE, TRUE)) %>%
-    as_tibble() %>%
-    transmute(
-      # site            = sub("\\s*effect$", "", contrast),
-      site_label      = str_extract(contrast, "(?<=\\().*(?=\\))"),
-      Slope_Deviation = estimate,
-      SE              = SE,
-      t               = t.ratio,
-      df              = df,
-      p_value         = p.value
-    )
-
-  # site-wise r(age, ability)
-  corr_tab <- d %>%
-    filter(!is.na(age_c), !is.na(score)) %>%
-    # mutate(site = as.character(site)) %>%
-    group_by(site_label) %>%
-    summarise(
-      N = n(),
-      r = if (n() >= 3 && sd(age_c) > 0 && sd(score) > 0)
-            cor(age_c, score) else NA_real_,
-      .groups = "drop"
-    ) %>%
-    mutate(
-      r_t  = ifelse(!is.na(r) & N >= 3 & abs(r) < 1, r * sqrt((N - 2)/(1 - r^2)), NA_real_),
-      r_df = ifelse(!is.na(r_t), N - 2, NA_real_),
-      r_p  = ifelse(!is.na(r_t), 2 * pt(-abs(r_t), df = r_df), NA_real_)
-    )
-
-  dev_tab %>%
-    mutate(
-      item_task  = tsk,
-      Mean_Slope = mean_slope,
-      Mean_SE    = mean_se,
-      Mean_t     = mean_t,
-      Mean_df    = mean_df,
-      Mean_p     = mean_p
-    ) %>%
-    left_join(corr_tab, by = "site_label") |>
-    relocate(item_task, .before = everything())
-}
-
-deviation_raw <- map_dfr(task_ids, analyze_task_slopes) %>%
-  left_join(task_info)
-  # rename(item_task = task) %>%
-  # left_join(task_meta, by = "item_task") %>%
-  # mutate(Task = coalesce(task, recode(item_task, !!!task_lab_map)))
-
-deviation_print <- deviation_raw %>%
-  mutate(
-    # fill any missing deviation p from t, df
-    p_num = if_else(is.na(p_value) & !is.na(t) & !is.na(df),
-                    2 * pt(-abs(t), df), p_value),
-    `Deviation p-value`  = fmt_p(p_num),
-    `Grand Mean p-value` = fmt_p(Mean_p),
-    `r p-value`          = fmt_p(r_p)
-  ) %>%
-  transmute(
-    Task = task,
-    Site = site_label,
-    # Site = fct_recode(site, !!!site_labels),
-    `Grand Mean Slope (β)` = round(Mean_Slope, 2),
-    `Grand Mean SE`        = round(Mean_SE, 2),
-    `Grand Mean p-value`,
-    `Deviation from Mean`  = round(Slope_Deviation, 2),
-    `Deviation SE`         = round(SE, 2),
-    `Deviation p-value`,
-    N,
-    `r (age, ability)`     = round(r, 2),
-    `r p-value`
-  )
-
-ft <- flextable(deviation_print) |>
-  set_header_labels(
-    `Grand Mean Slope (β)` = "GM β",
-    `Grand Mean SE`        = "GM SE",
-    `Grand Mean p-value`   = "GM p",
-    `Deviation from Mean`  = "Δβ",
-    `Deviation SE`         = "Δβ SE",
-    `Deviation p-value`    = "Δβ p",
-    `r (age, ability)`     = "r",
-    `r p-value`            = "r p"
-  ) |>
-  colformat_num(
-    j = c("Grand Mean Slope (β)", "Grand Mean SE",
-          "Deviation from Mean", "Deviation SE",
-          "r (age, ability)"),
-    digits = 2
-  ) |>
-  align_text_col() |>
-  autofit()
-ft
-
-```
-:::
 
 ## Reliability 
 
@@ -1866,6 +1736,8 @@ Authors’ contributions are detailed on the title page, following the CRediT au
 #| fig-width: 8
 #| fig-height: 9
 #| fig-pos: 'H'
+
+plt_age_effects
 
 # slopes_by_task <- function(task) {
 #   d <- fixed_only %>% filter(item_task == task)
