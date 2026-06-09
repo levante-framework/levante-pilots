@@ -299,22 +299,25 @@ task_time_table <- task_time_summary |>
          adaptive = if_else(is_cat, "adaptive", "non_adaptive")) |>
   # left_join(task_map) |>
   left_join(task_info) |>
-  select(task, site_label, adaptive, median_diff) |>
-  pivot_wider(names_from = adaptive, values_from = median_diff) |>
-  mutate(pct = 100 * as.numeric(adaptive) / as.numeric(non_adaptive),
-         non_adaptive = sprintf("%.2f", non_adaptive),
-         adaptive = if_else(is.na(adaptive), NA, as.character(glue("{adaptive} ({round(pct, 0)}%)")))) |>
-  select(-pct) |>
-  pivot_longer(names_to = "adaptive", values_to = "median_diff",
-               cols = c(non_adaptive, adaptive)) |>
-  pivot_wider(names_from = c(adaptive, site_label), values_from = median_diff) |>
-  select(task, starts_with("non"), starts_with("adaptive")) |>
+  select(task, site_label, adaptive, diff = median_diff, trials = median_trials) |>
+  pivot_wider(names_from = adaptive, values_from = c(diff, trials)) |>
+  mutate(diff_pct = 100 * as.numeric(diff_adaptive) / as.numeric(diff_non_adaptive),
+         diff_non_adaptive = sprintf("%.2f", diff_non_adaptive),
+         diff_adaptive = if_else(is.na(diff_adaptive), NA,
+                                        as.character(glue("{diff_adaptive} ({round(diff_pct, 0)}%)")))) |>
+  mutate(trials_pct = 100 * as.numeric(trials_adaptive) / as.numeric(trials_non_adaptive),
+         trials_non_adaptive = sprintf("%.0f", trials_non_adaptive),
+         trials_adaptive = if_else(is.na(trials_adaptive), NA,
+                                        as.character(glue("{trials_adaptive} ({round(trials_pct, 0)}%)")))) |>
+  select(-diff_pct, -trials_pct) |>
+  mutate(across(where(is.character), \(x) replace_na(x, "–"))) |>
+  # pivot_longer(names_to = "adaptive", values_to = "median_diff",
+  #              cols = c(non_adaptive, adaptive)) |>
+  # pivot_wider(names_from = c(adaptive, site_label), values_from = median_diff) |>
+  # select(task, starts_with("non"), starts_with("adaptive")) |>
+  filter(site_label == "All") |>
+  select(-site_label) |>
   arrange(task)
-
-# task_time_table |>
-#   group
-  # pivot_wider(names_from = adaptive, values_from = median_diff) |>
-  # mutate(pct = 100 * as.numeric(Adaptive) / as.numeric(`Non-adaptive`))
 ```
 
 ## General task properties
@@ -329,21 +332,26 @@ Tasks were implemented using jsPsych [@de-leeuw2015] in a common framework. Illu
 
 All tasks are available for demonstration purposes at <https://researcher.levante-network.org>. Source code for the tasks is available at <https://github.com/levante-framework/core-tasks>. Task code and assets are licensed CC-BY-NC 4.0 for non-commercial reuse (including educational use by not-for-profit and governmental entities) with appropriate attribution. Please see the license file available in the repository for more details. Once the researcher management dashboard is completed, interested researchers will be able to create accounts and use the tasks in their own research. 
 
-::: {.landscape}
 ```{r}
 #| dependson: time-summary
 #| label: tbl-durations
-#| tbl-cap: "Median task durations (minutes) for non-adaptive (left) and adaptive (right) versions of each task, within across all sites and within each site. Adaptive durations include in parentheses what percentage that adaptive duration is of the corresponding non-adaptive duration."
+#| tbl-cap: "Median task durations (minutes) and median number of trials for non-adaptive (left) and adaptive (right) versions of each task, across all sites. Adaptive durations and trial counts include in parentheses what percentage that value is of the corresponding non-adaptive value."
 
 task_time_table |>
-  rename(Task = task) |>
   flextable() |>
-  separate_header() |>
-  align(align = "left", part = "body") |>
-  align(align = "left", j = 1, part = "all") |>
-  autofit(add_w = 0)
+  set_header_labels("task" = "Task",
+                    "diff_non_adaptive" = "Non-adaptive",
+                    "diff_adaptive" = "Adaptive",
+                    "trials_non_adaptive" = "Non-adaptive",
+                    "trials_adaptive" = "Adaptive") |>
+  add_header_row(values = c("", "Median duration (minutes)", "Median trials"), colwidths = c(1, 2, 2)) |>
+  align_text_col() |>
+  align(j = 2:5, align = "right", part = "all") |>
+  align(i = 1, align = "center", part = "header") |>
+  hline(i = 1, border = gray_border, part = "header") |>
+  hline(i = 1, j = 1, border = officer::fp_border(color = "white"), part = "header") |>
+  autofit()
 ```
-:::
 
 General task lengths are described below and average task durations from pilots (for both adaptive and non-adaptive versions) are given in @tbl-durations. Because of our interest in testing children across a wide range of ages, we intentionally included trials that we anticipated would be both very easy and very hard for children with the aim of deploying these items adaptively after we had gathered sufficient data. We wanted to avoid frustration for children, however, so during pilot testing, we experimented with a number of different stopping rules. In early iterations of pilot testing at the Colombia site (uniandes-co), we ended tasks after three consecutive incorrect trials; we later modified this rule to end tasks after six consecutive incorrect trials. These differences explain some of the disparate task lengths that are observed (e.g., very short task lengths for Pattern Matching in uniandes-co). 
 

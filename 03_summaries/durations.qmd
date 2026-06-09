@@ -47,12 +47,12 @@ ggsave(here("03_summaries", "plots", "data_waves.png"),
 time_summary <- task_data |>
   arrange(run_id, timestamp) |>
   group_by(site, dataset, item_task, run_id) |>
-  summarise(trials = n(),
+  summarise(n_trials = n(),
             start = min(timestamp), end = max(timestamp)) |>
   ungroup() |>
   mutate(diff = difftime(end, start, units = "mins")) |>
   left_join(run_data |> select(run_id, is_cat = adaptive)) |>
-  filter(trials > 3, diff < 120)
+  filter(n_trials > 3, diff < 120)
 
 # ggplot(time_summary, aes(x = diff)) +
 #   facet_wrap(vars(item_task)) +
@@ -71,6 +71,7 @@ task_time_summary <- time_summary |>
   summarise(median_diff = median(diff),
             min_diff = min(diff),
             max_diff = max(diff),
+            median_trials = median(n_trials),
             n_run_data = n()) |>
   ungroup() |>
   mutate(across(contains("diff"), \(d) round(d, 2))) |>
