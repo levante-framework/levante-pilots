@@ -76,12 +76,33 @@ site_labels <- c("uniandes-co-bogota" = "pilot_uniandes_co_bogota",
                  "uniandes-co-rural" = "pilot_uniandes_co_rural",
                  "mpieva-de" = "pilot_mpieva_de_main",
                  "western-ca" = "pilot_western_ca_main")
-core_tasks <- c("matrix", "mrot", "math", "hf", "mg", "sds", "trog", "vocab", "tom")
-
 sites <- names(site_labels)
 site_pal <- solarized_pal()(length(sites)) |> set_names(sites)
 
+core_tasks <- c("matrix", "mrot", "math", "hf", "mg", "sds", "trog", "vocab", "tom")
+
+task_info <- tribble(
+  ~item_task , ~task                    , ~task_category,
+  "hf"       , "hearts & flowers"       , "executive function",
+  "sds"      , "same & different"       , "executive function",
+  "mg"       , "memory"                 , "executive function",
+  "math"     , "math"                   , "math",
+  "matrix"   , "pattern matching"       , "reasoning",
+  "mrot"     , "shape rotation"         , "spatial cognition",
+  "trog"     , "sentence understanding" , "language",
+  "vocab"    , "vocabulary"             , "language",
+  "tom"      , "stories"                , "social cognition",
+  "pa"       , "language sounds"        , "reading",
+  "sre"      , "sentence reading"       , "reading",
+  "swr"      , "word reading"           , "reading",
+  "mefs"     , "MEFS"                   , "executive function"
+) |>
+  mutate(task = task |> str_to_title() |> fct_inorder(),
+         task_category = task_category |> str_to_title() |> fct_inorder())
+
+# settings for flextable
 set_flextable_defaults(theme_fun = theme_apa, arraystretch = 1, padding = 1, line_spacing = 1)
+gray_border <- officer::fp_border(color = "gray")
 
 # seed for random number generation
 set.seed(42)
@@ -116,34 +137,42 @@ In addition to the constructs described above, we were also interested in the as
 #| label: tbl-tasks
 #| tbl-cap: "The LEVANTE core tasks, presented with their simplified labels as well as prior labels used in the literature."
 
-gray_border <- officer::fp_border(color = "gray")
-
 task_table <- tribble(
-  ~Construct, ~`LEVANTE task name`, ~`Prior/Source task name`, ~`Most similar source citation`,
-  "Executive Function", "Hearts and Flowers",       "AMES Hearts and Flowers",                              "@davidson2006",
-  "",                   "Memory",                   "AMES Memory Game",                                     "@corsi1972",
-  "",                   "Same and Different",       "Something’s the Same/Flexible Item Selection Task",    "@willoughby2011",         
-  "",                   "",                         "",                                                     "@jacques2001",
-  "Language",           "Vocabulary",               "Receptive Vocabulary",                                 "@dunn1965",
-  "",                   "Sentence Understanding",   "Test for Reception of Grammar (TROG)",                 "@bishop1982",
-  "Math",               "Math",                     "Early Grade Math Assessment (EGMA)",                   "@platas2014",
-  "Reasoning",          "Pattern Matching",         "Matrix Reasoning",                                     "@chierchia2019",
-  "Spatial Cognition",  "Shape Rotation",           "Mental Rotation",                                      "@frick2013",
-  "Social Cognition",   "Stories",                  "Theory of Mind",                                       "@sotomayor-enriquez2024"
-)
+  ~task_code, ~source_name,                                                                           ~citation,
+  "hf",       "Assessment of Motivation, Effort, and Self-Regulation (AMES) Hearts and Flowers Game", "@davidson2006",
+  "sds",      "Something's the Same",                                                                 "@willoughby2011",
+  "sds",      "Flexible Item Selection Task (FIST)",                                                  "@jacques2001",
+  "mg",       "Assessment of Motivation, Effort, and Self-Regulation (AMES) Memory Game",             "@corsi1972",
+  "math",     "Early Grade Math Assessment (EGMA)",                                                   "@platas2014",
+  "matrix",   "Matrix Reasoning Item Bank (MaRs-IB)",                                                 "@chierchia2019",
+  "mrot",     "Mental Rotation",                                                                      "@frick2013",
+  "trog",     "Test for Reception of Grammar (TROG)",                                                 "@bishop1982",
+  "vocab",    "Peabody Picture Vocabulary Test (PPVT)",                                               "@dunn2007",
+  "tom",      "Theory of Mind",                                                                       "@sotomayor-enriquez2024"
+) |>
+  left_join(task_info, by = c("task_code" = "item_task")) |>
+  arrange(task) |>
+  select(task_category, task, source_name, citation) |>
+  mutate(task = if_else(task == lag(task) & !is.na(lag(task)), "", task),
+         task_category = if_else(task_category == lag(task_category) & !is.na(lag(task_category)), "", task_category))
 
-line_rows <- task_table |>
-  mutate(i = 1:n() - 1) |>
-  filter(Construct != "") |>
-  slice(-1) |>
-  pull(i)
-
-task_table |>
+task_ft <- task_table |>
   flextable() |>
+  set_header_labels("task_category" = "Construct",
+                    "task" = "LEVANTE task name",
+                    "source_name" = "Prior/source task name",
+                    "citation" = "Most similar source citation") |>
   colformat_md() |>
   align_text_col() |>
-  hline(i = line_rows, border = gray_border) |>
-  autofit()
+  hline(~lead(task_category) != "", border = gray_border)
+
+# set column widths to min needed to fit text on one line, except for source
+ftw <- dim_pretty(task_ft)$widths
+ftw[3] <- 8.5 - sum(ftw[-3])
+
+task_ft |>
+  width(width = ftw) |>
+  valign(valign = "top")
 ```
 :::
 
@@ -168,25 +197,6 @@ We end by discussing future plans for further internationalization and downward 
 # The LEVANTE Core Tasks
 
 ```{r load-scores}
-task_info <- tribble(
-  ~item_task , ~task                    , ~task_category,
-  "hf"       , "hearts & flowers"       , "executive function",
-  "sds"      , "same & different"       , "executive function",
-  "mg"       , "memory"                 , "executive function",
-  "math"     , "math"                   , "math",
-  "matrix"   , "pattern matching"       , "reasoning",
-  "mrot"     , "shape rotation"         , "spatial cognition",
-  "trog"     , "sentence understanding" , "language",
-  "vocab"    , "vocabulary"             , "language",
-  "tom"      , "stories"                , "social cognition",
-  "pa"       , "language sounds"        , "reading",
-  "sre"      , "sentence reading"       , "reading",
-  "swr"      , "word reading"           , "reading",
-  "mefs"     , "MEFS"                   , "executive function"
-) |>
-  mutate(task = task |> str_to_title() |> fct_inorder(),
-         task_category = task_category |> str_to_title() |> fct_inorder())
-
 task_mods <- tribble(
   ~item_task , ~model_set          , ~itemtype, ~invariance,
   "hf"       , "multigroup_dataset",     "2pl",    "scalar",
