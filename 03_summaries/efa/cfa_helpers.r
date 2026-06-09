@@ -34,13 +34,13 @@ build_1factor_model_fixvar <- function(formi, item_names, latentmean, extra_synt
 }
 
 # Define a function to fit CFA model for each form_construct
-fit_invariance_model_1f <- function(df_val, formi, group_equal = NULL, group_partial = NULL, estim = "WLSMV", latentmean=FALSE) {
+fit_invariance_model_1f <- function(df_val, formi, group_equal = NULL, group_partial = NULL,
+                                    estim = "WLSMV", latentmean = FALSE, extra_syntax = NULL) {
   item_names <- setdiff(colnames(df_val), c("site", "respondent_id", "child_id"))
   if (length(item_names) < 3) return(NULL)
-  
-  model_syntax <- build_1factor_model_fixvar(formi, item_names, latentmean)
-  
-  
+
+  model_syntax <- build_1factor_model_fixvar(formi, item_names, latentmean, extra_syntax)
+
   tryCatch({
     lavaan::cfa(model_syntax,
                 data = df_val,
