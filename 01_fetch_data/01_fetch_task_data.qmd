@@ -1,0 +1,49 @@
+```{r setup}
+library(rlevante)
+library(dplyr)
+library(here)
+library(readr)
+library(stringr)
+library(tidyr)
+```
+
+```{r}
+dataset_spec <- list(
+  list(name = "pilot_uniandes_co_bogota:3j4z", version = "v14_5"),
+  list(name = "pilot_uniandes_co_rural:66d2",  version = "v13_0"),
+  list(name = "pilot_mpieva_de_main:6c0n",     version = "v13_0"),
+  list(name = "pilot_western_ca_main:97mt",    version = "v14_4"))
+
+participants <- process_participants(dataset_spec)
+write_rds(participants, here("01_fetched_data/participants.rds"), compress = "gz")
+
+runs <- process_runs(dataset_spec,
+                     remove_incomplete_runs = FALSE,
+                     remove_invalid_runs = FALSE)
+
+write_rds(runs, here("01_fetched_data/run_data.rds"), compress = "gz")
+```
+
+```{r}
+trials_prelim <- rlevante:::process_trials_prelim(dataset_spec,
+                                                  remove_incomplete_runs = FALSE,
+                                                  remove_invalid_runs = FALSE,
+                                                  remove_invalid_trials = FALSE)
+write_rds(trials_prelim, here("01_fetched_data/trials_prelim.rds"),
+          compress = "gz")
+
+trial_data <- trials_prelim |>
+  rlevante:::add_item_ids() |>
+  rlevante:::add_item_metadata() |>
+  rlevante:::add_trial_numbers() |>
+  mutate(task_id = .data$task_id |> stringr::str_remove("-es|-de$")) |>
+  arrange(.data$task_id, .data$user_id, .data$run_id, .data$trial_number) |>
+  select("redivis_source", "task_id", "user_id", "run_id", "trial_id",
+         "trial_number", "item_uid", "item_task", "item_group", "item",
+         "correct", "rt", "rt_numeric", "response", "response_type",
+         "item_original", "answer", "distractors", "chance", "difficulty",
+         "theta_estimate", "theta_se", timestamp = "server_timestamp",
+         "valid_trial", "validation_msg_trial")
+
+write_rds(trial_data, here("01_fetched_data/trial_data.rds"), compress = "gz")
+```
