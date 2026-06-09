@@ -26,7 +26,6 @@ irt_tasks <- c("pa",
 
 task_data_irt <- read_rds(here("01_fetched_data/task_data_nested.rds")) |>
   filter(item_task %in% irt_tasks) |>
-  filter(!is.na(language)) |>
   mutate(language = language |> str_replace("Other\\((.*)\\)", "\\1"))
 ```
 
@@ -95,7 +94,6 @@ cluster |>
                                    registry_dir = regdir))
 
 # fit multigroup models for each task (in parallel)
-irt_tasks <- c("math", "matrix", "vocab")
 cluster |>
   cluster_assign_each(task = irt_tasks) |>
   cluster_send(fit_task_models_multigroup(task_data = task_data_irt,
