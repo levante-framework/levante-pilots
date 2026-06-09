@@ -8,25 +8,29 @@ library(GGally)
 
 # col <- colorRampPalette(c("red", "white", "blue"))(200) # Red to white to blue
 
-build_1factor_model_fixvar <- function(formi, item_names, latentmean) {
+build_1factor_model_fixvar <- function(formi, item_names, latentmean, extra_syntax = NULL) {
   latent <- gsub("[^[:alnum:]_]", "_", formi)
-
-  if(latentmean){
+  
+  base <- if (latentmean) {
     paste0(
       latent, " =~ NA*", item_names[1], " + ",
       paste(item_names[-1], collapse = " + "), "\n",
-      latent, " ~~ 1*", latent, "\n", # fix variance for identification
+      latent, " ~~ 1*", latent, "\n",
       latent, " ~ c(NA, 0, NA)*1"
     )
-    
-  }else{
+  } else {
     paste0(
       latent, " =~ NA*", item_names[1], " + ",
       paste(item_names[-1], collapse = " + "), "\n",
-      latent, " ~~ 1*", latent # fix variance for identification
+      latent, " ~~ 1*", latent
     )
-    
   }
+  
+  
+  if (!is.null(extra_syntax)) {
+    base <- paste0(base, "\n", paste(extra_syntax, collapse = "\n"))
+  }
+  base
 }
 
 # Define a function to fit CFA model for each form_construct
