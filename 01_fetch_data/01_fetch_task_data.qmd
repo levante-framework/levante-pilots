@@ -32,7 +32,7 @@ trials_prelim <- rlevante:::process_trials_prelim(dataset_spec,
 write_rds(trials_prelim, here("01_fetched_data/trials_prelim.rds"),
           compress = "gz")
 
-trial_data <- trials_prelim |>
+trial_data_processed <- trials_prelim |>
   rlevante:::add_item_ids() |>
   rlevante:::add_item_metadata() |>
   rlevante:::add_trial_numbers() |>
@@ -44,6 +44,9 @@ trial_data <- trials_prelim |>
          "item_original", "answer", "distractors", "chance", "difficulty",
          "theta_estimate", "theta_se", timestamp = "server_timestamp",
          "valid_trial", "validation_msg_trial")
+
+trial_data <- trial_data_processed |>
+  filter(!is.na(item_task), item_task != "ha")
 
 write_rds(trial_data, here("01_fetched_data/trial_data.rds"), compress = "gz")
 ```
