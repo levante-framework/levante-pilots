@@ -232,7 +232,7 @@ included_runs <- runs_aged |>
   filter(!ex_age_missing, !ex_age_interval) |>
   arrange(user_id, task_id, time_started) |>
   mutate(age_gap_prelim = age - lag(age), .by = c(user_id, task_id)) |>
-  filter(is.na(age_gap_prelim) | age_gap_prelim > min_age_gap) |>
+  filter(is.na(age_gap_prelim) | age_gap_prelim >= min_age_gap) |>
   mutate(run_number = 1:n(),
          age_gap = age - lag(age),
          .by = c(user_id, task_id)) |>
@@ -1008,27 +1008,17 @@ task_rxx |>
 ```{r test-retest-cor}
 #| dependson: load-scores
 
-# prophecy <- function (n = 2, r) {
-#   (n * r) /  (1 + (n - 1) * r)
-# }
-
+# subset scores to test-retest sample
+max_age_gap <- 8/12 # 8 months
 retest_scores <- included_mod_scores |>
+  filter(site_label == "mpieva-de") |>
+  # filter to users with more than one run and small enough age gap between runs
   group_by(user_id, task) |>
   filter(any(run_number > 1)) |>
+  filter(all(is.na(age_gap) | age_gap < max_age_gap)) |>
   ungroup()
 
-# de_retest_scores <- coretask_scores |> 
-#   filter(dataset == "pilot_mpieva_de_main") |>
-#   group_by(user_id, task) |>
-#   arrange(user_id, task, age) |>
-#   filter(n() > 1) 
-# retest_scores <- coretask_scores |> 
-#   # filter(dataset == "pilot_mpieva_de_main") |>
-#   arrange(user_id, task, age) |>
-#   group_by(user_id, task) |>
-#   filter(n() > 1) |>
-#   ungroup()
-
+# widen scores per user to separate columns
 retest_wide <- retest_scores |>
   group_by(user_id, task, model_set, subset, itemtype, invariance) |>
   mutate(mean_age = mean(age), 
@@ -1040,130 +1030,76 @@ retest_wide <- retest_scores |>
          model_set, subset, itemtype, nfact, invariance,
          site_label, user_id, mean_age, mean_age_gap, adaptivity,
          run_number, score) |>
-  # select(-run_id, -score_se, -age, -age_gap, -num_attempted, -adaptive) |> 
-  pivot_wider(
-    names_from = run_number,
-    values_from = score,
-    names_prefix = "run_"
-  )
+  pivot_wider(names_from = run_number, values_from = score, names_prefix = "run_")
 
+# subset to core tasks
 retest_wide_coretask <- retest_wide |> filter(item_task %in% core_tasks)
 
-# retest_wide <- retest_scores |>
-#   group_by(site_label, user_id, task) |>
-#   mutate(mean_age = mean(age), 
-#          age_gap = max(age_gap)) |>
-#   ungroup() |>  
-#   pivot_wider(
-#     id_cols = c(site_label, user_id, task_category, task, mean_age, age_gap),
-#     names_from = run_number,
-#     values_from = score,
-#     names_prefix = "run_"
-#   ) |>
-#   select(site_label, user_id, task_category, task, age = mean_age, age_gap, run_1, run_2)
-
-min_n_trt <- 20
+# compute test-retest correlations (for all models)
 trt_mod <- retest_wide_coretask |>
-  # group_by(task_category, task) |>
-  group_by(task_category, task, item_task, model_set, subset, itemtype, nfact, invariance) |>
+  group_by(task_category, task, item_task,
+           model_set, subset, itemtype, nfact, invariance) |>
   summarise(test_retest_r = cor(run_1, run_2, use = "complete.obs"), 
-            # prophecy_r = prophecy(n = 2, r = test_retest_r),
             n = n(), 
             age_gap_mo = mean(mean_age_gap) * 12) |>
-  ungroup() |>
-  filter(n >= min_n_trt)
+  ungroup()
 
+# subset to specified models per task
 trt <- trt_mod |> semi_join(task_mods)
 
-trt_mod |>
+# compare correlations by itemtype
+trt_itemtype_compare <- trt_mod |>
   filter(model_set == "multigroup_dataset", invariance == "scalar") |>
   select(task, itemtype, test_retest_r) |>
   pivot_wider(names_from = itemtype, values_from = test_retest_r)
 
+# compare correlations by adaptivity
 trt_mod_cat <- retest_wide_coretask |>
-  # group_by(task_category, task) |>
-  group_by(adaptivity, task_category, task, item_task, model_set, subset, itemtype, nfact, invariance) |>
-  summarise(test_retest_r = cor(run_1, run_2, use = "complete.obs"), 
-            # prophecy_r = prophecy(n = 2, r = test_retest_r),
+  group_by(adaptivity, task_category, task, item_task,
+           model_set, subset, itemtype, nfact, invariance) |>
+  summarise(test_retest_r = cor(run_1, run_2, use = "complete.obs"),
             n = n(), 
             age_gap_mo = mean(mean_age_gap) * 12) |>
-  ungroup() |>
-  filter(n >= min_n_trt)
+  ungroup()
 trt_cat <- trt_mod_cat |> semi_join(task_mods) |> arrange(task)
-trt_cat |> select(task, subset, adaptivity, test_retest_r) |> pivot_wider(names_from = adaptivity, values_from = test_retest_r)
+trt_cat_compare <- trt_cat |>
+  select(task, subset, adaptivity, test_retest_r) |>
+  pivot_wider(names_from = adaptivity, values_from = test_retest_r)
 
-trt_site_mod <- retest_wide_coretask |>
-  group_by(site_label, task_category, task, item_task, model_set, subset, itemtype, nfact, invariance) |>
-  summarise(test_retest_r = cor(run_1, run_2, use = "complete.obs"), 
-            # prophecy_r = prophecy(n = 2, r = test_retest_r),
-            n = n(), 
-            age_gap_mo = mean(mean_age_gap) * 12) |>
-  ungroup() |>
-  arrange(task) |>
-  filter(n >= min_n_trt)
-
-trt_site <- trt_site_mod |> semi_join(task_mods)
+trt_task <- trt |> select(item_task, test_retest_r) |> deframe() |> signif(2)
+trt_range <- trt_task[!(names(trt_task) %in% c("sds", "math"))] |> range()
 ```
 
 ```{r test-retest-n}
 #| dependson: load-scores
 
-# # age comparison of re-test sample
-# # ages for all de participants 
-# de_general_ages <- coretask_scores |>
-#   filter(dataset == "pilot_mpieva_de_main") |>
-#   group_by(user_id, task_category, task) |>
-#   summarise(
-#     age = mean(age, na.rm = TRUE),
-#     .groups = "drop"
-#   )
-# 
-# # test–retest sample ages, per user × task (from your code)
-# de_retest_ages <- retest_wide |>
-#   select(user_id, task_category, task, age) |>
-#   distinct()
-# 
-# # --- overall comparison: collapse to ONE row per child ---
-# 
-# # general sample: one age per child
-# de_general_children <- de_general_ages |>
-#   group_by(user_id) |>
-#   summarise(
-#     age = mean(age, na.rm = TRUE),
-#     .groups = "drop"
-#   )
-# 
-# # test–retest sample: one age per child
-# de_retest_children <- de_retest_ages |>
-#   group_by(user_id) |>
-#   summarise(
-#     age = mean(age, na.rm = TRUE),
-#     .groups = "drop"
-#   )
-# 
-# overall_age_comparison <- bind_rows(
-#   de_general_children |> mutate(sample = "general"),
-#   de_retest_children  |> mutate(sample = "test_retest")
-# ) |>
-#   group_by(sample) |>
-#   summarise(
-#     n        = dplyr::n(),        # now = number of unique children
-#     mean_age = mean(age, na.rm = TRUE),
-#     sd_age   = sd(age, na.rm = TRUE),
-#     .groups  = "drop"
-#   )
-# 
-# gen_age <- overall_age_comparison |> dplyr::filter(sample == "general")
-# trt_age <- overall_age_comparison |> dplyr::filter(sample == "test_retest")
-# age_diff_years <- trt_age$mean_age - gen_age$mean_age
-# age_diff_months <- age_diff_years * 12
+# ages for all de participants
+de_general_ages <- coretask_scores |>
+  filter(site_label == "mpieva-de") |>
+  summarise(age = mean(age), .by = c("user_id", "task")) |>
+  summarise(age = mean(age), .by = c("user_id"))
+
+de_retest_ages <- retest_wide_coretask |>
+  select(user_id, age = mean_age) |>
+  distinct()
+
+age_comp <- list("gen" = de_general_ages,
+                 "trt" = de_retest_ages) |>
+  list_rbind(names_to = "sample") |>
+  summarise(n = n(),
+            mean_age = mean(age),
+            sd_age = sd(age),
+            .by = "sample") |>
+  mutate(across(where(is.double), \(x) round(x, 2))) |>
+  nest(d = -sample) |>
+  deframe()
 ```
 
 ### Test-retest reliability
 
 We were also interested in capturing the extent to which the LEVANTE tasks yield reliable signal across a delay. The mpieva-de pilot site was able to re-administer tasks to a subset of their original participant group with a retest interval of either 3 months (group 1) or 7 months (group 2) approximately. We used this re-administration as an opportunity to collect data with computer adaptive versions of many of the tasks (Sentence Understanding, Pattern Matching, Shape Rotation, Math, and Vocabulary); see below for further details of computer adaptive versions. In addition, for several tasks (Math, Stories, Pattern Matching), we used this opportunity to gather item data about new groups of retest items that were designed to match the content of the original items but vary in their surface forms. For the other tasks, we retested using the same items. 
 
-@fig-retest shows the relations between time 1 and time 2 scores. Across individual tasks, retest sample sizes ranged from N = `r min(trt$n)` to N = `r max(trt$n)`; the low number of repeat administrations for Sentence Understanding reflects an error in which this task was not sent to younger children. Children in the test–retest subsample were very similar in age to those in the overall mpieva-de pilot sample. The overall sample (n = `r gen_age$n`) had a mean age of `r round(gen_age$mean_age, 2)` years (SD = `r round(gen_age$sd_age, 2)`), whereas the test–retest subsample (n = `r trt_age$n`) had a mean age of `r round(trt_age$mean_age, 2)` years (SD = `r round(trt_age$sd_age, 2)`), a difference of approximately `r round(age_diff_years, 2)` years (~`r round(age_diff_months, 0)` months). Each figure panel also shows the test-retest correlation and sample size for the corresponding task. Most retest correlations were in the range of $r = .5$ -- .7, with two exceptions. Sentence Understanding had a smaller sample size with a more restricted age range and showed lower reliability within that range; and Math showed higher reliability than the other tasks. Under classical test theory assumptions, these test–retest correlations provide an estimate of score reliability that complements the marginal reliabilities reported above [@kline2013handbook].
+@fig-retest shows the relations between time 1 and time 2 scores. Across individual tasks, retest sample sizes ranged from N = `r min(trt$n)` to N = `r max(trt$n)`; the low number of repeat administrations for Sentence Understanding reflects an error in which this task was not sent to younger children. Children in the test–retest subsample were very similar in age to those in the overall mpieva-de pilot sample. The overall sample (n = `r age_comp$gen$n`) had a mean age of `r age_comp$gen$mean_age` years (SD = `r age_comp$gen$sd_age`), whereas the test–retest subsample (n = `r age_comp$trt$n`) had a mean age of `r age_comp$trt$mean_age` years (SD = `r age_comp$trt$sd_age`), a difference of approximately `r age_comp$gen$mean_age - age_comp$trt$mean_age` years (~`r 12 * (age_comp$gen$mean_age - age_comp$trt$mean_age)` months). Each figure panel also shows the test-retest correlation and sample size for the corresponding task. Most retest correlations were in the range of $r =$ `{r} paste(trt_range, collapse = "--")`, with two exceptions. (TODO: SDS?) and Math showed higher reliability (`{r} trt_task[["math"]]`) than the other tasks. Under classical test theory assumptions, these test–retest correlations provide an estimate of score reliability that complements the marginal reliabilities reported above [@kline2013handbook].
 
 ```{r}
 #| label: fig-retest
@@ -1174,36 +1110,26 @@ We were also interested in capturing the extent to which the LEVANTE tasks yield
 lim <- range(retest_wide$run_1, retest_wide$run_2, finite = TRUE)
 lim <- range(pretty(lim))
 
-ggplot(retest_wide_coretask, aes(run_1, run_2, colour = site_label)) +
-  facet_nested_wrap(
-    vars(task_category, task),
-    scales = "fixed",
-    axes   = "x",              # or "all" for both axes in every panel
-    nest_line = element_line(),
-    solo_line = TRUE
-  ) +
-  # coord_equal() +
-  coord_equal(xlim = lim, ylim = lim, ratio = 1, expand = FALSE) +
+ggplot(retest_wide_coretask, aes(run_1, run_2, colour = mean_age)) +
+  facet_nested_wrap(vars(task_category, task), scales = "fixed", axes = "x",
+                    nest_line = element_line(), solo_line = TRUE) +
+  coord_equal(xlim = lim, ylim = lim, expand = FALSE) +
   geom_abline(slope = 1, intercept = 0, colour = "grey60", linetype = "dotted") +
   geom_point(alpha = 0.5, size = 1) +
-  geom_smooth(aes(group = 1), colour = "grey40", method = "lm", formula = y ~ x, linewidth = 0.6) +
-  geom_label(
-    data = trt, inherit.aes = FALSE,
-    aes(label = sprintf("r = %.2f", test_retest_r)),
-    x = lim[1], y = lim[2], hjust = "inward", vjust = "inward",
-    size = 3, colour = "grey30", linewidth = 0
-  ) +
-  geom_label(
-    data = trt, inherit.aes = FALSE,
-    aes(label = sprintf("N = %s", n)),
-    x = lim[2], y = lim[1], hjust = "inward", vjust = "inward",
-    size = 3, colour = "grey30", linewidth = 0
-  ) +
-  # scale_colour_viridis(limits = c(5, 12), end = 0.95) +
-  scale_colour_ptol() +
-  labs(x = "Score 1", y = "Score 2", colour = "Site") +
+  geom_smooth(method = "lm", colour = "grey40", linewidth = 0.6) +
+  geom_label(data = trt, inherit.aes = FALSE,
+             aes(label = sprintf("r = %.2f", test_retest_r)),
+             x = lim[1], y = lim[2], hjust = "inward", vjust = "inward",
+             size = 3, colour = "grey30", linewidth = 0) +
+  geom_label(data = trt, inherit.aes = FALSE,
+             aes(label = sprintf("N = %s", n)),
+             x = lim[2], y = lim[1], hjust = "inward", vjust = "inward",
+             size = 3, colour = "grey30", linewidth = 0) +
+  scale_colour_viridis_b(limits = c(5, 13), end = 0.95) +
+  guides(colour = guide_coloursteps()) +
+  labs(x = "Score 1", y = "Score 2", colour = "Age (years)") +
   theme(legend.position = "bottom")
-ggsave("retest.png", width = 8, height = 9)
+# ggsave("retest.png", width = 8, height = 9)
 ```
 
 \clearpage
