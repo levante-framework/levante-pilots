@@ -109,7 +109,7 @@ ggplot(aes(x = delta_bic, y = paste(itemtype, invariance))) +
                 middle.linewidth = 0.5) +
   scale_colour_brewer(palette = "Set1", guide = "none") +
   labs(x = "BIC difference from lowest", y = "Model")
-ggsave(here("02_scoring_outputs/plots/bic_comparison.png"), width = 10, height = 5)
+# ggsave(here("02_scoring_outputs/plots/bic_comparison.png"), width = 10, height = 5)
 
 # best model on overlapping items for each task x model_set x itemtype
 mods_best_overlap <- mods_overlap |>
@@ -144,28 +144,6 @@ mods_best_configural <- mods_coded |>
 
 # mods_best <- bind_rows(mods_best_multigroup, mods_best_configural)
 # write_rds(mods_best, here("02_scoring_outputs/mods_best.rds"))
-```
-
-```{r}
-mod_coefs <- \(mod_rec) {
-  model_vals(mod_rec) |>
-    as_tibble() |>
-    filter(group != "GROUP", item != "GROUP") |>
-    select(group, item, name, value) |>
-    pivot_wider(names_from = name, values_from = value) |>
-    mutate(item = str_remove(item, glue("{item_sep}[0-9]+$"))) |>
-    distinct() |>
-    mutate(difficulty = -d / a1) |>
-    arrange(difficulty)
-}
-
-best_coefs <- mods_best |>
-  mutate(coefs = map(mod_rec, mod_coefs)) |>
-  select(-mod_rec, -filename, -path) |>
-  unnest(coefs)
-
-write_rds(best_coefs, here("02_scoring_outputs/best_coefs.rds"),
-          compress = "gz")
 ```
 
 ```{r}
@@ -210,6 +188,29 @@ write_rds(mod_stats, here("02_scoring_outputs", "mod_stats.rds"), compress = "gz
 ```
 
 ```{r}
+site_labels <- c("uniandes-co-bogota" = "pilot_uniandes_co_bogota",
+                 "uniandes-co-rural" = "pilot_uniandes_co_rural",
+                 "mpieva-de" = "pilot_mpieva_de_main",
+                 "western-ca" = "pilot_western_ca_main")
+task_info <- tribble(
+  ~item_task , ~task                    , ~task_category,
+  "hf"       , "hearts & flowers"       , "executive function",
+  "sds"      , "same & different"       , "executive function",
+  "mg"       , "memory"                 , "executive function",
+  "math"     , "math"                   , "math",
+  "matrix"   , "pattern matching"       , "reasoning",
+  "mrot"     , "shape rotation"         , "spatial cognition",
+  "trog"     , "sentence understanding" , "language",
+  "vocab"    , "vocabulary"             , "language",
+  "tom"      , "stories"                , "social cognition",
+  "pa"       , "language sounds"        , "reading",
+  "sre"      , "sentence reading"       , "reading",
+  "swr"      , "word reading"           , "reading",
+  "mefs"     , "MEFS"                   , "executive function"
+) |>
+  mutate(task = task |> str_to_title() |> fct_inorder(),
+         task_category = task_category |> str_to_title() |> fct_inorder())
+
 rxx_multigroup <- mods_scalar_rxx |>
   filter(model_set == "multigroup_dataset") |>
   mutate(group_label = group |> fct_recode(!!!site_labels),

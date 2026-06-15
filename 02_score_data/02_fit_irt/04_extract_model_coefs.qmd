@@ -24,12 +24,18 @@ mods_coded <- mods |>
   mutate(invariance = invariance |> replace_na(""))
 
 mod_coefs <- \(mod_rec) {
+  n_resp <- bind_cols(group = mod_rec@groups, mod_rec@data) |>
+    pivot_longer(cols = -group, names_to = "item", values_to = "correct") |>
+    filter(!is.na(correct)) |>
+    count(item, group, name = "n_responses")
   model_vals(mod_rec) |>
     as_tibble() |>
     filter(group != "GROUP", item != "GROUP") |>
     select(group, item, name, value) |>
     pivot_wider(names_from = name, values_from = value) |>
-    mutate(item = str_remove(item, glue("{item_sep}[0-9]+$"))) |>
+    left_join(n_resp, by = join_by(group, item)) |>
+    mutate(n_responses = n_responses |> replace_na(0),
+           item = str_remove(item, glue("{item_sep}[0-9]+$"))) |>
     distinct() |>
     mutate(difficulty = -d / a1) |>
     arrange(difficulty)
@@ -37,9 +43,31 @@ mod_coefs <- \(mod_rec) {
 
 all_coefs <- mods_coded |>
   mutate(coefs = map(mod_rec, mod_coefs)) |>
-  select(-mod_rec, -filename, -path) |>
-  unnest(coefs) #|>
-  # mutate(group = fct_recode(group, "pilot_mpieva_de" = "pilot_leuphana_de"))
+  select(task, model_set, subset, itemtype, nfact, invariance, coefs) |>
+  unnest(coefs)
 
 write_rds(all_coefs, here("02_scoring_outputs/all_coefs.rds"), compress = "gz")
 ```
+
+```{r}
+bad_d <- all_coefs |>
+  filter_out(model_set == "multigroup_site") |>
+  filter_out(subset == "overlap_items") |>
+  filter(abs(difficulty) > 8) |>
+  select(task, item, group, subset, a1, d, difficulty) |>
+  mutate(across(where(is.numeric), \(x) round(x, 3))) |>
+  distinct() |>
+  arrange(difficulty) |>
+  filter_out(task %in% c("sds", "tom", "math"))
+
+bad_d |>
+  # select(item, group) |>
+  mutate(subset = subset |>
+           replace_values("es-CO" ~ "pilot_uniandes_co_bogota, pilot_uniandes_co_rural"),
+         group = if_else(group == "all", subset, group)) |>
+  arrange(item) |>
+  group_by(item) |>
+  summarise(exclusion_datasets = paste(group, collapse = ", ")) |>
+  write_csv("exclusions_a1.csv")
+```
+

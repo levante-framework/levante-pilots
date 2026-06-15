@@ -25,8 +25,7 @@ irt_tasks <- c("pa",
                "vocab")
 
 task_data_irt <- read_rds(here("01_fetched_data/task_data_nested.rds")) |>
-  filter(item_task %in% irt_tasks) |>
-  mutate(language = language |> str_replace("Other\\((.*)\\)", "\\1"))
+  filter(item_task %in% irt_tasks)
 ```
 
 ```{r}
@@ -89,7 +88,7 @@ cluster |>
   cluster_assign_each(task = irt_tasks) |>
   cluster_send(fit_bylanguage_task(task_data = task_data_irt,
                                    models = models_pooled,
-                                   prior = priors,
+                                   priors = priors,
                                    task = task,
                                    registry_dir = regdir))
 
@@ -108,7 +107,7 @@ cluster |>
 ```{r}
 fit_bylanguage_task(task_data = task_data_irt,
                     models = models_pooled,
-                    prior = priors,
+                    priors = priors,
                     task = "pa",
                     registry_dir = regdir)
 # 
@@ -122,8 +121,8 @@ fit_bylanguage_task(task_data = task_data_irt,
 
 fit_task_models_multigroup(task_data = task_data_irt,
                            models = models_multigroup,
-                           prior = priors,
-                           task = "pa",
+                           priors = priors,
+                           task = "vocab",
                            # group = site,
                            group = dataset,
                            registry_dir = regdir)
