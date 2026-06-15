@@ -73,7 +73,7 @@ write_rds(runs_filtered_trials, here("01_fetched_data/runs_filtered_trials.rds")
           compress = "gz")
 
 run_exclusions <- runs_coded |>
-  select(redivis_source, task_id, run_id, starts_with("ex_")) |>
+  select(redivis_source, dataset, task_id, user_id, run_id, starts_with("ex_")) |>
   left_join(runs_coded_dup |> select(run_id, ex_duplicate)) |>
   left_join(trial_data_valid |> distinct(run_id, ex_few_valid_trials))
 write_rds(run_exclusions, here("01_fetched_data/run_exclusions.rds"),
