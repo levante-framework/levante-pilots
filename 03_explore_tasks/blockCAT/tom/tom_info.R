@@ -21,7 +21,7 @@ tom_items <- task_data_nested |>
   ungroup() |>
   mutate(group_label = glue("{item_group} ({stories})") |> fct_inorder())
 
-tom_langs <- c("de", "en", "es")
+tom_langs <- c("de-DE", "en-US", "es-CO")
 lang_path <- \(lang) glue("02_scoring_outputs/model_registry/tom/by_language/{lang}/tom_rasch_f1.rds")
 
 tom_modrec_lang <- tom_langs |> set_names() |> map(\(lang) read_rds(lang_path(lang)))
@@ -54,7 +54,7 @@ mod_info <- tom_mods |>
 
 tom_info <- mod_info |> list_rbind(names_to = "subset") |>
   mutate(item_uid = item_inst |> str_remove("-[0-9]+$")) |>
-  mutate(model_type = if_else(str_length(subset) == 2,
+  mutate(model_type = if_else(subset %in% tom_langs,
                               "by_language", "multigroup")) |>
   left_join(tom_items)
 
@@ -191,7 +191,7 @@ get_coef <- \(mod){
 mod_params <- tom_mods |> map(get_coef)
 
 tom_params <- mod_params |> list_rbind(names_to = "subset") |>
-  mutate(model_type = if_else(str_length(subset) == 2,
+  mutate(model_type = if_else(subset %in% tom_langs,
                               "by_language", "multigroup")) |>
   # mutate(item_uid = item_inst |> str_remove("-[0-9]+$")) |>
   distinct() |>

@@ -89,8 +89,9 @@ tom_items <- task_data_nested |>
 tom_coefs <- all_coefs |>
   filter(task == "tom") |>
   filter(model_set == "by_language", itemtype == "rasch") |>
-  mutate(group = if_else(model_set == "by_language", subset, group) |>
-           fct_recode("pilot_mpieva_de" = "de", "pilot_uniandes_co" = "es", "pilot_western_ca" = "en")) |>
+  mutate(group = subset) |>
+  # mutate(group = if_else(model_set == "by_language", subset, group) |>
+  #          fct_recode("pilot_mpieva_de" = "de", "pilot_uniandes_co" = "es", "pilot_western_ca" = "en")) |>
   select(model_set, subset, itemtype, invariance, group, item, a1, d) |>
   pivot_longer(c(a1, d), names_to = "param", values_to = "value") |>
   filter(!(param == "a1" & itemtype == "rasch")) |>
