@@ -49,23 +49,17 @@ library(tidyverse)
 library(here)
 library(glue)
 library(purrr)
-library(viridis)
 library(readxl)
 
 library(flextable)
 library(ftExtra)
-library(png)
 library(ggh4x)
+library(viridis)
 
 library(lavaan)
-library(mirt)
-library(broom.mixed)
-library(lmerTest)
-library(emmeans)
-library(tidySEM)
+library(broom)
 library(marginaleffects)
 
-source(here("03_summaries","plotting_helper.R"))
 source(here("plot_settings.R"))
 ```
 
@@ -76,8 +70,6 @@ site_labels <- c("uniandes-co-bogota" = "pilot_uniandes_co_bogota",
                  "uniandes-co-rural" = "pilot_uniandes_co_rural",
                  "mpieva-de" = "pilot_mpieva_de_main",
                  "western-ca" = "pilot_western_ca_main")
-sites <- names(site_labels)
-site_pal <- solarized_pal()(length(sites)) |> set_names(sites)
 
 core_tasks <- c("matrix", "mrot", "math", "hf", "mg", "sds", "trog", "vocab", "tom")
 
@@ -197,6 +189,7 @@ We end by discussing future plans for further internationalization and downward 
 # The LEVANTE Core Tasks
 
 ```{r load-scores}
+# specification for which model to use for each task
 task_mods <- tribble(
   ~item_task , ~model_set          , ~itemtype, ~invariance,
   "hf"       , "multigroup_dataset",     "2pl",    "scalar",
@@ -213,111 +206,123 @@ task_mods <- tribble(
   "swr"      , "by_language",          "rasch",    "",
 )
 
-# all_scores <- read_rds(here("02_scoring_outputs","scores","scores_combined.rds")) |>
-run_data <- read_rds(here("01_fetched_data/run_data.rds"))
-# all_scores <- read_rds("data/scores_latest.rds") |>
-mod_scores <- read_rds(here("02_scoring_outputs/scores/registry_scores.rds"))
-mod_stats <- read_rds(here("02_scoring_outputs/mod_stats.rds"))
-
-included_runs <- run_data |>
-  filter(!is.na(age), age >= 5, age < 13) |>
-  group_by(user_id, task_code) |>
-  arrange(age) |>
-  mutate(run_number = 1:n(),
-         age_gap = age - age[1]) |>
-  ungroup() |>
-  filter(run_number == 1 | (run_number == 2 & age_gap > 1/6)) |>
-  select(dataset, user_id, run_id, language, adaptive, age, run_number, age_gap, num_attempted) |>
+# set of runs that are used for IRT model fitting
+runs_filtered_trials <- read_rds(here("01_fetched_data/runs_filtered_trials.rds")) |>
   mutate(site_label = dataset |> fct_recode(!!!site_labels))
 
-included_mod_scores <- mod_scores |> inner_join(included_runs) |>
+# score from all IRT models
+mod_scores <- read_rds(here("02_scoring_outputs/scores/registry_scores.rds"))
+
+# BIC / rxx from all IRT models
+mod_stats <- read_rds(here("02_scoring_outputs/mod_stats.rds"))
+
+# age filter settings
+min_age <- 5
+max_age <- 13
+min_age_gap <- 1/6
+
+# filter runs by min/max age
+runs_aged <- runs_filtered_trials |>
+  mutate(ex_age_missing = is.na(age),
+         ex_age_interval = !is.na(age) & (age < min_age | age > max_age))
+
+# filter runs by min age gap
+included_runs <- runs_aged |>
+  # filter(!is.na(age), age >= min_age, age < max_age)
+  filter(!ex_age_missing, !ex_age_interval) |>
+  arrange(user_id, task_id, time_started) |>
+  mutate(age_gap_prelim = age - lag(age), .by = c(user_id, task_id)) |>
+  filter(is.na(age_gap_prelim) | age_gap_prelim > min_age_gap) |>
+  mutate(run_number = 1:n(),
+         age_gap = age - lag(age),
+         .by = c(user_id, task_id)) |>
+  select(site_label, task_id, user_id, run_id, language, adaptive, num_attempted,
+         age, run_number, age_gap, time_started, time_finished)
+
+# scores from all models, for only included runs
+included_mod_scores <- mod_scores |> inner_join(included_runs, by = "run_id") |>
   filter(model_set %in% c("by_language", "multigroup_dataset")) |>
-  filter_out(subset == "overlap_items")
+  filter_out(subset == "overlap_items") |>
+  rename(score = ability, score_se = se) |>
+  arrange(task, model_set, subset, itemtype, invariance, site_label, user_id, age) |>
+  rename(item_task = task) |>
+  left_join(task_info)
 
-# best_mods <- mod_stats |>
-#   mutate(task_bic = if_else(by_lang, lang_bic, overlap_bic)) |>
-#   select(task, by_lang, task_bic) |>
-#   unnest(task_bic) |>
-#   group_by(task, model_set, subset) |>
-#   filter(BIC == min(BIC)) |>
-#   ungroup() |>
-#   select(-BIC) |>
-#   filter(model_set %in% c("by_language", "multigroup_dataset")) |>
-#   mutate(subset = replace_na(subset, "all_items"))
-# 
-# best_scores <- mod_scores |> inner_join(best_mods) |>
-#   rename(score = ability, score_se = se)
-
+# scores for SRE (not IRT based)
 sre_scores <- read_rds(here("02_scoring_outputs/scores/scores_custom.rds")) |>
   filter(item_task == "sre") |>
-  select(item_task, run_id, ability = metric_value) |>
-  inner_join(included_runs)
+  select(item_task, run_id, score = metric_value) |>
+  inner_join(included_runs, by = "run_id") |>
+  left_join(task_info)
 
-# # all_scores <- run_data |>
-# #   select(dataset, task_id, user_id, run_id, age, num_attempted) |>
-# #   left_join(bind_rows(best_scores, sre_scores)) |>
-# #   filter(!is.na(score)) |>
-# #   rename(item_task = task) |>
-# #   group_by(user_id, item_task) |>
-# #   arrange(age) |>
-# #   mutate(run_number = 1:n(),
-# #          age_gap = age - age[1]) |>
-# #   ungroup() |>
-# #   mutate(site_label = dataset |> fct_recode(!!!site_labels)) |>
-# #   left_join(task_info)
-# # 
-# # task_map <- all_scores |> distinct(item_task, task)
-# # 
-# # age_scores <- all_scores |> filter(age >= 5, age < 13)
-# 
-# included_scores <- age_scores |>
-#   filter(run_number == 1 | (run_number == 2 & age_gap > 1/6)) #|>
-#   # filter_out(num_attempted < 10)
-
-# coretask_scores <- included_scores |>
-#   filter(item_task %in% core_tasks)
-
+# scores using specified model for each task + SRE
 task_scores <- included_mod_scores |>
-  rename(item_task = task) |>
   semi_join(task_mods) |>
-  bind_rows(sre_scores) |>
-  left_join(task_info) |>
-  rename(score = ability, score_se = se)
+  bind_rows(sre_scores)
 
+# scores for core tasks only
 coretask_scores <- task_scores |> filter(item_task %in% core_tasks)
+
+# scores for core tasks only + first run for each user x task
 coretask_firstrun_scores <- coretask_scores |> filter(run_number == 1)
+
+# mapping between task_id and item_task
+task_id_map <- task_scores |> distinct(task_id, item_task)
 ```
 
 ```{r time-summary}
-# task_time_summary <- read_csv(here("03_summaries/tables/task_time_summary.csv"))
-task_time_summary <- read_rds(here("03_summaries","tables",
-                                   "task_time_summary.rds"))
+# compute duration of each run (minutes between first trial and last trial)
+task_data_nested <- read_rds(here("01_fetched_data/task_data_nested.rds"))
+time_summary <- task_data_nested |>
+  unnest(data) |>
+  inner_join(included_runs |> select(site_label, run_id, adaptive)) |>
+  arrange(run_id, timestamp) |>
+  group_by(site_label, item_task, adaptive, run_id) |>
+  summarise(n_trials = n(),
+            start = min(timestamp), end = max(timestamp)) |>
+  ungroup() |>
+  mutate(diff = difftime(end, start, units = "mins")) |>
+  filter(diff < 120)
 
+# aggregate durations by site x task x adaptivite
+task_time_summary <- time_summary |>
+  bind_rows(time_summary |> mutate(site_label = "all")) |>
+  group_by(site_label, item_task, adaptive) |>
+  summarise(median_diff = median(diff),
+            min_diff = min(diff),
+            max_diff = max(diff),
+            median_trials = median(n_trials),
+            min_trials = min(n_trials),
+            max_trials = max(n_trials),
+            n_runs = n()) |>
+  ungroup() |>
+  mutate(across(contains("diff"), \(d) sprintf("%.2f", d))) |>
+  mutate(combined_diff = glue("{median_diff} [{min_diff}, {max_diff}]"),
+         combined_trials = glue("{median_trials} [{min_trials}, {max_trials}]")) |>
+  left_join(task_info)
+
+# reshape to separate columns by adaptivite
 task_time_table <- task_time_summary |>
   filter(item_task %in% core_tasks) |>
-  mutate(site_label = dataset |> fct_recode(!!!site_labels, "All" = "all"),
-         adaptive = if_else(is_cat, "adaptive", "non_adaptive")) |>
-  # left_join(task_map) |>
-  left_join(task_info) |>
-  select(task, site_label, adaptive, diff = median_diff, trials = median_trials) |>
-  pivot_wider(names_from = adaptive, values_from = c(diff, trials)) |>
-  mutate(diff_pct = 100 * as.numeric(diff_adaptive) / as.numeric(diff_non_adaptive),
-         diff_non_adaptive = sprintf("%.2f", diff_non_adaptive),
-         diff_adaptive = if_else(is.na(diff_adaptive), NA,
-                                        as.character(glue("{diff_adaptive} ({round(diff_pct, 0)}%)")))) |>
-  mutate(trials_pct = 100 * as.numeric(trials_adaptive) / as.numeric(trials_non_adaptive),
-         trials_non_adaptive = sprintf("%.0f", trials_non_adaptive),
-         trials_adaptive = if_else(is.na(trials_adaptive), NA,
-                                        as.character(glue("{trials_adaptive} ({round(trials_pct, 0)}%)")))) |>
-  select(-diff_pct, -trials_pct) |>
+  mutate(adaptive = if_else(adaptive, "adaptive", "non_adaptive")) |>
+  select(task, site_label, adaptive, diff = median_diff, trials = median_trials,
+         combined_diff, combined_trials) |>
+  pivot_wider(names_from = adaptive,
+              values_from = c(diff, trials, combined_diff, combined_trials)) |>
+  mutate(diff_pct = 100 * as.numeric(diff_adaptive) / as.numeric(diff_non_adaptive)) |>
+  mutate(trials_pct = 100 * trials_adaptive / trials_non_adaptive) |>
+  mutate(across(contains("pct"),
+                \(x) if_else(is.na(x), NA,
+                             paste0(sprintf("%.0f", x), "%")))) |>
+  mutate(combined_diff_adaptive = if_else(is.na(diff_pct), NA,
+                                          glue("{combined_diff_adaptive} – {diff_pct}")),
+         combined_trials_adaptive = if_else(is.na(trials_pct), NA,
+                                            glue("{combined_trials_adaptive} – {trials_pct}"))) |>
+  select(task, site_label, contains("combined")) |>
+  select(task, site_label, contains("diff"), contains("trials")) |>
   mutate(across(where(is.character), \(x) replace_na(x, "–"))) |>
-  # pivot_longer(names_to = "adaptive", values_to = "median_diff",
-  #              cols = c(non_adaptive, adaptive)) |>
-  # pivot_wider(names_from = c(adaptive, site_label), values_from = median_diff) |>
-  # select(task, starts_with("non"), starts_with("adaptive")) |>
-  filter(site_label == "All") |>
-  select(-site_label) |>
-  arrange(task)
+  arrange(task) |>
+  mutate(site_label = site_label |> replace_values("all" ~ "All"))
 ```
 
 ## General task properties
@@ -338,12 +343,14 @@ All tasks are available for demonstration purposes at <https://researcher.levant
 #| tbl-cap: "Median task durations (minutes) and median number of trials for non-adaptive (left) and adaptive (right) versions of each task, across all sites. Adaptive durations and trial counts include in parentheses what percentage that value is of the corresponding non-adaptive value."
 
 task_time_table |>
+  filter(site_label == "All") |>
+  select(-site_label) |>
   flextable() |>
   set_header_labels("task" = "Task",
-                    "diff_non_adaptive" = "Non-adaptive",
-                    "diff_adaptive" = "Adaptive",
-                    "trials_non_adaptive" = "Non-adaptive",
-                    "trials_adaptive" = "Adaptive") |>
+                    "combined_diff_non_adaptive" = "Non-adaptive",
+                    "combined_diff_adaptive" = "Adaptive",
+                    "combined_trials_non_adaptive" = "Non-adaptive",
+                    "combined_trials_adaptive" = "Adaptive") |>
   add_header_row(values = c("", "Median duration (minutes)", "Median trials"), colwidths = c(1, 2, 2)) |>
   align_text_col() |>
   align(j = 2:5, align = "right", part = "all") |>
@@ -466,11 +473,10 @@ A key feature of the LEVANTE framework is that all data are fully de-identified,
 #| label: fig-age-hist
 #| fig-cap: "Overall distributions of ages for each site."
 #| fig-height: 3
+#| fig-width: 8
 
-ages <- coretask_scores |>
-  group_by(site_label, dataset, user_id) |>
-  summarise(age = min(age),
-            n_runs = n())
+ages <- coretask_scores |> summarise(age = min(age), .by = c(site_label, user_id))
+site_counts <- ages |> count(site_label)
 
 ggplot(ages, aes(x = age, fill = site_label)) + 
   facet_wrap(vars(site_label), nrow = 1) + 
@@ -483,67 +489,158 @@ ggplot(ages, aes(x = age, fill = site_label)) +
 ```
 
 ```{r compute-counts}
-runs_coded <- read_rds("runs_coded.rds")
+run_exclusions <- read_rds(here("01_fetched_data/run_exclusions.rds")) |>
+  mutate(site_label = dataset |> fct_recode(!!!site_labels)) |>
+  left_join(task_id_map) |>
+  left_join(task_info)
 
-total_counts <- runs_coded |>
+run_exclusions_core <- run_exclusions |>
+  filter(item_task %in% core_tasks)
+
+total_site_counts <- run_exclusions |>
+  bind_rows(run_exclusions |> mutate(site_label = "all")) |>
   group_by(site_label) |>
   summarise(n_users = n_distinct(user_id), n_runs = n())
 
-user_totals <- total_counts |> select(site_label, n_users) |> deframe()
+total_site_counts_core <- run_exclusions_core |>
+  bind_rows(run_exclusions_core |> mutate(site_label = "all")) |>
+  group_by(site_label) |>
+  summarise(n_users = n_distinct(user_id), n_runs = n())
+
+n_users_site <- total_site_counts |> select(site_label, n_users) |> deframe()
+n_runs_site <- total_site_counts |> select(site_label, n_runs) |> deframe()
+n_users_site_core <- total_site_counts_core |> select(site_label, n_users) |> deframe()
+n_runs_site_core <- total_site_counts_core |> select(site_label, n_runs) |> deframe()
 ```
 
 ```{r compute-exclusions}
 #| dependson: compute-counts
 
-get_exclusion_counts_site <- \(v) {
-  runs_coded |> bind_rows(runs_coded |> mutate(site_label = "all")) |>
-    count(site_label, .data[[v]]) |>
-    rename(value = all_of(v)) |>
-    mutate(variable = v, .before = value) |>
-    group_by(variable) |>
-    mutate(prop = n / sum(n)) |>
-    ungroup() |>
-    filter(value) |>
-    select(-value)
+runs_filtered_core <- runs_filtered_trials |>
+  left_join(task_id_map) |>
+  filter(item_task %in% core_tasks)
+
+get_exclusion_counts_site <- \(df, g) {
+  \(v) {
+  g <- enquo(g)
+    df |>
+      count(!!g, .data[[v]]) |>
+      rename(value = all_of(v)) |>
+      mutate(variable = v, .before = value) |>
+      group_by(variable) |>
+      mutate(prop = n / sum(n)) |>
+      ungroup() |>
+      filter(value) |>
+      select(-value)
+  }
 }
+n_p <- \(n, p) glue("{n} ({signif(100 * p, 2)}%)") |> as.character()
 
-exclusions <- colnames(runs_coded) |>
-  discard(\(x) x %in% c("site_label", "user_id", "run_id"))
-exclusion_counts_site <- map(exclusions, get_exclusion_counts_site) |> list_rbind()
+exclusion_vars <- run_exclusions_core |> select(starts_with("ex_")) |> colnames()
+exclusion_counts_site <- exclusion_vars |>
+  map(get_exclusion_counts_site(bind_rows(run_exclusions_core, run_exclusions_core |> mutate(site_label = "all")), site_label)) |>
+  list_rbind()
+exclusion_counts_task <- exclusion_vars |>
+  map(get_exclusion_counts_site(run_exclusions, task)) |>
+  list_rbind()
 
-included_runs <- runs_coded |>
+ex_vars <- exclusion_counts_site |> filter(site_label == "all") |>
+  arrange(desc(n)) |>
+  mutate(n_p = n_p(n, prop)) |>
+  select(variable, n_p) |>
+  deframe()
+
+filtered_counts <- runs_filtered_core |>
+  bind_rows(runs_filtered_core |> mutate(site_label = "all")) |>
+  group_by(site_label) |>
+  summarise(n_users = n_distinct(user_id), n_runs = n())
+
+filtering_rates <- filtered_counts |>
+  left_join(total_site_counts_core, by = "site_label", suffix = c("_included", "_total")) |>
+  mutate(exclusion_count_runs = n_runs_total - n_runs_included,
+         exclusion_rate_runs = exclusion_count_runs / n_runs_total) |>
+  mutate(n_p = n_p(exclusion_count_runs, exclusion_rate_runs))
+
+filtering_n_p <- filtering_rates |>
+  select(site_label, n_p) |>
+  deframe()
+
+age_exclusions <- runs_aged |>
+  mutate(ex_age_gap = !ex_age_missing & !ex_age_interval & !(run_id %in% included_runs$run_id)) |>
+  select(site_label, task_id, user_id, run_id, starts_with("ex_age"))
+
+age_exclusion_vars <- age_exclusions |> select(starts_with("ex_age")) |> colnames()
+age_exclusion_counts_site <- age_exclusion_vars |>
+  map(get_exclusion_counts_site(bind_rows(age_exclusions, age_exclusions |> mutate(site_label = "all")), site_label)) |>
+  list_rbind()
+ex_vars_age <- age_exclusion_counts_site |> filter(site_label == "all") |>
+  arrange(desc(n)) |>
+  mutate(n_p = n_p(n, prop)) |>
+  select(variable, n_p) |>
+  deframe()
+```
+
+```{r}
+score_counts <- coretask_scores |>
+  bind_rows(coretask_scores |> mutate(site_label = "all")) |>
+  group_by(site_label) |>
+  summarise(n_users = n_distinct(user_id), n_runs = n())
+
+n_users_scored_site <- score_counts |> select(site_label, n_users) |> deframe()
+n_runs_scored_site <- score_counts |> select(site_label, n_runs) |> deframe()
+
+task_score_counts <- coretask_scores |>
+  group_by(task) |>
+  summarise(n_users = n_distinct(user_id), n_runs = n())
+n_runs_scored_task <- task_score_counts |> select(task, n_runs) |> deframe()
+n_task_labels <- glue("{n_runs_scored_task} ({names(n_runs_scored_task)})")
+
+min_task <- n_task_labels[n_runs_scored_task == min(n_runs_scored_task)]
+max_task <- n_task_labels[n_runs_scored_task == max(n_runs_scored_task)]
+```
+
+```{r}
+#| eval: false
+
+run_filtering_check <- run_exclusions |>
   pivot_longer(cols = where(is_logical)) |>
   group_by(run_id) |>
   filter(all(!value)) |>
   ungroup() |>
   distinct(site_label, user_id, run_id)
-
-inclusion_counts <- included_runs |>
+run_filtering_check |>
+  group_by(site_label) |>
+  summarise(n_users = n_distinct(user_id), n_runs = n())
+runs_filtered_trials |>
+  group_by(site_label) |>
+  summarise(n_users = n_distinct(user_id), n_runs = n())
+  
+included_runs |>
+  group_by(site_label) |>
+  summarise(n_users = n_distinct(user_id), n_runs = n())
+task_scores |>
   group_by(site_label) |>
   summarise(n_users = n_distinct(user_id), n_runs = n())
 
-score_counts <- coretask_scores |>
-  group_by(site_label) |>
-  summarise(n_users = n_distinct(user_id), n_runs = n())
-
-# included_runs |> anti_join(coretask_scores)
-# rid <- coretask_scores |> anti_join(included_runs) |> pull(run_id)
-# runs_coded |> filter(run_id %in% rid) |> View()
+included_runs |> anti_join(task_scores)
+# only difference is 1 de-DE run not scored (because all items have 100% correct)
 ```
 
 ## Colombia (uniandes-co-bogota and uniandes-co-rural)
 
-The Universidad de Los Andes team conducted school-based data collection at four schools in Bogotá and two public schools in the rural departments of Caquetá and Boyacá, selected for convenience from schools that had participated in previous projects with the university. In Bogotá, three of the participating schools belong to two family compensation funds and the fourth is managed by a charter-school organisation; across all sites, the schools primarily serve children from lower-middle and low-income families. By partnering with these schools, the research team oversaw data collection using a group testing format on tablets provided by the team, with larger groups for older children and smaller groups for younger children. The sites collected data from `{r} user_totals[["uniandes-co-bogota"]]` children in uniandes-co-bogota and `{r} user_totals[["uniandes-co-rural"]]` children in uniandes-co-rural, aged 5--12 years. Due to time constraints for school-based administration, children typically completed a subset of the tasks. 
+The Universidad de Los Andes team conducted school-based data collection at four schools in Bogotá and two public schools in the rural departments of Caquetá and Boyacá, selected for convenience from schools that had participated in previous projects with the university. In Bogotá, three of the participating schools belong to two family compensation funds and the fourth is managed by a charter-school organisation; across all sites, the schools primarily serve children from lower-middle and low-income families. By partnering with these schools, the research team oversaw data collection using a group testing format on tablets provided by the team, with larger groups for older children and smaller groups for younger children. The sites collected data from `{r} n_users_site[["uniandes-co-bogota"]]` children in uniandes-co-bogota and `{r} n_users_site[["uniandes-co-rural"]]` children in uniandes-co-rural, aged 5--12 years. Due to time constraints for school-based administration, children typically completed a subset of the tasks. 
 
 ## Germnay (mpieva-de)
 
-Data for the mpieva-de site were collected by the Max Planck Institute for Evolutionary Anthropology using family-based remote assessment. Families were recruited through an existing database of Leipzig residents and were first contacted by telephone to invite participation. A total of `{r} user_totals[["mpieva-de"]]` children, aged 5--12 years, participated. Families who agreed to partake received login instructions to complete the assigned LEVANTE tasks at home using their own computer or tablet. Mpieva-de also provided retest data, with follow-up assessments administered at either a 3-month or 7-month interval after the initial session. Participants were drawn from Leipzig, a medium-sized urban center of approximately 620,000 residents that is culturally diverse, with around 17% of the population having a migration background (primarily from Syria, Ukraine, and the Russian Federation). The population is highly educated, with most adults completing at least nine years of formal schooling and many holding high school and university degrees. Most children in Leipzig attend subsidized external childcare from infancy through primary school.
+Data for the mpieva-de site were collected by the Max Planck Institute for Evolutionary Anthropology using family-based remote assessment. Families were recruited through an existing database of Leipzig residents and were first contacted by telephone to invite participation. A total of `{r} n_users_site[["mpieva-de"]]` children, aged 5--12 years, participated. Families who agreed to partake received login instructions to complete the assigned LEVANTE tasks at home using their own computer or tablet. Mpieva-de also provided retest data, with follow-up assessments administered at either a 3-month or 7-month interval after the initial session. Participants were drawn from Leipzig, a medium-sized urban center of approximately 620,000 residents that is culturally diverse, with around 17% of the population having a migration background (primarily from Syria, Ukraine, and the Russian Federation). The population is highly educated, with most adults completing at least nine years of formal schooling and many holding high school and university degrees. Most children in Leipzig attend subsidized external childcare from infancy through primary school.
 
 ## Canada (western-ca)
 
-Partners at Western University (Ontario) recruited participants from the local community, primarily through online outreach (Facebook advertisements and community group posts), supplemented by posters on neighborhood mailboxes and notices shared via local school newsletters. Interested families voluntarily registered to be included in our participant database. Children were tested individually by a researcher in a dedicated testing space on campus. The western-ca site collected data from `{r} user_totals[["western-ca"]]` children, aged 5-12 years. Families were primarily recruited from London, Ontario, with a smaller subset from the Greater Toronto Area (GTA), both predominantly urban regions. According to recent census estimates, London residents have a mean education level of some postsecondary education, and the median household income is approximately $80,000 CAD. 
+Partners at Western University (Ontario) recruited participants from the local community, primarily through online outreach (Facebook advertisements and community group posts), supplemented by posters on neighborhood mailboxes and notices shared via local school newsletters. Interested families voluntarily registered to be included in our participant database. Children were tested individually by a researcher in a dedicated testing space on campus. The western-ca site collected data from `{r} n_users_site[["western-ca"]]` children, aged 5-12 years. Families were primarily recruited from London, Ontario, with a smaller subset from the Greater Toronto Area (GTA), both predominantly urban regions. According to recent census estimates, London residents have a mean education level of some postsecondary education, and the median household income is approximately $80,000 CAD. 
 
 ## Data filtering
+
+We use "run" to represent an instance of a child attempting a single task. Across all tasks, the sites collected a total of `{r} n_runs_site[["all"]]` runs (from `{r} n_users_site[["all"]]` unique children), of which `{r} n_runs_site_core[["all"]]` (from `{r} n_users_site_core[["all"]]` unique children) were for LEVANTE core tasks. Prior to IRT model fitting, a total of `{r} filtering_n_p[["all"]]` runs were excluded due meeting one or more of the following criteria: fewer than 10 test trials, `{r} ex_vars[["ex_empty"]]`; incomplete, `{r} ex_vars[["ex_incomplete"]]`; missing item metadata, `{r} ex_vars[["ex_no_item_uid"]]`; no associated trial data, `{r} ex_vars[["ex_empty"]]`; more than 10 consecutive identical responses, `{r} ex_vars[["ex_straightlining"]]`; duplicate administration, `{r} ex_vars[["ex_duplicate"]]`; fewer than 10 valid trials, `{r} ex_vars[["ex_few_valid_trials"]]`; and/or task versions with known software bugs, `{r} ex_vars[["ex_buggy"]]`. Additionally, scores were excluded from downstream analyses if they were from runs with: age missing, `{r} ex_vars_age[["ex_age_missing"]]`; age below `{r} min_age` or above `{r} max_age`, `{r} ex_vars_age[["ex_age_interval"]]`; or retest gap below `{r} min_age_gap * 12` months. The resulting final sample consists of a total of `{r} n_runs_scored_site[["all"]]` scores (from `{r} n_users_scored_site[["all"]]` unique children), ranging per task from `{r} min_task` to `{r} max_task`.
 
 ```{r}
 # We use "run" to represent an instance of a child attempting a single task. Across all tasks, the sites collected a total of `{r} sum(total_counts$n_runs)` runs (`{r} get_count_row(1)`) from `{r} sum(total_counts$n_users)` unique children (`{r} user_totals |> deframe() |> collapse_value_list()`), of which some runs were excluded
@@ -558,7 +655,7 @@ Partners at Western University (Ontario) recruited participants from the local c
 # Within the included runs, there were a total of `{r} total_trial_counts$n_trials` trials (`{r} site_trial_counts |> select(site, n_trials) |> deframe() |> collapse_value_list()`), of which `{r} total_trial_counts$excluded` were excluded (`{r} site_trial_counts |> select(site, excluded) |> deframe() |> collapse_value_list()`) due to too fast (<100ms) or too slow (>30s) reaction times. For reasons of space we do not disaggregate these exclusions by task, but note that the task with the highest exclusion rate was Pattern Matching (`{r} percentify(max(task_trial_counts$pct_excluded))` trials excluded), while all the other tasks ranged between `{r} percentify(min(task_trial_counts$pct_excluded))` and `{r} percentify(sort(task_trial_counts$pct_excluded, decreasing = TRUE)[2])` trials excluded.
 ```
 
-Note that the exclusion rate during this pilot study -- especially at the first site deployed, uniandes-co -- are higher than expected due to technical issues with some of the tasks, as well as intermittent connectivity issues at the rural sites.
+Note that the exclusion rate during this pilot study -- especially at the first site deployed, uniandes-co-bogota -- are higher than expected due to technical issues with some of the tasks, as well as intermittent connectivity issues.
 
 # Scoring
 
@@ -752,14 +849,14 @@ ggplot(age_slopes_dataset, aes(x = estimate, y = task)) +
 age_cors_dataset <- fixed_only |>
   nest(data = -c(task, site_label)) |>
   mutate(n = map_int(data, nrow),
-         cor_test = map(data, \(d) cor.test(~ score + age, data = d) |> tidy())) |>
+         cor_test = map(data, \(d) cor.test(~ score + age, data = d) |> broom::tidy())) |>
   select(task, site_label, cor_test, n) |>
   unnest(cor_test)
 
 age_cors_overall <- fixed_only |>
   nest(data = -c(task)) |>
   mutate(n = map_int(data, nrow),
-         cor_test = map(data, \(d) cor.test(~ score + age, data = d) |> tidy())) |>
+         cor_test = map(data, \(d) cor.test(~ score + age, data = d) |> broom::tidy())) |>
   select(task, cor_test, n) |>
   unnest(cor_test) |>
   mutate(site_label = "overall")
@@ -873,7 +970,7 @@ task_rxx <- mod_stats |>
   select(item_task, task_model_set = model_set, task_itemtype = itemtype, task_invariance = invariance, task_rxx) |>
   unnest(task_rxx) |>
   mutate(task_invariance = if_else(task_invariance == "", "configural", task_invariance),
-         invariance = if_else(invariance == "by_language", "configural", invariance)) |>
+         invariance = if_else(invariance == "", "configural", invariance)) |>
   filter(model_set == task_model_set, task_itemtype == itemtype, task_invariance == invariance) |>
   mutate(
     # group = if_else(is.na(group), subset, group),
@@ -915,89 +1012,151 @@ task_rxx |>
 #   (n * r) /  (1 + (n - 1) * r)
 # }
 
-de_retest_scores <- coretask_scores |> 
-  filter(dataset == "pilot_mpieva_de_main") |>
+retest_scores <- included_mod_scores |>
   group_by(user_id, task) |>
-  arrange(user_id, task, age) |>
-  filter(n() > 1) 
+  filter(any(run_number > 1)) |>
+  ungroup()
 
-retest_wide <- de_retest_scores |>
-  group_by(user_id, task) |>
-  mutate(has_retest = any(age_gap > .05), 
-         mean_age = mean(age), 
-         age_gap = max(age_gap)) |>
-  filter(has_retest) |>
-  ungroup() |>  
+# de_retest_scores <- coretask_scores |> 
+#   filter(dataset == "pilot_mpieva_de_main") |>
+#   group_by(user_id, task) |>
+#   arrange(user_id, task, age) |>
+#   filter(n() > 1) 
+# retest_scores <- coretask_scores |> 
+#   # filter(dataset == "pilot_mpieva_de_main") |>
+#   arrange(user_id, task, age) |>
+#   group_by(user_id, task) |>
+#   filter(n() > 1) |>
+#   ungroup()
+
+retest_wide <- retest_scores |>
+  group_by(user_id, task, model_set, subset, itemtype, invariance) |>
+  mutate(mean_age = mean(age), 
+         mean_age_gap = mean(age_gap, na.rm = TRUE),
+         adaptive = if_else(adaptive, "CAT", "fixed"),
+         adaptivity = paste(adaptive, collapse = "-")) |>
+  ungroup() |>
+  select(task_category, task, item_task,
+         model_set, subset, itemtype, nfact, invariance,
+         site_label, user_id, mean_age, mean_age_gap, adaptivity,
+         run_number, score) |>
+  # select(-run_id, -score_se, -age, -age_gap, -num_attempted, -adaptive) |> 
   pivot_wider(
-    id_cols = c(user_id, task_category, task, mean_age, age_gap),
     names_from = run_number,
     values_from = score,
     names_prefix = "run_"
-  ) |>
-  select(user_id, task_category, task, age = mean_age, age_gap, run_1, run_2)
+  )
 
-trt <- retest_wide |>
-  group_by(task_category, task) |>
+retest_wide_coretask <- retest_wide |> filter(item_task %in% core_tasks)
+
+# retest_wide <- retest_scores |>
+#   group_by(site_label, user_id, task) |>
+#   mutate(mean_age = mean(age), 
+#          age_gap = max(age_gap)) |>
+#   ungroup() |>  
+#   pivot_wider(
+#     id_cols = c(site_label, user_id, task_category, task, mean_age, age_gap),
+#     names_from = run_number,
+#     values_from = score,
+#     names_prefix = "run_"
+#   ) |>
+#   select(site_label, user_id, task_category, task, age = mean_age, age_gap, run_1, run_2)
+
+min_n_trt <- 20
+trt_mod <- retest_wide_coretask |>
+  # group_by(task_category, task) |>
+  group_by(task_category, task, item_task, model_set, subset, itemtype, nfact, invariance) |>
   summarise(test_retest_r = cor(run_1, run_2, use = "complete.obs"), 
             # prophecy_r = prophecy(n = 2, r = test_retest_r),
             n = n(), 
-            age_gap = mean(age_gap) * 12) |>
+            age_gap_mo = mean(mean_age_gap) * 12) |>
   ungroup() |>
-  arrange(task)
+  filter(n >= min_n_trt)
+
+trt <- trt_mod |> semi_join(task_mods)
+
+trt_mod |>
+  filter(model_set == "multigroup_dataset", invariance == "scalar") |>
+  select(task, itemtype, test_retest_r) |>
+  pivot_wider(names_from = itemtype, values_from = test_retest_r)
+
+trt_mod_cat <- retest_wide_coretask |>
+  # group_by(task_category, task) |>
+  group_by(adaptivity, task_category, task, item_task, model_set, subset, itemtype, nfact, invariance) |>
+  summarise(test_retest_r = cor(run_1, run_2, use = "complete.obs"), 
+            # prophecy_r = prophecy(n = 2, r = test_retest_r),
+            n = n(), 
+            age_gap_mo = mean(mean_age_gap) * 12) |>
+  ungroup() |>
+  filter(n >= min_n_trt)
+trt_cat <- trt_mod_cat |> semi_join(task_mods) |> arrange(task)
+trt_cat |> select(task, subset, adaptivity, test_retest_r) |> pivot_wider(names_from = adaptivity, values_from = test_retest_r)
+
+trt_site_mod <- retest_wide_coretask |>
+  group_by(site_label, task_category, task, item_task, model_set, subset, itemtype, nfact, invariance) |>
+  summarise(test_retest_r = cor(run_1, run_2, use = "complete.obs"), 
+            # prophecy_r = prophecy(n = 2, r = test_retest_r),
+            n = n(), 
+            age_gap_mo = mean(mean_age_gap) * 12) |>
+  ungroup() |>
+  arrange(task) |>
+  filter(n >= min_n_trt)
+
+trt_site <- trt_site_mod |> semi_join(task_mods)
 ```
 
 ```{r test-retest-n}
 #| dependson: load-scores
 
-# age comparison of re-test sample
-# ages for all de participants 
-de_general_ages <- coretask_scores |>
-  filter(dataset == "pilot_mpieva_de_main") |>
-  group_by(user_id, task_category, task) |>
-  summarise(
-    age = mean(age, na.rm = TRUE),
-    .groups = "drop"
-  )
-
-# test–retest sample ages, per user × task (from your code)
-de_retest_ages <- retest_wide |>
-  select(user_id, task_category, task, age) |>
-  distinct()
-
-# --- overall comparison: collapse to ONE row per child ---
-
-# general sample: one age per child
-de_general_children <- de_general_ages |>
-  group_by(user_id) |>
-  summarise(
-    age = mean(age, na.rm = TRUE),
-    .groups = "drop"
-  )
-
-# test–retest sample: one age per child
-de_retest_children <- de_retest_ages |>
-  group_by(user_id) |>
-  summarise(
-    age = mean(age, na.rm = TRUE),
-    .groups = "drop"
-  )
-
-overall_age_comparison <- bind_rows(
-  de_general_children |> mutate(sample = "general"),
-  de_retest_children  |> mutate(sample = "test_retest")
-) |>
-  group_by(sample) |>
-  summarise(
-    n        = dplyr::n(),        # now = number of unique children
-    mean_age = mean(age, na.rm = TRUE),
-    sd_age   = sd(age, na.rm = TRUE),
-    .groups  = "drop"
-  )
-
-gen_age <- overall_age_comparison |> dplyr::filter(sample == "general")
-trt_age <- overall_age_comparison |> dplyr::filter(sample == "test_retest")
-age_diff_years <- trt_age$mean_age - gen_age$mean_age
-age_diff_months <- age_diff_years * 12
+# # age comparison of re-test sample
+# # ages for all de participants 
+# de_general_ages <- coretask_scores |>
+#   filter(dataset == "pilot_mpieva_de_main") |>
+#   group_by(user_id, task_category, task) |>
+#   summarise(
+#     age = mean(age, na.rm = TRUE),
+#     .groups = "drop"
+#   )
+# 
+# # test–retest sample ages, per user × task (from your code)
+# de_retest_ages <- retest_wide |>
+#   select(user_id, task_category, task, age) |>
+#   distinct()
+# 
+# # --- overall comparison: collapse to ONE row per child ---
+# 
+# # general sample: one age per child
+# de_general_children <- de_general_ages |>
+#   group_by(user_id) |>
+#   summarise(
+#     age = mean(age, na.rm = TRUE),
+#     .groups = "drop"
+#   )
+# 
+# # test–retest sample: one age per child
+# de_retest_children <- de_retest_ages |>
+#   group_by(user_id) |>
+#   summarise(
+#     age = mean(age, na.rm = TRUE),
+#     .groups = "drop"
+#   )
+# 
+# overall_age_comparison <- bind_rows(
+#   de_general_children |> mutate(sample = "general"),
+#   de_retest_children  |> mutate(sample = "test_retest")
+# ) |>
+#   group_by(sample) |>
+#   summarise(
+#     n        = dplyr::n(),        # now = number of unique children
+#     mean_age = mean(age, na.rm = TRUE),
+#     sd_age   = sd(age, na.rm = TRUE),
+#     .groups  = "drop"
+#   )
+# 
+# gen_age <- overall_age_comparison |> dplyr::filter(sample == "general")
+# trt_age <- overall_age_comparison |> dplyr::filter(sample == "test_retest")
+# age_diff_years <- trt_age$mean_age - gen_age$mean_age
+# age_diff_months <- age_diff_years * 12
 ```
 
 ### Test-retest reliability
@@ -1015,33 +1174,36 @@ We were also interested in capturing the extent to which the LEVANTE tasks yield
 lim <- range(retest_wide$run_1, retest_wide$run_2, finite = TRUE)
 lim <- range(pretty(lim))
 
-ggplot(retest_wide, aes(run_1, run_2, colour = age)) +
-  ggh4x::facet_nested_wrap(
+ggplot(retest_wide_coretask, aes(run_1, run_2, colour = site_label)) +
+  facet_nested_wrap(
     vars(task_category, task),
     scales = "fixed",
     axes   = "x",              # or "all" for both axes in every panel
     nest_line = element_line(),
     solo_line = TRUE
   ) +
+  # coord_equal() +
   coord_equal(xlim = lim, ylim = lim, ratio = 1, expand = FALSE) +
   geom_abline(slope = 1, intercept = 0, colour = "grey60", linetype = "dotted") +
-  geom_point(alpha = 0.8, size = 1.5) +
+  geom_point(alpha = 0.5, size = 1) +
   geom_smooth(aes(group = 1), colour = "grey40", method = "lm", formula = y ~ x, linewidth = 0.6) +
   geom_label(
     data = trt, inherit.aes = FALSE,
     aes(label = sprintf("r = %.2f", test_retest_r)),
     x = lim[1], y = lim[2], hjust = "inward", vjust = "inward",
-    size = 3.8, colour = "grey30", linewidth = 0
+    size = 3, colour = "grey30", linewidth = 0
   ) +
   geom_label(
     data = trt, inherit.aes = FALSE,
     aes(label = sprintf("N = %s", n)),
     x = lim[2], y = lim[1], hjust = "inward", vjust = "inward",
-    size = 3.8, colour = "grey30", linewidth = 0
+    size = 3, colour = "grey30", linewidth = 0
   ) +
-  scale_colour_viridis(limits = c(5, 12), end = 0.95) +
-  labs(x = "Score 1", y = "Score 2", colour = "Age (years)") +
+  # scale_colour_viridis(limits = c(5, 12), end = 0.95) +
+  scale_colour_ptol() +
+  labs(x = "Score 1", y = "Score 2", colour = "Site") +
   theme(legend.position = "bottom")
+ggsave("retest.png", width = 8, height = 9)
 ```
 
 \clearpage
@@ -1730,13 +1892,14 @@ Authors’ contributions are detailed on the title page, following the CRediT au
 
 ```{r}
 #| label: fig-em-trends
+#| eval: false
 #| include: FALSE
 #| fig-cap: "Site-specific age slopes by task (EMTrends with 95% CI), non-adaptive data only"
 #| fig-width: 8
 #| fig-height: 9
 #| fig-pos: 'H'
 
-plt_age_effects
+# plt_age_effects
 
 # slopes_by_task <- function(task) {
 #   d <- fixed_only %>% filter(item_task == task)
