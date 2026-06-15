@@ -1,0 +1,66 @@
+```{r filter-params}
+# age filter settings
+min_age <- 5
+max_age <- 13
+min_age_gap <- 1/6
+```
+
+```{r load-scores}
+# set of runs that are used for IRT model fitting
+runs_filtered_trials <- read_rds(here("01_fetched_data/runs_filtered_trials.rds")) |>
+  mutate(site_label = dataset |> fct_recode(!!!site_labels))
+
+# score from all IRT models
+mod_scores <- read_rds(here("02_scoring_outputs/scores/registry_scores.rds"))
+
+# BIC / rxx from all IRT models
+mod_stats <- read_rds(here("02_scoring_outputs/mod_stats.rds"))
+
+# filter runs by min/max age
+runs_aged <- runs_filtered_trials |>
+  mutate(ex_age_missing = is.na(age),
+         ex_age_interval = !is.na(age) & (age < min_age | age > max_age))
+
+# filter runs by min age gap
+included_runs <- runs_aged |>
+  # filter(!is.na(age), age >= min_age, age < max_age)
+  filter(!ex_age_missing, !ex_age_interval) |>
+  arrange(user_id, task_id, time_started) |>
+  mutate(age_gap_prelim = age - lag(age), .by = c(user_id, task_id)) |>
+  filter(is.na(age_gap_prelim) | age_gap_prelim >= min_age_gap) |>
+  mutate(run_number = 1:n(),
+         age_gap = age - lag(age),
+         .by = c(user_id, task_id)) |>
+  select(site_label, task_id, user_id, run_id, language, adaptive, num_attempted,
+         age, run_number, age_gap, time_started, time_finished)
+
+# scores from all models, for only included runs
+included_mod_scores <- mod_scores |> inner_join(included_runs, by = "run_id") |>
+  filter(model_set %in% c("by_language", "multigroup_dataset")) |>
+  filter_out(subset == "overlap_items") |>
+  rename(score = ability, score_se = se) |>
+  arrange(task, model_set, subset, itemtype, invariance, site_label, user_id, age) |>
+  rename(item_task = task) |>
+  left_join(task_info)
+
+# scores for SRE (not IRT based)
+sre_scores <- read_rds(here("02_scoring_outputs/scores/scores_custom.rds")) |>
+  filter(item_task == "sre") |>
+  select(item_task, run_id, score = metric_value) |>
+  inner_join(included_runs, by = "run_id") |>
+  left_join(task_info)
+
+# scores using specified model for each task + SRE
+task_scores <- included_mod_scores |>
+  semi_join(task_mods) |>
+  bind_rows(sre_scores)
+
+# scores for core tasks only
+coretask_scores <- task_scores |> filter(item_task %in% core_tasks)
+
+# scores for core tasks only + first run for each user x task
+coretask_firstrun_scores <- coretask_scores |> filter(run_number == 1)
+
+# mapping between task_id and item_task
+task_id_map <- task_scores |> distinct(task_id, item_task)
+```

@@ -1,0 +1,120 @@
+```{r age-mods}
+#| dependson: load-scores
+
+# remove CAT data, remove CO data from memory task
+fixed_only <- coretask_scores |>
+  filter(!adaptive) #|>
+  # filter(!(task == "Memory" & site_label == "uniandes-co")) |> # drop CO Memory
+  # mutate(age_c = age - mean(age))
+contrasts(fixed_only$site_label) <- contr.sum(nlevels(fixed_only$site_label))
+
+age_mods <- fixed_only |>
+  nest(scores = -contains("task")) |>
+  mutate(scores = map(scores, \(s) s |> mutate(score = scale(score)[,1]))) |>
+  mutate(score_age_mod = map(scores, \(s) lm(score ~ age * site_label, data = s)))
+
+age_seq <- seq(min(fixed_only$age), max(fixed_only$age), length.out = 100)
+sites_grid <- \(s) {
+  datagrid(site_label = s,
+           age = age_seq,
+           newdata = fixed_only) |>
+    select(site_label, age) |>
+    droplevels()
+}
+
+age_preds <- age_mods |>
+  mutate(sites = map(scores, \(sc) unique(sc$site_label)),
+         pred_grid = map(sites, sites_grid),
+         preds = map2(score_age_mod, pred_grid, \(mod, pg) predictions(mod, newdata = pg) |> as_tibble())) |>
+  select(contains("task"), preds) |>
+  unnest(preds)
+```
+
+```{r age-slopes}
+#| dependson: age-slopes
+
+age_slopes <- age_mods |>
+  mutate(
+    slope = map(score_age_mod, \(mod) {
+      avg_slopes(mod, variable = "age") |> as_tibble()
+    }),
+    slope_dataset = map(score_age_mod, \(mod) {
+      avg_slopes(mod, variable = "age", by = "site_label") |> as_tibble()
+    })
+  )
+
+age_slopes_df <- full_join(
+  age_slopes |> select(-scores, -score_age_mod, -slope_dataset) |> unnest(slope) |> mutate(site_label = "overall"),
+  age_slopes |> select(-scores, -score_age_mod, -slope) |> unnest(slope_dataset)
+) |>
+  mutate(site_label = factor(site_label, levels = c("overall", names(site_labels)))) |>
+  arrange(site_label, estimate) |>
+  mutate(task = task |> fct_inorder())
+
+age_slope_diffs <- age_mods |>
+  mutate(
+    slope_diff = map(score_age_mod, \(mod) {
+      avg_slopes(mod, variable = "age", by = "site_label",
+                 hypothesis = difference ~ meandev) |> as_tibble()
+    })
+  )
+
+age_slope_diffs_df <- age_slope_diffs |>
+  select(-scores, -score_age_mod) |>
+  unnest(slope_diff) |>
+  mutate(signif = p.value < 0.05) |> # TODO: multcomp?
+  mutate(site_label = hypothesis |> str_remove(" - Mean") |> str_remove_all("[\\(\\)]") |>
+           factor(levels = c("overall", names(site_labels))),
+         .after = hypothesis)
+
+age_slopes_overall <- age_slopes_df |> filter(site_label == "overall")
+age_slopes_dataset <- age_slopes_df |>
+  filter(site_label != "overall") |>
+  left_join(age_slope_diffs_df |> select(item_task, site_label, signif))
+```
+
+```{r age-cors}
+#| dependson: age-slopes
+
+age_cors_dataset <- fixed_only |>
+  nest(data = -c(task, site_label)) |>
+  mutate(n = map_int(data, nrow),
+         cor_test = map(data, \(d) cor.test(~ score + age, data = d) |> broom::tidy())) |>
+  select(task, site_label, cor_test, n) |>
+  unnest(cor_test)
+
+age_cors_overall <- fixed_only |>
+  nest(data = -c(task)) |>
+  mutate(n = map_int(data, nrow),
+         cor_test = map(data, \(d) cor.test(~ score + age, data = d) |> broom::tidy())) |>
+  select(task, cor_test, n) |>
+  unnest(cor_test) |>
+  mutate(site_label = "overall")
+
+age_cors_df <- bind_rows(age_cors_overall, age_cors_dataset)
+```
+
+```{r age-stats}
+age_stats_tbl <- list(
+  "cor" = age_cors_df |> select(task, site_label, estimate, conf.low, conf.high, n),
+  "slope" = age_slopes_df |> select(task, site_label, estimate, conf.low, conf.high)
+) |>
+  list_rbind(names_to = "stat") |>
+  mutate(across(c(estimate, conf.low, conf.high), \(x) sprintf("%.2f", x))) |>
+  mutate(est_ci = glue("{estimate} [{conf.low}, {conf.high}]")) |>
+  select(stat, task, site_label, n, est_ci) |>
+  pivot_wider(names_from = stat, values_from = c(n, est_ci)) |>
+  select(-n_slope) |>
+  mutate(site_label = site_label |> as_factor() |> fct_relevel("overall") |> fct_recode("–" = "overall")) |>
+  relocate(est_ci_slope, .before = est_ci_cor) |>
+  arrange(task, site_label) |>
+  mutate(task = if_else(task == lag(task) & !is.na(lag(task)), "", task))
+```
+
+```{r age-inlines}
+age_cor_range <- age_cors_dataset |>
+  filter(n > 20) |> # TODO: justify if remains the case post SDS fixing
+  pull(estimate) |>
+  range() |>
+  sprintf(fmt = "%.2f")
+```

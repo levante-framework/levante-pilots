@@ -1,0 +1,89 @@
+```{r test-retest-cor}
+#| dependson: load-scores
+
+# subset scores to test-retest sample
+max_age_gap <- 8/12 # 8 months
+retest_scores <- included_mod_scores |>
+  filter(site_label == "mpieva-de") |>
+  # filter to users with more than one run and small enough age gap between runs
+  group_by(user_id, task) |>
+  filter(any(run_number > 1)) |>
+  filter(all(is.na(age_gap) | age_gap < max_age_gap)) |>
+  ungroup()
+
+# widen scores per user to separate columns
+retest_wide <- retest_scores |>
+  group_by(user_id, task, model_set, subset, itemtype, invariance) |>
+  mutate(mean_age = mean(age), 
+         mean_age_gap = mean(age_gap, na.rm = TRUE),
+         adaptive = if_else(adaptive, "CAT", "fixed"),
+         adaptivity = paste(adaptive, collapse = "-")) |>
+  ungroup() |>
+  select(task_category, task, item_task,
+         model_set, subset, itemtype, nfact, invariance,
+         site_label, user_id, mean_age, mean_age_gap, adaptivity,
+         run_number, score) |>
+  pivot_wider(names_from = run_number, values_from = score, names_prefix = "run_")
+
+# subset to core tasks
+retest_wide_coretask <- retest_wide |> filter(item_task %in% core_tasks)
+
+# compute test-retest correlations (for all models)
+trt_mod <- retest_wide_coretask |>
+  group_by(task_category, task, item_task,
+           model_set, subset, itemtype, nfact, invariance) |>
+  summarise(test_retest_r = cor(run_1, run_2, use = "complete.obs"), 
+            n = n(), 
+            age_gap_mo = mean(mean_age_gap) * 12) |>
+  ungroup()
+
+# subset to specified models per task
+trt <- trt_mod |> semi_join(task_mods)
+
+# compare correlations by itemtype
+trt_itemtype_compare <- trt_mod |>
+  filter(model_set == "multigroup_dataset", invariance == "scalar") |>
+  select(task, itemtype, test_retest_r) |>
+  pivot_wider(names_from = itemtype, values_from = test_retest_r)
+
+# compare correlations by adaptivity
+trt_mod_cat <- retest_wide_coretask |>
+  group_by(adaptivity, task_category, task, item_task,
+           model_set, subset, itemtype, nfact, invariance) |>
+  summarise(test_retest_r = cor(run_1, run_2, use = "complete.obs"),
+            n = n(), 
+            age_gap_mo = mean(mean_age_gap) * 12) |>
+  ungroup()
+trt_cat <- trt_mod_cat |> semi_join(task_mods) |> arrange(task)
+trt_cat_compare <- trt_cat |>
+  select(task, subset, adaptivity, test_retest_r) |>
+  pivot_wider(names_from = adaptivity, values_from = test_retest_r)
+
+trt_task <- trt |> select(item_task, test_retest_r) |> deframe() |> signif(2)
+trt_range <- trt_task[!(names(trt_task) %in% c("sds", "math"))] |> range()
+```
+
+```{r test-retest-n}
+#| dependson: load-scores
+
+# ages for all de participants
+de_general_ages <- coretask_scores |>
+  filter(site_label == "mpieva-de") |>
+  summarise(age = mean(age), .by = c("user_id", "task")) |>
+  summarise(age = mean(age), .by = c("user_id"))
+
+de_retest_ages <- retest_wide_coretask |>
+  select(user_id, age = mean_age) |>
+  distinct()
+
+age_comp <- list("gen" = de_general_ages,
+                 "trt" = de_retest_ages) |>
+  list_rbind(names_to = "sample") |>
+  summarise(n = n(),
+            mean_age = mean(age),
+            sd_age = sd(age),
+            .by = "sample") |>
+  mutate(across(where(is.double), \(x) round(x, 2))) |>
+  nest(d = -sample) |>
+  deframe()
+```

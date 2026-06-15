@@ -1,0 +1,137 @@
+```{r compute-counts}
+run_exclusions <- read_rds(here("01_fetched_data/run_exclusions.rds")) |>
+  mutate(site_label = dataset |> fct_recode(!!!site_labels)) |>
+  left_join(task_id_map) |>
+  left_join(task_info)
+
+run_exclusions_core <- run_exclusions |>
+  filter(item_task %in% core_tasks)
+
+total_site_counts <- run_exclusions |>
+  bind_rows(run_exclusions |> mutate(site_label = "all")) |>
+  group_by(site_label) |>
+  summarise(n_users = n_distinct(user_id), n_runs = n())
+
+total_site_counts_core <- run_exclusions_core |>
+  bind_rows(run_exclusions_core |> mutate(site_label = "all")) |>
+  group_by(site_label) |>
+  summarise(n_users = n_distinct(user_id), n_runs = n())
+
+n_users_site <- total_site_counts |> select(site_label, n_users) |> deframe()
+n_runs_site <- total_site_counts |> select(site_label, n_runs) |> deframe()
+n_users_site_core <- total_site_counts_core |> select(site_label, n_users) |> deframe()
+n_runs_site_core <- total_site_counts_core |> select(site_label, n_runs) |> deframe()
+```
+
+```{r compute-exclusions}
+#| dependson: compute-counts
+
+runs_filtered_core <- runs_filtered_trials |>
+  left_join(task_id_map) |>
+  filter(item_task %in% core_tasks)
+
+get_exclusion_counts_site <- \(df, g) {
+  \(v) {
+  g <- enquo(g)
+    df |>
+      count(!!g, .data[[v]]) |>
+      rename(value = all_of(v)) |>
+      mutate(variable = v, .before = value) |>
+      group_by(variable) |>
+      mutate(prop = n / sum(n)) |>
+      ungroup() |>
+      filter(value) |>
+      select(-value)
+  }
+}
+n_p <- \(n, p) glue("{n} ({signif(100 * p, 2)}%)") |> as.character()
+
+exclusion_vars <- run_exclusions_core |> select(starts_with("ex_")) |> colnames()
+exclusion_counts_site <- exclusion_vars |>
+  map(get_exclusion_counts_site(bind_rows(run_exclusions_core, run_exclusions_core |> mutate(site_label = "all")), site_label)) |>
+  list_rbind()
+exclusion_counts_task <- exclusion_vars |>
+  map(get_exclusion_counts_site(run_exclusions, task)) |>
+  list_rbind()
+
+ex_vars <- exclusion_counts_site |> filter(site_label == "all") |>
+  arrange(desc(n)) |>
+  mutate(n_p = n_p(n, prop)) |>
+  select(variable, n_p) |>
+  deframe()
+
+filtered_counts <- runs_filtered_core |>
+  bind_rows(runs_filtered_core |> mutate(site_label = "all")) |>
+  group_by(site_label) |>
+  summarise(n_users = n_distinct(user_id), n_runs = n())
+
+filtering_rates <- filtered_counts |>
+  left_join(total_site_counts_core, by = "site_label", suffix = c("_included", "_total")) |>
+  mutate(exclusion_count_runs = n_runs_total - n_runs_included,
+         exclusion_rate_runs = exclusion_count_runs / n_runs_total) |>
+  mutate(n_p = n_p(exclusion_count_runs, exclusion_rate_runs))
+
+filtering_n_p <- filtering_rates |>
+  select(site_label, n_p) |>
+  deframe()
+
+age_exclusions <- runs_aged |>
+  mutate(ex_age_gap = !ex_age_missing & !ex_age_interval & !(run_id %in% included_runs$run_id)) |>
+  select(site_label, task_id, user_id, run_id, starts_with("ex_age"))
+
+age_exclusion_vars <- age_exclusions |> select(starts_with("ex_age")) |> colnames()
+age_exclusion_counts_site <- age_exclusion_vars |>
+  map(get_exclusion_counts_site(bind_rows(age_exclusions, age_exclusions |> mutate(site_label = "all")), site_label)) |>
+  list_rbind()
+ex_vars_age <- age_exclusion_counts_site |> filter(site_label == "all") |>
+  arrange(desc(n)) |>
+  mutate(n_p = n_p(n, prop)) |>
+  select(variable, n_p) |>
+  deframe()
+```
+
+```{r count-inlines}
+score_counts <- coretask_scores |>
+  bind_rows(coretask_scores |> mutate(site_label = "all")) |>
+  group_by(site_label) |>
+  summarise(n_users = n_distinct(user_id), n_runs = n())
+
+n_users_scored_site <- score_counts |> select(site_label, n_users) |> deframe()
+n_runs_scored_site <- score_counts |> select(site_label, n_runs) |> deframe()
+
+task_score_counts <- coretask_scores |>
+  group_by(task) |>
+  summarise(n_users = n_distinct(user_id), n_runs = n())
+n_runs_scored_task <- task_score_counts |> select(task, n_runs) |> deframe()
+n_task_labels <- glue("{n_runs_scored_task} ({names(n_runs_scored_task)})")
+
+min_task <- n_task_labels[n_runs_scored_task == min(n_runs_scored_task)]
+max_task <- n_task_labels[n_runs_scored_task == max(n_runs_scored_task)]
+```
+
+```{r count-check}
+#| eval: false
+
+run_filtering_check <- run_exclusions |>
+  pivot_longer(cols = where(is_logical)) |>
+  group_by(run_id) |>
+  filter(all(!value)) |>
+  ungroup() |>
+  distinct(site_label, user_id, run_id)
+run_filtering_check |>
+  group_by(site_label) |>
+  summarise(n_users = n_distinct(user_id), n_runs = n())
+runs_filtered_trials |>
+  group_by(site_label) |>
+  summarise(n_users = n_distinct(user_id), n_runs = n())
+  
+included_runs |>
+  group_by(site_label) |>
+  summarise(n_users = n_distinct(user_id), n_runs = n())
+task_scores |>
+  group_by(site_label) |>
+  summarise(n_users = n_distinct(user_id), n_runs = n())
+
+included_runs |> anti_join(task_scores)
+# only difference is 1 de-DE run not scored (because all items have 100% correct)
+```

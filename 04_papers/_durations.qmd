@@ -1,0 +1,54 @@
+```{r time-summary}
+# compute duration of each run (minutes between first trial and last trial)
+task_data_nested <- read_rds(here("01_fetched_data/task_data_nested.rds"))
+time_summary <- task_data_nested |>
+  unnest(data) |>
+  inner_join(included_runs |> select(site_label, run_id, adaptive)) |>
+  arrange(run_id, timestamp) |>
+  group_by(site_label, item_task, adaptive, run_id) |>
+  summarise(n_trials = n(),
+            start = min(timestamp), end = max(timestamp)) |>
+  ungroup() |>
+  mutate(diff = difftime(end, start, units = "mins")) |>
+  filter(diff < 120)
+
+# aggregate durations by site x task x adaptivite
+task_time_summary <- time_summary |>
+  bind_rows(time_summary |> mutate(site_label = "all")) |>
+  group_by(site_label, item_task, adaptive) |>
+  summarise(median_diff = median(diff),
+            min_diff = min(diff),
+            max_diff = max(diff),
+            median_trials = median(n_trials),
+            min_trials = min(n_trials),
+            max_trials = max(n_trials),
+            n_runs = n()) |>
+  ungroup() |>
+  mutate(across(contains("diff"), \(d) sprintf("%.2f", d))) |>
+  mutate(combined_diff = glue("{median_diff} [{min_diff}, {max_diff}]"),
+         combined_trials = glue("{median_trials} [{min_trials}, {max_trials}]")) |>
+  left_join(task_info)
+
+# reshape to separate columns by adaptivite
+task_time_table <- task_time_summary |>
+  filter(item_task %in% core_tasks) |>
+  mutate(adaptive = if_else(adaptive, "adaptive", "non_adaptive")) |>
+  select(task, site_label, adaptive, diff = median_diff, trials = median_trials,
+         combined_diff, combined_trials) |>
+  pivot_wider(names_from = adaptive,
+              values_from = c(diff, trials, combined_diff, combined_trials)) |>
+  mutate(diff_pct = 100 * as.numeric(diff_adaptive) / as.numeric(diff_non_adaptive)) |>
+  mutate(trials_pct = 100 * trials_adaptive / trials_non_adaptive) |>
+  mutate(across(contains("pct"),
+                \(x) if_else(is.na(x), NA,
+                             paste0(sprintf("%.0f", x), "%")))) |>
+  mutate(combined_diff_adaptive = if_else(is.na(diff_pct), NA,
+                                          glue("{combined_diff_adaptive} – {diff_pct}")),
+         combined_trials_adaptive = if_else(is.na(trials_pct), NA,
+                                            glue("{combined_trials_adaptive} – {trials_pct}"))) |>
+  select(task, site_label, contains("combined")) |>
+  select(task, site_label, contains("diff"), contains("trials")) |>
+  mutate(across(where(is.character), \(x) replace_na(x, "–"))) |>
+  arrange(task) |>
+  mutate(site_label = site_label |> replace_values("all" ~ "All"))
+```

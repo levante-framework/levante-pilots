@@ -1,0 +1,24 @@
+```{r load-rxx}
+mod_stats <- read_rds(here("02_scoring_outputs/mod_stats.rds"))
+
+task_rxx <- mod_stats |>
+  rename(item_task = task) |>
+  left_join(task_mods) |>
+  filter(item_task %in% core_tasks) |>
+  mutate(task_rxx = if_else(model_set == "by_language", lang_rxx, scalar_rxx)) |>
+  select(item_task, task_model_set = model_set, task_itemtype = itemtype,
+         task_invariance = invariance, task_rxx) |>
+  unnest(task_rxx) |>
+  mutate(task_invariance = if_else(task_invariance == "", "configural", task_invariance),
+         invariance = if_else(invariance == "", "configural", invariance)) |>
+  filter(model_set == task_model_set, task_itemtype == itemtype,
+         task_invariance == invariance) |>
+  mutate(
+    group_label = if_else(is.na(group), subset, group |> fct_recode(!!!site_labels)),
+    itemtype = itemtype |> fct_recode("Rasch" = "rasch", "2PL" = "2pl"),
+    invariance = invariance |> str_to_sentence()
+  ) |>
+  left_join(task_info) |>
+  select(task, group_label, itemtype, invariance, rxx) |>
+  arrange(task)
+```

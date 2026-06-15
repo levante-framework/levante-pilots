@@ -1,0 +1,44 @@
+```{r task-info}
+site_labels <- c("uniandes-co-bogota" = "pilot_uniandes_co_bogota",
+                 "uniandes-co-rural" = "pilot_uniandes_co_rural",
+                 "mpieva-de" = "pilot_mpieva_de_main",
+                 "western-ca" = "pilot_western_ca_main")
+
+core_tasks <- c("matrix", "mrot", "math", "hf", "mg", "sds", "trog", "vocab", "tom")
+
+task_info <- tribble(
+  ~item_task , ~task                    , ~task_category,
+  "hf"       , "hearts & flowers"       , "executive function",
+  "sds"      , "same & different"       , "executive function",
+  "mg"       , "memory"                 , "executive function",
+  "math"     , "math"                   , "math",
+  "matrix"   , "pattern matching"       , "reasoning",
+  "mrot"     , "shape rotation"         , "spatial cognition",
+  "trog"     , "sentence understanding" , "language",
+  "vocab"    , "vocabulary"             , "language",
+  "tom"      , "stories"                , "social cognition",
+  "pa"       , "language sounds"        , "reading",
+  "sre"      , "sentence reading"       , "reading",
+  "swr"      , "word reading"           , "reading",
+  "mefs"     , "MEFS"                   , "executive function"
+) |>
+  mutate(task = task |> str_to_title() |> fct_inorder(),
+         task_category = task_category |> str_to_title() |> fct_inorder())
+
+# specification for which model to use for each task
+task_mods <- tribble(
+  ~item_task , ~model_set          , ~itemtype, ~invariance,
+  "hf"       , "multigroup_dataset",     "2pl",    "scalar",
+  "math"     , "multigroup_dataset",   "rasch",    "scalar",
+  "matrix"   , "multigroup_dataset",   "rasch",    "scalar",
+  "mg"       , "multigroup_dataset",   "rasch",    "scalar",
+  "mrot"     , "multigroup_dataset",     "2pl",    "scalar",
+  "trog"     , "multigroup_dataset",   "rasch",    "scalar",
+  "sds"      , "multigroup_dataset",   "rasch",    "scalar",
+  "vocab"    , "by_language",          "rasch",    "",
+  "tom"      , "by_language",          "rasch",    "",
+  "pa"       , "by_language",          "rasch",    "",
+  "sre"      , "by_language",          "rasch",    "",
+  "swr"      , "by_language",          "rasch",    "",
+)
+```

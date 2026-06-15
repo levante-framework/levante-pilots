@@ -1,0 +1,501 @@
+```{r prep-sem}
+#| dependson: load-scores
+
+prep_sem <- \(scores, tasks) {
+  scores |>
+    filter(item_task %in% tasks) |>
+    arrange(user_id, item_task, age) |>
+    slice(1, .by = c(user_id, item_task)) |>
+    select(site_label, user_id, item_task, score, age) |>
+    mutate(age = min(age), .by = c(site_label, user_id)) |>
+    pivot_wider(names_from = item_task, values_from = score) |>
+    mutate(across(all_of(tasks), \(x) scale(x)[,1]))
+}
+
+# wide_scores <- prep_sem(included_scores, unique(included_scores$item_task))
+wide_scores <- prep_sem(coretask_scores, unique(coretask_scores$item_task))
+```
+
+```{r sem-g}
+#| dependson: prep-sem
+
+model_cov_no_age <- "
+  # first-order factors
+  reasoning =~ matrix + mrot
+  ef        =~ hf + mg + sds
+  language  =~ trog + vocab
+
+  # covariances of factors with observed outcomes
+  reasoning ~~ math + tom
+  ef        ~~ math + tom
+  language  ~~ math + tom
+
+  # allow math and tom to covary
+  math ~~ tom
+"
+
+fit_cov_no_age <- sem(
+  model_cov_no_age, data = wide_scores,
+  estimator = 'MLR', std.lv = TRUE, missing = 'fiml'
+)
+# summary(fit_cov_no_age, fit.measures = TRUE, standardized = TRUE)
+```
+
+```{r sem-g-age}
+#| dependson: prep-sem
+
+# wide_scores$log_age_c <- scale(log(wide_scores$age))[,1] # removing log_age_c following feedback from BD and NR.
+wide_scores$age_c <- scale(wide_scores$age, scale = FALSE)[, 1] # center age
+
+model_cov_age <- "
+  # first-order factors (fix first loading to 1 for each factor)
+  reasoning =~ 1*matrix + mrot
+  ef        =~ 1*hf     + mg + sds
+  language  =~ 1*trog   + vocab
+
+  # age predicts factors
+  reasoning ~ age_c
+  ef        ~ age_c
+  language  ~ age_c
+
+  # age predicts outcomes
+  math ~ age_c
+  tom  ~ age_c
+
+  # covariances of factors with observed outcomes
+  reasoning ~~ math + tom
+  ef        ~~ math + tom
+  language  ~~ math + tom
+
+  # (recommended) residual covariance between outcomes
+  math ~~ tom
+"
+
+fit_cov_age <- sem(
+  model_cov_age, data = wide_scores,
+  estimator = 'MLR', missing = 'fiml',
+  std.lv = FALSE, optim.method = 'nlminb',
+  control = list(iter.max = 50000, rel.tol = 1e-6)
+)
+# summary(fit_cov_age, fit.measures = TRUE, standardized = TRUE)
+```
+
+```{r sem-g-plot}
+source("sem/modified_sem_plot.R") # veronica helper
+
+pe <- parameterEstimates(fit_cov_age, standardized = TRUE)
+latents  <- sort(unique(pe$lhs[pe$op == "=~"]))
+indics   <- sort(unique(pe$rhs[pe$op == "=~"]))
+extras   <- c("age_c","math","tom")
+observed <- sort(union(indics, extras))
+
+nodes <- tibble(
+  name  = c(observed, latents),
+  shape = c(rep("rect", length(observed)), rep("oval", length(latents)))
+)
+
+# Pretty labels
+nodes$label <- recode(
+  nodes$name,
+  matrix    = "Pattern\nMatching",
+  mrot      = "Shape\nRotation",
+  hf        = "Hearts and\nFlowers",
+  mg        = "Memory",
+  sds       = "Same and\nDifferent",
+  trog      = "Sentence\nUnderstanding",
+  tom       = "Stories",
+  ef        = "Executive\nFunction",
+  age_c     = "Age (years)",
+  .default  = str_to_title(nodes$name)
+)
+
+factor_names  <- c("reasoning","ef","language")
+outcome_names <- c("math","tom")
+
+edges <- pe %>%
+  filter(op %in% c("~","=~","~~")) %>% # hide math and tom residual covariance
+  filter(!(op == "~~" & ((lhs == "math" & rhs == "tom") |
+                                (lhs == "tom"  & rhs == "math")))) %>%
+  mutate(keep = case_when(
+    op %in% c("~","=~") ~ TRUE,
+    op == "~~" & lhs %in% factor_names & rhs %in% outcome_names ~ TRUE,
+    op == "~~" & rhs %in% factor_names & lhs %in% outcome_names ~ TRUE,
+    op == "~~" & lhs %in% factor_names & rhs %in% factor_names & lhs != rhs ~ TRUE,
+    op == "~~" & lhs == rhs ~ TRUE,
+    TRUE ~ FALSE
+  )) %>%
+  filter(keep) %>%
+  transmute(
+    from = if_else(op == "~", rhs, lhs),
+    to   = if_else(op == "~", lhs, rhs),
+    op, est, std.all, pvalue,
+    arrow     = if_else(op == "~~", "both", "last"),
+    curved    = op == "~~" & lhs != rhs,
+    curvature = case_when(
+      op == "~~" & lhs != rhs & lhs %in% factor_names & rhs %in% factor_names ~ 0.20,
+      op == "~~" & lhs != rhs ~ 0.35,
+      TRUE ~ as.numeric(NA)
+    ),
+    linetype  = if_else(op == "~~" & lhs != rhs, 2L, 1L)
+  ) %>%
+  mutate(
+    stars = case_when(pvalue < .001 ~ "***",
+                             pvalue < .01  ~ "**",
+                             pvalue < .05  ~ "*",
+                             TRUE ~ ""),
+    label = sprintf("%.2f%s", std.all, stars)
+  )
+
+layout_ids <- as.matrix(read_excel("sem/layouts/SEM_layout.xlsx", col_names = FALSE))
+layout_ids[layout_ids == ""] <- NA
+
+# checks
+in_layout <- na.omit(unique(c(layout_ids)))
+stopifnot(setequal(in_layout, nodes$name))   
+stopifnot(!any(duplicated(in_layout)))
+
+g <- tidySEM::prepare_graph(
+  edges = edges,
+  nodes = nodes,
+  layout = t(layout_ids),
+  text_size = 3.6,
+  rect_width = 7, rect_height = 3.5,
+  ellipses_width = 6, ellipses_height = 3.5,
+  variance_height = 2.5, variance_width = 2,
+  arrow_angle = 15, arrow_length = .2,
+  var_arrow_angle = 15, var_arrow_length = .1,
+  spacing_y = 5, spacing_x = 7,
+  fix_coord = FALSE
+)
+
+# colors
+g$nodes$fill <- case_when(
+  g$nodes$shape == "oval"      ~ "#E8F2FF",
+  g$nodes$name  == "age_c" ~ "#FFF2E0",
+  TRUE                         ~ "#F5F5F5"
+)
+g$nodes$colour <- "#1F1F1F"
+g$nodes$font   <- "#1F1F1F"
+
+# edge colors
+g$edges$colour <- case_when(
+  g$edges$op == "=~" ~ "#1B9E77",
+  g$edges$op == "~"  ~ "#386CB0",
+  g$edges$op == "~~" ~ "#6B6B6B",
+  TRUE               ~ "#000000"
+)
+g$edges$linetype[g$edges$op == "~~"] <- 2L
+g$edges$linetype[g$edges$op != "~~"] <- 1L
+g$edges$size <- 0.6
+
+# labels
+g$nodes$geom_text <- TRUE
+g$edges$label_fill   <- "white"
+g$edges$label_colour <- "#1F1F1F"
+g$edges$label_alpha  <- 1
+```
+
+```{r sem-factors}
+# single factor model 
+mdl_1f <- "
+g =~ matrix + mrot + hf + mg + sds + trog + vocab + math + tom
+g ~ age_c
+"
+
+mdl_2f <- "
+reasoning =~ mg + sds + hf + mrot + matrix + math
+language  =~ vocab + trog + tom
+reasoning ~~ language
+reasoning ~ age_c
+language  ~ age_c
+"
+
+mdl_3f <- "
+reasoning =~ mrot + matrix + math
+ef        =~ mg + sds + hf
+language  =~ vocab + trog + tom
+reasoning ~~ ef + language
+ef ~~ language
+reasoning ~ age_c
+ef ~ age_c
+language ~ age_c
+"
+
+fit_1f <- sem(mdl_1f, data = wide_scores,
+              estimator = "MLR", missing = "fiml", std.lv = TRUE, optim.method = "nlminb",
+              control = list(iter.max = 50000, rel.tol = 1e-6))
+fit_2f <- sem(mdl_2f, data = wide_scores,
+              estimator = "MLR", missing = "fiml", std.lv = TRUE, optim.method = "nlminb",
+              control = list(iter.max = 50000, rel.tol = 1e-6))
+fit_3f <- sem(mdl_3f, data = wide_scores,
+              estimator = "MLR", missing = "fiml", std.lv = TRUE, optim.method = "nlminb",
+              control = list(iter.max = 50000, rel.tol = 1e-6))
+
+want <- c("chisq", "pvalue", "tli", "cfi", "rmsea")
+
+grab_fit <- function(fit, name){
+  fm <- fitMeasures(fit, fit.measures = want)
+  tibble(
+    Model  = name,
+    `Chi-square` = unname(fm["chisq"]),
+    `p-value`    = unname(fm["pvalue"]),
+    TLI          = unname(fm["tli"]),
+    CFI          = unname(fm["cfi"]),
+    RMSEA        = unname(fm["rmsea"])
+  )
+}
+
+fit_tbl <- bind_rows(
+  grab_fit(fit_1f, "Single factor + age"),
+  grab_fit(fit_2f, "Two factors + age"),
+  grab_fit(fit_3f, "Three factors + age")
+)
+```
+
+```{r prep-sem-ef}
+mefs <- read_rds(here("02_scoring_outputs/scores/scores_mefs.rds"))
+mefs_scores <- mefs |>
+  filter(metric_type == "standard_score", !is.na(age)) |>
+  select(dataset, user_id, item_task, score = metric_value, age) |>
+  mutate(site_label = dataset |> fct_recode(!!!site_labels))
+
+ef_tasks <- c("hf", "mg", "sds", "mefs")
+# ef_wide_scores <- prep_sem(bind_rows(included_scores, mefs_scores), ef_tasks)
+ef_wide_scores <- prep_sem(bind_rows(coretask_scores, mefs_scores), ef_tasks)
+```
+
+```{r sem-ef}
+#| echo: false
+#| results: "hide" 
+
+cfa_ef <-  '
+EF =~ hf + mg + sds + mefs
+EF ~ age
+'
+
+fit_ef <- cfa(cfa_ef, data = ef_wide_scores,
+              estimator = "MLR", std.lv = TRUE, missing = "fiml")
+summary(fit_ef, fit.measures = TRUE, standardized = TRUE)
+#print(fitMeasures(fit_ef, c("cfi","tli","rmsea","srmr", "aic", "bic")))
+```
+
+```{r sem-ef-stats}
+pe_ef <- parameterEstimates(fit_ef, standardized = TRUE)
+
+beta_age_EF <- pe_ef |>
+  filter(lhs == "EF", op == "~", rhs == "age") |>
+  pull(std.all) |> as.numeric()
+
+r2_EF <- as.numeric(lavInspect(fit_ef, "r2")["EF"])
+
+fmt <- function(x, d = 2) formatC(x, digits = d, format = "f")
+# standardised loadings (λ) for EF =~ hf + mg + sds + mefs
+load_tab <- pe_ef |>
+  filter(op == "=~", lhs == "EF", rhs %in% c("hf","mg","sds","mefs")) |>
+  select(rhs, std.all) |>
+  deframe()  # named vector: c(hf = ., mg = ., sds = ., mefs = .)
+
+```
+
+```{r sem-ef-plot}
+nodes <- get_nodes(fit_ef, columns = c("name","shape")) |>
+  left_join(tibble(
+    name   = c("age","EF","hf","mg","sds","mefs"),
+    pretty = c("Age (years)","Executive\nFunction",
+               "Hearts and\nFlowers","Memory","Same and\nDifferent","MEFS")
+  ), by = "name") |>
+  mutate(label = coalesce(pretty, name))
+
+# edges from standardized parameter estimates ---
+pe_ef <- parameterEstimates(fit_ef, standardized = TRUE)
+
+edges <- pe_ef |>
+  filter(op %in% c("~","=~","~~")) |>
+  transmute(
+    lhs, rhs, op,
+    from = if_else(op == "~", rhs, lhs),
+    to   = if_else(op == "~", lhs, rhs),
+    std.all, pvalue,
+    arrow = case_when(
+      op == "~~" & lhs == rhs ~ "both",  # variance loop
+      op == "~~" & lhs != rhs ~ "none",  # covariance
+      TRUE ~ "last"                       # regressions/loadings
+    ),
+    curvature = if_else(op == "~~" & lhs != rhs, 50, NA_real_),
+    linetype  = if_else(op == "~~" & lhs != rhs, 2, 1),
+    label = case_when(
+      op %in% c("~","=~") ~ sprintf("%.2f%s", std.all,
+        case_when(pvalue < .001 ~ "***",
+                         pvalue < .01  ~ "**",
+                         pvalue < .05  ~ "*", TRUE ~ "")),
+      TRUE ~ sprintf("%.2f", std.all)
+    )
+  ) 
+
+layout_ef <- as.matrix(read_excel("sem/layouts/ef_sem_layout.xlsx", col_names = FALSE))
+layout_ef[layout_ef == ""] <- NA
+
+# checks
+in_layout_ef <- na.omit(unique(c(layout_ef)))
+stopifnot(setequal(in_layout_ef, nodes$name))   
+stopifnot(!any(duplicated(in_layout_ef)))
+
+g_ef <- tidySEM::prepare_graph(
+  edges = edges,
+  nodes = nodes,
+  layout = t(layout_ef),
+  text_size = 3.6,
+  rect_width = 7, rect_height = 3.5,
+  ellipses_width = 7, ellipses_height = 3.5,
+  variance_height = 2.5, variance_width = 2,
+  arrow_angle = 15, arrow_length = .2,
+  var_arrow_angle = 15, var_arrow_length = .1,
+  spacing_y = 5, spacing_x = 7,
+  fix_coord = FALSE
+)
+
+# colours
+g_ef$nodes$fill <- case_when(
+  g_ef$nodes$shape == "oval"      ~ "#E8F2FF",
+  g_ef$nodes$name  == "age" ~ "#FFF2E0",
+  TRUE                         ~ "#F5F5F5"
+)
+g_ef$nodes$colour <- "#1F1F1F"
+g_ef$nodes$font   <- "#1F1F1F"
+
+# edge colours
+g_ef$edges$colour <- case_when(
+  g_ef$edges$op == "=~" ~ "#1B9E77",
+  g_ef$edges$op == "~"  ~ "#386CB0",
+  g_ef$edges$op == "~~" ~ "#6B6B6B",
+  TRUE               ~ "#000000"
+)
+g_ef$edges$linetype[g_ef$edges$op == "~~"] <- 2L
+g_ef$edges$linetype[g_ef$edges$op != "~~"] <- 1L
+g_ef$edges$size <- 0.6
+
+# labels
+g_ef$nodes$geom_text <- TRUE
+g_ef$edges$label_fill   <- "white"
+g_ef$edges$label_colour <- "#1F1F1F"
+g_ef$edges$label_alpha  <- 1
+```
+
+```{r prep-sem-lang}
+lang_tasks <- c("swr", "sre", "pa", "vocab", "trog")
+lang_wide_scores <- prep_sem(task_scores, lang_tasks)
+```
+
+```{r sem-lang}
+# model
+cfa_lang <-  '
+Language =~ swr + sre + pa + trog + vocab
+Language ~ age
+'
+
+fit_lang <- cfa(cfa_lang, data = lang_wide_scores,
+                estimator = "MLR", std.lv = TRUE, missing = "fiml")
+summary(fit_lang, fit.measures = TRUE, standardized = TRUE)
+pe_lang <- parameterEstimates(fit_lang, standardized = TRUE)
+fm_lang <- fitMeasures(fit_lang)
+
+# standardised beta and R^2
+beta_age_Lang <- pe_lang |>
+  filter(lhs == "Language", op == "~", rhs == "age") |>
+  pull(std.all) |> as.numeric()
+r2_Lang <- as.numeric(lavInspect(fit_lang, "r2")["Language"])
+
+# standarised loadings
+load_tab_lang <- pe_lang |>
+  filter(op == "=~", lhs == "Language",
+         rhs %in% c("swr","sre","pa","trog","vocab")) |>
+  select(rhs, std.all) |>
+  deframe()
+```
+
+```{r sem-lang-plot}
+nodes_lang <- get_nodes(fit_lang, columns = c("name","shape")) |>
+  left_join(tibble(
+    name   = c("age","Language","trog","vocab","swr","sre","pa"),
+    pretty = c("Age (years)","Language",
+               "Sentence\nUnderstanding","Vocabulary",
+               "ROAR\nWord","ROAR\nSentence",
+               "ROAR\nPhoneme")
+  ), by = "name") |>
+  mutate(label = coalesce(pretty, name))
+
+# edges (standardized, with stars on loadings/paths)
+pe_lang <- parameterEstimates(fit_lang, standardized = TRUE)
+
+edges_lang <- pe_lang |>
+  filter(op %in% c("~","=~","~~")) |>
+  transmute(
+    lhs, rhs, op,
+    from = if_else(op == "~", rhs, lhs),
+    to   = if_else(op == "~", lhs, rhs),
+    std.all, pvalue,
+    arrow = case_when(
+      op == "~~" & lhs == rhs ~ "both",
+      op == "~~" & lhs != rhs ~ "none",
+      TRUE ~ "last"
+    ),
+    curvature = if_else(op == "~~" & lhs != rhs, 50, NA_real_),
+    linetype  = if_else(op == "~~" & lhs != rhs, 2L, 1L),
+    label = case_when(
+      op %in% c("~","=~") ~ sprintf("%.2f%s", std.all,
+        case_when(pvalue < .001 ~ "***",
+                         pvalue < .01  ~ "**",
+                         pvalue < .05  ~ "*",
+                         TRUE          ~ "")),
+      TRUE ~ sprintf("%.2f", std.all)
+    )
+  )
+
+layout_lang <- as.matrix(read_excel("sem/layouts/lang_sem_layout.xlsx", col_names = FALSE))
+layout_lang[layout_lang == ""] <- NA
+
+# checks
+in_layout_lang <- na.omit(unique(c(layout_lang)))
+stopifnot(setequal(in_layout_lang, nodes_lang$name))
+stopifnot(!any(duplicated(in_layout_lang)))
+
+g_lang <- tidySEM::prepare_graph(
+  edges = edges_lang,
+  nodes = nodes_lang,
+  layout = t(layout_lang),
+  text_size = 3.6,
+  rect_width = 8.5, rect_height = 3.5,
+  ellipses_width = 6, ellipses_height = 3.5,
+  variance_height = 2.5, variance_width = 2,
+  arrow_angle = 15, arrow_length = .2,
+  var_arrow_angle = 15, var_arrow_length = .1,
+  spacing_y = 5, spacing_x = 7,
+  fix_coord = FALSE
+)
+
+# colours
+g_lang$nodes$fill <- case_when(
+  g_lang$nodes$shape == "oval" ~ "#E8F2FF",
+  g_lang$nodes$name  == "age"  ~ "#FFF2E0",
+  TRUE                         ~ "#F5F5F5"
+)
+g_lang$nodes$colour <- "#1F1F1F"
+g_lang$nodes$font   <- "#1F1F1F"
+
+# edge colours
+g_lang$edges$colour <- case_when(
+  g_lang$edges$op == "=~" ~ "#1B9E77",
+  g_lang$edges$op == "~"  ~ "#386CB0",
+  g_lang$edges$op == "~~" ~ "#6B6B6B",
+  TRUE                    ~ "#000000"
+)
+g_lang$edges$linetype[g_lang$edges$op == "~~"] <- 2L
+g_lang$edges$linetype[g_lang$edges$op != "~~"] <- 1L
+g_lang$edges$size <- 0.6
+
+# labels
+g_lang$nodes$geom_text   <- TRUE
+g_lang$edges$label_fill   <- "white"
+g_lang$edges$label_colour <- "#1F1F1F"
+g_lang$edges$label_alpha  <- 1
+```
