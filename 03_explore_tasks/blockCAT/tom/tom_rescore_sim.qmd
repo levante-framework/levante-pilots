@@ -1,4 +1,9 @@
 ```{r}
+library(levantemodels)
+library(tidyverse)
+```
+
+```{r}
 task_trials <- task_data_nested |>
   filter(item_task == "tom") |>
   unnest(data) |>
@@ -7,12 +12,12 @@ task_trials <- task_data_nested |>
 ```
 
 ```{r}
-scoring_table <- rlevante:::fetch_scoring_table()
-registry_dir <- rlevante:::fetch_registry_dir()
+scoring_table <- fetch_scoring_table()
+registry_dir <- fetch_registry_dir()
 
 task_scores <- task_trials |>
   mutate(scores = pmap(list(item_task, dataset, trials, runs),
-                       partial(rlevante:::score,
+                       partial(score,
                                scoring_table = scoring_table,
                                registry_dir = registry_dir)))
 
@@ -57,7 +62,7 @@ story_samples_trials <- story_samples |>
 ```
 
 ```{r}
-score_fun <- partial(rlevante:::score,
+score_fun <- partial(score,
                      scoring_table = scoring_table,
                      registry_dir = registry_dir) |>
   quietly()

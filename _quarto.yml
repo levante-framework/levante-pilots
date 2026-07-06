@@ -2,21 +2,23 @@ project:
   type: default
   render:
   
-    # fetch data from redivis using rlevante functions
-    # (saving run_data, survey_data_nested, trial_data)
-    - 01_fetch_data/combined_workflow.qmd
+    # fetch data from redivis using levantemodels functions
+    # (saving participants, runs, trials_prelim, trial_data)
+    - 01_fetch_data/01_fetch_task_data.qmd
   
     # do further analysis-specific data processing
-    # (saving task_data_nested)
-    - 02_score_data/01_scoring_prep/scoring_prep.qmd
+    # (saving runs_filtered_trials, run_exclusions, task_data_nested)
+    - 01_fetch_data/02_scoring_prep.qmd
 
     # fit suite of IRT models
     # (saving model record objects to model registry)
-    - 02_score_data/02_fit_irt/fit_irt_modular.qmd
+    - 02_score_data/01_fit_irt/01_fit_irt_modular.qmd
 
-    # extract scores from all model records in registry
-    # (saving registry_scores)
-    - 02_score_data/02_fit_irt/extract_model_scores.qmd
+    # extract fit stats, scores, and item params from model records in registry
+    # (saving mod_stats, mod_scores, all_coefs)
+    - 02_score_data/02_extract_irt/02_compare_models.qmd
+    - 02_score_data/02_extract_irt/03_extract_model_scores.qmd
+    - 02_score_data/02_extract_irt/04_extract_model_coefs.qmd
     
     # compute non-IRT scores (sumscores, CAT thetas, tasks with custom scoring)
     # (saving various to scores/)

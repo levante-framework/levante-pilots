@@ -3,7 +3,7 @@ library(tidyverse)
 library(glue)
 library(here)
 library(redivis)
-library(rlevante)
+library(levante)
 
 run_data <- read_rds(here(glue("01_fetched_data/run_data.rds")))
 participants <- read_rds(here(glue("01_fetched_data/participants.rds")))
@@ -45,7 +45,7 @@ trial_data_subset <- trial_data |>
 # filter out trials with too slow/fast RTs
 trial_data_valid <- trial_data_subset |>
   mutate(validation_msg_trial = validation_msg_trial |> replace_na(""),
-         slow_rt = rt_numeric > 30000,
+         slow_rt = rt_numeric > 60000, # 30000
          fast_rt = str_detect(validation_msg_trial, "fast")) |>
   filter(task_id == "same-different-selection" | is.na(rt_numeric) | !slow_rt,
          !fast_rt) |>
@@ -59,7 +59,7 @@ trial_data_filtered <- trial_data_valid |> filter(!ex_few_valid_trials)
 trial_data_coded <- trial_data_filtered |>
   left_join(participants |> select(user_id, site, dataset), by = "user_id") |>
   relocate(site, dataset, .after = redivis_source) |>
-  rlevante:::recode_trials()
+  recode_trials()
 
 # exclude items that are marked for exclusion
 exclusions <- redivis$organization("levante")$dataset("levante_metadata_items:czjv")$table("exclusions:0b5t")$to_tibble()

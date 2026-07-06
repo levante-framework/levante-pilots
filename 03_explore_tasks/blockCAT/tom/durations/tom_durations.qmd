@@ -20,7 +20,7 @@ dataset_spec <- list(
   list(name = "pilot_mpieva_de_main:6c0n",     version = "current"),
   list(name = "pilot_western_ca_main:97mt",    version = "current"))
 
-runs <- map(dataset_spec, \(ds) rlevante:::get_raw_table(table_name = "runs", ds$name))
+runs <- map(dataset_spec, \(ds) levante::get_raw_table(table_name = "runs", ds$name))
 run_info <- runs |>
   set_names(map_chr(dataset_spec, \(ds) ds$name)) |>
   list_rbind(names_to = "dataset") |>

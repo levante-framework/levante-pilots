@@ -1,4 +1,4 @@
-data_filtered <- sds_collapsed |> rlevante:::dedupe_items() |> #|> rlevante:::remove_no_var_items()
+data_filtered <- sds_collapsed |> levantemodels::dedupe_items() |> #|> levantemodels::remove_no_var_items()
   mutate(match_k = as.integer(str_sub(item_group, 1, 1))) |>
   group_by(item_inst) |> #summarise(nc = n_distinct(correct)) |> count(match_k, nc)
   filter(match_k %in% c(2, 3) & n_distinct(correct) == match_k + 1 |
@@ -7,7 +7,7 @@ data_filtered <- sds_collapsed |> rlevante:::dedupe_items() |> #|> rlevante:::re
   ungroup() |>
   arrange(item_uid)
   
-data_prepped <- rlevante:::to_mirt_shape(data_filtered)
+data_prepped <- levantemodels::to_mirt_shape(data_filtered)
 
 # itemtype <- 
 model_str <- generate_model_str_numeric(data_filtered, data_prepped,

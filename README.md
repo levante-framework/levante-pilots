@@ -4,4 +4,4 @@ This repository represents ongoing analysis of the LEVANTE pilots, relevant to t
 
 Data are available here to reproduce the analyses reported in the paper. 
 
-This is NOT the right place to download raw LEVANTE data for further analysis, however. There is an official LEVANTE data release associated with our pilots and it is available here: [https://researcher.levante-network.org/data]() using the `rlevante` package. 
+This is NOT the right place to download raw LEVANTE data for further analysis, however. There is an official LEVANTE data release associated with our pilots and it is available here: [https://researcher.levante-network.org/data]() using the `levante` R package. 

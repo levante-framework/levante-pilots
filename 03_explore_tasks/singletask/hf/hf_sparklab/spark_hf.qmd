@@ -405,11 +405,6 @@ count(dataset, block, rule_violation)
 #| label: levante-scores
 #| include: false
 
-# install remotes
-# install.packages("remotes")
-# install rlevante 
-# remotes::install_github("levante-framework/rlevante")
-
 best_coefs <- read_rds(here("02_scoring_outputs/best_coefs.rds"))
 mods_best  <- read_rds(here("02_scoring_outputs/mods_best.rds"))
 
@@ -636,8 +631,8 @@ setdiff("heartsflowers_heart_start")
 
 plus_hf_dedupe <- plus_hf_items |>
   mutate(run_id = paste(stud_id, time)) |>
-  rlevante:::dedupe_items() |>
-  rlevante:::remove_no_var_items()
+  levantemodels::dedupe_items() |>
+  levantemodels::remove_no_var_items()
 
 # pivot to wide and build response matrix
 plus_hf_wide <- plus_hf_dedupe |>
@@ -655,10 +650,10 @@ as.matrix()
 #   # filter(item_uid %in% levante_lookup_collapsed_rasch$item_uid) |>
 #   mutate(run_id = as.character(stud_id)) |>
 #   select(run_id, item_uid, correct) |>
-#   rlevante:::dedupe_items() |>
-#   rlevante:::remove_no_var_items()
+#   levantemodels::dedupe_items() |>
+#   levantemodels::remove_no_var_items()
 # 
-# plus_hf_collapsed_wide <- plus_hf_filtered |> rlevante:::to_mirt_shape()
+# plus_hf_collapsed_wide <- plus_hf_filtered |> levantemodels::to_mirt_shape()
 # plus_collapsed_matrix <- plus_hf_collapsed_wide |> as.matrix()
 
 plus_item_inst_map <- plus_hf_dedupe |>
@@ -872,8 +867,8 @@ levante_uid_types
 
 kimochis_hf_dedupe <- kimochis_hf_items |>
   mutate(run_id = paste(id, time), correct = acc) |>
-  rlevante:::dedupe_items() |>
-  rlevante:::remove_no_var_items()
+  levantemodels::dedupe_items() |>
+  levantemodels::remove_no_var_items()
 
 # pivot to wide and build response matrix
 kimochis_hf_wide <- kimochis_hf_dedupe |>
@@ -1584,17 +1579,14 @@ dir.create(plus_regdir, showWarnings = FALSE)
 #| cache: true
 #| eval: false
 
-library(rlevante)
+library(levantemodels)
 library(rlang)
 
 # source old helpers first to get remove_no_var_items
 # source("/Users/foreilly/Documents/GitHub/levante-pilots/02_score_data/fit_irt_old/irt_helpers.R")
 
 # then source current helpers to overwrite with updated functions
-source(here("02_score_data/02_fit_irt/irt_helpers.R"))
-source(here("02_score_data/02_fit_irt/irt_modular.R"))
-source(here("02_score_data/02_fit_irt/anova_mirt.R"))
-source(here("02_score_data/02_fit_irt/registry_helper.R"))
+source(here("02_score_data/02_extract_irt/registry_helper.R"))
 
 # rm(pull)         
 # library(dplyr)   # restore dplyr::pull

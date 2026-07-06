@@ -19,13 +19,13 @@ format:
 #| code-fold: false
 #| echo: false
 
-library(rlevante)
+library(levantemodels)
 library(tidyverse)
 library(here)
 library(mirt)
 library(ggthemes)
 
-source(here("02_score_data/02_fit_irt/registry_helper.R"))
+source(here("02_score_data/02_extract_irt/registry_helper.R"))
 source(here("plot_settings.R"))
 ```
 

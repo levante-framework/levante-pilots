@@ -1,3 +1,5 @@
+library(levantemodels)
+
 sds_data <- trials_sds |>
   filter(.data$item_task == "sds" & stringr::str_detect(.data$item_group, "match")) |>
   filter(!stringr::str_detect(.data$response, "mittel|rote|gelb|blau|gr\u00FCn")) |>
@@ -38,17 +40,17 @@ sds_match <- sds_indexed |>
 
 # parse response and options strings into vectors of stimuli
 sds_opts <- sds_match |>
-  mutate(resp_parsed = .data$resp |> purrr::map(rlevante:::parse_response) |> purrr::map(sort),
-         opts_parsed = .data$opts |> purrr::map(rlevante:::parse_response) |> purrr::map(sort))
+  mutate(resp_parsed = .data$resp |> purrr::map(parse_response) |> purrr::map(sort),
+         opts_parsed = .data$opts |> purrr::map(parse_response) |> purrr::map(sort))
 
 # code dimension values for each stimulus in response and options
 sds_coded <- sds_opts |>
-  mutate(resp_coded = purrr::map2(.data$resp_parsed, .data$item_group, rlevante:::code_dims),
-         opts_coded = purrr::map2(.data$opts_parsed, .data$item_group, rlevante:::code_dims))
+  mutate(resp_coded = purrr::map2(.data$resp_parsed, .data$item_group, code_dims),
+         opts_coded = purrr::map2(.data$opts_parsed, .data$item_group, code_dims))
 
 sds_dims <- sds_coded |>
-  mutate(opts_dims = purrr::map(.data$opts_coded, rlevante:::match_opts_dims),
-         resp_dims = purrr::map2(.data$resp_coded, .data$opts_dims, rlevante:::match_resp_dims)) |>
+  mutate(opts_dims = purrr::map(.data$opts_coded, match_opts_dims),
+         resp_dims = purrr::map2(.data$resp_coded, .data$opts_dims, match_resp_dims)) |>
   mutate(n_matches = purrr::map_int(.data$opts_dims, sum))
 # mutate(opts_dims_str = purrr::map_chr(.data$opts_dims, \(od) {
 #   dims <- od[od > 0]

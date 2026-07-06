@@ -1,5 +1,5 @@
 ```{r setup}
-library(rlevante)
+library(levantemodels)
 library(dplyr)
 library(here)
 library(readr)
@@ -25,7 +25,7 @@ write_rds(runs, here("01_fetched_data/run_data.rds"), compress = "gz")
 ```
 
 ```{r}
-trials_prelim <- rlevante:::process_trials_prelim(dataset_spec,
+trials_prelim <- process_trials_prelim(dataset_spec,
                                                   remove_incomplete_runs = FALSE,
                                                   remove_invalid_runs = FALSE,
                                                   remove_invalid_trials = FALSE)
@@ -33,9 +33,9 @@ write_rds(trials_prelim, here("01_fetched_data/trials_prelim.rds"),
           compress = "gz")
 
 trial_data_processed <- trials_prelim |>
-  rlevante:::add_item_ids() |>
-  rlevante:::add_item_metadata() |>
-  rlevante:::add_trial_numbers() |>
+  add_item_ids() |>
+  add_item_metadata() |>
+  add_trial_numbers() |>
   mutate(task_id = .data$task_id |> stringr::str_remove("-es|-de$")) |>
   arrange(.data$task_id, .data$user_id, .data$run_id, .data$trial_number) |>
   select("redivis_source", "task_id", "user_id", "run_id", "trial_id",

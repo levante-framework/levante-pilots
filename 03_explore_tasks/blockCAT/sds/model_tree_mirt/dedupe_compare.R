@@ -1,11 +1,11 @@
 dedupe_compare <- sds_tree |>
   mutate(item_uid = paste(node, item, sep = ".")) |>
   rename(correct = value) |>
-  rlevante:::dedupe_items() |>
+  levantemodels::dedupe_items() |>
   rename(item_inst_unsort = item_inst) |>
   # arrange(group, run_id, item_group, trial_index, node) |>
   arrange(group, run_id, item_group) |>
-  rlevante:::dedupe_items() |>
+  levantemodels::dedupe_items() |>
   rename(item_inst_sort = item_inst)
 
 dedupe_compare |>

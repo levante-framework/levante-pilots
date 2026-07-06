@@ -5,19 +5,15 @@ library(glue)
 library(rlang)
 library(mirt)
 
-source(here("02_score_data/02_fit_irt/irt_modular.R"), chdir = TRUE)
 source(here("02_score_data/02_fit_irt/registry_helper.R"))
-source(here("02_score_data/02_fit_irt/irt_helpers.R"))
 ```
 
 ```{r}
-# mods_best <- read_rds(here("02_scoring_outputs/mods_best.rds"))
-```
+mods_coded <- list_models() |> load_models() |> code_models()
 
-```{r}
 # extract scores from all models
 mod_scores <- mods_coded |>
-  mutate(scores = map(mod_rec, rlevante:::scores)) |>
+  mutate(scores = map(mod_rec, levantemodels::scores)) |>
   select(-mod_rec, -filename, -path, -file, -BIC) |>
   unnest(scores)
 

@@ -5,10 +5,8 @@ library(here)
 library(mirt)
 library(rlang)
 library(multidplyr)
-library(rlevante)
+library(levantemodels)
 
-source(here("02_score_data/02_fit_irt/irt_helpers.R"))
-source(here("02_score_data/02_fit_irt/irt_modular.R"), chdir = TRUE)
 regdir <- here("02_scoring_outputs", "model_registry")
 
 # tasks to include in these analyses
@@ -56,32 +54,8 @@ objs <- ls()
 
 # set up cluster for parallelization
 cluster <- new_cluster(length(irt_tasks)) |>
-  cluster_library(c("tidyverse", "mirt", "glue", "rlang", "rlevante")) |>
+  cluster_library(c("tidyverse", "mirt", "glue", "rlang", "levantemodels")) |>
   cluster_copy(objs)
-
-# hack -- need to call setClass() on cluster to define class 
-# cluster |> cluster_send({
-#   ModelRecord <- setClass(
-#     "ModelRecord",
-#     slots = c(
-#       model_class   = "character",  # "SingleGroupClass", "MultipleGroupClass"
-#       model_vals    = "data.frame", # mod2vals() output
-#       itemtype      = "character",  # "Rasch", "2PL", "3PL"
-#       # model         = "mirt.model",
-#       method        = "character",
-#       data          = "matrix",
-#       factors       = "character",
-#       nfact         = "numeric",
-#       invariance    = "character",
-#       items         = "character",
-#       runs          = "character",
-#       group_names   = "character",
-#       groups        = "character",
-#       scores        = "tbl_df",
-#       fit           = "list"
-#     )
-#   )
-# })
 
 # fit by-language pooled models for each task (in parallel)
 cluster |>

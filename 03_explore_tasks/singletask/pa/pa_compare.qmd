@@ -75,8 +75,8 @@ mod_spec <- list(
   invariance = "scalar"
 )
 
-pa_scores_levante <- rlevante:::score_irt(pa_trials, mod_spec, pa_mod_levante)
-pa_scores_roar <- rlevante:::score_irt(pa_trials, mod_spec, pa_mod_roar)
+pa_scores_levante <- levantemodels::score_irt(pa_trials, mod_spec, pa_mod_levante)
+pa_scores_roar <- levantemodels::score_irt(pa_trials, mod_spec, pa_mod_roar)
 pa_scores <- list(roar = pa_scores_roar, levante = pa_scores_levante) |>
   list_rbind(names_to = "source")
 ```

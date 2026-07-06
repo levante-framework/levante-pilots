@@ -4,36 +4,21 @@ library(here)
 library(glue)
 library(rlang)
 library(mirt)
-library(rlevante)
+library(levantemodels)
 
-source(here("02_score_data/02_fit_irt/irt_modular.R"), chdir = TRUE)
 source(here("02_score_data/02_fit_irt/registry_helper.R"))
-source(here("02_score_data/02_fit_irt/irt_helpers.R"))
 ```
 
 ```{r}
 # read in all models in registry
-mods <- list_models() |> load_models()
+mods <- list_models() |> load_models() |> code_models()
 
-# extract model specifications from filenames
-mods_coded <- mods |>
-  mutate(file = str_remove(filename, "\\.rds$")) |>
-  separate_wider_delim(file, names = c("task_dup", "itemtype", "nfact", "invariance"),
-                       delim = "_", cols_remove = FALSE, too_few = "align_start") |>
-  select(-task_dup) |>
-  mutate(invariance = invariance |> replace_na("")) |>
-  mutate(BIC = map_dbl(mod_rec, \(rec) rec@fit$BIC))
-  # mutate(nfact = map_int(mod_rec, \(mr) mr@nfact),
-  #        itemtype = map_chr(mod_rec, \(mr) mr@itemtype),
-  #        invariance_terms = map(mod_rec, \(mr) mr@invariance),
-  #        invariance = map_chr(invariance_terms, translate_invariance)) |>
-  # select(-filename, -path, -invariance_terms)
+mods_coded <- mods |> mutate(BIC = map_dbl(mod_rec, \(rec) rec@fit$BIC))
 ```
 
 ```{r}
 #| eval: false
 # anova is slow + not necessary for overall score creation
-source(here("02_score_data/02_fit_irt/anova_mirt.R"))
 
 # reconstruct model objects from model records for overlap_items models
 mods_overlap <- mods_coded |>

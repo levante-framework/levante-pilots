@@ -1,5 +1,5 @@
 library(here)
-library(rlevante)
+library(levantemodels)
 
 source("02_score_data/02_fit_irt/registry_helper.R")
 
