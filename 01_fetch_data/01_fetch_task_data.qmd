@@ -9,10 +9,10 @@ library(tidyr)
 
 ```{r}
 dataset_spec <- list(
-  list(name = "pilot_uniandes_co_bogota:3j4z", version = "v14_5"),
-  list(name = "pilot_uniandes_co_rural:66d2",  version = "v13_0"),
-  list(name = "pilot_mpieva_de_main:6c0n",     version = "v13_0"),
-  list(name = "pilot_western_ca_main:97mt",    version = "v14_4"))
+  list(name = "pilot_uniandes_co_bogota:3j4z", version = "v15_0"),
+  list(name = "pilot_uniandes_co_rural:66d2",  version = "v14_0"),
+  list(name = "pilot_mpieva_de_main:6c0n",     version = "v14_0"),
+  list(name = "pilot_western_ca_main:97mt",    version = "v15_13"))
 
 participants <- process_participants(dataset_spec)
 write_rds(participants, here("01_fetched_data/participants.rds"), compress = "gz")
@@ -26,9 +26,9 @@ write_rds(runs, here("01_fetched_data/run_data.rds"), compress = "gz")
 
 ```{r}
 trials_prelim <- process_trials_prelim(dataset_spec,
-                                                  remove_incomplete_runs = FALSE,
-                                                  remove_invalid_runs = FALSE,
-                                                  remove_invalid_trials = FALSE)
+                                       remove_incomplete_runs = FALSE,
+                                       remove_invalid_runs = FALSE,
+                                       remove_invalid_trials = FALSE)
 write_rds(trials_prelim, here("01_fetched_data/trials_prelim.rds"),
           compress = "gz")
 

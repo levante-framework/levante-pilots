@@ -3,7 +3,7 @@ library(tidyverse)
 library(glue)
 library(here)
 library(redivis)
-library(levante)
+library(levantemodels)
 
 run_data <- read_rds(here(glue("01_fetched_data/run_data.rds")))
 participants <- read_rds(here(glue("01_fetched_data/participants.rds")))
@@ -14,8 +14,8 @@ trials_prelim <- read_rds(here(glue("01_fetched_data/trials_prelim.rds")))
 ```{r}
 # code various exclusion criteria
 runs_coded <- run_data |>
-  left_join(participants |> select(user_id, site, dataset), by = "user_id") |>
-  relocate(site, dataset, .after = redivis_source) |>
+  left_join(participants |> select(user_id, team, dataset), by = "user_id") |>
+  relocate(team, dataset, .after = redivis_source) |>
   mutate(language = language |> str_replace("Other\\((.*)\\)", "\\1")) |>
   mutate(validation_msg_run = validation_msg_run |> replace_na("")) |>
   mutate(ex_empty = !(run_id %in% trials_prelim$run_id),
@@ -42,23 +42,67 @@ runs_filtered <- runs_coded_dup |> filter(!ex_duplicate)
 trial_data_subset <- trial_data |>
   inner_join(runs_filtered |> select(run_id, task_version, adaptive, language))
 
+# determined by binning RT and computing accuracy for each, then eyeballing
+# where accuracy from at or below chance to substantially above
+min_rts <- tribble(
+  ~item_task, ~min_rt,
+    "math",  500,
+  "matrix", 1000,
+      "mg",  900,
+    "mrot",  500,
+     "sds",  500,
+     "sre",  500,
+     "swr",  300,
+     "tom",  300,
+    "trog", 1000,
+   "vocab",  600
+)
+
+resolve_rt <- \(rt_str, rt_numeric) {
+  # if numeric RT exists, use it
+  if (!is.na(rt_numeric)) rt_numeric
+  # if both numeric and string RT are NA, use NA
+  else if (is.na(rt_str)) NA
+  # otherwise parse string RT into list and sum its elements
+  else {
+    rt_str |>
+      map(\(r) jsonlite::fromJSON(r, simplifyVector = TRUE)) |>
+      map(unlist) |> map_dbl(sum)
+  }
+}
+
+# code RTs for trials with multiple sub-trial RTs (as sum)
+trial_data_rt <- trial_data_subset |>
+  mutate(rt = str_replace_all(rt, "'", '"')) |>
+  mutate(rt_numeric =  map2_dbl(rt, rt_numeric, resolve_rt) |> na_if(0))
+
 # filter out trials with too slow/fast RTs
-trial_data_valid <- trial_data_subset |>
-  mutate(validation_msg_trial = validation_msg_trial |> replace_na(""),
-         slow_rt = rt_numeric > 60000, # 30000
-         fast_rt = str_detect(validation_msg_trial, "fast")) |>
-  filter(task_id == "same-different-selection" | is.na(rt_numeric) | !slow_rt,
-         !fast_rt) |>
-  select(-slow_rt, -fast_rt, -valid_trial, -validation_msg_trial) |>
+# new RT filtering (fast set by task, slow set to 60s)
+trial_data_valid <- trial_data_rt |>
+  left_join(min_rts, by = join_by(item_task)) |>
+  mutate(slow_rt = rt_numeric > 60000,
+         fast_rt = rt_numeric < min_rt) |>
+  filter(is.na(rt_numeric) | !slow_rt, !fast_rt) |>
+  select(-slow_rt, -fast_rt, -min_rt, -valid_trial, -validation_msg_trial) |>
   mutate(ex_few_valid_trials = n() < 10, .by = run_id)
+
+# # old RT filtering (fast from validator, slow set to 30s)
+# trial_data_valid <- trial_data_subset |>
+#   mutate(validation_msg_trial = validation_msg_trial |> replace_na(""),
+#          slow_rt = rt_numeric > 30000,
+#          fast_rt = str_detect(validation_msg_trial, "fast")) |>
+#   filter(task_id == "same-different-selection" | is.na(rt_numeric) | !slow_rt,
+#          !fast_rt) |>
+#   select(-slow_rt, -fast_rt, -valid_trial, -validation_msg_trial) |>
+#   mutate(ex_few_valid_trials = n() < 10, .by = run_id)
 
 # filter out trials from runs that ended with too few valid trials
 trial_data_filtered <- trial_data_valid |> filter(!ex_few_valid_trials)
 
 # do various trial-level recoding of items/correctness
 trial_data_coded <- trial_data_filtered |>
-  left_join(participants |> select(user_id, site, dataset), by = "user_id") |>
-  relocate(site, dataset, .after = redivis_source) |>
+  left_join(participants |> select(user_id, team, dataset), by = "user_id") |>
+  relocate(team, dataset, .after = redivis_source) |>
   recode_trials()
 
 # exclude items that are marked for exclusion
@@ -82,7 +126,8 @@ write_rds(run_exclusions, here("01_fetched_data/run_exclusions.rds"),
 
 ```{r}
 task_data_nested <- trial_data_included |>
-  nest(data = -c(item_task, site, language))
+  select(-ex_few_valid_trials) |>
+  nest(data = -c(item_task, team, dataset, language))
 
 write_rds(task_data_nested, here("01_fetched_data/task_data_nested.rds"),
           compress = "gz")
