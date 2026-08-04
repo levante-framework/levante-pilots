@@ -1,0 +1,943 @@
+---
+title: "Scoring Same & Different Selection (SDS): tree models, chance floors, and a recommendation"
+author: "Claude Code (Anthropic), directed by Mike Frank"
+date: 2026-07-13
+format:
+  html:
+    toc: true
+    code-fold: true
+    fig-width: 8
+    fig-height: 5
+execute:
+  warning: false
+  message: false
+  cache: false
+---
+
+::: {.callout-note}
+## Superseded — canonical version now in levante-longitudinal
+This analysis has been transferred to the LEVANTE longitudinal book as
+`levante-longitudinal/tasks/same_different.qmd`, re-based on the unified
+hackathon dataset (`levante_data_pilots_hackathon:fpx0:v1_1`). That chapter is
+now the maintained version; this report is kept as the original exploration
+record (per-site processed data).
+:::
+
+::: {.callout-note}
+## Provenance
+This report was produced by **Claude Code** (Anthropic's coding agent) at Mike
+Frank's direction, building directly on the SDS exploration pipeline in
+`03_explore_tasks/blockCAT/sds` (data prep: `_fetch_sds.R`, `_recode_sds.R`;
+prior modeling: `model_poly/`, `model_tree_lmer/`, `model_tree_mirt/sds_tree.qmd`).
+All model fits are produced by `_fit_sds_report_models.R` and
+`_fit_sds_extensions.R`, the independent recode audit by `_audit_recode.R`;
+everything is cached in `report_cache/` — delete the cache to recompute from
+scratch.
+:::
+
+```{r setup}
+suppressMessages({
+  library(dplyr); library(tidyr); library(readr); library(purrr)
+  library(stringr); library(glue); library(tibble); library(forcats)
+  library(mirt); library(ggplot2); library(knitr); library(boot)
+})
+source(here::here("plot_settings.R"))
+set.seed(42)
+
+sds_dir <- here::here("03_explore_tasks/blockCAT/sds")
+cache_dir <- file.path(sds_dir, "model_tree_mirt/report_cache")
+
+# fit models if the cache is missing
+if (!file.exists(file.path(cache_dir, "results_pooled.rds"))) {
+  source(file.path(sds_dir, "model_tree_mirt/_fit_sds_report_models.R"))
+}
+if (!file.exists(file.path(cache_dir, "results_gate_mg.rds"))) {
+  source(file.path(sds_dir, "model_tree_mirt/_fit_sds_extensions.R"))
+}
+if (!file.exists(file.path(cache_dir, "audit.rds"))) {
+  source(file.path(sds_dir, "model_tree_mirt/_audit_recode.R"))
+}
+
+results_pooled <- read_rds(file.path(cache_dir, "results_pooled.rds"))
+results_mg <- read_rds(file.path(cache_dir, "results_mg.rds"))
+results_ext <- read_rds(file.path(cache_dir, "results_ext.rds"))
+results_ladder <- read_rds(file.path(cache_dir, "results_ladder.rds"))
+results_gate_mg <- read_rds(file.path(cache_dir, "results_gate_mg.rds"))
+factor_cors <- read_rds(file.path(cache_dir, "factor_cors.rds"))
+audit <- read_rds(file.path(cache_dir, "audit.rds"))
+bug_impact <- read_rds(file.path(cache_dir, "bug_impact.rds"))
+sds_tree <- read_rds(file.path(cache_dir, "sds_tree.rds"))
+
+sds_trials <- read_rds(file.path(sds_dir, "data/trials_sds_coded.rds"))
+run_data <- read_rds(file.path(sds_dir, "data/runs_sds.rds"))
+raw_trials <- read_rds(file.path(sds_dir, "data/trials_sds.rds"))
+
+run_times <- raw_trials |> group_by(run_id) |> summarise(t_start = min(timestamp))
+run_meta <- run_data |> left_join(run_times, by = "run_id")
+```
+
+# The problem
+
+SDS ("Same & Different Selection") measures cognitive flexibility. In the
+*match* blocks (`2match`, `3match`, `4match`), a child sees k+1 cards
+containing exactly k matching pairs (each pair matching on a different
+dimension: size, color, shape, number, background). The child makes k
+successive pair selections: "find two that are the same" then, repeatedly,
+"find two that are the same *in a different way*." A selection is credited
+correct if it is (a) a genuinely matching pair and (b) not a pair the child
+already chose in that trial.
+
+This structure breaks the assumptions of our standard per-trial dichotomous
+IRT models in two ways:
+
+1. **Sequential dependence.** What a child faces on selection 2 of a trial
+   depends on what they did on selection 1. Both the chance level and the
+   psychological demand ("shift to a new dimension") are conditional on the
+   response history.
+2. **Compound responses.** "Correct" conflates two distinct behaviors: finding
+   a *match*, and finding a *new* one (not perseverating on a previous choice).
+
+Three approaches were previously explored in this directory:
+
+- **`model_poly`** — polytomous (partial-credit) models over per-trial summed
+  scores. Rejected: collapsing the sequence into an ordinal count discards the
+  conditional structure and produced disordered category thresholds.
+- **`model_tree_lmer`** — IRTree models (De Boeck & Partchev, 2012, *JSS* 48)
+  via `glmer`, decomposing each selection into sequential nodes. Promising
+  conceptually, but `lmer` random-effect scores don't integrate with the mirt
+  scoring pipeline (no item parameter registry, no EAP machinery, no
+  multigroup invariance).
+- **`model_tree_mirt`** — the same tree decomposition ported to mirt
+  (`sds_tree.qmd`), which this report extends and evaluates.
+
+**The IRTree decomposition.** Each selection is decomposed into up to two
+Bernoulli nodes:
+
+- **match**: did the child select a matching pair (vs. non-matching)?
+- **new | match**: given a match, was it a *new* pair (not previously selected)?
+- **new | non-match**: given a non-match, was it at least a new error?
+
+Because these nodes partition the outcome space, the likelihood factorizes
+cleanly and each node can be treated as a pseudo-item in an ordinary
+dichotomous IRT model — which is exactly what makes this framework compatible
+with our mirt infrastructure. Nodes that are deterministic given the history
+(a "new" node when nothing has been selected yet, chance = 1; an "impossible
+new" node when all pairs of that type are exhausted, chance = 0) are dropped.
+
+# Data and preprocessing checks
+
+## Exclusion funnel
+
+Data are the four processed pilot datasets (Leipzig `mpieva_de`, Bogotá +
+rural `uniandes_co`, Western `western_ca`), match blocks only. The recode
+(`_recode_sds.R`) reconstructs trial boundaries from `choice1` markers and the
+"different" prompt, then applies conservative validity filters.
+
+```{r funnel}
+sds0 <- raw_trials |> filter(item_task == "sds", str_detect(item_group, "match"))
+funnel_start <- c(nrow(sds0), n_distinct(sds0$run_id))
+funnel_end <- c(nrow(sds_trials), n_distinct(sds_trials$run_id))
+tibble(
+  stage = c("all match-block selections (post fetch)",
+            "after all recode filters (final coded data)"),
+  selections = c(funnel_start[1], funnel_end[1]),
+  runs = c(funnel_start[2], funnel_end[2])
+) |> kable()
+```
+
+Attrition is modest (~5% of selections, 4 runs): trials are dropped for empty
+or malformed responses, wrong selection counts, inconsistent response options
+within a trial, and card sets that don't afford exactly k matching pairs
+(deployment misconfigurations).
+
+```{r data-summary}
+sds_trials |>
+  mutate(correct = match & new) |>
+  group_by(dataset = group) |>
+  summarise(runs = n_distinct(run_id), selections = n(),
+            `prop match` = mean(match), `prop correct` = mean(correct)) |>
+  kable(digits = 2)
+```
+
+## The local recode audits clean {#sec-audit}
+
+Since the local `_recode_sds.R` is slated to be pushed upstream, I audited it
+with a **fully independent reimplementation** ([_audit_recode.R](_audit_recode.R)):
+regex token extraction instead of JSON parsing, direct attribute-table pair
+matching instead of the transpose/table helpers, and independent
+reconstruction of the trial sequence, novelty ("new") coding, and
+response-history status counts. Three results:
+
+**1. Stimulus grammar.** All `r format(audit$grammar$n_tokens, big.mark = ",")`
+stimulus tokens across every match-block response and card set parse as
+`size-color-shape[-number][-texture]` with the expected vocabularies
+(`r length(audit$grammar$bad_tokens)` exceptions). The positional assumptions
+in `code_stim()` (first three fields are always size/color/shape) hold
+universally.
+
+**2. Cell-by-cell agreement.** The independent recode reproduces the local
+recode exactly on all selections, for every derived quantity:
+
+```{r audit-agreement}
+audit$agreement |>
+  select(`selections` = n, `match` = match_agree, `new` = new_agree,
+         `correct` = correct_agree, `status (prev matches)` = status_m_agree,
+         `status (prev non-matches)` = status_n_agree,
+         `matching-pair count` = n_matches_agree) |>
+  kable(digits = 4, caption = "Proportion agreement, independent reimplementation vs. local recode")
+```
+
+(An earlier draft of the audit disagreed on 21 rows; that turned out to be a
+bug in the *audit's* trial indexing — it filtered malformed responses before
+counting `choice1` markers, shifting trial indices — and is itself a useful
+regression case: any upstream port must index trials **before** dropping
+invalid responses, exactly as `_recode_sds.R` does.)
+
+**3. Chance formulas.** The conditional guessing formulas
+($P(\text{match}) = k/\binom{k+1}{2}$;
+$P(\text{new} \mid \text{match}, m\text{ prior matches}) = 1 - m/k$;
+$P(\text{new} \mid \text{non-match}, n\text{ prior non-matches}) = 1 - n/(\binom{k+1}{2} - k)$)
+were verified by Monte Carlo simulation of the random-pair guessing process
+(50,000 simulated trials per block type; all simulated probabilities within
+simulation error of the formulas — see `audit.rds` for the full table). Note
+these formulas are *correct for the random-guessing model*; whether that model
+is appropriate as an IRT floor is a separate question (@sec-floors — it is not).
+
+## Finding 1: a correctness bug in the production recode {#sec-bug}
+
+`levantemodels::recode_sds()` codes a selection as *new* iff its **raw response
+string** has not occurred earlier in the trial. But the response string
+records the two cards **in selection order** — so a child who re-selects the
+same pair in the opposite order produces a different string and is credited
+with a new (hence correct, if matching) response. The exploration recode
+(`_recode_sds.R`) handles this correctly by sorting the parsed cards before
+comparison.
+
+This is not an edge case:
+
+```{r bug-quant}
+cmp <- bug_impact$cmp
+flipped <- cmp |> filter(new_raw != new_sort)
+tibble(
+  `selections compared` = nrow(cmp),
+  `order-variant repeats (mis-credited as new)` = nrow(flipped),
+  `% of selections` = round(100 * nrow(flipped) / nrow(cmp), 1),
+  `of which matching pairs (correct flips 1 to 0)` = sum(flipped$match),
+  `runs affected` = n_distinct(flipped$run_id)
+) |> kable()
+```
+
+To gauge the impact on scores, I fit the same Rasch model on the buggy vs.
+corrected correctness coding:
+
+```{r bug-impact, fig.width=6, fig.height=5}
+#| fig-cap: "EAP scores under the production (order-sensitive) vs. corrected repeat coding. Same model, same data, only the 'new' coding differs."
+bs <- bug_impact$bug_scores
+ggplot(bs, aes(x = theta_bug, y = theta_fix)) +
+  geom_abline(linetype = "dashed", colour = "grey60") +
+  geom_point(alpha = 0.4, size = 0.9) +
+  labs(x = "Score under production coding (raw-string repeats)",
+       y = "Score under corrected coding (sorted-pair repeats)",
+       subtitle = glue("r = {round(cor(bs$theta_bug, bs$theta_fix), 3)}, ",
+                       "mean |Δθ| = {round(mean(abs(bs$theta_bug - bs$theta_fix)), 2)}, ",
+                       "max |Δθ| = {round(max(abs(bs$theta_bug - bs$theta_fix)), 2)}"))
+```
+
+**Recommendation: fix `recode_sds()` to compare sorted parsed card pairs**
+(as `_recode_sds.R` does) before any SDS model lands in production. Every
+analysis below uses the corrected coding.
+
+Two smaller discrepancies between the production and exploration recodes are
+worth resolving at the same time: production *keeps* empty (`{}`) and
+malformed responses (scored incorrect) where the exploration drops the whole
+trial, and production does not drop trials whose card set affords the wrong
+number of matching pairs. The exploration choices seem right to me — an empty
+response row is a UI artifact, not evidence about the child — but either
+convention is defensible if applied consistently.
+
+## Finding 2: children are not random guessers, so theory-derived chance floors are misspecified {#sec-floors}
+
+Our LEVANTE convention is Rasch/2PL with a fixed guessing floor `g = 1/#alts`.
+The natural extension here sets each node's floor from random pair-selection
+(e.g., match node in `2match`: 2 matching pairs among 3 possible pairs, g =
+2/3; new-given-match with 1 of 2 matches used: g = 1/2). But real children are
+not random: they *perseverate*, re-selecting previous pairs far more often
+than chance predicts. Several node-items sit **below** their theoretical
+floor, which a guessing-floor model cannot fit at all:
+
+```{r below-chance}
+props <- sds_tree |>
+  summarise(prop = mean(value), n = n(), .by = c(node, item, chance)) |>
+  mutate(below = prop < chance)
+props |> filter(below) |> arrange(desc(n)) |>
+  select(node, item, `chance floor` = chance, `observed prop` = prop, n) |>
+  kable(digits = 2)
+```
+
+```{r below-chance-share}
+share_below <- sum(props$n[props$below]) / sum(props$n)
+```
+
+`r round(100 * share_below, 1)`% of all node observations fall on
+below-floor items — concentrated in exactly the theoretically interesting
+"new" nodes. This misspecification is not just cosmetic: as shown below, the
+floors measurably *reduce* both internal and test–retest reliability, because
+they flatten the likelihood at the low end and discard stable individual
+variance in perseveration.
+
+# A framework for choosing the scoring model
+
+The candidate space has four axes:
+
+| Axis | Options |
+|---|---|
+| **Item structure** | `m0`: block × choice (current production items, e.g. `sds_2match_choice2`) · `m1`: block × choice × response-history status (e.g. `sds_2match_choice2_1m0n`) · `t`: IRTree pseudo-items (match / new nodes × block × status) |
+| **Chance floors** | theory-derived random-pair floors · none (g = 0) |
+| **Dimensionality** | 1 factor · 2 factors (match ability, "new"/shifting ability) |
+| **Item model** | Rasch · 2PL |
+
+All models are fit in mirt on identical data (24,799 selections, 811 runs),
+with instance-constrained items (repeated encounters share parameters),
+N(0,3) difficulty priors, and N(1,0.3) slope priors for 2PL — matching the
+production pipeline's conventions. Note that the `m0` variant labeled
+"production floors" uses the chance values currently in the corpus metadata
+(0.5 and 0.75 for 2match, 0 elsewhere), which do not match any principled
+guessing model — a third thing to fix in production regardless of model
+choice.
+
+Evaluation criteria, in order of the project's priorities:
+
+1. **Marginal/empirical reliability** (mirt `marginal_rxx`; empirical
+   reliability of EAP scores, `var(θ̂)/(var(θ̂)+mean(SE²))`).
+2. **Test–retest reliability**: 168 Leipzig children with two SDS
+   administrations (~3 months, n = 115; ~7 months, n = 53), scored per run
+   from a single calibration, T1–T2 Pearson r (bootstrap 95% CI).
+3. **Validity proxy**: correlation with age.
+4. **Parsimony**: BIC, compared only among models of the same responses (see
+   the note on comparability in the results).
+5. **Simplicity / pipeline fit**: unidimensional dichotomous mirt models with
+   an `item_uid` + `chance` column drop straight into `levantemodels`
+   (`dedupe_items() → to_mirt_shape() → mirt/multipleGroup`); multidimensional
+   or non-mirt models do not.
+
+# Model comparison
+
+```{r eval-machinery}
+# long score table across all models/factors
+all_results <- bind_rows(
+  results_pooled, results_mg,
+  results_ext |> select(-any_of(c("invariance", "itemtype", "logLik"))),
+  results_ladder |> select(-any_of(c("invariance", "itemtype", "logLik"))),
+  results_gate_mg |> select(-any_of(c("invariance", "itemtype", "logLik"))))
+scores_long <- all_results |>
+  select(model, factor, scores) |>
+  pmap(\(model, factor, scores) {
+    scores |> select(run_id, value = all_of(factor)) |>
+      mutate(model = model, factor = factor)
+  }) |> list_rbind()
+
+# sum-score baseline
+sum_scores <- sds_trials |>
+  group_by(run_id) |>
+  summarise(value = mean(match & new)) |>
+  mutate(model = "sumscore", factor = "F1")
+scores_long <- bind_rows(scores_long, sum_scores)
+scored <- scores_long |> left_join(run_meta, by = "run_id")
+
+age_cors <- scored |>
+  summarise(r_age = cor(value, age, use = "complete.obs"), .by = c(model, factor))
+
+retest_pairs <- scored |>
+  filter(dataset == "pilot_mpieva_de_main") |>
+  group_by(model, factor, user_id) |>
+  filter(n() == 2) |>
+  arrange(t_start, .by_group = TRUE) |>
+  summarise(t1 = value[1], t2 = value[2], age1 = age[1],
+            gap_mo = as.numeric(difftime(t_start[2], t_start[1], units = "days")) / 30.4,
+            .groups = "drop")
+
+boot_ci <- function(t1, t2, R = 2000) {
+  b <- boot(tibble(t1, t2), \(d, i) cor(d$t1[i], d$t2[i], use = "complete.obs"), R = R)
+  ci <- boot.ci(b, type = "perc")$percent[4:5]
+  tibble(r_retest = b$t0, ci_lo = ci[1], ci_hi = ci[2])
+}
+retest_cors <- retest_pairs |>
+  group_by(model, factor) |>
+  summarise(boot_ci(t1, t2), n_retest = n(), .groups = "drop")
+
+eval_table <- all_results |>
+  select(model, factor, nfact, converged, emp_rxx, marg_rxx, AIC, BIC) |>
+  bind_rows(tibble(model = "sumscore", factor = "F1", nfact = NA,
+                   converged = NA, emp_rxx = NA, marg_rxx = NA)) |>
+  left_join(age_cors, by = c("model", "factor")) |>
+  left_join(retest_cors, by = c("model", "factor"))
+
+model_labels <- tribble(
+  ~model, ~structure, ~floors, ~itemtype,
+  "sumscore",  "proportion correct",     "—", "—",
+  "m0_rasch",  "block × choice",         "production (corpus)", "Rasch",
+  "m0_2pl",    "block × choice",         "production (corpus)", "2PL",
+  "m0c_rasch", "block × choice",         "principled (mean)", "Rasch",
+  "m0z_rasch", "block × choice",         "none", "Rasch",
+  "m1_rasch",  "block × choice × status","principled", "Rasch",
+  "m1_2pl",    "block × choice × status","principled", "2PL",
+  "m1z_rasch", "block × choice × status","none", "Rasch",
+  "m1z_2pl",   "block × choice × status","none", "2PL",
+  "t1_rasch",  "tree nodes, 1 factor",   "principled", "Rasch",
+  "t1_2pl",    "tree nodes, 1 factor",   "principled", "2PL",
+  "t1z_rasch", "tree nodes, 1 factor",   "none", "Rasch",
+  "t1z_2pl",   "tree nodes, 1 factor",   "none", "2PL",
+  "t2_rasch",  "tree nodes, 2 factors",  "principled", "Rasch",
+  "t2z_rasch", "tree nodes, 2 factors",  "none", "Rasch",
+  "t2_2pl",    "tree nodes, 2 factors",  "principled", "2PL",
+  "t2zc_rasch", "tree nodes, 2 corr. factors", "none", "Rasch",
+  "t3z_rasch",  "tree nodes, 3 corr. factors", "none", "Rasch",
+  "m1z_sig_rasch",  "block × choice × status × features", "none", "Rasch",
+  "m1z_gate_rasch", "block × choice × status + gate items", "none", "Rasch",
+  "mg_m1z_rasch_scalar", "block × choice × status (multigroup scalar)", "none", "Rasch",
+  "mg_m1z_2pl_scalar",   "block × choice × status (multigroup scalar)", "none", "2PL",
+  "mg_t1z_rasch_scalar", "tree nodes, 1 factor (multigroup scalar)",    "none", "Rasch",
+  "mg_m0z_rasch_scalar", "block × choice (multigroup scalar)",          "none", "Rasch",
+  "mg_m1z_gate_rasch_scalar", "status + gate items (multigroup scalar)", "none", "Rasch")
+```
+
+## Pooled single-group models
+
+All models converged. The table shows BIC, empirical reliability of the EAP
+scores, model-implied marginal reliability (unidimensional models only),
+age correlation, and German test–retest correlation with bootstrap 95% CI.
+
+**A note on BIC comparability.** BIC (like any likelihood-based index) is only
+comparable between models of the *same responses*. There are two response
+universes here: the **selection universe** (one Bernoulli response per
+selection: all `m` models) and the **tree universe** (each selection expanded
+into 1–2 node responses: all `t` models). BICs can be compared within a
+universe but never across; the gate-augmented model (@sec-gate) adds
+responses and is its own universe.
+
+```{r main-table}
+main_tab <- eval_table |>
+  inner_join(model_labels, by = "model") |>
+  filter(!str_detect(model, "^mg_"), model != "m1z_gate_rasch") |>
+  mutate(universe = if_else(str_detect(model, "^t"), "tree", "selection"),
+         retest = glue("{sprintf('%.2f', r_retest)} [{sprintf('%.2f', ci_lo)}, {sprintf('%.2f', ci_hi)}]"),
+         factor = if_else(factor == "F1", "", factor)) |>
+  arrange(universe, BIC) |>
+  select(universe, structure, floors, itemtype, factor, BIC,
+         `emp. rxx` = emp_rxx, `marg. rxx` = marg_rxx,
+         `r (age)` = r_age, `retest r [95% CI]` = retest)
+main_tab |> kable(digits = 2)
+```
+
+Reading the table against the axes:
+
+- **Everything beats the sum score on validity.** All IRT variants correlate
+  with age around .30 vs. .21 for proportion correct.
+- **Chance floors hurt.** Within every item structure, removing the
+  theory-derived floors *raises* test–retest reliability (m1: .46 → .50; t1:
+  .44 → .50) and empirical reliability (m1: .83 → .85; t1: .81 → .84). This is
+  the empirical footprint of @sec-floors: the floors treat stable,
+  perseveration-related low-end variance as noise. (The apparent retest
+  advantage of `m0` with the *production* corpus floors, r = .56, is not
+  significantly different from the no-floor models — bootstrap difference
+  vs. `t1z`: +0.07 [−0.01, 0.14] — and it comes from floors that are simply
+  wrong; with principled floors on the same items the advantage disappears,
+  r = .47.)
+- **The nominal winner on retest is the *wrong-floors* model — see
+  @sec-whym0 for why that is not what it looks like.**
+- **BIC agrees with the reliability story.** In the selection universe the
+  BIC ranking is status-aware > block × choice, and no floors > floors. In
+  the tree universe, correlated multi-factor trees beat the 1-factor tree —
+  the tree really is multidimensional (see @sec-tree) — but their extra
+  factors are not usable as scores.
+- **Rasch wins BIC over 2PL and loses nothing.** m1z: Rasch BIC 18,243 vs.
+  2PL 18,269, with equal-or-better empirical reliability (.845 vs. .835) and
+  equivalent retest (.50 vs. .51). The one criterion favoring 2PL — marginal
+  reliability (.97 vs. .86) — is the least trustworthy one: the 2PL's
+  model-implied information overstates its empirical reliability by .13,
+  while the Rasch marginal and empirical values agree to .01. Given the
+  project's simplicity preference, Rasch is the right default.
+- **Item structure matters less than expected for the score itself.** With
+  floors removed, block × choice (m0z), status-aware (m1z), and tree (t1z)
+  scores all land at retest r ≈ .50 and age r ≈ .29–.30. Status-aware
+  structure buys ~.03 of empirical reliability, a clear BIC win over
+  block × choice, and models the conditional difficulty honestly.
+- **Multi-factor trees split the construct, and only one factor holds up.**
+  The 2- and 3-factor trees separate a *match* ability from *new*
+  (shifting/updating) abilities with very different measurement properties
+  (@sec-tree). As scoring models they are dominated: the match factor is
+  unreliable (emp. rxx ≈ .61) and unstable (retest ≈ .36), the newN factor is
+  unmeasurable (below), and multigroup multidimensional models don't fit our
+  pipeline.
+
+## Why do the *wrong* production floors look good? {#sec-whym0}
+
+The strangest cell in the table deserves its own explanation: the model with
+the production corpus floors (g = .5 and .75 on the two 2match items, 0
+elsewhere) — floors that match no guessing model — has the best nominal
+retest (.56) and age correlation (.32), beating both the *correct* guessing
+floors (.47) and the no-floor models (.50). Three things are going on.
+
+**First, the statistics: the advantage is not established.** The bootstrap
+difference in retest r between m0 and the recommended no-floor model is
++.06 [−.01, +.14] (n = 168 paired), and m0 is the maximum of
+`r sum(!str_detect(unique(eval_table$model), "^mg_|sumscore"))` fitted models —
+the winner's-curse correction alone could absorb most of the gap.
+
+**Second, the mechanism: a fixed guessing floor is not really a guessing
+parameter — it is an information reshaper.** In a Rasch-with-guess model,
+$P(\text{correct}) = g + (1-g)\,\sigma(\theta + d)$, two things happen as g
+rises: (i) the item's information shrinks by roughly $(1-g)^2$, and (ii) the
+item becomes *one-sided* — a correct response is nearly uninformative (it's
+"expected" even at floor), while an error remains strongly diagnostic of low
+ability. The corpus floors apply this surgery to exactly one block:
+
+```{r info-share}
+info_share <- function(mod_name) {
+  mod <- read_rds(file.path(cache_dir, paste0(mod_name, ".rds")))
+  th <- matrix(seq(-2, 2, length.out = 9))
+  items <- extract.mirt(mod, "itemnames")
+  ii <- map_dbl(items, \(it) mean(iteminfo(extract.item(mod, it), th)))
+  tibble(item = items, info = ii, block = str_extract(items, "[0-9]match")) |>
+    group_by(block) |> summarise(info = sum(info), .groups = "drop") |>
+    mutate(share = info / sum(info), model = mod_name)
+}
+bind_rows(info_share("m0_rasch"), info_share("m0z_rasch")) |>
+  mutate(model = fct_recode(model, "corpus floors (m0)" = "m0_rasch",
+                            "no floors (m0z)" = "m0z_rasch")) |>
+  select(model, block, share) |>
+  pivot_wider(names_from = block, values_from = share) |>
+  kable(digits = 3, caption = "Share of test information by block (θ ∈ [−2, 2])")
+```
+
+Under the corpus floors, 2match carries ~3% of the test information — the
+"wrong" floors effectively delete the 2match block and turn its two items
+into low-end error detectors.
+
+**Third, 2match is exactly the block you'd want muted for this criterion.**
+It is the near-ceiling warm-up block — choice1 is 97% correct, and choice2
+(64%) is actually *below* its own .75 floor, the same pathology as the tree
+nodes in @sec-floors — and its block-level sum score is the least stable of
+the three:
+
+```{r block-retest}
+block_props <- sds_trials |>
+  mutate(correct = match & new) |>
+  group_by(run_id, item_group) |>
+  summarise(prop = mean(correct), .groups = "drop") |>
+  left_join(run_meta, by = "run_id")
+block_props |>
+  group_by(item_group) |>
+  summarise(`mean prop correct` = mean(prop),
+            `r (age)` = cor(prop, age, use = "complete.obs"), .groups = "drop") |>
+  left_join(
+    block_props |> filter(dataset == "pilot_mpieva_de_main") |>
+      group_by(item_group, user_id) |> filter(n() == 2) |>
+      arrange(t_start, .by_group = TRUE) |>
+      summarise(t1 = prop[1], t2 = prop[2], .groups = "drop") |>
+      group_by(item_group) |>
+      summarise(`retest r` = cor(t1, t2), `n retest` = n(), .groups = "drop"),
+    by = "item_group") |>
+  kable(digits = 2)
+```
+
+2match content is also mostly *match*-node behavior — the unstable component
+from the tree analysis (@sec-tree) — because with only 3 cards the "new"
+demand is minimal.
+
+So the wrong floors accidentally implement a defensible design decision —
+"treat the easy warm-up block as a low-end error detector and score the
+mid/high range from 3/4match" — through an indefensible mechanism. Two
+like-for-like checks confirm there is no magic left once you see this:
+simply *dropping* 2match from the recommended model changes its retest by
+less than .01 on the common retest subsample (the block is nearly redundant
+either way), and the residual m0 edge on that subsample (+.04) is within the
+bootstrap noise above. The **principled versions of the same move are already
+in the recommended model**: the gate items supply calibrated low-end error
+detection (with floors that are *correct* for genuine multiple-choice items),
+and 2PL — if we wanted it — learns a mild version of the block reweighting
+from data (mean fitted slope 1.19 for 2match vs. 1.48 for 3match items).
+
+One genuine design implication for blockCAT: for children in the retest age
+range, 2match contributes little stable signal, making it a natural candidate
+for age-gating or adaptive block skipping — while remaining essential floor
+coverage for younger/struggling children, which is precisely why it should be
+kept in the calibrated item bank rather than deleted.
+
+## What the tree decomposition teaches us {#sec-tree}
+
+Even though the tree doesn't win as a *scoring* model, it is diagnostic gold:
+it shows where the reliable signal in SDS lives. The table pools the 2-factor
+model (match, new) with correlated factors and the full 3-factor model that
+additionally splits new-given-match (newM) from new-given-non-match (newN).
+
+```{r node-diagnostics}
+eval_table |>
+  filter(model %in% c("t2zc_rasch", "t3z_rasch")) |>
+  mutate(model = fct_recode(model, "2-factor (match, new)" = "t2zc_rasch",
+                            "3-factor (match, newM, newN)" = "t3z_rasch")) |>
+  select(model, factor, `emp. rxx` = emp_rxx, `r (age)` = r_age,
+         `retest r` = r_retest) |>
+  kable(digits = 2)
+```
+
+Three lessons:
+
+**The "new" component carries the stable signal.** Resisting perseveration
+and shifting to an unused pair has retest r ≈ .51 — on par with the best
+unidimensional models — while the match component is much noisier (rxx ≈ .61,
+retest ≈ .36). This makes psychological sense: with k matching pairs among
+k+1 cards, finding *some* match is easy and near ceiling for most children;
+the executive demand is in tracking what you already used and shifting
+dimensions. It also explains why item structure barely moves the overall
+score: however you slice the items, the stable variance comes from the same
+"new" behavior.
+
+**Match and "new" are close to distinct abilities.** With the factor
+covariance freed, they correlate only r =
+`r round(factor_cors$cov[[1]]["match", "new"], 2)`. A single SDS θ is
+therefore a *blend* of two nearly orthogonal skills, weighted by item
+information — worth remembering when interpreting the score as "cognitive
+flexibility."
+
+**The 3-node split adds nothing measurable.** The 3-factor model converges
+(unlike the earlier floor-based attempts) and its BIC essentially ties the
+2-factor model (`r format(round(eval_table$BIC[eval_table$model == "t3z_rasch"][1]), big.mark = ",")`
+vs. `r format(round(eval_table$BIC[eval_table$model == "t2zc_rasch"][1]), big.mark = ",")`),
+but the newN factor rests on only `r sum(sds_tree$node == "newN")` responses
+in the whole dataset (non-matches are rare outside 2match, where the newN
+node is deterministic and dropped) — so it is unmeasurable as an individual
+difference (emp. rxx = .26). Its factor correlations are still informative:
+newN correlates with newM at r =
+`r round(factor_cors$cov[[2]]["newM", "newN"], 2)` and with match at r =
+`r round(factor_cors$cov[[2]]["match", "newN"], 2)` — i.e., not repeating
+*errors* and not repeating *successes* share a common
+perseveration-resistance core that is unrelated to match-finding. Verdict:
+use the 2-factor tree for diagnostics; the 3-node split is theoretically tidy
+but empirically empty at these sample sizes.
+
+A practical corollary: **don't discard newN (new-given-non-match) nodes from
+the score**. Under the floor model they look "below chance" and useless;
+without floors they contribute genuine signal about perseveration.
+
+```{r retest-scatter, fig.width=9, fig.height=4}
+#| fig-cap: "German test–retest scores (n = 168) for the two tree factors (correlated 2-factor tree model, no floors). The 'new' factor is substantially more stable."
+retest_pairs |>
+  filter(model == "t2zc_rasch") |>
+  mutate(factor = fct_recode(factor, "match ability" = "match", "'new' ability" = "new")) |>
+  ggplot(aes(x = t1, y = t2)) +
+  facet_wrap(vars(factor)) +
+  geom_abline(linetype = "dashed", colour = "grey60") +
+  geom_point(aes(colour = age1), alpha = 0.6) +
+  geom_smooth(method = "lm", se = FALSE, colour = "black", linewidth = 0.6) +
+  scale_colour_viridis_c(option = "plasma", end = 0.92) +
+  labs(x = "Score, time 1", y = "Score, time 2", colour = "Age (yr)")
+```
+
+## Multigroup models: invariance ladder and sensitivity {#sec-invariance}
+
+The production pipeline fits multigroup models by site. Two questions: (a)
+which invariance level do the data support, and (b) does the multigroup
+setting change any of the pooled conclusions?
+
+**Invariance ladder** (m1z items, grouped by site; note multigroup filtering
+drops items not shared by all sites, so these BICs are not comparable with
+the pooled table):
+
+```{r ladder-table}
+results_ladder |>
+  filter(model != "mg_m0z_rasch_scalar") |>
+  left_join(age_cors, by = c("model", "factor")) |>
+  left_join(retest_cors |> select(model, factor, r_retest), by = c("model", "factor")) |>
+  arrange(itemtype, desc(invariance)) |>
+  select(itemtype, invariance, converged, npar, AIC, BIC,
+         `emp. rxx` = emp_rxx, `r (age)` = r_age, `retest r` = r_retest) |>
+  kable(digits = 2)
+```
+
+**Scalar invariance is the BIC-preferred level for both Rasch and 2PL**, and
+Rasch-scalar beats 2PL-scalar overall. Full disclosure: a likelihood-ratio
+test rejects exact scalar invariance against configural (as it essentially
+always does at these sample sizes — Δdeviance ≈ 164 on 42 df for Rasch), and
+the 2PL's best-*AIC* level is metric, so there is *some* real cross-site DIF;
+but the parsimony judgment that the pipeline applies elsewhere (BIC) lands on
+scalar, and scores are essentially insensitive to the level (retest .505–.516,
+age .25–.28 across the ladder).
+
+**Multigroup sensitivity.** Refitting the main structural contrast (m0z vs.
+m1z vs. t1z, Rasch, scalar-by-site) leaves every conclusion intact — same
+ordering on reliability, retest, and age correlation as the pooled fits:
+
+```{r mg-table}
+eval_table |>
+  inner_join(model_labels, by = "model") |>
+  filter(str_detect(model, "^mg_"), !str_detect(model, "gate")) |>
+  mutate(retest = glue("{sprintf('%.2f', r_retest)} [{sprintf('%.2f', ci_lo)}, {sprintf('%.2f', ci_hi)}]")) |>
+  select(structure, itemtype, `emp. rxx` = emp_rxx,
+         `r (age)` = r_age, `retest r [95% CI]` = retest) |>
+  kable(digits = 2)
+```
+
+For completeness: the recommended status-aware scores and the 1-factor tree
+scores are nearly interchangeable at the person level —
+
+```{r structure-equiv}
+equiv <- scores_long |>
+  filter(model %in% c("m1z_rasch", "t1z_rasch", "m0z_rasch"), factor == "F1") |>
+  select(run_id, model, value) |>
+  pivot_wider(names_from = model, values_from = value)
+tibble(
+  `r(m1z, t1z)` = cor(equiv$m1z_rasch, equiv$t1z_rasch),
+  `r(m1z, m0z)` = cor(equiv$m1z_rasch, equiv$m0z_rasch)
+) |> kable(digits = 3)
+```
+
+— so choosing between them is a question of engineering, not measurement.
+
+## Binary experiments on the leading model
+
+Two item-design questions, each tested as a single manipulation of the
+leading model (m1z, Rasch, no floors) rather than crossed with everything.
+
+### Adding feature-knowledge ("gate") items helps {#sec-gate}
+
+The SDS task opens with warm-up blocks that have been excluded from all
+scoring explorations so far: `same` (pick the card that is the same as a
+target; 2AFC) and `dimensions` (identify a card's value on a named dimension:
+color/number/shape/size/texture; 3–4AFC). Conceptually these are a *gate* on
+the match blocks — a child who can't identify the features can't find feature
+matches — and they are near ceiling (91% and 97–98% respectively), so they
+carry information mainly about the low end of the scale. Every run in the
+match-block data also has gate trials, so adding them as ordinary dichotomous
+items costs nothing.
+
+To be explicit about the guessing convention, since it differs by item type
+**by design**: gate items keep their **standard multiple-choice floors**
+(`same` g = .5; `dimensions` g = .25, or .33 for size), because they are
+genuine simultaneous forced choices where random selection is a coherent
+floor model and nothing pushes children below it (all gate items sit far
+above chance empirically). The match items get **g = 0**, because their
+"guessing" process is refuted by the data — children perseverate below the
+random-pair floor (@sec-floors). Mixed floors within one model are fully
+supported by the pipeline (`chance` is a per-item column).
+
+```{r gate-table}
+eval_table |>
+  filter(model %in% c("m1z_rasch", "m1z_gate_rasch", "mg_m1z_gate_rasch_scalar")) |>
+  inner_join(model_labels, by = "model") |>
+  mutate(model = fct_recode(model,
+    "match blocks only (m1z, pooled)" = "m1z_rasch",
+    "+ gate items (pooled)" = "m1z_gate_rasch",
+    "+ gate items (multigroup scalar)" = "mg_m1z_gate_rasch_scalar"),
+    retest = glue("{sprintf('%.2f', r_retest)} [{sprintf('%.2f', ci_lo)}, {sprintf('%.2f', ci_hi)}]")) |>
+  select(model, `emp. rxx` = emp_rxx, `r (age)` = r_age,
+         `retest r [95% CI]` = retest) |>
+  kable(digits = 2)
+```
+
+Adding gate items improves **every** criterion: empirical reliability .845 →
+.863, retest .50 → .53, and the age correlation .30 → .35 — the largest
+validity gain of any manipulation tested in this report. (BIC is not
+comparable — the model scores additional responses.) The gate-augmented
+model also converges as a multigroup scalar model, with scalar again
+BIC-preferred over configural
+(`r format(round(results_gate_mg$BIC[results_gate_mg$invariance == "scalar"]), big.mark = ",")`
+vs. `r format(round(results_gate_mg$BIC[results_gate_mg$invariance == "configural"]), big.mark = ",")`).
+
+```{r gate-scatter, fig.width=6.5, fig.height=5}
+#| fig-cap: "Scores with vs. without gate items (pooled Rasch). Gate items mostly re-order the bottom of the scale, where 'did this child know the features at all?' is informative."
+gate_cmp <- scores_long |>
+  filter(model %in% c("m1z_rasch", "m1z_gate_rasch"), factor == "F1") |>
+  select(run_id, model, value) |>
+  pivot_wider(names_from = model, values_from = value)
+ggplot(gate_cmp, aes(x = m1z_rasch, y = m1z_gate_rasch)) +
+  geom_abline(linetype = "dashed", colour = "grey60") +
+  geom_point(alpha = 0.4, size = 0.9) +
+  labs(x = "Score, match blocks only", y = "Score, match blocks + gate items",
+       subtitle = glue("r = {round(cor(gate_cmp$m1z_rasch, gate_cmp$m1z_gate_rasch), 3)}"))
+```
+
+One caveat: gate items are near ceiling, so their discrimination is
+concentrated where few children are — the gains are real but the items mostly
+sharpen the *floor* of the scale (which is exactly what a gate should do).
+If the task is revised, a couple of *harder* feature-identification items
+would strengthen this further.
+
+```{r age-scatter, fig.width=8, fig.height=5}
+#| fig-cap: "Recommended model (status-aware match items + gate items, no floors on match items, multigroup scalar Rasch): scores by age and dataset."
+scored |>
+  filter(model == "mg_m1z_gate_rasch_scalar") |>
+  ggplot(aes(x = age, y = value)) +
+  geom_point(aes(colour = dataset), size = 0.8, alpha = 0.6) +
+  geom_smooth(method = "lm", colour = "black", linewidth = 0.7) +
+  scale_colour_ptol() +
+  labs(x = "Age (years)", y = "SDS score (θ)", colour = "Dataset")
+```
+
+### Disaggregating items by matched features does not help
+
+The last level of item granularity: the specific dimensions in which a card
+set contains its matching pairs (e.g., a 2match set whose pairs match on
+color and size vs. one whose pairs match on shape and size). The card sets in
+deployment realize only a few feature signatures per block (3, 4, and 2 for
+2/3/4match respectively), so items become
+`block × choice × status × signature`:
+
+```{r sig-table}
+eval_table |>
+  filter(model %in% c("m1z_rasch", "m1z_sig_rasch")) |>
+  mutate(model = fct_recode(model, "status items (m1z)" = "m1z_rasch",
+                            "status × feature-signature items" = "m1z_sig_rasch"),
+         retest = glue("{sprintf('%.2f', r_retest)} [{sprintf('%.2f', ci_lo)}, {sprintf('%.2f', ci_hi)}]")) |>
+  select(model, BIC, `emp. rxx` = emp_rxx, `r (age)` = r_age,
+         `retest r [95% CI]` = retest) |>
+  kable(digits = 2)
+```
+
+Feature signatures earn a small BIC edge (there *is* systematic
+signature-level difficulty variation — same-universe BICs are comparable
+here), but reliability, retest, and age validity are unchanged. The
+signature-level difficulty differences are real but small enough that
+modeling them buys nothing downstream, at the price of ~2.6× as many item
+parameters in the registry and items that depend on deployment-specific card
+sets. Verdict: not worth it for scoring; worth remembering if specific card
+sets ever need DIF screening.
+
+# Replication on the unified hackathon dataset {#sec-replication}
+
+All headline comparisons were re-run end-to-end on the new unified pilots
+dataset — `levante_data_pilots_hackathon:fpx0:v1_1`, fetched with the new
+`levante` package (`remotes::install_github("levante-framework/levante-r")`)
+— using the *audited independent* recode implementation from
+`_audit_recode.R`, so this replicates the recode and the models together
+([_replicate_hackathon.R](_replicate_hackathon.R)).
+
+```{r replication-table}
+results_hack <- read_rds(file.path(cache_dir, "results_hack.rds"))
+hack_labels <- tribble(
+  ~model, ~label,
+  "hack_m0_rasch",       "block × choice, corpus floors (m0)",
+  "hack_m0z_rasch",      "block × choice, no floors (m0z)",
+  "hack_m1_rasch",       "status items, principled floors (m1)",
+  "hack_m1z_rasch",      "status items, no floors (m1z)",
+  "hack_m1z_gate_rasch", "status + gate items (recommended)",
+  "hack_t2zc_rasch",     "correlated 2-factor tree")
+primary_vals <- eval_table |>
+  filter(model %in% c("m0_rasch", "m0z_rasch", "m1_rasch", "m1z_rasch",
+                      "m1z_gate_rasch", "t2zc_rasch")) |>
+  mutate(model = paste0("hack_", model)) |>
+  select(model, factor, emp_rxx_p = emp_rxx, r_age_p = r_age, r_retest_p = r_retest)
+results_hack$eval |>
+  inner_join(hack_labels, by = "model") |>
+  left_join(primary_vals, by = c("model", "factor")) |>
+  mutate(factor = if_else(factor == "F1", "", factor)) |>
+  select(model = label, factor,
+         `rxx (primary)` = emp_rxx_p, `rxx (hackathon)` = emp_rxx,
+         `age r (prim.)` = r_age_p, `age r (hack.)` = r_age,
+         `retest (prim.)` = r_retest_p, `retest (hack.)` = r_retest) |>
+  kable(digits = 2,
+        caption = glue("Primary data (24,799 selections / 811 runs / 168 retest pairs) vs. hackathon v1.1 ({format(results_hack$coded_n, big.mark = ',')} selections / {results_hack$runs_n} runs / {results_hack$eval$n_retest[1]} retest pairs)"))
+```
+
+Every qualitative conclusion replicates, most a shade *stronger* on the new
+data: floors hurt (status items: retest .48 with floors vs. .52 without);
+gate items help on all criteria (rxx .87, age r = .35); the status model
+beats block × choice on BIC (17,436 vs. 17,737 — same-universe comparison);
+the tree's "new" factor is stable (.53) while match is not (.32); and the
+wrong-floors m0 is again the nominal retest winner (.59) for exactly the
+reasons dissected in @sec-whym0 — its consistency across datasets fits the
+mechanistic account (it is systematically muting the same unstable block),
+not a fluke of the first sample. Numbers differ slightly because the
+hackathon release applies its own run-validity filtering (744 vs. 811 runs
+survive the recode).
+
+# Recommendations
+
+**0. The results replicate on `levante_data_pilots_hackathon:fpx0:v1_1`**
+(@sec-replication) — recode and models re-run end-to-end on the new unified
+dataset with the independent implementation.
+
+**1. Port the (audited) local recode upstream** (@sec-audit, @sec-bug). The
+local `_recode_sds.R` coding is verified correct by independent
+reimplementation (100% agreement on all selections) and Monte Carlo
+(chance formulas). The production `recode_sds()` repeat-detection bug affects
+~6.5% of selections and shifts scores r = .92 / 0.42 logits — the port
+matters more than every modeling decision below. When porting, keep the
+trial-indexing order (index trials *before* dropping invalid responses; see
+the audit's own regression case).
+
+**2. Score SDS with status-aware dichotomous match items plus the
+`same`/`dimensions` gate items, no floors on the match items, Rasch,
+multigroup scalar.** Concretely: `item_uid = sds_{block}_{choice}_{status}`
+(status = counts of previously used matching/non-matching pairs, e.g.
+`1m0n`), `correct = match & new`, `chance = 0` for match items; `same` and
+`dimensions` items enter as ordinary dichotomous items with their
+multiple-choice floors. This is the `mg_m1z_gate` row: empirical reliability
+.85, retest r = .54 [.41, .65], age r = .34 — the best model on every
+criterion, and it converges cleanly in the production multigroup-scalar
+configuration.
+
+Why this and not the alternatives:
+
+- vs. **current production items** (block × choice): better on BIC,
+  reliability, and validity; models the conditional structure honestly; costs
+  one string paste in `recode_sds()` — the status counts are already computed
+  there — plus *not* discarding the gate blocks.
+- vs. **2PL**: Rasch wins BIC both pooled (18,243 vs. 18,269) and multigroup
+  scalar (14,488 vs. 14,528), with equal empirical reliability and retest.
+  2PL's higher *marginal* reliability is model-implied optimism (it overstates
+  its empirical reliability by .13; Rasch is calibrated to .01). Simplicity
+  rule says Rasch.
+- vs. **the 1-factor tree**: identical measurement (score r = .99), but the
+  tree requires expanding each selection into 1–2 pseudo-item rows inside the
+  recode and adds nothing for scoring. Not worth the pipeline surgery.
+- vs. **the 2-/3-factor trees**: the match factor is too weak to report, the
+  newN factor is unmeasurable (253 responses), and multidimensional models
+  don't fit the registry/scoring infrastructure.
+- vs. **any floor variant on match items**: floors are conceptually wrong for
+  these items (children perseverate below "chance") and empirically cost
+  ~.05 of retest reliability.
+- vs. **feature-signature items**: no downstream gain for 2.6× the item
+  parameters.
+
+**3. Invariance: scalar, by the pipeline's own standard.** Scalar is the
+BIC-preferred level for the winning model (and for every variant tested),
+pooled-vs-multigroup changes no comparison, and scores are insensitive to the
+ladder level. Exact invariance is statistically rejected (it essentially
+always is), so DIF screening of the status items across sites remains good
+hygiene once the recode fix lands.
+
+**4. Also correct the corpus chance metadata for SDS match items** (currently
+0.5/0.75/0 patterns that match no guessing model) — or make the no-floor
+choice explicit in the scoring spec so the metadata is ignored.
+
+**5. Keep the tree decomposition as a research/diagnostic tool.** The
+correlated 2-factor tree shows SDS's stable signal is perseveration-resistance
+("new", retest .51), not match-finding (retest .36), and that the two are
+nearly orthogonal (r = .24). That is worth (a) reporting in the tasks paper as
+construct evidence, and (b) acting on if SDS is redesigned — more selections
+per trial, harder match discriminations, and a few harder feature-gate items
+would strengthen the weak components.
+
+## Limitations and open questions
+
+- **Test–retest is one site, two intervals** (Leipzig; ~3 and ~7 months,
+  n = 115/53). Retest r is higher at 7 months than 3 in most models —
+  noisy subsamples, so read the pooled estimate.
+- **Retest scores come from a single calibration** including both waves
+  (standard for our pipeline, but slightly optimistic vs. fixed-parameter
+  scoring of wave 2).
+- **Gate items were scored with their released correctness** — they don't
+  pass through the match-block recode. Their answer keys should get the same
+  below-chance screening as other tasks before the combined model ships
+  (nothing looked anomalous here: all gate items are far above chance).
+- The tiny `3unique` block (119 trials, Bogotá only) remains excluded.
+- Status-aware items condition on the child's own response history, so item
+  exposure is endogenous: less able children see the harder statuses less
+  often. The tree literature treats this as unproblematic for node-level
+  measurement (each node likelihood is conditionally well-defined), but it
+  does mean item parameters shouldn't be interpreted as if statuses were
+  randomly assigned.
+- Guessing floors could in principle be *estimated* (3PL) rather than fixed
+  or zeroed; with these sample sizes and the perseveration asymmetry, we
+  judged that not worth the instability risk.
