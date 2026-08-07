@@ -6,14 +6,15 @@ library(rlang)
 library(mirt)
 library(levantemodels)
 
-source(here("02_score_data/02_fit_irt/registry_helper.R"))
+source(here("02_score_data/02_extract_irt/registry_helper.R"))
+source(here("plot_settings.R"))
 ```
 
 ```{r}
 # read in all models in registry
 mods <- list_models() |> load_models() |> code_models()
 
-mods_coded <- mods |> mutate(BIC = map_dbl(mod_rec, \(rec) rec@fit$BIC))
+mods_coded <- mods |> mutate(BIC = map_dbl(mod_rec, BIC))
 ```
 
 ```{r}
@@ -146,17 +147,22 @@ mods_scalar <- mods_coded |>
 mods_scalar_rxx <- mods_scalar |>
   select(model_set, subset, group, task, itemtype, nfact, invariance, group_models) |>
   unnest(cols = c("group_models", "group")) |>
-  mutate(rxx = map_dbl(group_models, marginal_rxx)) |>
-  select(model_set, subset, group, task, itemtype, nfact, invariance, rxx)
+  # mutate(rxx = map_dbl(group_models, marginal_rxx)) |>
+  mutate(marginal_rxx = map_dbl(group_models, marginal_rxx),
+         scores = map(group_models, \(m) fscores(m, method = "EAP", full.scores.SE = TRUE)),
+         empirical_rxx = map_dbl(scores, empirical_rxx)) |>
+  select(model_set, subset, group, task, itemtype, nfact, invariance, contains("rxx"))
 
 mods_lang_rxx <- mods_coded |>
   filter(model_set == "by_language") |>
   mutate(mod = map(mod_rec, model_from_record)) |>
-  mutate(rxx = map_dbl(mod, marginal_rxx)) |>
-  select(model_set, subset, task, itemtype, nfact, invariance, rxx) #|>
+  mutate(marginal_rxx = map_dbl(mod, marginal_rxx),
+         scores = map(mod, \(m) fscores(m, method = "EAP", full.scores.SE = TRUE)),
+         empirical_rxx = map_dbl(scores, empirical_rxx)) |>
+  select(model_set, subset, task, itemtype, nfact, invariance, contains("rxx")) #|>
   # mutate(invariance = "by_language")
 
-mods_lang_bic <-  mods_coded |>
+mods_lang_bic <- mods_coded |>
   filter(model_set == "by_language") |>
   select(model_set, subset, task, itemtype, nfact, invariance, BIC)
 
@@ -205,56 +211,73 @@ rxx_multigroup <- mods_scalar_rxx |>
   rename(item_task = task) |>
   left_join(task_info)
 
-ggplot(rxx_multigroup, aes(x = itemtype, y = rxx, colour = task)) +
+ggplot(rxx_multigroup, aes(x = itemtype, y = empirical_rxx, colour = task)) +
   facet_grid(cols = vars(group_label)) +
   geom_line(aes(group = task)) +
   geom_point(size = 1) +
   scale_colour_ptol() +
   scale_x_discrete(expand = expansion(add = 0.2)) +
-  labs(x = "Model type (scalar invariant)", y = "Marginal reliability", colour = "Task")
-ggsave("rxx_multigroup_itemtype.png", width = 12, height = 4)
+  labs(x = "Model type (scalar invariant)", y = "Empirical reliability", colour = "Task")
+ggsave("empirical_rxx_multigroup_itemtype.png", width = 12, height = 4)
 
-ggplot(rxx_multigroup, aes(x = rxx, y = model)) +
+ggplot(rxx_multigroup, aes(x = empirical_rxx, y = model)) +
   facet_wrap(vars(task), ncol = 1, scales = "free_y") +
   geom_vline(xintercept = 0.6, colour = "lightgrey", linetype = "dotted") +
-  geom_crossbar(aes(xmin = rxx, xmax = rxx, colour = group_label), width = 0.7,
-                middle.linewidth = 0.5) +
+  geom_crossbar(aes(xmin = empirical_rxx, xmax = empirical_rxx, colour = group_label),
+                width = 0.7, middle.linewidth = 0.5) +
   scale_colour_ptol() +
-  labs(x = "Marginal reliability", y = "Model", colour = "") +
+  labs(x = "Empirical reliability", y = "Model", colour = "") +
   theme(panel.grid.major.y = element_line(colour = "#EBEBEBFF", linewidth = 0.2),
         legend.position = "bottom")
-ggsave("rxx_multigroup_compare.png", width = 6, height = 9)
+ggsave("empirical_rxx_multigroup_compare.png", width = 6, height = 9)
 
 rxx_lang <- mods_lang_rxx |>
   mutate(itemtype = itemtype |> fct_relevel("rasch") |> fct_recode("Rasch" = "rasch", "2PL" = "2pl")) |>
   rename(item_task = task, group_label = subset) |>
   left_join(task_info)
 
-ggplot(rxx_lang, aes(x = itemtype, y = rxx, colour = task)) +
+ggplot(rxx_lang, aes(x = itemtype, y = empirical_rxx, colour = task)) +
   facet_grid(cols = vars(group_label)) +
   geom_line(aes(group = task)) +
   geom_point(size = 1) +
   scale_colour_ptol() +
   scale_x_discrete(expand = expansion(add = 0.2)) +
-  labs(x = "Model type (pooled by language)", y = "Marginal reliability", colour = "Task")
-ggsave("rxx_bylang_itemtype.png", width = 10, height = 4)
+  labs(x = "Model type (pooled by language)", y = "Empirical reliability", colour = "Task")
+ggsave("empirical_rxx_rxx_bylang_itemtype.png", width = 10, height = 4)
 
-ggplot(rxx_lang, aes(x = rxx, y = fct_rev(itemtype))) +
+ggplot(rxx_lang, aes(x = empirical_rxx, y = fct_rev(itemtype))) +
   facet_wrap(vars(task), ncol = 1, scales = "free_y") +
   geom_vline(xintercept = 0.6, colour = "lightgrey", linetype = "dotted") +
-  geom_crossbar(aes(xmin = rxx, xmax = rxx, colour = group_label), width = 0.7,
-                middle.linewidth = 0.5) +
+  geom_crossbar(aes(xmin = empirical_rxx, xmax = empirical_rxx, colour = group_label),
+                width = 0.7, middle.linewidth = 0.5) +
   scale_colour_ptol() +
-  labs(x = "Marginal reliability", y = "Model", colour = "") +
+  labs(x = "Empirical reliability", y = "Model", colour = "") +
   theme(panel.grid.major.y = element_line(colour = "#EBEBEBFF", linewidth = 0.2),
         legend.position = "bottom")
-ggsave("rxx_bylang_compare.png", width = 6, height = 11)
+ggsave("empirical_rxx_bylang_compare.png", width = 6, height = 11)
 
-# rxx_both <- bind_rows(rxx_multigroup, rxx_lang) |>
-#   arrange(itemtype, invariance) |>
-#   mutate(invariance = if_else(invariance == "", "configural", invariance),
-#          model = glue("({invariance}) {itemtype}") |> fct_inorder() |> fct_rev())
+ggplot(rxx_multigroup, aes(x = marginal_rxx, y = empirical_rxx)) +
+  facet_wrap(vars(item_task)) +
+  coord_equal(xlim = c(0.3, 1), ylim = c(0.3, 1)) +
+  geom_abline(colour = "lightgrey") +
+  geom_point(aes(colour = interaction(itemtype, invariance))) +
+  scale_colour_ptol() +
+  labs(x = "Marginal reliability", y = "Empirical reliability", color = "Model") +
+  theme(legend.position = "bottom")
+ggsave("rxx_types_multigroup.png", width = 8, height = 8)
 
+ggplot(rxx_lang, aes(x = marginal_rxx, y = empirical_rxx)) +
+  facet_wrap(vars(item_task)) +
+  coord_equal(xlim = c(0.3, 1), ylim = c(0.3, 1)) +
+  geom_abline(colour = "lightgrey") +
+  geom_point(aes(colour = itemtype)) +
+  scale_colour_ptol() +
+  labs(x = "Marginal reliability", y = "Empirical reliability", color = "Model") +
+  theme(legend.position = "bottom")
+ggsave("rxx_types_lang.png", width = 10, height = 8)
+```
+
+```{r}
 mods_overlap |>
   filter(model_set == "multigroup_dataset") |>
   group_by(task) |>

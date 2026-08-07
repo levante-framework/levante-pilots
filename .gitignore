@@ -13,3 +13,6 @@ data_raw/
 04_paper/ms.aux
 04_paper/ms.out
 *_cache/
+
+01_fetched_data/
+02_scoring_outputs/model_registry/

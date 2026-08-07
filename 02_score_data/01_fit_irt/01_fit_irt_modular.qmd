@@ -10,7 +10,8 @@ library(levantemodels)
 regdir <- here("02_scoring_outputs", "model_registry")
 
 # tasks to include in these analyses
-irt_tasks <- c("pa",
+irt_tasks <- c("sre",
+               "pa",
                "swr",
                "math",
                "matrix",
@@ -82,7 +83,7 @@ cluster |>
 fit_bylanguage_task(task_data = task_data_irt,
                     models = models_pooled,
                     priors = priors,
-                    task = "pa",
+                    task = "tom",
                     registry_dir = regdir)
 # 
 # irt_tasks |> map(\(tsk) {
@@ -96,7 +97,7 @@ fit_bylanguage_task(task_data = task_data_irt,
 fit_task_models_multigroup(task_data = task_data_irt,
                            models = models_multigroup,
                            priors = priors,
-                           task = "vocab",
+                           task = "tom",
                            # group = site,
                            group = dataset,
                            registry_dir = regdir)

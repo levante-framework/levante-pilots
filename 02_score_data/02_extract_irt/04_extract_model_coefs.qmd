@@ -38,6 +38,6 @@ bad_d |>
          group = if_else(group == "all", subset, group)) |>
   arrange(item) |>
   group_by(item) |>
-  summarise(exclusion_datasets = paste(group, collapse = ", ")) |>
-  write_csv("exclusions_a1.csv")
+  summarise(exclusion_datasets = paste(group, collapse = ", ")) #|>
+  # write_csv("exclusions_a1.csv")
 ```
