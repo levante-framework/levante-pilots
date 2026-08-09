@@ -8,11 +8,12 @@ library(levantemodels)
 
 source(here("02_score_data/02_extract_irt/registry_helper.R"))
 source(here("plot_settings.R"))
+regdir <- here("02_scoring_outputs", "model_registry")
 ```
 
 ```{r}
 # read in all models in registry
-mods <- list_models(regdir) |> load_models() |> code_models()
+mods <- list_models(regdir) |> load_models(regdir) |> code_models()
 
 mods_coded <- mods |> mutate(BIC = map_dbl(mod_rec, BIC))
 ```

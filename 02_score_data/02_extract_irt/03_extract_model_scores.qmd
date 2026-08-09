@@ -6,10 +6,11 @@ library(rlang)
 library(mirt)
 
 source(here("02_score_data/02_extract_irt/registry_helper.R"))
+regdir <- here("02_scoring_outputs", "model_registry")
 ```
 
 ```{r}
-mods_coded <- list_models() |> load_models() |> code_models()
+mods_coded <- list_models(regdir) |> load_models(regdir) |> code_models()
 
 # extract scores from all models
 mod_scores <- mods_coded |>
@@ -17,7 +18,8 @@ mod_scores <- mods_coded |>
   select(-mod_rec, -filename, -path, -file) |>
   mutate(scores = scores |>
            map(\(sc) sc |> mutate(across(where(is.numeric), as.numeric)))) |>
-  unnest(scores)
+  unnest(scores) |>
+  filter(task != "sre")
 
 # scores_labeled <- mod_scores |>
 #   mutate(nfact = nfact |> as_factor() |> fct_recode("1D" = "f1"), #"2D" = "2"),
