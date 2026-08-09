@@ -1,0 +1,233 @@
+```{r}
+library(tidyverse)
+library(glue)
+library(here)
+library(mirt)
+library(rlang)
+library(levantemodels)
+
+source(here("02_score_data/02_extract_irt/registry_helper.R"))
+```
+
+```{r}
+# specify which tasks use rasch vs 2pl models
+scalar_rasch_tasks <- c("hf", "math", "matrix", "mg", "sds", "tom", "trog")
+scalar_2pl_tasks <- c("mrot")
+
+# load task data
+task_data_scalar <- read_rds(here("01_fetched_data/task_data_nested.rds")) |>
+  filter(item_task %in% c(scalar_rasch_tasks, scalar_2pl_tasks))
+
+# specify which models to fit for rasch/2pl
+models_multigroup_rasch <- tibble(
+  nfact = 1,
+  itemtype = "Rasch",
+  invariance = c("configural", "scalar")
+)
+models_multigroup_2pl <- tibble(
+  nfact = 1,
+  itemtype = "2PL",
+  invariance = c("configural", "scalar")
+)
+```
+
+```{r}
+# load ages from runs
+min_age <- 5
+max_age <- 13
+runs_filtered_trials <- read_rds(here("01_fetched_data/runs_filtered_trials.rds"))
+run_ages <- runs_filtered_trials |>
+  select(run_id, age) |>
+  filter(!is.na(age), age >= min_age, age <= max_age)
+
+# add ages and age groups to task data
+task_data_aged <- task_data_scalar |>
+  unnest(data) |>
+  inner_join(run_ages) |>
+  # 2 age groups, split at middle of range
+  mutate(age_group = cut(age, include.lowest = TRUE,
+                         breaks = seq(min_age, max_age, length.out = 3)) |>
+           # transform group strings to only letters and underscore
+           as.character() |> str_remove_all("[\\(\\)\\[\\]]") |> str_replace(",", "_")) |>
+  nest(data = -c(age_group, item_task))
+```
+
+```{r}
+# registry directory for age invariance models
+regdir_age <- here("02_scoring_outputs", "model_registry_age")
+
+# fit rasch models
+scalar_rasch_tasks |>
+  walk(\(task) fit_task_models_multigroup(
+    task_data = task_data_aged,
+    models = models_multigroup_rasch,
+    priors = list(d = c("norm", 0, 3), a1 = c("norm", 1, 0.3)),
+    task = task,
+    group = age_group,
+    registry_dir = regdir_age)
+  )
+
+# fit 2pl models
+scalar_2pl_tasks |>
+  walk(\(task) fit_task_models_multigroup(
+    task_data = task_data_aged,
+    models = models_multigroup_2pl,
+    priors = list(d = c("norm", 0, 3), a1 = c("norm", 1, 0.3)),
+    task = task,
+    group = age_group,
+    registry_dir = regdir_age)
+  )
+```
+
+```{r}
+# load and code age models
+mods_age <- list_models(regdir_age) |> load_models(regdir_age)
+mods_age_coded <- mods_age |> code_models() |> mutate(BIC = map_dbl(mod_rec, BIC))
+
+# extract BICs
+mods_age_bic <- mods_age_coded |>
+  filter(subset == "overlap_items") |>
+  select(model_set, task, itemtype, nfact, invariance, BIC)
+
+# compare BICs by invariance
+mods_age_bic |>
+  pivot_wider(names_from = invariance, values_from = BIC) |>
+  mutate(delta_bic = configural - scalar)
+
+# create mirt objects out of model records
+mods_age_objs <- mods_age_coded |>
+  filter(subset == "all_items") |>
+  mutate(mod = map(mod_rec, model_from_record)) |>
+  mutate(group = map(mod, \(m) m@Data$groupNames),
+         group_models = map(mod, multigroup_extract_groups)) |>
+  select(model_set, subset, group, task, itemtype, nfact, invariance, group_models) |>
+  unnest(cols = c("group_models", "group"))
+
+# extract reliabilities
+mods_age_rxx <- mods_age_objs |>
+  mutate(scores = map(group_models, \(m) fscores(m, method = "EAP", full.scores.SE = TRUE)),
+         empirical_rxx = map_dbl(scores, empirical_rxx)) |>
+  select(model_set, task, itemtype, nfact, group, empirical_rxx)
+
+# compare reliabilities by age group
+mods_age_rxx |>
+  pivot_wider(names_from = group, values_from = empirical_rxx)
+```
+
+```{r}
+# load sex/gender from mental rotation
+sex_data_cleaned <- read_rds(here("../papers/mental-rotation", "data/sex_data_cleaned.rds"))
+
+# add sex to task data
+task_data_sex <- task_data_scalar |>
+  unnest(data) |>
+  inner_join(sex_data_cleaned) |>
+  nest(data = -c(sex, item_task))
+```
+
+```{r}
+# registry directory for sex invariance models
+regdir_sex <- here("02_scoring_outputs", "model_registry_sex")
+
+# fit rasch models
+scalar_rasch_tasks |>
+  walk(\(task) fit_task_models_multigroup(
+    task_data = task_data_sex,
+    models = models_multigroup_rasch,
+    priors = list(d = c("norm", 0, 3), a1 = c("norm", 1, 0.3)),
+    task = task,
+    group = sex,
+    registry_dir = regdir_sex)
+  )
+
+# fit 2pl models
+scalar_2pl_tasks |>
+  walk(\(task) fit_task_models_multigroup(
+    task_data = task_data_sex,
+    models = models_multigroup_2pl,
+    priors = list(d = c("norm", 0, 3), a1 = c("norm", 1, 0.3)),
+    task = task,
+    group = sex,
+    registry_dir = regdir_sex)
+  )
+```
+
+```{r}
+# load and code sex models
+mods_sex <- list_models(regdir_sex) |> load_models(regdir_sex)
+mods_sex_coded <- mods_sex |> code_models() |> mutate(BIC = map_dbl(mod_rec, BIC))
+
+# extract BICs
+mods_sex_bic <- mods_sex_coded |>
+  filter(subset == "overlap_items") |>
+  select(model_set, task, itemtype, nfact, invariance, BIC)
+
+# compare BICs by invariance
+mods_sex_bic |>
+  pivot_wider(names_from = invariance, values_from = BIC) |>
+  mutate(delta_bic = configural - scalar)
+
+# create mirt objects out of model records
+mods_sex_objs <- mods_sex_coded |>
+  filter(subset == "all_items") |>
+  mutate(mod = map(mod_rec, model_from_record)) |>
+  mutate(group = map(mod, \(m) m@Data$groupNames),
+         group_models = map(mod, multigroup_extract_groups)) |>
+  select(model_set, subset, group, task, itemtype, nfact, invariance, group_models) |>
+  unnest(cols = c("group_models", "group"))
+
+# extract reliabilities
+mods_sex_rxx <- mods_sex_objs |>
+  mutate(scores = map(group_models, \(m) fscores(m, method = "EAP", full.scores.SE = TRUE)),
+         empirical_rxx = map_dbl(scores, empirical_rxx)) |>
+  select(model_set, task, itemtype, nfact, group, empirical_rxx)
+
+# compare reliabilities by sex group
+mods_sex_rxx |>
+  pivot_wider(names_from = group, values_from = empirical_rxx)
+```
+
+```{r}
+subgroup_bic <- bind_rows(
+  mods_age_bic |> nest(bic = c(invariance, BIC)),
+  mods_sex_bic |> nest(bic = c(invariance, BIC))
+)
+
+subgroup_rxx <- bind_rows(
+  mods_age_rxx |> nest(rxx = c(group, empirical_rxx)),
+  mods_sex_rxx |> nest(rxx = c(group, empirical_rxx))
+)
+
+mod_subgroup_stats <- left_join(subgroup_bic, subgroup_rxx) |>
+  mutate(model_set = str_remove(model_set, "multigroup_")) |>
+  rename(group_var = model_set)
+
+write_rds(mod_subgroup_stats, here("02_scoring_outputs/mod_subgroup_stats.rds"))
+```
+
+
+```{r}
+# could be interesting to compare test information across subgroups
+# but currently not possible because can't extract groups from configural models
+
+# theta <- seq(-6, 6, length.out = 1000)
+# mods_age_info <- mods_age_objs |>
+#   mutate(testinfo = map(group_models, \(m) tibble(theta = theta, info = testinfo(m, theta))))
+# 
+# age_info <- mods_age_info |>
+#   select(item_task = task, group, testinfo) |>
+#   unnest(testinfo) |>
+#   left_join(task_info)
+# 
+# ggplot(age_info, aes(x = theta, y = info, colour = group)) +
+#   facet_wrap(vars(task), nrow = 2, scales = "free_x") +
+#   # geom_segment(aes(xend = theta, y = 0, yend = info, colour = group), linetype = "dotted",
+#   #              linewidth = 0.5,
+#   #              data = task_info_peaks) +
+#   geom_line(aes(group = group)) +
+#   scale_x_continuous(expand = expansion(mult = .025)) +
+#   scale_y_continuous(expand = expansion(mult = .025)) +
+#   scale_colour_ptol() +
+#   labs(x = "Ability (IRT score)", y = "Test information", colour = "") +
+#   theme(legend.position = "bottom")
+```

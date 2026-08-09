@@ -12,7 +12,7 @@ source(here("plot_settings.R"))
 
 ```{r}
 # read in all models in registry
-mods <- list_models() |> load_models() |> code_models()
+mods <- list_models(regdir) |> load_models() |> code_models()
 
 mods_coded <- mods |> mutate(BIC = map_dbl(mod_rec, BIC))
 ```
@@ -101,9 +101,9 @@ ggplot(aes(x = delta_bic, y = paste(itemtype, invariance))) +
 mods_best_overlap <- mods_overlap |>
   group_by(task, model_set, itemtype) |>
   filter(BIC == min(BIC)) |>
-  ungroup() |>
+  ungroup() #|>
   # select(-BIC) |>
-  select(task, model_set, itemtype, nfact, invariance)
+  # select(task, model_set, itemtype, nfact, invariance)
 
 # # best all items multigroup model for each task (if overlap winner not configural)
 # mods_best_multigroup <- mods_coded |>
@@ -112,6 +112,9 @@ mods_best_overlap <- mods_overlap |>
 #   semi_join(mods_best_overlap)
 
 configural_tasks <- mods_best_overlap |>
+  group_by(task, model_set) |>
+  filter(BIC == min(BIC)) |>
+  ungroup() |>
   filter(invariance == "configural") |>
   distinct(task)
   # bind_rows(tibble(task = setdiff(mods_best_language$task, mods_best_overlap$task)))

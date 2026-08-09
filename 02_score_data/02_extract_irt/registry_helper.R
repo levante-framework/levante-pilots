@@ -3,7 +3,7 @@
 regdir <- here("02_scoring_outputs", "model_registry")
 
 # list models in registry and parse directory structure into metadata
-list_models <- \() {
+list_models <- \(regdir) {
   mod_files <- list.files(regdir, recursive = TRUE)
   mod_files |>
     str_split("/", simplify = TRUE) |>
@@ -13,7 +13,7 @@ list_models <- \() {
 }
 
 # read in files from path column of model df
-load_models <- \(mod_df) {
+load_models <- \(mod_df, regdir) {
   mod_df |> mutate(mod_rec = map(path, \(p) read_rds(file.path(regdir, p))))
 }
 

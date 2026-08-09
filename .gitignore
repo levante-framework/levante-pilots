@@ -15,4 +15,4 @@ data_raw/
 *_cache/
 
 01_fetched_data/
-02_scoring_outputs/model_registry/
+02_scoring_outputs/model_registry*/
