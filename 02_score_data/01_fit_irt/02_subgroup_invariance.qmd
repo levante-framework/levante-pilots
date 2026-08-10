@@ -11,12 +11,12 @@ source(here("02_score_data/02_extract_irt/registry_helper.R"))
 
 ```{r}
 # specify which tasks use rasch vs 2pl models
-scalar_rasch_tasks <- c("hf", "math", "matrix", "mg", "sds", "tom", "trog")
-scalar_2pl_tasks <- c("mrot")
+scalar_rasch_tasks <- c("hf", "math", "matrix", "mg", "sds", "trog")
+scalar_2pl_tasks <- c("mrot", "tom")
+configural_rasch_tasks <- c("vocab", "pa", "swr")
 
 # load task data
-task_data_scalar <- read_rds(here("01_fetched_data/task_data_nested.rds")) |>
-  filter(item_task %in% c(scalar_rasch_tasks, scalar_2pl_tasks))
+task_data_nested <- read_rds(here("01_fetched_data/task_data_nested.rds"))
 
 # specify which models to fit for rasch/2pl
 models_multigroup_rasch <- tibble(
@@ -28,6 +28,10 @@ models_multigroup_2pl <- tibble(
   nfact = 1,
   itemtype = "2PL",
   invariance = c("configural", "scalar")
+)
+models_pooled_rasch <- tibble(
+  nfact = 1,
+  itemtype = "Rasch"
 )
 ```
 
@@ -41,7 +45,7 @@ run_ages <- runs_filtered_trials |>
   filter(!is.na(age), age >= min_age, age <= max_age)
 
 # add ages and age groups to task data
-task_data_aged <- task_data_scalar |>
+task_data_age <- task_data_nested |>
   unnest(data) |>
   inner_join(run_ages) |>
   # 2 age groups, split at middle of range
@@ -50,16 +54,22 @@ task_data_aged <- task_data_scalar |>
            # transform group strings to only letters and underscore
            as.character() |> str_remove_all("[\\(\\)\\[\\]]") |> str_replace(",", "_")) |>
   nest(data = -c(age_group, item_task))
+
+task_data_age_scalar <- task_data_age |>
+  filter(item_task %in% c(scalar_rasch_tasks, scalar_2pl_tasks))
+
+task_data_age_configural <- task_data_age |>
+  filter(item_task %in% configural_rasch_tasks)
 ```
 
 ```{r}
 # registry directory for age invariance models
 regdir_age <- here("02_scoring_outputs", "model_registry_age")
 
-# fit rasch models
+# fit multigroup rasch models
 scalar_rasch_tasks |>
   walk(\(task) fit_task_models_multigroup(
-    task_data = task_data_aged,
+    task_data = task_data_age_scalar,
     models = models_multigroup_rasch,
     priors = list(d = c("norm", 0, 3), a1 = c("norm", 1, 0.3)),
     task = task,
@@ -67,16 +77,29 @@ scalar_rasch_tasks |>
     registry_dir = regdir_age)
   )
 
-# fit 2pl models
+# fit multigroup 2pl models
 scalar_2pl_tasks |>
   walk(\(task) fit_task_models_multigroup(
-    task_data = task_data_aged,
+    task_data = task_data_age_scalar,
     models = models_multigroup_2pl,
     priors = list(d = c("norm", 0, 3), a1 = c("norm", 1, 0.3)),
     task = task,
     group = age_group,
     registry_dir = regdir_age)
   )
+
+# fit pooled rasch models
+task_age_groups <- expand_grid(task = configural_rasch_tasks,
+                               age_group = unique(task_data_aged$age_group))
+walk2(task_age_groups$task, task_age_groups$age_group,
+      \(tsk, grp) fit_task_models_pooled(
+        task_data = task_data_age_configural,
+        models = models_pooled_rasch,
+        priors = list(d = c("norm", 0, 3)),
+        task = tsk,
+        subset_var = age_group,
+        subset_val = grp,
+        registry_dir = regdir_age))
 ```
 
 ```{r}
@@ -94,8 +117,8 @@ mods_age_bic |>
   pivot_wider(names_from = invariance, values_from = BIC) |>
   mutate(delta_bic = configural - scalar)
 
-# create mirt objects out of model records
-mods_age_objs <- mods_age_coded |>
+# create mirt objects out of model records for multigroup models
+mods_age_multigroup <- mods_age_coded |>
   filter(subset == "all_items") |>
   mutate(mod = map(mod_rec, model_from_record)) |>
   mutate(group = map(mod, \(m) m@Data$groupNames),
@@ -103,14 +126,29 @@ mods_age_objs <- mods_age_coded |>
   select(model_set, subset, group, task, itemtype, nfact, invariance, group_models) |>
   unnest(cols = c("group_models", "group"))
 
-# extract reliabilities
-mods_age_rxx <- mods_age_objs |>
+# extract reliabilities for multigroup models
+mods_age_multigroup_rxx <- mods_age_multigroup |>
   mutate(scores = map(group_models, \(m) fscores(m, method = "EAP", full.scores.SE = TRUE)),
          empirical_rxx = map_dbl(scores, empirical_rxx)) |>
-  select(model_set, task, itemtype, nfact, group, empirical_rxx)
+  select(model_set, task, itemtype, nfact, invariance, group, empirical_rxx)
 
-# compare reliabilities by age group
-mods_age_rxx |>
+# compare reliabilities by age group for multigroup models
+mods_age_multigroup_rxx |>
+  pivot_wider(names_from = group, values_from = empirical_rxx)
+
+# create mirt objects out of model records for separate by age group models
+mods_age_configural <- mods_age_coded |>
+  filter(model_set == "by_age_group") |>
+  mutate(mod = map(mod_rec, model_from_record))
+
+# extract reliabilities for separate by age group models
+mods_age_configural_rxx <- mods_age_configural |>
+  mutate(scores = map(mod, \(m) fscores(m, method = "EAP", full.scores.SE = TRUE)),
+         empirical_rxx = map_dbl(scores, empirical_rxx)) |>
+  select(model_set, task, itemtype, nfact, invariance, group = subset, empirical_rxx)
+
+# compare reliabilities by age group for separate by age group models
+mods_age_configural_rxx |>
   pivot_wider(names_from = group, values_from = empirical_rxx)
 ```
 
@@ -119,20 +157,26 @@ mods_age_rxx |>
 sex_data_cleaned <- read_rds(here("../papers/mental-rotation", "data/sex_data_cleaned.rds"))
 
 # add sex to task data
-task_data_sex <- task_data_scalar |>
+task_data_sex <- task_data_nested |>
   unnest(data) |>
   inner_join(sex_data_cleaned) |>
   nest(data = -c(sex, item_task))
+
+task_data_sex_scalar <- task_data_sex |>
+  filter(item_task %in% c(scalar_rasch_tasks, scalar_2pl_tasks))
+
+task_data_sex_configural <- task_data_sex |>
+  filter(item_task %in% configural_rasch_tasks)
 ```
 
 ```{r}
 # registry directory for sex invariance models
 regdir_sex <- here("02_scoring_outputs", "model_registry_sex")
 
-# fit rasch models
+# fit multigroup rasch models
 scalar_rasch_tasks |>
   walk(\(task) fit_task_models_multigroup(
-    task_data = task_data_sex,
+    task_data = task_data_sex_scalar,
     models = models_multigroup_rasch,
     priors = list(d = c("norm", 0, 3), a1 = c("norm", 1, 0.3)),
     task = task,
@@ -140,16 +184,29 @@ scalar_rasch_tasks |>
     registry_dir = regdir_sex)
   )
 
-# fit 2pl models
+# fit multigroup 2pl models
 scalar_2pl_tasks |>
   walk(\(task) fit_task_models_multigroup(
-    task_data = task_data_sex,
+    task_data = task_data_sex_scalar,
     models = models_multigroup_2pl,
     priors = list(d = c("norm", 0, 3), a1 = c("norm", 1, 0.3)),
     task = task,
     group = sex,
     registry_dir = regdir_sex)
   )
+
+# fit pooled rasch models
+task_sex_groups <- expand_grid(task = configural_rasch_tasks,
+                               sex = unique(task_data_sex$sex))
+walk2(task_sex_groups$task, task_sex_groups$sex,
+      \(tsk, grp) fit_task_models_pooled(
+        task_data = task_data_sex_configural,
+        models = models_pooled_rasch,
+        priors = list(d = c("norm", 0, 3)),
+        task = tsk,
+        subset_var = sex,
+        subset_val = grp,
+        registry_dir = regdir_sex))
 ```
 
 ```{r}
@@ -167,8 +224,8 @@ mods_sex_bic |>
   pivot_wider(names_from = invariance, values_from = BIC) |>
   mutate(delta_bic = configural - scalar)
 
-# create mirt objects out of model records
-mods_sex_objs <- mods_sex_coded |>
+# create mirt objects out of model records for multigroup models
+mods_sex_multigroup <- mods_sex_coded |>
   filter(subset == "all_items") |>
   mutate(mod = map(mod_rec, model_from_record)) |>
   mutate(group = map(mod, \(m) m@Data$groupNames),
@@ -176,14 +233,29 @@ mods_sex_objs <- mods_sex_coded |>
   select(model_set, subset, group, task, itemtype, nfact, invariance, group_models) |>
   unnest(cols = c("group_models", "group"))
 
-# extract reliabilities
-mods_sex_rxx <- mods_sex_objs |>
+# extract reliabilities for multigroup models
+mods_sex_multigroup_rxx <- mods_sex_multigroup |>
   mutate(scores = map(group_models, \(m) fscores(m, method = "EAP", full.scores.SE = TRUE)),
          empirical_rxx = map_dbl(scores, empirical_rxx)) |>
-  select(model_set, task, itemtype, nfact, group, empirical_rxx)
+  select(model_set, task, itemtype, nfact, invariance, group, empirical_rxx)
 
-# compare reliabilities by sex group
-mods_sex_rxx |>
+# compare reliabilities by sex group for multigroup models
+mods_sex_multigroup_rxx |>
+  pivot_wider(names_from = group, values_from = empirical_rxx)
+
+# create mirt objects out of model records for separate by sex group models
+mods_sex_configural <- mods_sex_coded |>
+  filter(model_set == "by_sex") |>
+  mutate(mod = map(mod_rec, model_from_record))
+
+# extract reliabilities for separate by sex group models
+mods_sex_configural_rxx <- mods_sex_configural |>
+  mutate(scores = map(mod, \(m) fscores(m, method = "EAP", full.scores.SE = TRUE)),
+         empirical_rxx = map_dbl(scores, empirical_rxx)) |>
+  select(model_set, task, itemtype, nfact, invariance, group = subset, empirical_rxx)
+
+# compare reliabilities by sex group for separate by sex group models
+mods_sex_configural_rxx |>
   pivot_wider(names_from = group, values_from = empirical_rxx)
 ```
 
@@ -193,14 +265,17 @@ subgroup_bic <- bind_rows(
   mods_sex_bic |> nest(bic = c(invariance, BIC))
 )
 
-subgroup_rxx <- bind_rows(
-  mods_age_rxx |> nest(rxx = c(group, empirical_rxx)),
-  mods_sex_rxx |> nest(rxx = c(group, empirical_rxx))
-)
+subgroup_rxx <- bind_rows(mods_age_multigroup_rxx, mods_age_configural_rxx,
+                          mods_sex_multigroup_rxx, mods_sex_configural_rxx) |>
+  nest(rxx = c(group, empirical_rxx))
 
-mod_subgroup_stats <- left_join(subgroup_bic, subgroup_rxx) |>
-  mutate(model_set = str_remove(model_set, "multigroup_")) |>
-  rename(group_var = model_set)
+mod_subgroup_stats <- full_join(subgroup_rxx, subgroup_bic) |>
+  # mutate(model_set = str_remove(model_set, "multigroup_")) |>
+  separate_wider_delim(model_set, names = c("model_type", "group_var"),
+                       delim = "_", too_many = "merge") |>
+  mutate(model_type = model_type |> replace_values("by" ~ "singlegroup"),
+         invariance = invariance |> replace_values("" ~ "configural"))
+  # rename(group_var = model_set) |>
 
 write_rds(mod_subgroup_stats, here("02_scoring_outputs/mod_subgroup_stats.rds"))
 ```
