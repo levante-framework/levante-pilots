@@ -15,9 +15,9 @@ execute:
 ---
 
 ::: {.callout-note}
-## Superseded — canonical version now in levante-longitudinal
+## Superseded — canonical version now in levante-analysis
 This analysis has been transferred to the LEVANTE longitudinal book as
-`levante-longitudinal/tasks/same_different.qmd`, re-based on the unified
+`levante-analysis/tasks/same_different.qmd`, re-based on the unified
 hackathon dataset (`levante_data_pilots_hackathon:fpx0:v1_1`). That chapter is
 now the maintained version; this report is kept as the original exploration
 record (per-site processed data).
